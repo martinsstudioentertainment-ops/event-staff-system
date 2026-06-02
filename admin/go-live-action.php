@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/database-backup.php';
 require_once __DIR__ . '/../includes/audit-log.php';
 require_once __DIR__ . '/../includes/settings-repository.php';
 require_once __DIR__ . '/../includes/live-events-sync.php';
+require_once __DIR__ . '/../includes/database-reset.php';
 
 requireAdminCapability('settings');
 
@@ -104,6 +105,60 @@ if ($action === 'purge_demo') {
     $result = purgeDemoCommissionData($pdo);
     logAdminAudit($pdo, 'purge_demo_invoices', 'system', 0, (string) $result['removed_invoices']);
     setAdminFlash('success', $result['message']);
+    header('Location: go-live.php');
+    exit;
+}
+
+if ($action === 'reset_database') {
+    $phrase = trim((string) ($_POST['confirm_phrase'] ?? ''));
+    if ($phrase !== 'RESET') {
+        setAdminFlash('error', 'Type RESET in the confirmation box to wipe the database.');
+        header('Location: go-live.php');
+        exit;
+    }
+
+    $keepSettings = !empty($_POST['keep_settings']);
+    $result       = resetDatabaseToZero($pdo, [
+        'keep_settings' => $keepSettings,
+        'site_name'     => $keepSettings ? '' : 'Olasentra',
+    ]);
+
+    logAdminAudit(
+        $pdo,
+        'reset_database_zero',
+        'system',
+        0,
+        $keepSettings ? 'full reset, settings kept' : 'full reset'
+    );
+
+    if ($result['success']) {
+        setAdminFlash('success', 'Database reset complete. ' . implode(' ', array_slice($result['messages'], -2)));
+    } else {
+        setAdminFlash(
+            'error',
+            'Database reset finished with errors: ' . implode('; ', array_slice($result['errors'], 0, 3))
+        );
+    }
+    header('Location: go-live.php');
+    exit;
+}
+
+if ($action === 'clear_staff_data') {
+    $phrase = trim((string) ($_POST['confirm_phrase'] ?? ''));
+    if ($phrase !== 'CLEAR') {
+        setAdminFlash('error', 'Type CLEAR in the confirmation box to remove all staff data.');
+        header('Location: go-live.php');
+        exit;
+    }
+
+    $result = clearStaffAndOperationalData($pdo);
+    logAdminAudit($pdo, 'clear_staff_data', 'system', 0, 'staff and operational tables truncated');
+
+    if ($result['success']) {
+        setAdminFlash('success', 'Staff and operational data cleared. Events and settings kept.');
+    } else {
+        setAdminFlash('error', 'Clear failed: ' . implode('; ', $result['errors']));
+    }
     header('Location: go-live.php');
     exit;
 }

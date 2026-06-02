@@ -141,6 +141,42 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
 <section class="card">
     <div class="card__header">
+        <h2 class="card__title">Fresh start (reset database)</h2>
+        <p class="card__subtitle">Use before public launch to remove test registrations. <strong>Run weekly backup first.</strong></p>
+    </div>
+
+    <div class="alert alert--warning alert--visible">
+        Full reset deletes every table and rebuilds schema, summer roster, and default admin (<code>admin</code> / <code>admin123</code>).
+        Tick “Keep settings” to keep SMTP, company name, and theme from admin.
+    </div>
+
+    <form method="post" action="go-live-action.php" class="erp-settings-form" style="margin-bottom:1.5rem" onsubmit="return confirm('This permanently wipes the database. Continue?');">
+        <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+        <input type="hidden" name="action" value="reset_database">
+        <label class="form-checkbox" style="margin-bottom:1rem;">
+            <input type="checkbox" name="keep_settings" value="1" checked>
+            <span>Keep admin settings (SMTP, site name, logo paths)</span>
+        </label>
+        <div class="form-group">
+            <label class="form-label form-label--required" for="reset_confirm">Type RESET to confirm full wipe</label>
+            <input class="form-input" type="text" id="reset_confirm" name="confirm_phrase" autocomplete="off" placeholder="RESET" required>
+        </div>
+        <button type="submit" class="btn btn--danger">Reset database to zero</button>
+    </form>
+
+    <form method="post" action="go-live-action.php" class="erp-settings-form" onsubmit="return confirm('Remove all staff registrations and check-ins but keep events?');">
+        <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+        <input type="hidden" name="action" value="clear_staff_data">
+        <div class="form-group">
+            <label class="form-label form-label--required" for="clear_confirm">Type CLEAR to remove staff data only</label>
+            <input class="form-input" type="text" id="clear_confirm" name="confirm_phrase" autocomplete="off" placeholder="CLEAR" required>
+        </div>
+        <button type="submit" class="btn btn--secondary">Clear staff data only (keep events)</button>
+    </form>
+</section>
+
+<section class="card">
+    <div class="card__header">
         <h2 class="card__title">Weekly backup files</h2>
         <p class="card__subtitle">Stored in <code>storage/backups/weekly/</code> — overwritten each run (DB + settings + site zip). Download via <a href="backups.php">Backups</a> or SFTP.</p>
     </div>
