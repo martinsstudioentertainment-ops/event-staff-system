@@ -234,11 +234,20 @@ function googleSheetsLog(string $message): void
         mkdir($dir, 0755, true);
     }
 
+    $logFile = $dir . '/google-sheets.log';
     file_put_contents(
-        $dir . '/google-sheets.log',
+        $logFile,
         '[' . date('Y-m-d H:i:s') . '] ' . $message . "\n",
         FILE_APPEND | LOCK_EX
     );
+
+    if (is_file($logFile) && filesize($logFile) > 2097152) {
+        $lines = @file($logFile, FILE_IGNORE_NEW_LINES);
+        if (is_array($lines) && count($lines) > 400) {
+            $tail = array_slice($lines, -400);
+            file_put_contents($logFile, implode("\n", $tail) . "\n");
+        }
+    }
 }
 
 function getLastGoogleSheetsApiError(): string

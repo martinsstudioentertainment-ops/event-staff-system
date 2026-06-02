@@ -75,7 +75,11 @@ $files = @(
     @{ Local = 'admin\export-staff.php'; Remote = 'admin/export-staff.php' },
     @{ Local = 'index.php'; Remote = 'index.php' },
     @{ Local = 'lang\en.php'; Remote = 'lang/en.php' },
-    @{ Local = 'lang\es.php'; Remote = 'lang/es.php' }
+    @{ Local = 'lang\es.php'; Remote = 'lang/es.php' },
+    @{ Local = 'includes\system-cleanup.php'; Remote = 'includes/system-cleanup.php' },
+    @{ Local = 'admin\system-cleanup.php'; Remote = 'admin/system-cleanup.php' },
+    @{ Local = 'admin\go-live.php'; Remote = 'admin/go-live.php' },
+    @{ Local = 'scripts\cpanel-deploy.sh'; Remote = 'scripts/cpanel-deploy.sh' }
 )
 
 $extra = $args | Where-Object { $_ -match '\.php$' }

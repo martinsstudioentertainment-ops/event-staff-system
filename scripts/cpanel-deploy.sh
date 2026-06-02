@@ -5,14 +5,18 @@ set -u
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 CPANEL_USER="${CPANEL_USER:-olastofx}"
 
-# Namecheap often uses /home/USER/register and /home/USER/admin (not register.olasentra.com).
-DESTS=(
-  "/home/${CPANEL_USER}/public_html"
-  "/home/${CPANEL_USER}/register"
-  "/home/${CPANEL_USER}/admin"
-  "/home/${CPANEL_USER}/register.olasentra.com"
-  "/home/${CPANEL_USER}/admin.olasentra.com"
-)
+# Default: deploy once to public_html (subdomains use .htaccess rewrites — faster).
+# Set CPANEL_DEPLOY_ALL=1 only if you still use separate document roots per subdomain.
+DESTS=("/home/${CPANEL_USER}/public_html")
+if [ "${CPANEL_DEPLOY_ALL:-0}" = "1" ]; then
+  DESTS=(
+    "/home/${CPANEL_USER}/public_html"
+    "/home/${CPANEL_USER}/register"
+    "/home/${CPANEL_USER}/admin"
+    "/home/${CPANEL_USER}/register.olasentra.com"
+    "/home/${CPANEL_USER}/admin.olasentra.com"
+  )
+fi
 
 deploy_to() {
   local DEST="$1"
@@ -71,9 +75,9 @@ if [ "${FAILED}" -ne 0 ]; then
   echo "NOTE: If register/admin folders are empty, point both subdomains to document root public_html in cPanel (see docs/SUBDOMAIN-FIX.md)."
 fi
 
-# After files are deployed: apply database/live-events-2026.php → MySQL (idempotent).
-# Set SKIP_ROSTER_IMPORT=1 in deploy env to disable. If this fails, use Admin → Import master roster.
-if [ "${SKIP_ROSTER_IMPORT:-0}" != "1" ] && [ -f "${MAIN}/database/sync-live-events.php" ] && [ -f "${MAIN}/config.php" ]; then
+# Roster import on every deploy is slow — use Admin → Go live → Import summer event roster instead.
+# Set RUN_ROSTER_IMPORT=1 in cPanel deploy env to import on deploy.
+if [ "${RUN_ROSTER_IMPORT:-0}" = "1" ] && [ -f "${MAIN}/database/sync-live-events.php" ] && [ -f "${MAIN}/config.php" ]; then
   PHP_BIN="php"
   if [ -x "/usr/local/bin/php" ]; then
     PHP_BIN="/usr/local/bin/php"
@@ -92,7 +96,7 @@ if [ "${SKIP_ROSTER_IMPORT:-0}" != "1" ] && [ -f "${MAIN}/database/sync-live-eve
     /bin/tail -n 8 "${ROSTER_LOG}" 2>/dev/null || true
   fi
 else
-  echo "SKIP roster import (missing config/sync script or SKIP_ROSTER_IMPORT=1)."
+  echo "SKIP roster import (use Go live → Import summer event roster, or set RUN_ROSTER_IMPORT=1)."
 fi
 
 echo "Deploy finished."

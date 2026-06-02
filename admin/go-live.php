@@ -83,6 +83,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <button type="submit" class="btn btn--danger">Remove demo invoices</button>
         </form>
         <a href="backups.php" class="btn btn--secondary">All backups</a>
+        <a href="system-cleanup.php" class="btn btn--secondary">Clear logs &amp; junk</a>
         <a href="settings-production.php" class="btn btn--secondary">Production settings</a>
     </div>
 </section>
