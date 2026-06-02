@@ -251,6 +251,10 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     </form>
 </section>
 
+<?php
+$sa = loadGoogleServiceAccount();
+$saEmail = $sa ? (string) ($sa['client_email'] ?? '') : '';
+?>
 <section class="card erp-settings-panel" id="google-sheets">
     <div class="card__header">
         <h2 class="card__title">Google Sheets sync</h2>
@@ -287,10 +291,6 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <input class="form-input" type="text" id="google_sheets_default_tab" name="google_sheets_default_tab" value="<?= h($settings['google_sheets_default_tab'] ?? 'Registrations') ?>" maxlength="100">
         </div>
 
-        <?php
-        $sa = loadGoogleServiceAccount();
-        $saEmail = $sa ? (string) ($sa['client_email'] ?? '') : '';
-        ?>
         <p class="form-hint">
             Service account:
             <?php if ($saEmail !== ''): ?>

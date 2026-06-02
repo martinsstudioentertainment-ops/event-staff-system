@@ -5,8 +5,27 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/google-sheets-sync.php';
+require_once __DIR__ . '/../includes/settings-repository.php';
 
 requireAdminCapability('settings');
+
+$pdo = getDB();
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['diagnostic_action'] ?? '') === 'save_folder') {
+    if (!verifyCsrf($_POST['csrf_token'] ?? null)) {
+        $flash = 'Invalid request. Refresh the page and try again.';
+    } else {
+        $folderRaw = trim((string) ($_POST['google_sheets_drive_folder_id'] ?? ''));
+        $folderId  = parseGoogleDriveFolderId($folderRaw);
+        if ($folderId === '') {
+            $flash = 'Enter a valid Drive folder URL or ID (the part after /folders/ in Google Drive).';
+        } else {
+            setSetting($pdo, 'google_sheets_drive_folder_id', $folderId);
+            clearSettingsCache();
+            $flash = 'Drive folder ID saved: ' . $folderId;
+        }
+    }
+}
 
 $path = getGoogleServiceAccountPath();
 $sa   = loadGoogleServiceAccount();
@@ -176,6 +195,19 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             </ol>
             <p style="margin-top:0.75rem;margin-bottom:0"><?= h($permissionHint) ?></p>
         </div>
+    <?php endif; ?>
+
+    <?php if ($folderId === ''): ?>
+        <form method="post" class="erp-settings-form" style="margin-top:1rem;padding:1rem;background:var(--surface-elevated, #f5f5f5);border-radius:8px">
+            <h3 style="margin:0 0 0.75rem;font-size:1rem">Save Drive folder ID here</h3>
+            <p class="form-hint" style="margin:0 0 0.75rem">If Settings clears the box after Save, paste your folder ID below and click <strong>Save folder ID</strong>.</p>
+            <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+            <input type="hidden" name="diagnostic_action" value="save_folder">
+            <div class="form-group form-group--full">
+                <input class="form-input" type="text" name="google_sheets_drive_folder_id" value="<?= h(getSetting($pdo, 'google_sheets_drive_folder_id', '')) ?>" placeholder="1yMRBJoz4nA7MVIopBbiv9qcpeB1zBjqW or full Drive folder URL">
+            </div>
+            <button type="submit" class="btn btn--primary">Save folder ID</button>
+        </form>
     <?php endif; ?>
 
     <div class="toolbar" style="margin-top:1rem;flex-wrap:wrap;gap:0.5rem">

@@ -231,21 +231,40 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
         }
         require_once __DIR__ . '/../google-sheets-sync.php';
 
+        $folderRaw  = trim((string) ($_POST['google_sheets_drive_folder_id'] ?? ''));
+        $folderId   = parseGoogleDriveFolderId($folderRaw);
+
         saveSettings($pdo, [
             'google_sheets_sync_enabled'      => !empty($_POST['google_sheets_sync_enabled']) ? '1' : '0',
-            'google_sheets_drive_folder_id'   => trim((string) ($_POST['google_sheets_drive_folder_id'] ?? '')),
+            'google_sheets_drive_folder_id'   => $folderId,
             'google_sheets_share_with_email'  => trim((string) ($_POST['google_sheets_share_with_email'] ?? '')),
             'google_sheets_default_tab'       => trim((string) ($_POST['google_sheets_default_tab'] ?? 'Registrations')) ?: 'Registrations',
         ]);
 
+        clearSettingsCache();
+
+        $savedFolder = getSetting($pdo, 'google_sheets_drive_folder_id', '');
+        if ($folderRaw !== '' && $savedFolder === '') {
+            return [
+                'error'    => 'Drive folder ID could not be saved. Re-deploy includes/admin/settings-handler.php and includes/google-sheets-sync.php, or save the ID on Google Sheets diagnostic.',
+                'success'  => '',
+                'settings' => getAllSettings($pdo),
+            ];
+        }
+
         $success = 'Google Sheets settings saved.';
+        if ($savedFolder !== '') {
+            $success .= ' Drive folder ID saved (' . $savedFolder . ').';
+        } elseif ($folderRaw !== '') {
+            $success .= ' Warning: folder ID was empty or invalid — use the full Drive URL or ID after /folders/.';
+        }
 
         if (!empty($_FILES['google_service_account']['tmp_name'])) {
             $upload = saveGoogleServiceAccountUpload($_FILES['google_service_account']);
             if (!$upload['ok']) {
                 return ['error' => $upload['message'], 'success' => '', 'settings' => getAllSettings($pdo)];
             }
-            $success = $upload['message'];
+            $success .= ' ' . $upload['message'];
         }
 
         $settings = getAllSettings($pdo);
