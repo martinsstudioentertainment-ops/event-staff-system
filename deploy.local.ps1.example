@@ -1,0 +1,19 @@
+# Copy this file to deploy.local.ps1 (same folder as this project).
+# deploy.local.ps1 is gitignored — passwords stay on your PC only.
+#
+# Fill in values from cPanel → FTP Accounts and MySQL Databases.
+
+@{
+    FtpServer        = 'ftp.olasentra.com'   # or hostname from cPanel FTP Accounts
+    FtpUser          = 'olastofx'            # FTP username
+    FtpPassword      = 'YOUR_FTP_PASSWORD'
+    FtpRemoteDir     = '/public_html'        # must start with / ; no trailing slash
+
+    DbHost           = 'localhost'
+    DbName           = 'olastofx_eventstaff'
+    DbUser           = 'olastofx_dbuser'
+    DbPass           = 'YOUR_MYSQL_PASSWORD'
+
+    RegistrationUrl  = 'https://olasentra.com'
+    AdminUrl         = 'https://olasentra.com/admin'
+}

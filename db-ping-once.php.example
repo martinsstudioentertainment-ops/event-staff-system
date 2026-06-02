@@ -1,0 +1,41 @@
+<?php
+/**
+ * ONE-TIME MySQL test — copy to public_html/db-ping-once.php, edit the 4 lines below,
+ * open https://olasentra.com/db-ping-once.php in the browser, then DELETE the file.
+ */
+declare(strict_types=1);
+
+$DB_HOST = 'localhost';
+$DB_NAME = 'olastofx_eventstaff';
+$DB_USER = 'olastofx_dbuser';
+$DB_PASS = 'PASTE_CPANEL_MYSQL_PASSWORD_HERE';
+
+header('Content-Type: text/plain; charset=utf-8');
+
+echo "Event Staff — database ping\n";
+echo str_repeat('-', 40) . "\n";
+echo 'PHP: ' . PHP_VERSION . "\n";
+echo "Host: {$DB_HOST}\n";
+echo "Database: {$DB_NAME}\n";
+echo "User: {$DB_USER}\n\n";
+
+try {
+    $dsn = "mysql:host={$DB_HOST};dbname={$DB_NAME};charset=utf8mb4";
+    $pdo = new PDO($dsn, $DB_USER, $DB_PASS, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+    ]);
+    $pdo->query('SELECT 1');
+    echo "Result: CONNECTED\n";
+    echo 'Events table rows: ' . (int) $pdo->query('SELECT COUNT(*) FROM events')->fetchColumn() . "\n";
+    echo "\nIf this works but health.php fails, config.php on the server is wrong — copy DB_* from this file into config.php.\n";
+} catch (Throwable $e) {
+    echo "Result: FAILED\n";
+    echo 'Error: ' . $e->getMessage() . "\n\n";
+    echo "Fix in cPanel → MySQL Databases:\n";
+    echo "  1. Reset password for {$DB_USER}\n";
+    echo "  2. Add user to {$DB_NAME} with ALL PRIVILEGES\n";
+    echo "  3. If host is not localhost, use the hostname shown in cPanel\n";
+}
+
+echo str_repeat('-', 40) . "\n";
+echo "Delete db-ping-once.php after fixing.\n";

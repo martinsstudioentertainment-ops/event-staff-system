@@ -1,5 +1,6 @@
 # Local secrets — never commit
 /config.php
+/deploy.local.ps1
 /storage/google/service-account.json
 /storage/google/*.json
 
