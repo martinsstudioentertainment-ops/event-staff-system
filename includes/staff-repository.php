@@ -245,6 +245,53 @@ function formatEventLabel(array $row): string
 }
 
 /**
+ * Attach optional event fields to a registration row (avoids SQL on missing columns).
+ *
+ * @param array<string, mixed> $row
+ * @return array<string, mixed>
+ */
+function mergeRegistrationWithEvent(PDO $pdo, array $row): array
+{
+    $eventId = (int) ($row['event_id'] ?? 0);
+    if ($eventId < 1) {
+        return $row;
+    }
+
+    try {
+        require_once __DIR__ . '/events-repository.php';
+        $event = getEventById($pdo, $eventId);
+        if ($event === null) {
+            return $row;
+        }
+
+        $map = [
+            'main_security_company' => 'main_security_company',
+            'reporting_point'       => 'reporting_point',
+            'venue_eircode'         => 'venue_eircode',
+            'start_time'            => 'event_start_time',
+            'end_time'              => 'event_end_time',
+            'venue_lat'             => 'venue_lat',
+            'venue_lng'             => 'venue_lng',
+            'signin_radius_m'       => 'signin_radius_m',
+            'name'                  => 'event_name',
+            'location'              => 'event_location',
+            'event_date'            => 'event_date',
+            'is_active'             => 'is_active',
+        ];
+
+        foreach ($map as $from => $to) {
+            if (array_key_exists($from, $event)) {
+                $row[$to] = $event[$from];
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('[EventStaff] mergeRegistrationWithEvent: ' . $e->getMessage());
+    }
+
+    return $row;
+}
+
+/**
  * @return array<string, mixed>|null
  */
 function getStaffRegistrationById(PDO $pdo, int $id): ?array
@@ -255,30 +302,21 @@ function getStaffRegistrationById(PDO $pdo, int $id): ?array
             WHERE sr.id = :id
             LIMIT 1';
 
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute(['id' => $id]);
-    $row = $stmt->fetch();
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(['id' => $id]);
+        $row = $stmt->fetch();
+    } catch (PDOException $e) {
+        error_log('[EventStaff] getStaffRegistrationById: ' . $e->getMessage());
+
+        return null;
+    }
 
     if (!$row) {
         return null;
     }
 
-    try {
-        require_once __DIR__ . '/events-repository.php';
-        $event = getEventById($pdo, (int) ($row['event_id'] ?? 0));
-        if ($event !== null) {
-            foreach (['main_security_company', 'reporting_point', 'venue_eircode', 'start_time', 'end_time', 'venue_lat', 'venue_lng', 'signin_radius_m'] as $key) {
-                if (array_key_exists($key, $event)) {
-                    $alias = $key === 'start_time' ? 'event_start_time' : ($key === 'end_time' ? 'event_end_time' : $key);
-                    $row[$alias] = $event[$key];
-                }
-            }
-        }
-    } catch (Throwable $e) {
-        // Optional event columns — core row is enough for admin view.
-    }
-
-    return $row;
+    return mergeRegistrationWithEvent($pdo, $row);
 }
 
 /**

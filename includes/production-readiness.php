@@ -52,10 +52,13 @@ function getProductionReadinessChecks(PDO $pdo): array
         && tableExists($pdo, 'staff_blacklist')
         && tableExists($pdo, 'push_subscriptions')
         && tableExists($pdo, 'venues')
+        && tableExists($pdo, 'attendance')
         && columnExists($pdo, 'events', 'staff_needed')
         && columnExists($pdo, 'events', 'google_sheet_url')
         && columnExists($pdo, 'events', 'google_sheet_tab')
-        && columnExists($pdo, 'staff_registrations', 'last_event_reminder_date');
+        && columnExists($pdo, 'staff_registrations', 'last_event_reminder_date')
+        && columnExists($pdo, 'staff_registrations', 'checkin_token')
+        && columnExists($pdo, 'staff_registrations', 'status_token');
     $checks[] = [
         'key'      => 'migrations',
         'category' => 'core',

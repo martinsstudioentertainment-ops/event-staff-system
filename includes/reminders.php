@@ -46,19 +46,37 @@ function eventReminderStillActive(array $event): bool
  */
 function getRegistrationsDueDailyReminder(PDO $pdo): array
 {
-    $sql = "SELECT sr.*,
-                   e.name AS event_name, e.main_security_company, e.event_date, e.start_time, e.end_time,
-                   e.location, e.venue_eircode, e.is_active
+    require_once __DIR__ . '/staff-registration-schema.php';
+    ensureStaffRegistrationSaveSchema($pdo);
+
+    $reminderCol = staffRegistrationColumnExists($pdo, 'last_event_reminder_date')
+        ? 'AND (sr.last_event_reminder_date IS NULL OR sr.last_event_reminder_date < CURDATE())'
+        : '';
+
+    $sql = "SELECT sr.*, e.name AS event_name, e.event_date, e.location, e.is_active
             FROM staff_registrations sr
             INNER JOIN events e ON e.id = sr.event_id
             WHERE sr.status IN ('pending', 'approved')
               AND DATE(sr.created_at) <= CURDATE()
-              AND (sr.last_event_reminder_date IS NULL OR sr.last_event_reminder_date < CURDATE())
+              {$reminderCol}
             ORDER BY sr.id ASC";
 
-    $rows = $pdo->query($sql)->fetchAll();
+    try {
+        $rows = $pdo->query($sql)->fetchAll();
+    } catch (PDOException $e) {
+        error_log('[EventStaff] getRegistrationsDueDailyReminder: ' . $e->getMessage());
 
-    return array_values(array_filter($rows, static function (array $row): bool {
+        return [];
+    }
+
+    require_once __DIR__ . '/staff-repository.php';
+
+    $merged = [];
+    foreach ($rows as $row) {
+        $merged[] = mergeRegistrationWithEvent($pdo, $row);
+    }
+
+    return array_values(array_filter($merged, static function (array $row): bool {
         return eventReminderStillActive($row);
     }));
 }
