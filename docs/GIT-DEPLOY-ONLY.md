@@ -47,6 +47,19 @@ git push origin main
 
 ---
 
+## Which URL is which (not admin login)
+
+| URL | Page |
+|-----|------|
+| `https://olasentra.com/` | Marketing **homepage** (`home.php`) after deploy |
+| `https://olasentra.com/index.php` | **Staff registration** form (email, name, events — not admin login) |
+| `https://olasentra.com/staff-app.php` | Staff hub (register, check-in, status) |
+| `https://olasentra.com/admin/login.php` | **Admin** login (username + password only) |
+
+If `/` looked like a “login form”, you were probably on **registration** (`index.php`) or **admin** (`/admin/`).
+
+---
+
 ## Do not delete on the server
 
 - **`public_html/config.php`** — Git deploy does not replace it. Keep your working DB password there.
