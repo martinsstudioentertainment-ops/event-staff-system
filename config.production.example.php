@@ -9,7 +9,9 @@ define('DB_NAME', 'olastofx_eventstaff');
 define('DB_USER', 'olastofx_dbuser');
 define('DB_PASS', 'YOUR_DATABASE_PASSWORD_HERE');
 
-define('REGISTRATION_SITE_URL', 'https://olasentra.com');
+/** Staff registration + staff-app (subdomain). Same DB as main site. */
+define('REGISTRATION_SITE_URL', 'https://register.olasentra.com');
+/** Admin ERP — main domain /admin folder (or https://manage.olasentra.com/admin) */
 define('ADMIN_SITE_URL', 'https://olasentra.com/admin');
 define('APP_ENV', 'production');
 

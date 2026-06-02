@@ -5,6 +5,10 @@ DirectoryIndex home.php index.php
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # Staff registration subdomain: root opens the registration form (shared DB, same files)
+    RewriteCond %{HTTP_HOST} ^register\.olasentra\.com$ [NC]
+    RewriteRule ^$ /index.php [L]
+
     # Public branding images (WhatsApp/link previews, og:image)
     RewriteRule ^storage/branding/.+\.(png|jpe?g|gif|webp|svg)$ - [L]
 
