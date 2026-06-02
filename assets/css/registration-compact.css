@@ -1,4 +1,4 @@
-/* Registration form — mobile-first compact layout (loads after mobile.css) */
+/* Registration form — compact layout (loads after mobile.css) */
 
 .registration-page--compact {
     overflow-x: clip;
@@ -9,20 +9,22 @@
 .registration-page--compact .registration-page__wrap.staff-public-main {
     box-sizing: border-box;
     width: 100%;
-    max-width: 100%;
-    padding-left: max(0.65rem, env(safe-area-inset-left));
-    padding-right: max(0.65rem, env(safe-area-inset-right));
+    max-width: 36rem;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: max(0.5rem, env(safe-area-inset-left));
+    padding-right: max(0.5rem, env(safe-area-inset-right));
 }
 
 .registration-page--compact .staff-public-main {
-    padding-top: 0.35rem;
-    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    padding-top: 0.25rem;
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }
 
 .registration-page--compact .staff-public-header {
     flex-wrap: wrap;
-    gap: 0.4rem;
-    padding: max(0.4rem, env(safe-area-inset-top)) 0.65rem 0.4rem;
+    gap: 0.35rem;
+    padding: max(0.35rem, env(safe-area-inset-top)) 0.5rem 0.35rem;
 }
 
 .registration-page--compact .staff-public-header__brand {
@@ -31,7 +33,7 @@
 }
 
 .registration-page--compact .staff-public-header__title {
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -45,13 +47,13 @@
     flex: 0 0 auto;
     width: auto;
     margin-left: auto;
-    gap: 0.35rem;
+    gap: 0.3rem;
 }
 
 .registration-page--compact .lang-switcher {
     flex: 1 1 auto;
     min-width: 0;
-    max-width: 11rem;
+    max-width: 10rem;
     display: flex;
     align-items: center;
     gap: 0.25rem;
@@ -65,156 +67,48 @@
 .registration-page--compact .lang-switcher__input {
     width: 100%;
     min-width: 0;
-    min-height: 36px;
-    padding: 0.35rem 0.5rem;
+    min-height: 34px;
+    padding: 0.3rem 0.45rem;
     font-size: 0.75rem;
     box-sizing: border-box;
 }
 
 .registration-page--compact .staff-public-header__theme {
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
     padding: 0;
 }
 
-/* Notice — readable paragraphs, no horizontal clip */
-.registration-page--compact .site-notice {
-    flex-direction: column;
-    align-items: stretch;
+/* Scrolling notice — keep marquee; slim bar only */
+.registration-page--compact .site-notice:not(.site-notice--static) {
+    min-height: 0;
 }
 
-.registration-page--compact .site-notice__label {
-    justify-content: flex-start;
-    padding: 0.4rem 0.65rem;
+.registration-page--compact .site-notice:not(.site-notice--static) .site-notice__label {
+    padding: 0.35rem 0.65rem;
     font-size: 0.625rem;
 }
 
-.registration-page--compact .site-notice__viewport {
-    mask-image: none;
-    -webkit-mask-image: none;
+.registration-page--compact .site-notice:not(.site-notice--static) .site-notice__group {
+    padding: 0.4rem 0;
 }
 
-.registration-page--compact .site-notice__track {
-    width: 100%;
-    animation: none;
-}
-
-.registration-page--compact .site-notice__group {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.25rem;
-    padding: 0.45rem 0.65rem 0.55rem;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.registration-page--compact .site-notice__item {
-    white-space: normal;
-    word-wrap: break-word;
-    overflow-wrap: anywhere;
-    padding: 0;
-    font-size: 0.6875rem;
-    line-height: 1.4;
-}
-
-.registration-page--compact .site-notice__sep {
-    display: none;
-}
-
-.registration-page--compact .site-notice__edit {
-    margin: 0 0.65rem 0.45rem;
-    align-self: flex-start;
-}
-
-/* Collapsible notice (registration) */
-.site-notice--fold {
-    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
-}
-
-.site-notice--fold .site-notice__fold-summary {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.45rem 0.65rem;
-    cursor: pointer;
-    list-style: none;
-    font-size: 0.6875rem;
-    line-height: 1.35;
-    color: #fff;
-    background: rgba(0, 0, 0, 0.2);
-}
-
-.site-notice--fold .site-notice__fold-summary::-webkit-details-marker {
-    display: none;
-}
-
-.site-notice--fold .site-notice__fold-icon {
-    flex-shrink: 0;
-    width: 1.125rem;
-    height: 1.125rem;
-    border-radius: 50%;
-    background: #fef08a;
-    color: #713f12;
-    font-size: 0.625rem;
-    font-weight: 800;
-    line-height: 1.125rem;
-    text-align: center;
-}
-
-.site-notice--fold .site-notice__fold-text {
-    flex: 1;
-    min-width: 0;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.site-notice--fold .site-notice__fold-chevron::after {
-    content: '▼';
-    font-size: 0.5rem;
-    opacity: 0.85;
-}
-
-.site-notice--fold[open] .site-notice__fold-chevron::after {
-    content: '▲';
-}
-
-.site-notice--fold .site-notice__fold-body {
-    padding: 0 0.65rem 0.5rem;
-    background: rgba(0, 0, 0, 0.12);
-}
-
-.site-notice--fold .site-notice__item {
-    font-size: 0.6875rem;
-    line-height: 1.35;
-    margin: 0.35rem 0 0;
+.registration-page--compact .site-notice:not(.site-notice--static) .site-notice__item {
+    font-size: 0.75rem;
+    padding: 0 1rem;
 }
 
 .registration-mobile-title {
-    display: none;
-    margin: 0 0 0.5rem;
-    font-size: 1rem;
+    display: block;
+    margin: 0 0 0.4rem;
+    font-size: 0.9375rem;
     font-weight: 700;
     color: var(--text-color, #0f172a);
 }
 
-/* Hero — hidden on phones (title moves into form card) */
 .registration-page--compact .staff-public-hero {
-    margin-bottom: 0.5rem;
-    padding: 0.5rem 0.65rem;
-}
-
-.registration-page--compact .staff-public-hero__eyebrow,
-.registration-page--compact .staff-public-hero__lead {
     display: none;
-}
-
-.registration-page--compact .staff-public-hero__title {
-    font-size: 1.0625rem;
-    margin: 0;
-    line-height: 1.25;
 }
 
 .registration-page--compact .staff-public-card,
@@ -222,12 +116,12 @@
     box-sizing: border-box;
     width: 100%;
     max-width: 100%;
-    padding: 0.7rem 0.65rem 0.5rem;
+    padding: 0.55rem 0.5rem 0.45rem;
     margin: 0;
 }
 
 .registration-page--compact .form-grid {
-    gap: 0.55rem;
+    gap: 0.4rem;
     min-width: 0;
 }
 
@@ -235,72 +129,57 @@
 .registration-page--compact .form-group--full {
     min-width: 0;
     max-width: 100%;
+    margin-bottom: 0;
 }
 
 .registration-page--compact .form-input,
 .registration-page--compact .form-select,
-.registration-page--compact .form-textarea,
-.registration-page--compact .form-checkbox {
+.registration-page--compact .form-textarea {
+    min-height: 38px;
+    padding: 0.45rem 0.65rem;
+    font-size: 0.875rem;
+    border-radius: 8px;
+    border-width: 1px;
     max-width: 100%;
     box-sizing: border-box;
 }
 
 .registration-page--compact .form-label {
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
+    margin-bottom: 0.2rem;
 }
 
 .registration-page--compact .form-hint {
-    font-size: 0.75rem;
-    line-height: 1.35;
-    word-wrap: break-word;
+    font-size: 0.6875rem;
+    line-height: 1.3;
+    margin-top: 0.2rem;
 }
 
 .registration-page--compact .form-section-title {
+    font-size: 0.6875rem;
+    margin: 0.35rem 0 0.15rem;
+    padding: 0.25rem 0.4rem;
+}
+
+.registration-page--compact .form-radio-group {
+    gap: 0.25rem 0.5rem;
+}
+
+.registration-page--compact .form-radio {
+    font-size: 0.8125rem;
+    min-height: 0;
+    padding: 0.15rem 0;
+}
+
+.registration-page--compact .form-checkbox {
     font-size: 0.75rem;
-    margin: 0.5rem 0 0.2rem;
-    padding-top: 0.35rem;
-}
-
-.registration-page--compact .form-section-title--compact {
-    margin-top: 0;
-}
-
-.registration-page--compact .portal-legal-notice {
-    padding: 0.55rem 0.6rem;
-    margin-bottom: 0.5rem;
-}
-
-.registration-page--compact .portal-legal-notice__title {
-    font-size: 0.6875rem;
-}
-
-.registration-page--compact .portal-legal-notice__text {
-    font-size: 0.6875rem;
     line-height: 1.35;
-}
-
-.registration-role-banner--compact {
-    margin-bottom: 0.5rem;
-    padding: 0.5rem 0.6rem;
-}
-
-.registration-role-banner--compact .registration-role-banner__name {
-    font-size: 0.875rem;
-}
-
-.registration-role-banner--compact .registration-role-banner__detail {
-    font-size: 0.6875rem;
-    line-height: 1.35;
+    min-height: 0;
+    padding: 0.2rem 0;
 }
 
 .registration-page--compact .registration-role-field .form-select {
     width: 100%;
-    min-height: 44px;
-    font-size: 0.9375rem;
-}
-
-.registration-page--compact .registration-role-banner {
-    margin-top: 0;
 }
 
 .registration-page--compact .shift-picker-list {
@@ -308,11 +187,11 @@
 }
 
 .registration-page--compact .event-checkbox {
-    padding: 0.55rem 0.5rem;
+    padding: 0.45rem 0.4rem;
 }
 
 .registration-page--compact .event-checkbox__title {
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     line-height: 1.25;
 }
 
@@ -320,27 +199,19 @@
 .registration-page--compact .event-checkbox__roles,
 .registration-page--compact .event-checkbox__employer {
     font-size: 0.6875rem;
-    line-height: 1.3;
-    word-wrap: break-word;
+    line-height: 1.25;
 }
 
-.registration-page--compact .form-checkbox {
-    font-size: 0.75rem;
-    line-height: 1.4;
+.registration-page--compact .form-actions .btn {
+    min-height: 40px;
+    font-size: 0.875rem;
+    padding: 0.45rem 0.65rem;
 }
 
-/* Override mobile.css fixed footer — sticky inside card, smaller buttons */
+/* Override mobile.css fixed footer — sticky inside card */
 @media (max-width: 1024px) {
     .registration-page--compact .staff-public-header {
         flex-wrap: nowrap;
-    }
-
-    .registration-page--compact .staff-public-hero {
-        display: none;
-    }
-
-    .registration-page--compact .registration-mobile-title {
-        display: block;
     }
 
     .registration-page--compact .portal-legal-notice {
@@ -354,19 +225,13 @@
     .registration-page--compact .form-actions {
         position: sticky;
         bottom: 0;
-        left: auto;
-        right: auto;
         z-index: 15;
         flex-direction: column;
-        flex-wrap: nowrap;
-        gap: 0.4rem;
-        margin: 0.65rem 0 0;
-        padding: 0.55rem 0 0;
+        gap: 0.35rem;
+        margin: 0.5rem 0 0;
+        padding: 0.45rem 0 0;
         background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, #fff 28%);
         border-top: 1px solid rgba(15, 23, 42, 0.08);
-        box-shadow: none;
-        backdrop-filter: none;
-        -webkit-backdrop-filter: none;
     }
 
     .registration-page--compact .form-actions .btn,
@@ -374,43 +239,21 @@
     .registration-page--compact .form-actions .btn--secondary {
         width: 100%;
         flex: none;
-        min-height: 44px;
-        max-height: none;
+        min-height: 40px;
         margin: 0;
-        font-size: 0.9375rem;
-        padding: 0.5rem 0.75rem;
     }
 
     .registration-page--compact .staff-public-footer {
-        padding: 0.75rem 0.65rem max(0.75rem, env(safe-area-inset-bottom));
-        font-size: 0.6875rem;
+        padding: 0.5rem 0.5rem max(0.5rem, env(safe-area-inset-bottom));
+        font-size: 0.625rem;
     }
 }
 
-@media (max-width: 480px) {
-    .registration-role-banner--compact .registration-role-banner__detail {
-        display: none;
+@media (max-width: 768px) {
+    .registration-page--compact .form-input,
+    .registration-page--compact .form-select,
+    .registration-page--compact .form-textarea {
+        font-size: 16px;
+        min-height: 40px;
     }
-}
-
-@media (min-width: 1025px) {
-    .registration-page--compact .registration-page__wrap {
-        padding-left: 1rem;
-        padding-right: 1rem;
-    }
-
-    .registration-page--compact .staff-public-hero {
-        margin-bottom: 0.65rem;
-        padding: 0.35rem 0;
-    }
-
-    .registration-page--compact .staff-public-hero__eyebrow,
-    .registration-page--compact .staff-public-hero__lead {
-        display: none;
-    }
-
-    .registration-page--compact .staff-public-hero__title {
-        font-size: 1.25rem;
-    }
-
 }

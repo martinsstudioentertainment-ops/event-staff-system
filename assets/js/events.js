@@ -758,11 +758,33 @@ function setRegisteredEventIds(ids) {
 
 function updateRegistrationRoleBanner() {
 
+    const roleInput = document.getElementById('staff_role');
+
+    const picked = document.querySelector('input[name="form_slug"]:checked');
+
+    const formSlugEl = document.getElementById('form_slug');
+
+    let role = '';
+
+    if (picked && picked.dataset.role) {
+
+        role = picked.dataset.role;
+
+    } else if (formSlugEl && formSlugEl.tagName === 'SELECT' && formSlugEl.selectedOptions[0]) {
+
+        role = formSlugEl.selectedOptions[0].dataset.role || '';
+
+    }
+
+    if (roleInput && role) {
+
+        roleInput.value = role;
+
+    }
+
     const nameEl = document.getElementById('registration-role-banner-name');
 
     const detailEl = document.getElementById('registration-role-banner-detail');
-
-    const formSlugEl = document.getElementById('form_slug');
 
     if (!nameEl || !detailEl) {
 
@@ -770,21 +792,11 @@ function updateRegistrationRoleBanner() {
 
     }
 
-    const picked = document.querySelector('input[name="form_slug"]:checked');
-
     if (picked) {
 
         nameEl.textContent = picked.dataset.label || picked.value;
 
         detailEl.textContent = picked.dataset.detail || '';
-
-        const roleInput = document.getElementById('staff_role');
-
-        if (roleInput && picked.dataset.role) {
-
-            roleInput.value = picked.dataset.role;
-
-        }
 
         return;
 
@@ -799,14 +811,6 @@ function updateRegistrationRoleBanner() {
             nameEl.textContent = option.dataset.label || option.textContent.trim();
 
             detailEl.textContent = option.dataset.detail || '';
-
-            const roleInput = document.getElementById('staff_role');
-
-            if (roleInput && option.dataset.role) {
-
-                roleInput.value = option.dataset.role;
-
-            }
 
         }
 

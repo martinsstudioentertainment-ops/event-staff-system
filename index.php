@@ -143,7 +143,7 @@ if ($pdo) {
     ?>
 
     <?php if ($showNotice): ?>
-        <?php $web = ['pdo' => $pdo, 'notice_variant' => 'static', 'notice_collapsible' => true]; include __DIR__ . '/includes/public/site-notice.php'; ?>
+        <?php $web = ['pdo' => $pdo, 'notice_variant' => 'scroll']; include __DIR__ . '/includes/public/site-notice.php'; ?>
     <?php endif; ?>
 
     <main class="registration-page__wrap staff-public-main">
@@ -166,17 +166,6 @@ if ($pdo) {
                 <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                 <div class="form-grid">
 
-                    <?php
-                    $bannerRoleLabel = $selectedForm
-                        ? (string) ($selectedForm['label'] ?? formatStaffRoleLabel($lockedRole))
-                        : formatStaffRoleLabel($lockedRole);
-                    $bannerRoleDetail = match (normalizeStaffRole($lockedRole)) {
-                        'steward' => t('registering_as_steward_detail'),
-                        'static'  => t('registering_as_static_detail'),
-                        'both'    => t('registering_as_both_detail'),
-                        default   => t('registering_as_dsp_detail'),
-                    };
-                    ?>
                     <?php if (!$lockFormType): ?>
                     <div class="form-group form-group--full registration-role-field">
                         <label class="form-label form-label--required" for="form_slug"><?= h(t('your_role')) ?></label>
@@ -196,19 +185,12 @@ if ($pdo) {
                                 <option value="<?= h($slug) ?>" data-role="<?= h($roleVal) ?>" data-label="<?= h((string) ($form['label'] ?? $slug)) ?>" data-detail="<?= h($roleDetail) ?>"<?= $selected ? ' selected' : '' ?>><?= h((string) ($form['label'] ?? $slug)) ?></option>
                             <?php endforeach; ?>
                         </select>
-                        <p class="form-hint"><?= h(t('your_role_hint')) ?></p>
                         <span class="form-error" id="form_slug-error"></span>
                     </div>
                     <?php else: ?>
                         <input type="hidden" name="form_slug" value="<?= h($formSlug) ?>">
                     <?php endif; ?>
                         <input type="hidden" name="staff_role" id="staff_role" value="<?= h($lockedRole) ?>">
-
-                    <div class="registration-role-banner registration-role-banner--compact" id="registration-role-banner" role="status">
-                        <span class="registration-role-banner__label"><?= h(t('registering_as')) ?>:</span>
-                        <strong class="registration-role-banner__name" id="registration-role-banner-name"><?= h($bannerRoleLabel) ?></strong>
-                        <span class="registration-role-banner__detail" id="registration-role-banner-detail"><?= h($bannerRoleDetail) ?></span>
-                    </div>
 
                     <div class="form-group form-group--full">
                         <label class="form-label form-label--required" for="email"><?= h(t('email_address')) ?></label>
