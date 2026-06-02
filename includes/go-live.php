@@ -151,9 +151,9 @@ function runSafeSchemaEnsures(PDO $pdo): array
         'admin_users_roles' => static function (PDO $pdo): void {
             ensureAdminUsersSchemaForGoLive($pdo);
         },
-        'staff_role_column' => static function (PDO $pdo): void {
+        'staff_registration_save' => static function (PDO $pdo): void {
             require_once __DIR__ . '/staff-registration-schema.php';
-            ensureStaffRegistrationRoleColumn($pdo);
+            ensureStaffRegistrationSaveSchema($pdo);
         },
     ];
 

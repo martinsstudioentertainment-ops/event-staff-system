@@ -152,7 +152,7 @@ function validateRegistration(array $data): array
         $errors['staff_role'] = 'Please select a valid role.';
     }
 
-    $dob = trim((string) ($data['date_of_birth'] ?? ''));
+    $dob = normalizeDateOfBirthForDb((string) ($data['date_of_birth'] ?? ''));
     if ($dob !== '') {
         $date = DateTime::createFromFormat('Y-m-d', $dob);
         if (!$date || $date->format('Y-m-d') !== $dob) {
@@ -276,38 +276,50 @@ function getInvalidEventIds(PDO $pdo, array $eventIds): array
  */
 function saveRegistration(PDO $pdo, array $data, int $eventId, ?string $staffRoleOverride = null): int
 {
-    ensureStaffRegistrationRoleColumn($pdo);
+    ensureStaffRegistrationSaveSchema($pdo);
 
     $statusToken = bin2hex(random_bytes(32));
-    $staffRole   = $staffRoleOverride ?? normalizeStaffRole(trim((string) $data['staff_role']));
+    $staffRole   = sanitizeStaffRoleForDb(
+        $staffRoleOverride ?? (string) ($data['staff_role'] ?? 'dsp')
+    );
 
-    $sql = 'INSERT INTO staff_registrations (
-                surname, first_name, full_address, eircode, location_lat, location_lng, email, mobile,
-                date_of_birth, gender, pps_number, bank_iban, staff_role, event_id, status_token, privacy_consented_at
-            ) VALUES (
-                :surname, :first_name, :full_address, :eircode, :location_lat, :location_lng, :email, :mobile,
-                :date_of_birth, :gender, :pps_number, :bank_iban, :staff_role, :event_id, :status_token, :privacy_consented_at
-            )';
+    $row = [
+        'surname'              => trim((string) $data['surname']),
+        'first_name'           => trim((string) $data['first_name']),
+        'full_address'         => trim((string) $data['full_address']),
+        'eircode'              => normalizeEircode((string) $data['eircode']),
+        'location_lat'         => normalizeCoordinate(isset($data['location_lat']) ? (string) $data['location_lat'] : null),
+        'location_lng'         => normalizeCoordinate(isset($data['location_lng']) ? (string) $data['location_lng'] : null),
+        'email'                => normalizeRegistrationEmail((string) $data['email']),
+        'mobile'               => trim((string) $data['mobile']),
+        'date_of_birth'        => normalizeDateOfBirthForDb((string) ($data['date_of_birth'] ?? '')),
+        'gender'               => trim((string) $data['gender']),
+        'pps_number'           => trim((string) $data['pps_number']),
+        'bank_iban'            => trim((string) $data['bank_iban']),
+        'staff_role'           => $staffRole,
+        'event_id'             => $eventId,
+        'status_token'         => $statusToken,
+        'privacy_consented_at' => registrationPrivacyAccepted($data) ? date('Y-m-d H:i:s') : null,
+    ];
 
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-        'surname'             => trim((string) $data['surname']),
-        'first_name'          => trim((string) $data['first_name']),
-        'full_address'        => trim((string) $data['full_address']),
-        'eircode'             => normalizeEircode((string) $data['eircode']),
-        'location_lat'        => normalizeCoordinate(isset($data['location_lat']) ? (string) $data['location_lat'] : null),
-        'location_lng'        => normalizeCoordinate(isset($data['location_lng']) ? (string) $data['location_lng'] : null),
-        'email'               => normalizeRegistrationEmail((string) $data['email']),
-        'mobile'              => trim((string) $data['mobile']),
-        'date_of_birth'       => trim((string) $data['date_of_birth']),
-        'gender'              => trim((string) $data['gender']),
-        'pps_number'          => trim((string) $data['pps_number']),
-        'bank_iban'           => trim((string) $data['bank_iban']),
-        'staff_role'          => $staffRole,
-        'event_id'            => $eventId,
-        'status_token'        => $statusToken,
-        'privacy_consented_at'=> registrationPrivacyAccepted($data) ? date('Y-m-d H:i:s') : null,
-    ]);
+    $columns = [];
+    $params  = [];
+    foreach ($row as $column => $value) {
+        if (!staffRegistrationColumnExists($pdo, $column)) {
+            continue;
+        }
+        $columns[]        = $column;
+        $params[$column]  = $value;
+    }
+
+    if ($columns === []) {
+        throw new RuntimeException('staff_registrations table is missing required columns.');
+    }
+
+    $placeholders = array_map(static fn(string $c): string => ':' . $c, $columns);
+    $sql          = 'INSERT INTO staff_registrations (' . implode(', ', $columns) . ') VALUES (' . implode(', ', $placeholders) . ')';
+    $stmt         = $pdo->prepare($sql);
+    $stmt->execute($params);
 
     return (int) $pdo->lastInsertId();
 }
@@ -320,7 +332,7 @@ function saveRegistration(PDO $pdo, array $data, int $eventId, ?string $staffRol
  */
 function saveRegistrations(PDO $pdo, array $data, array $eventIds): array
 {
-    ensureStaffRegistrationRoleColumn($pdo);
+    ensureStaffRegistrationSaveSchema($pdo);
     $pdo->beginTransaction();
 
     try {
@@ -335,9 +347,6 @@ function saveRegistrations(PDO $pdo, array $data, array $eventIds): array
             $role  = $event !== null
                 ? resolveStaffRoleForEventRegistration((string) ($data['staff_role'] ?? ''), $event)
                 : normalizeStaffRole((string) ($data['staff_role'] ?? ''));
-            if ($role === 'both') {
-                $role = 'dsp';
-            }
             $ids[] = saveRegistration($pdo, $data, $eventId, $role);
         }
         $pdo->commit();

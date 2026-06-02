@@ -27,7 +27,7 @@ require_once __DIR__ . '/includes/staff-registration-schema.php';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $pdoBoot = getDB();
-        ensureStaffRegistrationRoleColumn($pdoBoot);
+        ensureStaffRegistrationSaveSchema($pdoBoot);
         enforceMaintenanceMode($pdoBoot);
     } catch (Throwable $e) {
         // allow if DB unavailable
@@ -61,8 +61,9 @@ if ($formSlug !== '') {
     }
 }
 
-$data['staff_role'] = normalizeStaffRole((string) ($data['staff_role'] ?? ''));
-$errors             = validateRegistration($data);
+$data['staff_role']     = normalizeStaffRole((string) ($data['staff_role'] ?? ''));
+$data['date_of_birth']  = normalizeDateOfBirthForDb((string) ($data['date_of_birth'] ?? ''));
+$errors                 = validateRegistration($data);
 $eventIds = normalizeEventIds($data);
 
 if (empty($errors)) {
@@ -248,6 +249,21 @@ if (empty($errors)) {
     } catch (RuntimeException $e) {
 
         $errors['event_ids'] = 'You are already registered for one or more selected events.';
+
+    } catch (Throwable $e) {
+
+        error_log('[EventStaff] Registration save failed: ' . $e->getMessage());
+
+        if (isAjaxRequest()) {
+            jsonResponse([
+                'success' => false,
+                'message' => 'We could not save your registration. Please try again in a few minutes.',
+                'errors'  => $errors,
+            ], 500);
+        }
+
+        header('Location: ' . registrationFormRedirectPath(['error' => 'db'], $formSlug));
+        exit;
 
     }
 

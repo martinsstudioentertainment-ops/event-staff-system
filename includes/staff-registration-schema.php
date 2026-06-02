@@ -6,36 +6,121 @@
 
 require_once __DIR__ . '/venues-repository.php';
 
-function ensureStaffRegistrationRoleColumn(PDO $pdo): void
+function staffRegistrationInvalidateColumnCache(): void
+{
+    $GLOBALS['event_staff_staff_reg_cols'] = null;
+}
+
+/** @return array<string, bool> */
+function staffRegistrationGetColumns(PDO $pdo): array
+{
+    if (!isset($GLOBALS['event_staff_staff_reg_cols']) || !is_array($GLOBALS['event_staff_staff_reg_cols'])) {
+        $cache = [];
+        try {
+            $rows = $pdo->query('SHOW COLUMNS FROM staff_registrations')->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($rows as $row) {
+                $cache[(string) ($row['Field'] ?? '')] = true;
+            }
+        } catch (Throwable $e) {
+            $cache = [];
+        }
+        $GLOBALS['event_staff_staff_reg_cols'] = $cache;
+    }
+
+    return $GLOBALS['event_staff_staff_reg_cols'];
+}
+
+function staffRegistrationColumnExists(PDO $pdo, string $column): bool
+{
+    return !empty(staffRegistrationGetColumns($pdo)[$column]);
+}
+
+function ensureStaffRegistrationSaveSchema(PDO $pdo): void
 {
     static $ready = false;
     if ($ready) {
         return;
     }
 
-    try {
-        $row = $pdo->query("SHOW COLUMNS FROM staff_registrations LIKE 'staff_role'")->fetch(PDO::FETCH_ASSOC);
-    } catch (Throwable $e) {
-        return;
+    staffRegistrationInvalidateColumnCache();
+
+    $alters = [];
+
+    if (!staffRegistrationColumnExists($pdo, 'location_lat')) {
+        $alters[] = 'ADD COLUMN location_lat DECIMAL(10, 7) NULL DEFAULT NULL AFTER eircode';
+    }
+    if (!staffRegistrationColumnExists($pdo, 'location_lng')) {
+        $alters[] = 'ADD COLUMN location_lng DECIMAL(10, 7) NULL DEFAULT NULL AFTER location_lat';
+    }
+    if (!staffRegistrationColumnExists($pdo, 'status_token')) {
+        $alters[] = 'ADD COLUMN status_token VARCHAR(64) NULL DEFAULT NULL';
+    }
+    if (!staffRegistrationColumnExists($pdo, 'privacy_consented_at')) {
+        $after = staffRegistrationColumnExists($pdo, 'status_token') ? ' AFTER status_token' : '';
+        $alters[] = 'ADD COLUMN privacy_consented_at TIMESTAMP NULL DEFAULT NULL' . $after;
     }
 
-    if (!$row) {
-        return;
-    }
-
-    $type = strtolower((string) ($row['Type'] ?? ''));
-    if (str_contains($type, 'enum') || (str_contains($type, 'varchar') && (int) preg_replace('/\D/', '', $type) < 32)) {
+    foreach ($alters as $fragment) {
         try {
-            $pdo->exec(
-                "ALTER TABLE staff_registrations
-                 MODIFY staff_role VARCHAR(32) NOT NULL DEFAULT 'dsp'"
-            );
+            $pdo->exec('ALTER TABLE staff_registrations ' . $fragment);
         } catch (Throwable $e) {
-            error_log('[EventStaff] staff_role column upgrade skipped: ' . $e->getMessage());
+            error_log('[EventStaff] staff_registrations schema: ' . $e->getMessage());
         }
     }
 
+    try {
+        $row = $pdo->query("SHOW COLUMNS FROM staff_registrations LIKE 'staff_role'")->fetch(PDO::FETCH_ASSOC);
+        if ($row) {
+            $type = strtolower((string) ($row['Type'] ?? ''));
+            if (str_contains($type, 'enum') || (str_contains($type, 'varchar') && (int) preg_replace('/\D/', '', $type) < 32)) {
+                $pdo->exec(
+                    "ALTER TABLE staff_registrations
+                     MODIFY staff_role VARCHAR(32) NOT NULL DEFAULT 'dsp'"
+                );
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('[EventStaff] staff_role column upgrade: ' . $e->getMessage());
+    }
+
+    staffRegistrationInvalidateColumnCache();
     $ready = true;
+}
+
+/** @deprecated Use ensureStaffRegistrationSaveSchema */
+function ensureStaffRegistrationRoleColumn(PDO $pdo): void
+{
+    ensureStaffRegistrationSaveSchema($pdo);
+}
+
+/**
+ * Normalize date of birth to Y-m-d for MySQL DATE column.
+ */
+function normalizeDateOfBirthForDb(string $value): string
+{
+    $value = trim($value);
+    if ($value === '') {
+        return '';
+    }
+
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+        return $value;
+    }
+
+    $formats = ['m/d/Y', 'n/j/Y', 'd/m/Y', 'j/n/Y', 'd-m-Y', 'd.m.Y'];
+    foreach ($formats as $format) {
+        $date = DateTime::createFromFormat($format, $value);
+        if ($date instanceof DateTime) {
+            return $date->format('Y-m-d');
+        }
+    }
+
+    $ts = strtotime($value);
+    if ($ts !== false) {
+        return date('Y-m-d', $ts);
+    }
+
+    return $value;
 }
 
 /**
@@ -48,7 +133,7 @@ function resolveStaffRoleForEventRegistration(string $staffRole, array $event): 
     $staffRole = normalizeStaffRole($staffRole);
 
     if ($staffRole !== 'both') {
-        return $staffRole;
+        return sanitizeStaffRoleForDb($staffRole);
     }
 
     $needed    = normalizeRolesNeeded($event);
@@ -59,8 +144,14 @@ function resolveStaffRoleForEventRegistration(string $staffRole, array $event): 
         return 'static';
     }
 
-    if ($hasDsp && !$hasStatic) {
-        return 'dsp';
+    return 'dsp';
+}
+
+function sanitizeStaffRoleForDb(string $role): string
+{
+    $role = normalizeStaffRole($role);
+    if (in_array($role, ['dsp', 'static', 'steward'], true)) {
+        return $role;
     }
 
     return 'dsp';
