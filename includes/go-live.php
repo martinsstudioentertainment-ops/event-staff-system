@@ -137,6 +137,10 @@ function runSafeSchemaEnsures(PDO $pdo): array
             require_once __DIR__ . '/event-reporting-schema.php';
             ensureEventReportingSchema($pdo);
         },
+        'events_work_type' => static function (PDO $pdo): void {
+            require_once __DIR__ . '/event-work-type-schema.php';
+            ensureEventWorkTypeSchema($pdo);
+        },
         'staff_reminder_column' => static function (PDO $pdo): void {
             ensureGoLiveReminderColumn($pdo);
         },
@@ -272,6 +276,35 @@ function applyGoLiveSettingsDefaults(PDO $pdo): array
     if (getSetting($pdo, 'activity_logging_enabled', '1') !== '1') {
         setSetting($pdo, 'activity_logging_enabled', '1');
         $fixed[] = 'activity_logging_enabled';
+    }
+
+    $siteName = trim(getSetting($pdo, 'site_name', ''));
+    if ($siteName === '' || $siteName === 'Event Staff System') {
+        setSetting($pdo, 'site_name', getRecommendedProductionEmails($pdo)['from_name']);
+        $fixed[] = 'site_name';
+    }
+
+    if (trim(getSetting($pdo, 'company_name', '')) === '') {
+        setSetting($pdo, 'company_name', getRecommendedProductionEmails($pdo)['from_name']);
+        $fixed[] = 'company_name';
+    }
+
+    if (isProductionApp()) {
+        require_once __DIR__ . '/site-urls.php';
+        if (trim(getSetting($pdo, 'smtp_host', '')) === '') {
+            setSetting($pdo, 'smtp_host', getDefaultSmtpHost($pdo));
+            $fixed[] = 'smtp_host_prefill';
+        }
+        if (trim(getSetting($pdo, 'smtp_port', '')) === '') {
+            setSetting($pdo, 'smtp_port', '587');
+            $fixed[] = 'smtp_port';
+        }
+        if (trim(getSetting($pdo, 'smtp_username', '')) === ''
+            && filter_var(getSetting($pdo, 'mail_from_email', ''), FILTER_VALIDATE_EMAIL)
+        ) {
+            setSetting($pdo, 'smtp_username', trim(getSetting($pdo, 'mail_from_email', '')));
+            $fixed[] = 'smtp_username_prefill';
+        }
     }
 
     return ['fixed' => $fixed, 'errors' => $errors];
@@ -455,7 +488,7 @@ function getGoLiveDashboard(PDO $pdo): array
             'fail'         => $fail,
             'manual_done'  => $manualCounts['done'],
             'manual_total' => $manualCounts['total'],
-            'ready'        => $autoReady && $manualReady && $envReady && $warn === 0,
+            'ready'        => $autoReady && $manualReady && $envReady,
         ],
     ];
 }

@@ -199,6 +199,11 @@ function getMainSiteEmailDomain(?PDO $pdo = null): string
  *
  * @return array{from_name: string, from_email: string, contact_email: string, reply_hint: string}
  */
+function getDefaultSmtpHost(?PDO $pdo = null): string
+{
+    return 'mail.' . getMainSiteEmailDomain($pdo);
+}
+
 function getRecommendedProductionEmails(?PDO $pdo = null): array
 {
     $domain = getMainSiteEmailDomain($pdo);

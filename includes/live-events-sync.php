@@ -230,7 +230,9 @@ function syncLiveEventsFromMasterFile(PDO $pdo, bool $dryRun = false, ?string $d
     ensureEventTimesSchema($pdo);
     ensureEventMainSecuritySchema($pdo);
     require_once __DIR__ . '/event-reporting-schema.php';
+    require_once __DIR__ . '/event-work-type-schema.php';
     ensureEventReportingSchema($pdo);
+    ensureEventWorkTypeSchema($pdo);
 
     $messages = [];
     $errors   = [];

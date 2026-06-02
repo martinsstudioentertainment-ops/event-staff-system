@@ -47,8 +47,8 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     <?php elseif ($summary['fail'] > 0): ?>
         <div class="alert alert--error alert--visible">
             Fix all <strong>FAIL</strong> items below before go-live.
-            Use <strong>Fix automated FAIL items</strong> for schema, storage, cron secret, from email, and backups.
-            You must still set <code>APP_ENV=production</code> in server <code>config.php</code>, SMTP, invoice bank details, and change the default admin password manually.
+            Click <strong>Fix automated FAIL items</strong> first (schema, storage, cron key, from email, SMTP host prefill, backup).
+            You must still set <code>APP_ENV=production</code> in server <code>config.php</code>, complete <strong>SMTP + password</strong> in Settings → Email, and change the default admin password.
         </div>
     <?php else: ?>
         <div class="alert alert--warning alert--visible">Resolve warnings and tick all manual tasks.</div>

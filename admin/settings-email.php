@@ -43,6 +43,17 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <div class="alert alert--error alert--visible"><?= h($error) ?></div>
     <?php endif; ?>
 
+    <?php if (isProductionApp() && ($settings['mail_transport'] ?? 'php_mail') !== 'smtp'): ?>
+        <div class="alert alert--warning alert--visible">
+            <strong>Go live requires SMTP.</strong> Create <code><?= h($emailGuide['from_email']) ?></code> in cPanel → set transport to <strong>SMTP</strong>,
+            host <code><?= h(getDefaultSmtpHost($pdo)) ?></code>, port <code>587</code>, TLS, mailbox password → <strong>Send test email</strong>.
+        </div>
+    <?php elseif (isProductionApp() && ($settings['mail_transport'] ?? '') === 'smtp' && trim($settings['smtp_host'] ?? '') === ''): ?>
+        <div class="alert alert--warning alert--visible">
+            SMTP is selected but <strong>SMTP host</strong> is empty. Use <code><?= h(getDefaultSmtpHost($pdo)) ?></code> (cPanel mail server).
+        </div>
+    <?php endif; ?>
+
     <div class="url-format-guide" role="note" style="margin-bottom:1.25rem;">
         <p class="url-format-guide__title">Email vs your 3 domains</p>
         <p class="form-hint" style="margin:0 0 0.75rem;">You only need <strong>one</strong> sending address on the <strong>main domain</strong>. Subdomains are for websites, not separate From addresses.</p>
@@ -138,7 +149,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         </div>
         <div class="form-group">
             <label class="form-label" for="smtp_host">SMTP host</label>
-            <input class="form-input" type="text" id="smtp_host" name="smtp_host" value="<?= h($settings['smtp_host'] ?? '') ?>">
+            <input class="form-input" type="text" id="smtp_host" name="smtp_host" value="<?= h($settings['smtp_host'] ?? '') ?>" placeholder="<?= h(getDefaultSmtpHost($pdo)) ?>">
         </div>
         <div class="form-group">
             <label class="form-label" for="smtp_port">SMTP port</label>

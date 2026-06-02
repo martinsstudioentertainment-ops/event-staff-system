@@ -140,8 +140,10 @@ function getProductionReadinessChecks(PDO $pdo): array
         'key'      => 'invoice_bank',
         'category' => 'core',
         'label'    => 'Invoice bank details',
-        'status'   => $bankIban !== '' ? 'pass' : 'fail',
-        'detail'   => $bankIban !== '' ? 'Bank IBAN configured for client invoices.' : 'Add real bank details before sending invoices to clients.',
+        'status'   => $bankIban !== '' ? 'pass' : 'warn',
+        'detail'   => $bankIban !== ''
+            ? 'Bank IBAN configured for client invoices.'
+            : 'Optional until you send commission invoices — add in Settings → System.',
         'fix_url'  => 'settings-production.php',
     ];
 
@@ -182,7 +184,7 @@ function getProductionReadinessChecks(PDO $pdo): array
         'key'      => 'db_backup',
         'category' => 'backup',
         'label'    => 'Recent weekly full backup (run at least once)',
-        'status'   => $backupRecent ? 'pass' : (isProductionApp() ? 'fail' : 'warn'),
+        'status'   => $backupRecent ? 'pass' : 'warn',
         'detail'   => $lastBackup
             ? 'Last run: ' . $lastBackup . ' — files in storage/backups/weekly/'
             : 'No weekly backup yet — click Run weekly full backup on this page.',
@@ -194,10 +196,10 @@ function getProductionReadinessChecks(PDO $pdo): array
         'key'      => 'weekly_cron',
         'category' => 'backup',
         'label'    => 'Weekly backup cron (server schedule)',
-        'status'   => ($backupRecent && $weeklyFilesOk) ? 'pass' : (isProductionApp() ? 'fail' : 'warn'),
+        'status'   => ($backupRecent && $weeklyFilesOk) ? 'pass' : 'warn',
         'detail'   => ($backupRecent && $weeklyFilesOk)
             ? 'Weekly backup artifacts exist — keep cron/weekly-backup.php scheduled (e.g. Sunday 03:00).'
-            : 'Schedule on server: 0 3 * * 0 php ' . basename(dirname(__DIR__)) . '/cron/weekly-backup.php — or enable Weekly auto backup in Settings.',
+            : 'Run backup on Go live first, then schedule: 0 3 * * 0 php …/cron/weekly-backup.php',
         'fix_url'  => 'go-live.php',
     ];
 
