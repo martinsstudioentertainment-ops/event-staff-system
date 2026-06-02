@@ -237,14 +237,20 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
         $templateRaw = trim((string) ($_POST['google_sheets_template_id'] ?? ''));
         $templateId  = parseGoogleSpreadsheetId($templateRaw) ?? $templateRaw;
 
+        $oauthClientId     = trim((string) ($_POST['google_oauth_client_id'] ?? ''));
+        $oauthClientSecret = trim((string) ($_POST['google_oauth_client_secret'] ?? ''));
+        if ($oauthClientSecret === '') {
+            $oauthClientSecret = trim(getSetting($pdo, 'google_oauth_client_secret', ''));
+        }
+
         saveSettings($pdo, [
             'google_sheets_sync_enabled'      => !empty($_POST['google_sheets_sync_enabled']) ? '1' : '0',
             'google_sheets_drive_folder_id'   => $folderId,
             'google_sheets_template_id'       => $templateId,
             'google_sheets_share_with_email'  => trim((string) ($_POST['google_sheets_share_with_email'] ?? '')),
             'google_sheets_default_tab'       => trim((string) ($_POST['google_sheets_default_tab'] ?? 'Registrations')) ?: 'Registrations',
-            'google_oauth_client_id'          => trim((string) ($_POST['google_oauth_client_id'] ?? '')),
-            'google_oauth_client_secret'      => trim((string) ($_POST['google_oauth_client_secret'] ?? '')),
+            'google_oauth_client_id'          => $oauthClientId,
+            'google_oauth_client_secret'      => $oauthClientSecret,
             'google_oauth_redirect_uri'       => trim((string) ($_POST['google_oauth_redirect_uri'] ?? '')),
         ]);
 

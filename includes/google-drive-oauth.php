@@ -137,6 +137,14 @@ function googleDriveOAuthExchangeCode(PDO $pdo, string $code): array
     curl_close($ch);
 
     if ($codeHttp !== 200 || !is_string($responseBody)) {
+        $data = is_string($responseBody) ? json_decode($responseBody, true) : null;
+        if (is_array($data) && ($data['error'] ?? '') === 'invalid_client') {
+            return [
+                'ok'      => false,
+                'message' => 'OAuth client secret is wrong. In Google Cloud open Credentials → your Web client → copy the Client secret (starts with GOCSPX-), paste it here, Save, then Connect again. Use a Web application client, not Desktop or API key.',
+            ];
+        }
+
         $snippet = is_string($responseBody) ? mb_substr($responseBody, 0, 200) : '';
 
         return ['ok' => false, 'message' => 'Token exchange failed (HTTP ' . $codeHttp . '). ' . $snippet];

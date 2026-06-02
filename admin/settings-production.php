@@ -256,6 +256,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 $sa = loadGoogleServiceAccount();
 $saEmail = $sa ? (string) ($sa['client_email'] ?? '') : '';
 $googleOauthConnected = googleDriveOAuthConfigured($pdo);
+$googleOauthSecretSaved = trim($settings['google_oauth_client_secret'] ?? '') !== '';
 $googleOauthFlash = '';
 $googleOauthFlashType = 'info';
 if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
@@ -304,7 +305,12 @@ if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
             </div>
             <div class="form-group">
                 <label class="form-label" for="google_oauth_client_secret">OAuth Client secret</label>
-                <input class="form-input" type="password" id="google_oauth_client_secret" name="google_oauth_client_secret" value="<?= h($settings['google_oauth_client_secret'] ?? '') ?>" autocomplete="new-password">
+                <input class="form-input" type="password" id="google_oauth_client_secret" name="google_oauth_client_secret" value="" autocomplete="new-password" placeholder="<?= $googleOauthSecretSaved ? 'Secret saved — paste new value only to replace' : 'GOCSPX-… from Web client' ?>">
+                <?php if ($googleOauthSecretSaved): ?>
+                    <p class="form-hint">A secret is stored. Leave this box empty when saving other fields; paste a new secret only after rotating it in Google Cloud.</p>
+                <?php else: ?>
+                    <p class="form-hint">Google Cloud → Credentials → <strong>Web application</strong> OAuth client → Client secret (not the service account JSON).</p>
+                <?php endif; ?>
             </div>
             <div class="form-group">
                 <label class="form-label" for="google_oauth_redirect_uri">Redirect URI override (only if Google still says invalid)</label>
