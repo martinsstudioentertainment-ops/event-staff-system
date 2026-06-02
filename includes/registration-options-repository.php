@@ -143,6 +143,8 @@ function fetchRegistrationEvents(PDO $pdo, array $workTypes, string $staffRole):
 }
 
 /**
+ * Public registration payload — no staff_needed (headcount is admin-only; see Attendance).
+ *
  * @param array<string, mixed> $event
  * @return array<string, mixed>
  */
@@ -150,14 +152,10 @@ function formatRegistrationEvent(array $event): array
 {
     $sortDate = normalizeEventDateYmd((string) ($event['event_date'] ?? ''));
 
-    $staffNeeded = $event['staff_needed'] ?? null;
-    $staffNeeded = ($staffNeeded !== null && $staffNeeded !== '') ? (int) $staffNeeded : null;
-
     return [
         'id'                  => (int) $event['id'],
         'name'                => (string) $event['name'],
         'mainSecurityCompany' => formatEventMainSecurityLabel($event),
-        'staffNeeded'         => $staffNeeded,
         'date'                => $sortDate !== '' ? date('d.m.Y', strtotime($sortDate)) : '',
         'sortDate'            => $sortDate,
         'openForRegistration' => true,

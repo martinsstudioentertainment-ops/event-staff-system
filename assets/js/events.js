@@ -296,10 +296,6 @@ function appendShiftCheckboxContent(textEl, event, venueName, isRegistered) {
     if (venueLabel) {
         metaParts.push(venueLabel);
     }
-    const needed = event.staffNeeded;
-    if (needed !== null && needed !== undefined && Number(needed) > 0) {
-        metaParts.push(String(needed) + ' staff needed');
-    }
 
     if (metaParts.length > 0) {
         const meta = document.createElement('span');
