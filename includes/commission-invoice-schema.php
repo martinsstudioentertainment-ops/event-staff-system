@@ -193,6 +193,8 @@ function commissionInvoiceExecCreate(PDO $pdo, bool $withFk): void
             KEY idx_commission_line_registration (registration_id)';
     }
 
+    $lineIndex = $withFk ? ', INDEX idx_commission_line_invoice (invoice_id)' : '';
+
     $pdo->exec(
         "CREATE TABLE commission_invoice_lines (
             id                  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -207,8 +209,8 @@ function commissionInvoiceExecCreate(PDO $pdo, bool $withFk): void
             line_amount         DECIMAL(10,2) NOT NULL DEFAULT 0,
             amount_override     TINYINT(1) NOT NULL DEFAULT 0,
             note                VARCHAR(255) NULL,
-            sort_order          INT NOT NULL DEFAULT 0,
-            INDEX idx_commission_line_invoice (invoice_id)
+            sort_order          INT NOT NULL DEFAULT 0
+            {$lineIndex}
             {$lineFk}
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
