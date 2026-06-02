@@ -59,6 +59,7 @@ return [
     'registering_as_static_detail' => 'Static Security — site and gate posts',
     'registering_as_both_detail' => 'DSP & Static — all door and site shifts on one form',
     'registering_as_steward_detail' => 'Steward — crowd and front-of-house roles',
+    'registering_as_fire_marshal_detail' => 'Fire Marshal — fire safety and evacuation at events',
     'roles_on_shift'            => 'Roles on this shift',
     'email_address'             => 'Email address',
     'email_hint'                => 'Registered before? Use the same email and we will fill in your details.',

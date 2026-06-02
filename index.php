@@ -176,10 +176,11 @@ if ($pdo) {
                                 $roleVal = normalizeStaffRole((string) ($form['staff_role'] ?? $slug));
                                 $selected = ($old['form_slug'] ?? $selectedFormSlug) === $slug;
                                 $roleDetail = match ($roleVal) {
-                                    'steward' => t('registering_as_steward_detail'),
-                                    'static'  => t('registering_as_static_detail'),
-                                    'both'    => t('registering_as_both_detail'),
-                                    default   => t('registering_as_dsp_detail'),
+                                    'steward'      => t('registering_as_steward_detail'),
+                                    'fire_marshal' => t('registering_as_fire_marshal_detail'),
+                                    'static'       => t('registering_as_static_detail'),
+                                    'both'         => t('registering_as_both_detail'),
+                                    default        => t('registering_as_dsp_detail'),
                                 };
                                 ?>
                                 <option value="<?= h($slug) ?>" data-role="<?= h($roleVal) ?>" data-label="<?= h((string) ($form['label'] ?? $slug)) ?>" data-detail="<?= h($roleDetail) ?>"<?= $selected ? ' selected' : '' ?>><?= h((string) ($form['label'] ?? $slug)) ?></option>

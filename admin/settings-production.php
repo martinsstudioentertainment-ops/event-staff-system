@@ -206,6 +206,10 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <input class="form-input" type="number" step="0.01" min="0" id="commission_rate_static" name="commission_rate_static" value="<?= h($settings['commission_rate_static'] ?? '0') ?>">
             </div>
             <div class="form-group">
+                <label class="form-label" for="commission_rate_fire_marshal">Fire Marshal rate / hour</label>
+                <input class="form-input" type="number" step="0.01" min="0" id="commission_rate_fire_marshal" name="commission_rate_fire_marshal" value="<?= h($settings['commission_rate_fire_marshal'] ?? '0') ?>">
+            </div>
+            <div class="form-group">
                 <label class="form-label" for="commission_rate_default">Other roles / hour</label>
                 <input class="form-input" type="number" step="0.01" min="0" id="commission_rate_default" name="commission_rate_default" value="<?= h($settings['commission_rate_default'] ?? '0') ?>">
             </div>

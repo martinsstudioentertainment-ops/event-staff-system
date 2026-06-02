@@ -63,7 +63,19 @@ $files = @(
     @{ Local = 'admin\google-sheets-diagnostic.php'; Remote = 'admin/google-sheets-diagnostic.php' },
     @{ Local = 'admin\events-sheets-action.php'; Remote = 'admin/events-sheets-action.php' },
     @{ Local = 'admin\event-form.php'; Remote = 'admin/event-form.php' },
-    @{ Local = 'includes\events-repository.php'; Remote = 'includes/events-repository.php' }
+    @{ Local = 'includes\events-repository.php'; Remote = 'includes/events-repository.php' },
+    @{ Local = 'includes\registration-forms.php'; Remote = 'includes/registration-forms.php' },
+    @{ Local = 'includes\venues-repository.php'; Remote = 'includes/venues-repository.php' },
+    @{ Local = 'includes\staff-registration-schema.php'; Remote = 'includes/staff-registration-schema.php' },
+    @{ Local = 'includes\validation.php'; Remote = 'includes/validation.php' },
+    @{ Local = 'includes\staff-repository.php'; Remote = 'includes/staff-repository.php' },
+    @{ Local = 'includes\commission-invoice-repository.php'; Remote = 'includes/commission-invoice-repository.php' },
+    @{ Local = 'admin\forms.php'; Remote = 'admin/forms.php' },
+    @{ Local = 'admin\staff.php'; Remote = 'admin/staff.php' },
+    @{ Local = 'admin\export-staff.php'; Remote = 'admin/export-staff.php' },
+    @{ Local = 'index.php'; Remote = 'index.php' },
+    @{ Local = 'lang\en.php'; Remote = 'lang/en.php' },
+    @{ Local = 'lang\es.php'; Remote = 'lang/es.php' }
 )
 
 $extra = $args | Where-Object { $_ -match '\.php$' }

@@ -38,6 +38,7 @@ return [
     'registering_as'            => 'Registrándose como',
     'registering_as_dsp_detail' => 'DSP y Static — supervisor de puerta y seguridad en sitio',
     'registering_as_steward_detail' => 'Steward — multitudes y front-of-house',
+    'registering_as_fire_marshal_detail' => 'Fire Marshal — seguridad contra incendios y evacuacion',
     'roles_on_shift'            => 'Roles en este turno',
     'email_address'             => 'Correo electrónico',
     'personal_details'          => 'Datos personales',

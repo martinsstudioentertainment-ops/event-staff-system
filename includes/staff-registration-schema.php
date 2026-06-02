@@ -164,7 +164,7 @@ function resolveStaffRoleForEventRegistration(string $staffRole, array $event): 
 function sanitizeStaffRoleForDb(string $role): string
 {
     $role = normalizeStaffRole($role);
-    if (in_array($role, ['dsp', 'static', 'steward'], true)) {
+    if (in_array($role, ['dsp', 'static', 'steward', 'fire_marshal'], true)) {
         return $role;
     }
 

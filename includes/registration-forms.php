@@ -71,24 +71,40 @@ function getDefaultRegistrationForms(): array
             'selection_mode'     => 'venue_first',
             'allowed_work_types' => ['special_event', 'festival'],
         ],
+        'fire_marshal' => [
+            'slug'               => 'fire_marshal',
+            'staff_role'         => 'fire_marshal',
+            'label'              => 'Fire Marshal',
+            'short_label'        => 'Fire Marshal',
+            'role_hint'          => 'Fire safety and evacuation — events and festivals',
+            'title'              => 'Fire Marshal Registration',
+            'subtitle'           => 'For trained fire marshals at events and large venues.',
+            'description'        => 'Choose your venue, then select fire marshal shifts you are available for.',
+            'icon'               => 'shield',
+            'enabled'            => true,
+            'show_notice'        => true,
+            'selection_mode'     => 'venue_first',
+            'allowed_work_types' => ['special_event', 'festival'],
+        ],
     ];
 }
 
 /** @return string[] */
 function getStaffRoleValues(): array
 {
-    return ['dsp', 'static', 'both', 'steward', 'security'];
+    return ['dsp', 'static', 'both', 'steward', 'fire_marshal', 'security'];
 }
 
 function normalizeStaffRole(string $role): string
 {
     $role = strtolower(trim($role));
+    $role = str_replace([' ', '-'], '_', $role);
 
-    if ($role === 'security' || $role === 'dsp-static' || $role === 'dsp_static') {
+    if ($role === 'security' || $role === 'dsp_static') {
         return 'both';
     }
 
-    return in_array($role, ['dsp', 'static', 'both', 'steward'], true) ? $role : 'dsp';
+    return in_array($role, ['dsp', 'static', 'both', 'steward', 'fire_marshal'], true) ? $role : 'dsp';
 }
 
 function staffRoleToFormSlug(string $role): string
@@ -96,10 +112,11 @@ function staffRoleToFormSlug(string $role): string
     $role = normalizeStaffRole($role);
 
     return match ($role) {
-        'static'  => 'static',
-        'steward' => 'steward',
-        'both'    => 'both',
-        default   => 'dsp',
+        'static'       => 'static',
+        'steward'      => 'steward',
+        'fire_marshal' => 'fire_marshal',
+        'both'         => 'both',
+        default        => 'dsp',
     };
 }
 
@@ -110,8 +127,9 @@ function getDefaultWorkTypesForFormSlug(string $slug): array
         'dsp'     => ['nightclub', 'office', 'special_event', 'festival'],
         'static'  => ['nightclub', 'office', 'special_event', 'festival', 'static'],
         'both'    => ['nightclub', 'office', 'special_event', 'festival', 'static'],
-        'steward' => ['special_event', 'festival'],
-        default   => ['special_event', 'nightclub', 'office', 'static', 'festival'],
+        'steward'      => ['special_event', 'festival'],
+        'fire_marshal' => ['special_event', 'festival'],
+        default        => ['special_event', 'nightclub', 'office', 'static', 'festival'],
     };
 }
 
@@ -165,21 +183,23 @@ function getFormAllowedWorkTypes(array $form): array
 function formatStaffRoleLabel(string $role): string
 {
     return match (normalizeStaffRole($role)) {
-        'dsp'     => 'Door Supervisor (DSP)',
-        'static'  => 'Static Security',
-        'both'    => 'DSP & Static (Both)',
-        'steward' => 'Steward',
-        default   => ucfirst($role),
+        'dsp'          => 'Door Supervisor (DSP)',
+        'static'       => 'Static Security',
+        'both'         => 'DSP & Static (Both)',
+        'steward'      => 'Steward',
+        'fire_marshal' => 'Fire Marshal',
+        default        => ucfirst(str_replace('_', ' ', $role)),
     };
 }
 
 function registrationFormStaffRole(string $slug): string
 {
     return match (strtolower(trim($slug))) {
-        'steward' => 'steward',
-        'static'  => 'static',
-        'both'    => 'both',
-        default   => 'dsp',
+        'steward'      => 'steward',
+        'fire_marshal' => 'fire_marshal',
+        'static'       => 'static',
+        'both'         => 'both',
+        default        => 'dsp',
     };
 }
 

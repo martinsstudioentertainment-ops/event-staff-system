@@ -21,7 +21,7 @@ function getVenueTypeOptions(): array
 /** @return string[] */
 function getStaffRoleValuesForEvents(): array
 {
-    return ['dsp', 'static', 'steward'];
+    return ['dsp', 'static', 'steward', 'fire_marshal'];
 }
 
 function formatVenueTypeLabel(string $venueType): string
@@ -278,7 +278,8 @@ function formatEventRolesNeededDisplay(array $event): string
 
     $hasDsp     = in_array('dsp', $needed, true);
     $hasStatic  = in_array('static', $needed, true);
-    $hasSteward = in_array('steward', $needed, true);
+    $hasSteward     = in_array('steward', $needed, true);
+    $hasFireMarshal = in_array('fire_marshal', $needed, true);
 
     if ($hasDsp && $hasStatic) {
         $parts[] = 'DSP & Static';
@@ -290,6 +291,10 @@ function formatEventRolesNeededDisplay(array $event): string
 
     if ($hasSteward) {
         $parts[] = 'Steward';
+    }
+
+    if ($hasFireMarshal) {
+        $parts[] = 'Fire Marshal';
     }
 
     return $parts !== [] ? implode(' · ', $parts) : 'Open';

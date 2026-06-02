@@ -205,10 +205,11 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
             return ['error' => 'You do not have permission to change commission rates.', 'success' => '', 'settings' => $settings];
         }
         $rates = [
-            'commission_rate_dsp'     => max(0, round((float) ($_POST['commission_rate_dsp'] ?? 0), 2)),
-            'commission_rate_steward' => max(0, round((float) ($_POST['commission_rate_steward'] ?? 0), 2)),
-            'commission_rate_static'  => max(0, round((float) ($_POST['commission_rate_static'] ?? 0), 2)),
-            'commission_rate_default' => max(0, round((float) ($_POST['commission_rate_default'] ?? 0), 2)),
+            'commission_rate_dsp'            => max(0, round((float) ($_POST['commission_rate_dsp'] ?? 0), 2)),
+            'commission_rate_steward'        => max(0, round((float) ($_POST['commission_rate_steward'] ?? 0), 2)),
+            'commission_rate_static'         => max(0, round((float) ($_POST['commission_rate_static'] ?? 0), 2)),
+            'commission_rate_fire_marshal'   => max(0, round((float) ($_POST['commission_rate_fire_marshal'] ?? 0), 2)),
+            'commission_rate_default'        => max(0, round((float) ($_POST['commission_rate_default'] ?? 0), 2)),
         ];
         saveSettings($pdo, array_map(static fn (float $v): string => number_format($v, 2, '.', ''), $rates));
         $settings = getAllSettings($pdo);

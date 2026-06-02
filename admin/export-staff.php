@@ -48,6 +48,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <option value="dsp"<?= $filters['role'] === 'dsp' ? ' selected' : '' ?>>Door Supervisor (DSP)</option>
                 <option value="static"<?= $filters['role'] === 'static' ? ' selected' : '' ?>>Static Security</option>
                 <option value="steward"<?= $filters['role'] === 'steward' ? ' selected' : '' ?>>Steward</option>
+                <option value="fire_marshal"<?= $filters['role'] === 'fire_marshal' ? ' selected' : '' ?>>Fire Marshal</option>
             </select>
         </div>
         <div class="filter-bar__group">
