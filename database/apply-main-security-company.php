@@ -3,19 +3,35 @@
  * Set main_security_company on events (default: all active upcoming).
  *
  * Usage:
- *   php database/apply-main-security-company.php "1plus Security"
- *   php database/apply-main-security-company.php "1plus Security" --all-active
+ *   php database/apply-main-security-company.php
+ *   php database/apply-main-security-company.php "1Plus Security" --all-active
  */
 
 require __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/event-main-security-schema.php';
 
-$company = trim((string) ($argv[1] ?? ''));
 $allActive = in_array('--all-active', $argv ?? [], true);
+$company   = '';
+foreach ($argv as $i => $arg) {
+    if ($i === 0 || str_starts_with($arg, '--')) {
+        continue;
+    }
+    $company = trim($arg);
+    break;
+}
 
 if ($company === '') {
-    echo "Usage: php database/apply-main-security-company.php \"Company Name\" [--all-active]\n";
-    exit(1);
+    $dataFile = __DIR__ . '/live-events-2026.php';
+    if (is_file($dataFile)) {
+        $loaded = require $dataFile;
+        if (is_array($loaded) && trim((string) ($loaded['main_security_company'] ?? '')) !== '') {
+            $company = trim((string) $loaded['main_security_company']);
+        }
+    }
+}
+
+if ($company === '') {
+    $company = '1Plus Security';
 }
 
 $pdo = getDB();

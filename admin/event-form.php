@@ -80,7 +80,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
         <div class="form-group form-group--full">
             <label class="form-label form-label--required" for="main_security_company">Main security company</label>
-            <input class="form-input" type="text" id="main_security_company" name="main_security_company" value="<?= eventOld($old, $event, 'main_security_company') ?>" placeholder="e.g. Eclipse Security Ltd">
+            <input class="form-input" type="text" id="main_security_company" name="main_security_company" value="<?= eventOld($old, $event, 'main_security_company', '1Plus Security') ?>" placeholder="e.g. 1Plus Security">
             <p class="form-hint">Who staff are <strong>working for</strong> on this shift. Shown on registration and sign-in — this portal is not their employer.</p>
         </div>
 
@@ -226,7 +226,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <input type="checkbox" name="times_confirmed" value="1"<?= $timesConfirmed ? ' checked' : '' ?>>
                 Show shift times on the staff registration form
             </label>
-            <p class="form-hint">Tick only when start/end are real (not the 09:00–23:00 placeholder). Other events stay date-only for staff. Bulk import: <code>php database/apply-event-shift-times.php</code></p>
+            <p class="form-hint">Tick only when start/end are real (not the 09:00–23:00 placeholder). Other events stay date-only for staff. Bulk roster: <code>php database/sync-live-events.php</code> · shift times only: <code>php database/apply-event-shift-times.php</code></p>
         </div>
 
         <div class="form-group">

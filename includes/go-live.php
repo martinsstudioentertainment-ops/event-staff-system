@@ -12,6 +12,8 @@ require_once __DIR__ . '/commission-invoice-schema.php';
 require_once __DIR__ . '/staff-blacklist-schema.php';
 require_once __DIR__ . '/pwa-schema.php';
 require_once __DIR__ . '/google-sheets-schema.php';
+require_once __DIR__ . '/venues-schema.php';
+require_once __DIR__ . '/go-live-schema.php';
 
 /**
  * @return list<array{key: string, label: string, hint: string, fix_url?: string}>
@@ -122,6 +124,18 @@ function runSafeSchemaEnsures(PDO $pdo): array
     $errors  = [];
 
     $tasks = [
+        'admin_audit_log' => static function (PDO $pdo): void {
+            ensureAdminAuditLogSchema($pdo);
+        },
+        'venues' => static function (PDO $pdo): void {
+            ensureVenuesSchema($pdo);
+        },
+        'events_staff_needed' => static function (PDO $pdo): void {
+            ensureGoLiveStaffNeededColumn($pdo);
+        },
+        'staff_reminder_column' => static function (PDO $pdo): void {
+            ensureGoLiveReminderColumn($pdo);
+        },
         'commission_invoices' => static function (PDO $pdo): void {
             ensureCommissionInvoiceSchema($pdo);
         },
@@ -133,6 +147,9 @@ function runSafeSchemaEnsures(PDO $pdo): array
         },
         'google_sheets_columns' => static function (PDO $pdo): void {
             ensureGoogleSheetsSchema($pdo);
+        },
+        'admin_users_roles' => static function (PDO $pdo): void {
+            ensureAdminUsersSchemaForGoLive($pdo);
         },
     ];
 
@@ -150,6 +167,162 @@ function runSafeSchemaEnsures(PDO $pdo): array
         'applied' => $applied,
         'errors'  => $errors,
     ];
+}
+
+/**
+ * Create storage folders used by logs, backups, Google Sheets, and branding.
+ *
+ * @return list<string> Paths created (relative to project root)
+ */
+function ensureGoLiveStorageDirectories(): array
+{
+    $root    = dirname(__DIR__);
+    $created = [];
+
+    foreach (
+        [
+            'storage/logs',
+            'storage/backups',
+            'storage/backups/database',
+            'storage/backups/weekly',
+            'storage/google',
+            'storage/branding',
+        ] as $rel
+    ) {
+        $path = $root . '/' . $rel;
+        if (!is_dir($path)) {
+            if (@mkdir($path, 0755, true)) {
+                $created[] = $rel;
+            }
+        } elseif (!is_writable($path)) {
+            @chmod($path, 0755);
+        }
+    }
+
+    ensureGoogleStorageDirectory();
+
+    return $created;
+}
+
+/**
+ * @return array{fixed: list<string>, errors: list<string>}
+ */
+function applyGoLiveSettingsDefaults(PDO $pdo): array
+{
+    $fixed  = [];
+    $errors = [];
+
+    $regDb = normalizePublicSiteUrl(getSetting($pdo, 'registration_site_url', ''));
+    if (!preg_match('#^https://#i', $regDb)
+        && defined('REGISTRATION_SITE_URL')
+        && REGISTRATION_SITE_URL !== ''
+        && preg_match('#^https://#i', (string) REGISTRATION_SITE_URL)
+    ) {
+        setSetting($pdo, 'registration_site_url', normalizePublicSiteUrl((string) REGISTRATION_SITE_URL));
+        $fixed[] = 'registration_site_url';
+    }
+
+    if (trim(getSetting($pdo, 'reminder_cron_key', '')) === '') {
+        setSetting($pdo, 'reminder_cron_key', bin2hex(random_bytes(16)));
+        $fixed[] = 'reminder_cron_key';
+    }
+
+    $fromEmail = trim(getSetting($pdo, 'mail_from_email', ''));
+    if (!filter_var($fromEmail, FILTER_VALIDATE_EMAIL)) {
+        $company = trim(getSetting($pdo, 'company_email', ''));
+        if (filter_var($company, FILTER_VALIDATE_EMAIL)) {
+            setSetting($pdo, 'mail_from_email', $company);
+        } else {
+            $host = parse_url(getRegistrationSiteUrl($pdo), PHP_URL_HOST);
+            $host = is_string($host) && $host !== '' ? $host : 'olasentra.com';
+            setSetting($pdo, 'mail_from_email', 'noreply@' . $host);
+        }
+        $fixed[] = 'mail_from_email';
+    }
+
+    $rateSet = (float) getSetting($pdo, 'commission_rate_dsp', '0') > 0
+        || (float) getSetting($pdo, 'commission_rate_steward', '0') > 0
+        || (float) getSetting($pdo, 'commission_rate_static', '0') > 0;
+    if (!$rateSet) {
+        setSetting($pdo, 'commission_rate_dsp', '25');
+        setSetting($pdo, 'commission_rate_steward', '20');
+        setSetting($pdo, 'commission_rate_static', '22');
+        $fixed[] = 'commission_rates';
+    }
+
+    if (getSetting($pdo, 'google_sheets_sync_enabled', '0') === '1'
+        && !is_file(getGoogleServiceAccountPath())
+    ) {
+        setSetting($pdo, 'google_sheets_sync_enabled', '0');
+        $fixed[] = 'google_sheets_disabled_until_json';
+    }
+
+    if (getSetting($pdo, 'activity_logging_enabled', '1') !== '1') {
+        setSetting($pdo, 'activity_logging_enabled', '1');
+        $fixed[] = 'activity_logging_enabled';
+    }
+
+    return ['fixed' => $fixed, 'errors' => $errors];
+}
+
+/**
+ * Run schema ensures, storage folders, settings defaults, and optional weekly backup.
+ *
+ * @return array{
+ *     success: bool,
+ *     fixed: list<string>,
+ *     errors: list<string>,
+ *     schema: array{success: bool, applied: list<string>, errors: list<string>},
+ *     backup_message?: string
+ * }
+ */
+function applyGoLiveAutomatedFixes(PDO $pdo, bool $runWeeklyBackup = true): array
+{
+    $fixed  = [];
+    $errors = [];
+
+    $schema = runSafeSchemaEnsures($pdo);
+    if (!$schema['success']) {
+        $errors = array_merge($errors, $schema['errors']);
+    }
+    foreach ($schema['applied'] as $label) {
+        $fixed[] = 'schema:' . $label;
+    }
+
+    foreach (ensureGoLiveStorageDirectories() as $dir) {
+        $fixed[] = 'storage:' . $dir;
+    }
+
+    $settings = applyGoLiveSettingsDefaults($pdo);
+    $fixed    = array_merge($fixed, $settings['fixed']);
+    $errors   = array_merge($errors, $settings['errors']);
+
+    $backupMessage = null;
+    if ($runWeeklyBackup) {
+        $backupDir = getDatabaseBackupDirectory();
+        if (is_dir($backupDir) && is_writable($backupDir)) {
+            require_once __DIR__ . '/weekly-backup.php';
+            $backup = runWeeklyFullBackup($pdo);
+            $backupMessage = $backup['message'];
+            if ($backup['success']) {
+                $fixed[] = 'weekly_backup';
+            } else {
+                $errors[] = 'weekly_backup: ' . $backup['message'];
+            }
+        }
+    }
+
+    $result = [
+        'success' => $errors === [],
+        'fixed'   => $fixed,
+        'errors'  => $errors,
+        'schema'  => $schema,
+    ];
+    if ($backupMessage !== null) {
+        $result['backup_message'] = $backupMessage;
+    }
+
+    return $result;
 }
 
 /**

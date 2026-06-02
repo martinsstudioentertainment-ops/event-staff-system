@@ -5,6 +5,7 @@ require_once __DIR__ . '/../includes/go-live.php';
 require_once __DIR__ . '/../includes/database-backup.php';
 require_once __DIR__ . '/../includes/audit-log.php';
 require_once __DIR__ . '/../includes/settings-repository.php';
+require_once __DIR__ . '/../includes/live-events-sync.php';
 
 requireAdminCapability('settings');
 
@@ -17,6 +18,35 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !verifyCsrf($_POST['csrf_token'] ??
 $pdo    = getDB();
 $action = trim((string) ($_POST['action'] ?? ''));
 
+if ($action === 'sync_roster') {
+    try {
+        $result = syncLiveEventsFromMasterFile($pdo, false);
+        logAdminAudit(
+            $pdo,
+            'import_live_roster',
+            'system',
+            0,
+            "created {$result['created']}, updated {$result['updated']}"
+        );
+        if ($result['success']) {
+            setAdminFlash(
+                'success',
+                "Summer roster imported: {$result['updated']} updated, {$result['created']} created "
+                . "(location, staff needed, times, {$result['main_security_company']})."
+            );
+        } else {
+            setAdminFlash(
+                'warning',
+                "Roster partly imported. Errors: " . implode('; ', array_slice($result['errors'], 0, 5))
+            );
+        }
+    } catch (Throwable $e) {
+        setAdminFlash('error', 'Roster import failed: ' . $e->getMessage());
+    }
+    header('Location: go-live.php');
+    exit;
+}
+
 if ($action === 'schema') {
     $result = runSafeSchemaEnsures($pdo);
     if ($result['success']) {
@@ -24,6 +54,34 @@ if ($action === 'schema') {
         setAdminFlash('success', 'Schema updated: ' . implode(', ', $result['applied']) . '.');
     } else {
         setAdminFlash('error', 'Schema update had errors: ' . implode('; ', $result['errors']));
+    }
+    header('Location: go-live.php');
+    exit;
+}
+
+if ($action === 'fix_failures') {
+    $result = applyGoLiveAutomatedFixes($pdo, true);
+    $detail = implode(', ', array_slice($result['fixed'], 0, 12));
+    if (count($result['fixed']) > 12) {
+        $detail .= ' …';
+    }
+    logAdminAudit($pdo, 'go_live_fix_failures', 'system', 0, $detail);
+
+    if ($result['success']) {
+        $msg = 'Automated fixes applied.';
+        if ($detail !== '') {
+            $msg .= ' ' . $detail;
+        }
+        if (!empty($result['backup_message'])) {
+            $msg .= ' Backup: ' . $result['backup_message'];
+        }
+        setAdminFlash('success', $msg);
+    } else {
+        $msg = 'Some fixes failed: ' . implode('; ', $result['errors']);
+        if ($detail !== '') {
+            $msg .= ' Partial: ' . $detail;
+        }
+        setAdminFlash('error', $msg);
     }
     header('Location: go-live.php');
     exit;

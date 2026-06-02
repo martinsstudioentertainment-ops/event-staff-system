@@ -45,12 +45,28 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     <?php if ($summary['ready']): ?>
         <div class="alert alert--success alert--visible">All automated and manual checks are complete. You can go live when your first real event is scheduled.</div>
     <?php elseif ($summary['fail'] > 0): ?>
-        <div class="alert alert--error alert--visible">Fix all <strong>FAIL</strong> items below before go-live.</div>
+        <div class="alert alert--error alert--visible">
+            Fix all <strong>FAIL</strong> items below before go-live.
+            Use <strong>Fix automated FAIL items</strong> for schema, storage, cron secret, from email, and backups.
+            You must still set <code>APP_ENV=production</code> in server <code>config.php</code>, SMTP, invoice bank details, and change the default admin password manually.
+        </div>
     <?php else: ?>
         <div class="alert alert--warning alert--visible">Resolve warnings and tick all manual tasks.</div>
     <?php endif; ?>
 
     <div class="toolbar">
+        <?php if ($summary['fail'] > 0): ?>
+            <form method="post" action="go-live-action.php" class="inline-form">
+                <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                <input type="hidden" name="action" value="fix_failures">
+                <button type="submit" class="btn btn--primary">Fix automated FAIL items</button>
+            </form>
+        <?php endif; ?>
+        <form method="post" action="go-live-action.php" class="inline-form" onsubmit="return confirm('Import all summer events (date, location, staff needed, times, 1Plus Security)?');">
+            <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+            <input type="hidden" name="action" value="sync_roster">
+            <button type="submit" class="btn btn--secondary">Import summer event roster</button>
+        </form>
         <form method="post" action="go-live-action.php" class="inline-form">
             <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
             <input type="hidden" name="action" value="schema">

@@ -296,6 +296,10 @@ function appendShiftCheckboxContent(textEl, event, venueName, isRegistered) {
     if (venueLabel) {
         metaParts.push(venueLabel);
     }
+    const needed = event.staffNeeded;
+    if (needed !== null && needed !== undefined && Number(needed) > 0) {
+        metaParts.push(String(needed) + ' staff needed');
+    }
 
     if (metaParts.length > 0) {
         const meta = document.createElement('span');
@@ -322,15 +326,25 @@ function getVenueNameForEvent(event, options) {
 
     const venueId = String(event.venueId != null ? event.venueId : '');
 
+    if (venueId && venueId !== '0') {
 
+        for (let i = 0; i < venues.length; i++) {
 
-    for (let i = 0; i < venues.length; i++) {
+            if (String(venues[i].id) === venueId) {
 
-        if (String(venues[i].id) === venueId) {
+                return venues[i].name;
 
-            return venues[i].name;
+            }
 
         }
+
+    }
+
+
+
+    if (event.venueName) {
+
+        return String(event.venueName).trim();
 
     }
 

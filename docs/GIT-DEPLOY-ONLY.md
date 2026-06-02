@@ -42,8 +42,37 @@ git push origin main
 ### Step 3 — Test
 
 - `https://olasentra.com/api/health.php`
-- `https://olasentra.com/`
-- `https://olasentra.com/admin/login.php`
+- `https://register.olasentra.com/` (Ctrl+F5) — shifts show **1Plus Security** and real venues
+- `https://admin.olasentra.com/login.php`
+
+---
+
+## Summer event roster (your table in Git)
+
+The master list is **`database/live-events-2026.php`** (date, event, location, staff needed, times, working for).
+
+| What Git deploy does | What it does **not** do by itself |
+|----------------------|-----------------------------------|
+| Copies the updated `.php` file to the server | Old behaviour: nothing — you had to import manually |
+
+**Current deploy script** runs `php database/sync-live-events.php` automatically after each **Deploy HEAD commit** (see deploy log: `OK: roster imported`).
+
+### Edit the roster
+
+1. On your PC, edit `database/live-events-2026.php`
+2. `git add` → `git commit` → `git push origin main`
+3. cPanel → **Update from Remote** → **Deploy HEAD commit**
+4. Check deploy output for `OK: roster imported`  
+   If you see `WARN: auto roster import failed`, import manually (below).
+
+### Manual import (if auto-import fails)
+
+1. Log in: `https://admin.olasentra.com/login.php`
+2. Open: `https://admin.olasentra.com/import-roster.php` → **Run import now**  
+   Or: **Events** → **Import master roster**
+3. Hard refresh registration: `https://register.olasentra.com/` (Ctrl+F5)
+
+Do **not** use `register.olasentra.com/import-summer-roster.php` (often 404).
 
 ---
 

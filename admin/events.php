@@ -26,8 +26,17 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <h2 class="card__title">Events</h2>
             <p class="card__subtitle"><?= count($events) ?> event(s) — active events appear on the registration form.</p>
         </div>
-        <a href="event-form.php" class="btn btn--primary">+ Add Event</a>
+        <div class="toolbar">
+            <a href="event-form.php" class="btn btn--primary">+ Add Event</a>
+            <a href="import-roster.php" class="btn btn--secondary">Import master roster</a>
+            <a href="roster-diagnostic.php" class="btn btn--secondary">Roster diagnostic</a>
+            <form method="post" action="events-roster-action.php" class="inline-form" onsubmit="return confirm('Import all 32 summer events from the master list?');">
+                <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                <button type="submit" class="btn btn--secondary">Import (quick)</button>
+            </form>
+        </div>
     </div>
+    <p class="form-hint" style="margin:0 0 1rem;">Your full table is in <code>database/live-events-2026.php</code>. After deploy, open <a href="import-roster.php"><strong>Import master roster</strong></a> (or <code>https://admin.olasentra.com/import-roster.php</code> while logged in). Do not use <code>register.olasentra.com/import-summer-roster.php</code> — that URL often 404s if the register folder is empty.</p>
 
     <div class="table-wrap">
         <table class="data-table">

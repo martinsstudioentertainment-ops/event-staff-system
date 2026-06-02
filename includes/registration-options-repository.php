@@ -150,10 +150,14 @@ function formatRegistrationEvent(array $event): array
 {
     $sortDate = normalizeEventDateYmd((string) ($event['event_date'] ?? ''));
 
+    $staffNeeded = $event['staff_needed'] ?? null;
+    $staffNeeded = ($staffNeeded !== null && $staffNeeded !== '') ? (int) $staffNeeded : null;
+
     return [
         'id'                  => (int) $event['id'],
         'name'                => (string) $event['name'],
         'mainSecurityCompany' => formatEventMainSecurityLabel($event),
+        'staffNeeded'         => $staffNeeded,
         'date'                => $sortDate !== '' ? date('d.m.Y', strtotime($sortDate)) : '',
         'sortDate'            => $sortDate,
         'openForRegistration' => true,
@@ -161,7 +165,9 @@ function formatRegistrationEvent(array $event): array
         'workTypeLabel'       => formatWorkTypeLabel((string) ($event['work_type'] ?? 'special_event')),
         'time'                => formatEventTimeRangeLabelForStaff($event),
         'location'            => formatEventLocationLabel($event),
-        'venueName'           => trim((string) ($event['venue_name'] ?? $event['location'] ?? '')),
+        'venueName'           => trim((string) ($event['venue_name'] ?? '')) !== ''
+            ? trim((string) $event['venue_name'])
+            : trim((string) ($event['location'] ?? '')),
         'venueId'             => (int) ($event['venue_id'] ?? 0),
     ];
 }

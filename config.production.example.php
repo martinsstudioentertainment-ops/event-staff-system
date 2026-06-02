@@ -17,6 +17,9 @@ define('REGISTRATION_SITE_URL', 'https://register.olasentra.com');
 define('ADMIN_SITE_URL', 'https://admin.olasentra.com');
 define('APP_ENV', 'production');
 
+/** One-time: import-summer-roster.php?token=… — delete token after roster is imported. */
+define('ROSTER_IMPORT_TOKEN', 'CHANGE_ME_BEFORE_USE');
+
 require_once __DIR__ . '/includes/helpers.php';
 require_once __DIR__ . '/includes/app-environment.php';
 

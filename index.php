@@ -300,7 +300,8 @@ if ($pdo) {
 
     <script>window.REGISTRATION_FORM_SLUG = <?= json_encode($formSlug !== '' && $linkedForm ? $formSlug : $selectedFormSlug, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;</script>
     <script src="assets/js/registration-fields.js"></script>
-    <script src="assets/js/events.js"></script>
+    <?php $eventsJsVer = is_file(__DIR__ . '/assets/js/events.js') ? (string) filemtime(__DIR__ . '/assets/js/events.js') : '1'; ?>
+    <script src="assets/js/events.js?v=<?= h($eventsJsVer) ?>"></script>
     <?php
     $enablePwaInstall = true;
     include __DIR__ . '/includes/pwa-scripts.php';

@@ -71,4 +71,28 @@ if [ "${FAILED}" -ne 0 ]; then
   echo "NOTE: If register/admin folders are empty, point both subdomains to document root public_html in cPanel (see docs/SUBDOMAIN-FIX.md)."
 fi
 
+# After files are deployed: apply database/live-events-2026.php → MySQL (idempotent).
+# Set SKIP_ROSTER_IMPORT=1 in deploy env to disable. If this fails, use Admin → Import master roster.
+if [ "${SKIP_ROSTER_IMPORT:-0}" != "1" ] && [ -f "${MAIN}/database/sync-live-events.php" ] && [ -f "${MAIN}/config.php" ]; then
+  PHP_BIN="php"
+  if [ -x "/usr/local/bin/php" ]; then
+    PHP_BIN="/usr/local/bin/php"
+  elif [ -x "/opt/cpanel/ea-php82/root/usr/bin/php" ]; then
+    PHP_BIN="/opt/cpanel/ea-php82/root/usr/bin/php"
+  fi
+  ROSTER_LOG="${MAIN}/storage/logs/roster-import.log"
+  /bin/mkdir -p "${MAIN}/storage/logs" 2>/dev/null || true
+  echo "Importing summer roster (live-events-2026.php) into database..."
+  if (cd "${MAIN}" && "${PHP_BIN}" database/sync-live-events.php >> "${ROSTER_LOG}" 2>&1); then
+    echo "OK: roster imported (events, venues, staff needed, times, 1Plus Security)."
+    /bin/tail -n 3 "${ROSTER_LOG}" 2>/dev/null || true
+  else
+    echo "WARN: auto roster import failed — see ${ROSTER_LOG}"
+    echo "WARN: log in to admin and open import-roster.php"
+    /bin/tail -n 8 "${ROSTER_LOG}" 2>/dev/null || true
+  fi
+else
+  echo "SKIP roster import (missing config/sync script or SKIP_ROSTER_IMPORT=1)."
+fi
+
 echo "Deploy finished."
