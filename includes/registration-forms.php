@@ -238,16 +238,33 @@ function getRegistrationForms(?PDO $pdo = null): array
     return $merged;
 }
 
+/** Normalize role string only (no DB — safe inside getKnownStaffRoles). */
+function normalizeStaffRoleString(string $role): string
+{
+    $role = strtolower(trim($role));
+    $role = str_replace([' ', '-'], '_', $role);
+
+    if ($role === 'security' || $role === 'dsp_static') {
+        return 'both';
+    }
+
+    return $role;
+}
+
 /** @return string[] */
 function getKnownStaffRoles(?PDO $pdo = null): array
 {
     $pdo   = $pdo ?? getDB();
     $roles = ['both', 'security'];
 
-    foreach (getRegistrationForms($pdo) as $form) {
-        $role = normalizeStaffRole((string) ($form['staff_role'] ?? $form['slug'] ?? ''), $pdo);
+    foreach (getRegistrationForms($pdo) as $slug => $form) {
+        $role = normalizeStaffRoleString((string) ($form['staff_role'] ?? $slug));
         if ($role !== '') {
             $roles[] = $role;
+        }
+        $slugRole = normalizeStaffRoleString((string) $slug);
+        if ($slugRole !== '') {
+            $roles[] = $slugRole;
         }
     }
 
@@ -261,8 +278,8 @@ function getStaffRolesForEvents(?PDO $pdo = null): array
     $pdo   = $pdo ?? getDB();
     $roles = [];
 
-    foreach (getRegistrationForms($pdo) as $form) {
-        $role = normalizeStaffRole((string) ($form['staff_role'] ?? $form['slug'] ?? ''), $pdo);
+    foreach (getRegistrationForms($pdo) as $slug => $form) {
+        $role = normalizeStaffRoleString((string) ($form['staff_role'] ?? $slug));
         if ($role === '' || $role === 'both') {
             continue;
         }
@@ -285,20 +302,21 @@ function getStaffRoleValues(): array
 function normalizeStaffRole(string $role, ?PDO $pdo = null): string
 {
     $pdo  = $pdo ?? getDB();
-    $role = strtolower(trim($role));
-    $role = str_replace([' ', '-'], '_', $role);
+    $role = normalizeStaffRoleString($role);
 
-    if ($role === 'security' || $role === 'dsp_static') {
-        return 'both';
+    if ($role === '') {
+        return 'dsp';
     }
 
     if (in_array($role, getKnownStaffRoles($pdo), true)) {
         return $role;
     }
 
-    $forms = getRegistrationForms($pdo);
-    if (isset($forms[$role])) {
-        return normalizeStaffRole((string) ($forms[$role]['staff_role'] ?? $role), $pdo);
+    foreach (getRegistrationForms($pdo) as $slug => $form) {
+        $formRole = normalizeStaffRoleString((string) ($form['staff_role'] ?? $slug));
+        if ($slug === $role || $formRole === $role) {
+            return $formRole !== '' ? $formRole : 'dsp';
+        }
     }
 
     return 'dsp';
