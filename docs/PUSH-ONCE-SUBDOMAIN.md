@@ -1,32 +1,19 @@
-# One push — register.olasentra.com + shared DB
+# Deploy once — minimal steps
 
-Do these in order **once**, then only **git push + cPanel deploy** for code updates.
+Your subdomain can stay on folder **`/home/olastofx/register.olasentra.com`** (no need to change document root in cPanel).
 
----
+Each **Deploy HEAD commit** copies the full app to **both**:
 
-## Part A — On your PC (now)
+- `/home/olastofx/public_html/`
+- `/home/olastofx/register.olasentra.com/`
 
-```powershell
-cd c:\laragon\www\event-staff-system
-git pull origin main
-git push origin main
-```
-
-*(If you have local commits: `git add .` → `git commit -m "Subdomain layout"` → `git push`)*
+It also copies `public_html/config.php` → register folder (same database, same settings).
 
 ---
 
-## Part B — cPanel subdomain (one-time)
+## One-time: `config.php` only in `public_html`
 
-1. **Domains** → add **`register.olasentra.com`**
-2. **Document root:** `/home/olastofx/public_html` (same as main site — one copy of files, one database)
-3. **SSL/TLS Status** → AutoSSL for `register.olasentra.com`
-
----
-
-## Part C — Edit `public_html/config.php` on server (one-time)
-
-Open the file in File Manager. Set these lines (keep your existing `DB_*` password):
+File Manager → **`public_html/config.php`** — set these lines (keep your `DB_*` password):
 
 ```php
 define('MAIN_SITE_URL', 'https://olasentra.com');
@@ -35,37 +22,38 @@ define('ADMIN_SITE_URL', 'https://olasentra.com/admin');
 define('APP_ENV', 'production');
 ```
 
-Same `DB_NAME` / `DB_USER` / `DB_PASS` as now — **one shared database**.
+You do **not** edit register’s folder by hand — deploy syncs it.
 
 ---
 
-## Part D — Deploy code
+## Every update (only this)
 
-**Git™ Version Control** → **event-staff-system** → **Update from Remote** → **Deploy HEAD commit**
-
----
-
-## Part E — Test
-
-| URL | Who | What |
-|-----|-----|------|
-| `https://olasentra.com/` | Public | Company homepage |
-| `https://register.olasentra.com/` | Staff | Registration form |
-| `https://register.olasentra.com/staff-app.php` | Staff | Staff hub |
-| `https://olasentra.com/admin/login.php` | You | Admin ERP (your new password) |
-
-`https://olasentra.com/index.php` should redirect to `https://register.olasentra.com/`.
-
----
-
-## After this
-
-Every code change:
+### PC
 
 ```powershell
+cd c:\laragon\www\event-staff-system
 git push origin main
 ```
 
-cPanel → **Update from Remote** → **Deploy HEAD commit**
+### cPanel
 
-Do **not** delete `config.php` on deploy.
+**Git Version Control** → **Update from Remote** → **Deploy HEAD commit**
+
+---
+
+## URLs
+
+| URL | Page |
+|-----|------|
+| `https://register.olasentra.com/` | Staff registration |
+| `https://olasentra.com/` | Homepage |
+| `https://olasentra.com/admin/login.php` | Admin |
+
+---
+
+## Subdomain in cPanel
+
+Only confirm **`register.olasentra.com`** exists with document root  
+`/home/olastofx/register.olasentra.com` — leave it as-is.
+
+Run **AutoSSL** for the subdomain once.

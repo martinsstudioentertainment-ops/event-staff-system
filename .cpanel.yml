@@ -1,13 +1,6 @@
 ---
-# Namecheap cPanel — deploy after "Pull" in Git Version Control.
-# Replace YOUR_CPANEL_USER with your cPanel username (see /home/username in File Manager).
+# One deploy → public_html + register.olasentra.com (keeps your subdomain folder as-is).
 
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/olastofx/public_html/
-    - /bin/mkdir -p $DEPLOYPATH/storage/logs $DEPLOYPATH/storage/backups/database $DEPLOYPATH/storage/backups/weekly $DEPLOYPATH/storage/branding $DEPLOYPATH/storage/google
-    - /bin/cp -R admin api assets cron database docs includes lang vendor $DEPLOYPATH
-    - test -d storage && /bin/cp -R storage/. $DEPLOYPATH/storage/ || true
-    - /bin/chmod 755 $DEPLOYPATH/storage $DEPLOYPATH/storage/logs $DEPLOYPATH/storage/backups $DEPLOYPATH/storage/backups/database $DEPLOYPATH/storage/backups/weekly 2>/dev/null || true
-    - /bin/cp -f .htaccess sw.js config.production.example.php $DEPLOYPATH
-    - /bin/cp -f *.php $DEPLOYPATH
+    - /bin/bash scripts/cpanel-deploy.sh
