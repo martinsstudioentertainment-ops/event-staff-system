@@ -115,8 +115,15 @@
 
         setCoords(lat, lng);
         if (f.location && place.formatted_address) {
-            f.location.value = place.formatted_address;
+            // Keep venue name short — full address belongs in Eircode/GPS, not location label.
+            var shortName = place.name || '';
+            f.location.value = shortName !== '' ? shortName : place.formatted_address;
         }
+        (place.address_components || []).forEach(function (component) {
+            if (component.types.indexOf('postal_code') !== -1 && f.eircode) {
+                f.eircode.value = normalizeEircode(component.long_name || component.short_name || '');
+            }
+        });
         if (f.search && place.formatted_address) {
             f.search.value = place.formatted_address;
         }
@@ -154,12 +161,21 @@
             componentRestrictions: { country: 'IE' }
         }, function (results, status) {
             if (status !== 'OK' || !results || !results[0]) {
+                pendingSaveAfterGeocode = false;
                 setGpsStatus('Could not find GPS for that Eircode. Try search or drag the pin.', true);
                 return;
             }
 
             applyPlace(results[0]);
             setGpsStatus('GPS found for ' + eircode + '. Adjust the pin if needed.', false);
+
+            if (pendingSaveAfterGeocode) {
+                pendingSaveAfterGeocode = false;
+                var form = mapEl.closest('form');
+                if (form && fields().lat && fields().lat.value) {
+                    form.requestSubmit();
+                }
+            }
         });
     }
 
@@ -221,11 +237,18 @@
         }
     }
 
+    var pendingSaveAfterGeocode = false;
+
     function bindFormSubmit() {
         var form = mapEl.closest('form');
         if (!form) return;
 
         form.addEventListener('submit', function (event) {
+            var submitter = event.submitter;
+            if (submitter && submitter.getAttribute('formaction')) {
+                return;
+            }
+
             var f = fields();
             if (f.latManual && f.lngManual) {
                 var lat = parseFloat(f.latManual.value);
@@ -238,8 +261,9 @@
             if (!f.lat || !f.lng || !f.lat.value || !f.lng.value) {
                 if (mapsEnabled && f.eircode && isValidEircode(f.eircode.value)) {
                     event.preventDefault();
+                    pendingSaveAfterGeocode = true;
                     geocodeEircode();
-                    setGpsStatus('Look up GPS from the Eircode before saving.', true);
+                    setGpsStatus('Looking up GPS — will save when ready…', false);
                 }
             }
         });

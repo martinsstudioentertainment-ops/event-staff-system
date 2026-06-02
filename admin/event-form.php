@@ -136,7 +136,8 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
         <div class="form-group form-group--full">
             <label class="form-label" for="location">Venue name</label>
-            <input class="form-input" type="text" id="location" name="location" value="<?= eventOld($old, $event, 'location') ?>" placeholder="e.g. Aviva Stadium, Dublin">
+            <input class="form-input" type="text" id="location" name="location" value="<?= eventOld($old, $event, 'location') ?>" placeholder="e.g. Malahide Castle">
+            <p class="form-hint">Short venue label only — do not paste a full address here. Use <strong>Venue Eircode</strong> and the map below for GPS sign-in.</p>
         </div>
 
         <div class="form-group form-group--full">
@@ -150,12 +151,17 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <input class="form-input" type="url" id="google_sheet_url" name="google_sheet_url" value="<?= eventOld($old, $event, 'google_sheet_url') ?>" placeholder="https://docs.google.com/spreadsheets/d/…/edit">
             <p class="form-hint">When staff register for this event, a row is appended to this sheet (requires Google Sheets sync in Settings). Or use <strong>Events → Create Google Sheet(s)</strong> to auto-generate — no manual sheet needed.</p>
             <?php if ($isEdit && isGoogleServiceAccountConfigured() && trim((string) ($event['google_sheet_url'] ?? '')) === ''): ?>
-                <form method="post" action="events-sheets-action.php" class="inline-form" style="margin-top:0.5rem;" onsubmit="return confirm('Create a Google Sheet for this event now?');">
-                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
-                    <input type="hidden" name="action" value="create_one">
-                    <input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>">
-                    <button type="submit" class="btn btn--small btn--secondary">Create Google Sheet for this event</button>
-                </form>
+                <button
+                    type="submit"
+                    class="btn btn--small btn--secondary"
+                    style="margin-top:0.5rem;"
+                    formaction="events-sheets-action.php"
+                    formmethod="post"
+                    name="action"
+                    value="create_one"
+                    onclick="return confirm('Create a Google Sheet for this event now?');"
+                >Create Google Sheet for this event</button>
+                <input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>">
             <?php endif; ?>
         </div>
 
