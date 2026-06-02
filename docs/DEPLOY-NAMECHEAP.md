@@ -110,18 +110,10 @@ Import once:
 `config.php` stays **only on the server**, not in Git.
 
 1. cPanel → **File Manager** → `public_html` (or your app folder).
-2. Copy `config.production.example.php` → rename to **`config.php`**.
-3. Edit with real values:
+2. Copy **`config.production.example.php`** → rename to **`config.php`** (keep the whole file — it must include `getDB()` and the `require_once` lines, not only the `define()` lines).
+3. Edit **`config.php`** and set your real `DB_NAME`, `DB_USER`, `DB_PASS`, and HTTPS URLs.
 
-```php
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'username_eventstaff');
-define('DB_USER', 'username_dbuser');
-define('DB_PASS', 'your_strong_password');
-define('REGISTRATION_SITE_URL', 'https://yourdomain.com');
-define('ADMIN_SITE_URL', 'https://yourdomain.com/admin');
-define('APP_ENV', 'production');
-```
+**Common 500 error:** `config.php` created with only six `define()` lines and no `getDB()` function. Use the full template from `config.production.example.php` in the repo.
 
 4. Create writable folders if missing:
 

@@ -36,18 +36,10 @@ git push -u origin main
 
 1. File Manager → `public_html`
 2. Upload nothing yet if using Git deploy below — after first deploy:
-3. Copy `config.production.example.php` → rename **`config.php`**
-4. Edit:
-
-```php
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'cpaneluser_eventstaff');  // your real names
-define('DB_USER', 'cpaneluser_dbuser');
-define('DB_PASS', 'strong_password_here');
-define('REGISTRATION_SITE_URL', 'https://yourdomain.com');
-define('ADMIN_SITE_URL', 'https://yourdomain.com/admin');
-define('APP_ENV', 'production');
-```
+3. Copy **`config.production.example.php`** → rename **`config.php`** (full file, including `getDB()` — not just the `define()` lines)
+4. Edit `DB_*` and URLs in `config.php` for your database and domain
+5. cPanel → **MultiPHP Manager** → PHP **8.1** or **8.2** for the domain
+6. Optional: open `setup-check.php` in File Manager, set `$expectedToken`, visit `https://yourdomain.com/setup-check.php?token=...`, then **delete** that file
 
 5. Folders writable: `storage/logs`, `storage/backups` (chmod 755)
 

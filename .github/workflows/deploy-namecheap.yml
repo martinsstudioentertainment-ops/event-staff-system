@@ -7,7 +7,13 @@
 #     FTP_PASSWORD    FTP password
 #     FTP_SERVER_DIR  e.g. /public_html/  (must end with /)
 #
-# config.php is NOT deployed — create it once on the server from config.production.example.php
+# Optional — auto-upload config.php (never commit passwords to git):
+#     DB_HOST                  default localhost
+#     DB_NAME                  e.g. olastofx_eventstaff
+#     DB_USER                  e.g. olastofx_dbuser
+#     DB_PASS                  cPanel MySQL password
+#     REGISTRATION_SITE_URL    e.g. https://olasentra.com
+#     ADMIN_SITE_URL           e.g. https://olasentra.com/admin
 
 name: Deploy to Namecheap
 
@@ -26,6 +32,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Generate config.php from secrets
+        if: ${{ secrets.DB_PASS != '' }}
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASS: ${{ secrets.DB_PASS }}
+          REGISTRATION_SITE_URL: ${{ secrets.REGISTRATION_SITE_URL }}
+          ADMIN_SITE_URL: ${{ secrets.ADMIN_SITE_URL }}
+        run: php scripts/generate-production-config.php
+
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -41,7 +58,6 @@ jobs:
             **/.github/**
             **/.gitignore
             **/.cursor/**
-            config.php
             .env
             .env.*
             storage/logs/**
