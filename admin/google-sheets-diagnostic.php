@@ -68,6 +68,27 @@ $rows[] = [
         : 'Required for auto-create — Settings → Google Sheets → Connect Google account',
 ];
 
+$userQuota = $oauthOk ? googleDriveUserStorageQuota($pdo) : null;
+if ($userQuota !== null) {
+    $limit = $userQuota['limit'];
+    $usage = $userQuota['usage'];
+    $email = $userQuota['email'];
+    $detail = $limit > 0
+        ? ($email !== '' ? $email . ': ' : '')
+            . round($usage / $limit * 100, 1) . '% used ('
+            . number_format($usage) . ' / ' . number_format($limit) . ' bytes)'
+        : ($email !== '' ? $email . ': ' : '') . 'Usage ' . number_format($usage) . ' bytes';
+    $full = $limit > 0 && $usage >= $limit;
+    if ($full) {
+        $driveQuotaIssue = true;
+    }
+    $rows[] = [
+        'Gmail Drive storage',
+        $full ? 'fail' : 'pass',
+        $detail,
+    ];
+}
+
 $folderId = getGoogleSheetsDriveParentFolderId();
 $rows[] = [
     'Drive folder for new sheets',

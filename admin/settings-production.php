@@ -324,6 +324,7 @@ if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
                 <li>Authorized redirect URIs: <code><?= h(googleDriveOAuthRedirectUri($pdo)) ?></code></li>
             </ul>
             <p class="form-hint">OAuth consent screen → add your Gmail as a <strong>Test user</strong> if the app is in Testing mode.</p>
+            <p class="form-hint">After a code update, click <strong>Connect Google account</strong> again so Google grants Drive access to copy your template.</p>
             <?php if ($googleOauthConnected): ?>
                 <p class="form-hint"><strong>Status:</strong> Gmail connected.</p>
             <?php else: ?>

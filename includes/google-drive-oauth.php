@@ -55,7 +55,8 @@ function googleDriveOAuthJavaScriptOrigin(?PDO $pdo = null): string
 function googleDriveOAuthScopes(): array
 {
     return [
-        'https://www.googleapis.com/auth/drive.file',
+        // drive.file cannot copy an existing template in your folder — need full Drive for copy
+        'https://www.googleapis.com/auth/drive',
         'https://www.googleapis.com/auth/spreadsheets',
     ];
 }

@@ -488,8 +488,18 @@ function googleSheetsCreatePermissionHint(?string $apiBody, ?string $projectId =
     }
 
     if (str_contains($body, 'storage quota') || str_contains($body, 'storagequotaexceeded')) {
+        if (function_exists('googleDriveOAuthConfigured') && googleDriveOAuthConfigured()) {
+            return 'Google Drive storage is full for the connected Gmail (or the copy used the service account). '
+                . 'Free space at https://one.google.com/storage, purge old test sheets, then Settings → disconnect/reconnect Google account '
+                . '(required after a scope update).';
+        }
+
         return 'Service accounts cannot own new files (0 GB). In Settings → Google Sheets, click **Connect Google account** '
             . 'and sign in with your Gmail so copies use your Drive space. Also check https://one.google.com/storage.';
+    }
+
+    if (str_contains($body, 'insufficient') && str_contains($body, 'scope')) {
+        return 'Reconnect Google account in Settings → Google Sheets (Connect Google account) so the app can copy your template.';
     }
 
     return 'In Google Cloud project “' . $project
@@ -697,6 +707,46 @@ function googleDrivePurgeAllOwnedSpreadsheets(array $serviceAccount): array
     googleSheetsLog('Purge ALL service account spreadsheets: ' . $message);
 
     return ['deleted' => $deleted, 'listed' => $listed, 'message' => $message];
+}
+
+/**
+ * @param array<string, mixed> $serviceAccount
+ * @return array{limit: string, usage: string, usageInDrive: string}|null
+ */
+/**
+ * @return array{limit: int, usage: int, usageInDrive: int, email: string}|null
+ */
+function googleDriveUserStorageQuota(?PDO $pdo = null): ?array
+{
+    $token = googleDriveGetUserAccessToken($pdo);
+    if ($token === '') {
+        return null;
+    }
+
+    $response = googleSheetsHttpRequest(
+        'GET',
+        'https://www.googleapis.com/drive/v3/about?fields=storageQuota,user',
+        googleSheetsAuthHeaders($token, null, false)
+    );
+
+    if ($response['code'] !== 200) {
+        return null;
+    }
+
+    $data  = json_decode($response['body'], true);
+    $quota = is_array($data) ? ($data['storageQuota'] ?? null) : null;
+    if (!is_array($quota)) {
+        return null;
+    }
+
+    $user = is_array($data['user'] ?? null) ? $data['user'] : [];
+
+    return [
+        'limit'        => (int) ($quota['limit'] ?? 0),
+        'usage'        => (int) ($quota['usage'] ?? 0),
+        'usageInDrive' => (int) ($quota['usageInDrive'] ?? 0),
+        'email'        => (string) ($user['emailAddress'] ?? ''),
+    ];
 }
 
 /**
@@ -969,12 +1019,19 @@ function googleDriveCopySpreadsheetFromTemplate(
     $project   = (string) ($serviceAccount['project_id'] ?? '');
     $userToken = googleDriveGetUserAccessToken();
     $saToken   = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/drive']);
+    $oauthOn   = function_exists('googleDriveOAuthConfigured') && googleDriveOAuthConfigured();
 
     $tokenPlan = [];
     if ($userToken !== '') {
         $tokenPlan[] = ['token' => $userToken, 'label' => 'Gmail OAuth', 'quotaProject' => null];
+    } elseif ($oauthOn) {
+        googleSheetsLog(
+            'Drive copy: Gmail is connected but no user access token — open Settings → Google Sheets → Connect Google account again.'
+        );
+
+        return null;
     }
-    if ($saToken !== '') {
+    if (!$oauthOn && $saToken !== '') {
         $tokenPlan[] = ['token' => $saToken, 'label' => 'service account', 'quotaProject' => $project];
     }
     if ($tokenPlan === []) {
@@ -1013,10 +1070,13 @@ function googleDriveCopySpreadsheetFromTemplate(
     }
 
     if ($response['code'] < 200 || $response['code'] >= 300) {
+        $lastLabel = $tokenPlan[count($tokenPlan) - 1]['label'] ?? 'unknown';
         googleSheetsLog(
-            'Drive copy template failed: HTTP ' . $response['code'] . ' — ' . $response['body']
+            'Drive copy template failed (' . $lastLabel . '): HTTP ' . $response['code'] . ' — ' . $response['body']
             . ' | ' . googleSheetsCreatePermissionHint($response['body'], $project)
-            . ($userToken === '' ? ' | Connect your Gmail in Settings → Google Sheets (OAuth) so copies use your 15 GB storage.' : '')
+            . ($userToken === '' && !$oauthOn
+                ? ' | Connect your Gmail in Settings → Google Sheets (OAuth) so copies use your 15 GB storage.'
+                : ($oauthOn ? ' | Reconnect Google account if you connected before today (Drive scope was updated).' : ''))
         );
 
         return null;
