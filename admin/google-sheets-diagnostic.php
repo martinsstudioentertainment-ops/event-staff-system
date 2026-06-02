@@ -45,9 +45,26 @@ if (($token ?? '') !== '' && is_array($sa)) {
     $ownedCount = count($owned);
     $rows[] = [
         'Service account Drive spreadsheets',
-        $ownedCount < 400 ? 'pass' : 'warn',
-        (string) $ownedCount . ' owned by the service account (auto-created + tests)',
+        $ownedCount < 50 ? 'pass' : 'warn',
+        (string) $ownedCount . ' owned by the service account',
     ];
+    $quota = googleDriveStorageQuota($sa);
+    if ($quota !== null) {
+        $limit = (int) ($quota['limit'] ?? 0);
+        $usage = (int) ($quota['usage'] ?? 0);
+        $detail = $limit > 0
+            ? round($usage / $limit * 100, 1) . '% used (' . number_format($usage) . ' / ' . number_format($limit) . ' bytes)'
+            : 'Usage ' . number_format($usage) . ' bytes in Drive';
+        $full = $limit > 0 && $usage >= $limit;
+        if ($full || $ownedCount >= 50) {
+            $driveQuotaIssue = true;
+        }
+        $rows[] = [
+            'Drive storage quota',
+            $full ? 'fail' : 'pass',
+            $detail,
+        ];
+    }
 }
 
 if (($token ?? '') !== '' && is_array($sa) && isset($_GET['purge_test'])) {
@@ -57,21 +74,12 @@ if (($token ?? '') !== '' && is_array($sa) && isset($_GET['purge_test'])) {
     $ownedCount = count($owned);
 }
 
-$probe = null;
-if (($token ?? '') !== '' && is_array($sa) && isset($_GET['test_create'])) {
-    $probe = googleSheetsProbeCreate($sa, 'Event Staff API probe ' . date('Y-m-d H:i'));
-    $driveSummary = (string) ($probe['drive']['summary'] ?? '');
-    $driveQuotaIssue = str_contains(mb_strtolower($driveSummary), 'storage quota');
-    $rows[] = [
-        'Drive API create probe',
-        ($probe['drive']['code'] ?? 0) >= 200 && ($probe['drive']['code'] ?? 0) < 300 ? 'pass' : 'fail',
-        'HTTP ' . (int) ($probe['drive']['code'] ?? 0) . ' — ' . h($driveSummary),
-    ];
-    $rows[] = [
-        'Sheets API create probe',
-        ($probe['sheets']['code'] ?? 0) >= 200 && ($probe['sheets']['code'] ?? 0) < 300 ? 'pass' : 'fail',
-        'HTTP ' . (int) ($probe['sheets']['code'] ?? 0) . ' — ' . h((string) ($probe['sheets']['summary'] ?? '')),
-    ];
+if (($token ?? '') !== '' && is_array($sa) && isset($_GET['purge_all']) && ($_GET['confirm'] ?? '') === 'yes') {
+    $purge = googleDrivePurgeAllOwnedSpreadsheets($sa);
+    $flash = $purge['message'] . ' Re-create sheets on Events if needed.';
+    $owned = googleDriveListOwnedSpreadsheets($sa, 1000);
+    $ownedCount = count($owned);
+    $driveQuotaIssue = false;
 }
 
 $createOk = false;
@@ -91,6 +99,8 @@ if (($token ?? '') !== '' && is_array($sa) && isset($_GET['test_create'])) {
         if (str_contains(mb_strtolower(getLastGoogleSheetsApiError()), 'storage quota')) {
             $driveQuotaIssue = true;
         }
+    } else {
+        $driveQuotaIssue = false;
     }
 }
 if (isset($_GET['test_create'])) {
@@ -117,10 +127,11 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <strong>Drive storage full</strong>
             <p style="margin:0.5rem 0 0">Each diagnostic run and bulk create adds spreadsheets to the <strong>service account’s</strong> Drive (not your personal Gmail). Repeated tests can fill that quota.</p>
             <ol style="margin:0.5rem 0 0 1.25rem">
-                <li>Click <strong>Purge test spreadsheets</strong> below (removes names containing “Event Staff API probe/test”).</li>
-                <li>If you already ran bulk create, those real event sheets stay — only tests are removed. If quota is still full, delete unneeded sheets via API or use a new service account.</li>
-                <li>Then run <strong>create test</strong> once (not repeatedly).</li>
+                <li>Click <strong>Purge test spreadsheets</strong> first.</li>
+                <li>If still full, click <strong>Delete ALL service account sheets</strong> (removes every sheet the robot owns — you can run <strong>Create N Google Sheet(s)</strong> on Events again later).</li>
+                <li>Then <strong>Run create test</strong> once only — do not click it many times.</li>
             </ol>
+            <p style="margin:0.5rem 0 0"><strong>Do not click “Run create test” again until after purge.</strong> Each click tries to create more files.</p>
         </div>
     <?php endif; ?>
 
@@ -158,16 +169,17 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         </div>
     <?php endif; ?>
 
-    <div class="toolbar" style="margin-top:1rem">
+    <div class="toolbar" style="margin-top:1rem;flex-wrap:wrap;gap:0.5rem">
         <a href="?purge_test=1" class="btn btn--secondary">Purge test spreadsheets</a>
+        <a href="?purge_all=1&amp;confirm=yes" class="btn btn--secondary" onclick="return confirm('Delete EVERY spreadsheet owned by the service account? Event sheet links in the database may break until you create sheets again.');">Delete ALL service account sheets</a>
         <a href="?test_create=1" class="btn btn--primary">Run create test (one sheet)</a>
         <a href="settings-production.php#google-sheets" class="btn btn--secondary">Google Sheets settings</a>
         <a href="events.php" class="btn btn--secondary">Events</a>
     </div>
 
     <p class="form-hint" style="margin-top:1rem">
-        <strong>Order:</strong> purge test sheets first if Drive quota failed, then run create test once.
-        Log: <code>storage/logs/google-sheets.log</code>.
+        <strong>Order:</strong> 1) Purge test → 2) If still quota full, Delete ALL → 3) Create test once.
+        Re-upload <code>includes/google-sheets-sync.php</code> and this page after git pull if buttons are missing.
     </p>
 </section>
 

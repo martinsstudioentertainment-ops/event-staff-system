@@ -508,6 +508,9 @@ function googleDrivePurgeTestSpreadsheets(array $serviceAccount): array
     $patterns = [
         'event staff api probe',
         'event staff api test',
+        'event staff api',
+        'api probe',
+        'api test',
     ];
     $files   = googleDriveListOwnedSpreadsheets($serviceAccount, 1000);
     $deleted = 0;
@@ -539,6 +542,73 @@ function googleDrivePurgeTestSpreadsheets(array $serviceAccount): array
     googleSheetsLog('Purge test spreadsheets: ' . $message);
 
     return ['deleted' => $deleted, 'listed' => $listed, 'message' => $message];
+}
+
+/**
+ * Delete every spreadsheet owned by the service account (frees Drive quota).
+ * Event rows may still have old sheet URLs — re-run Create Google Sheet(s) after.
+ *
+ * @param array<string, mixed> $serviceAccount
+ * @return array{deleted: int, listed: int, message: string}
+ */
+function googleDrivePurgeAllOwnedSpreadsheets(array $serviceAccount): array
+{
+    $files   = googleDriveListOwnedSpreadsheets($serviceAccount, 1000);
+    $deleted = 0;
+
+    foreach ($files as $file) {
+        if (googleDriveDeleteFile($serviceAccount, $file['id'])) {
+            $deleted++;
+        }
+    }
+
+    googleDriveEmptyTrash($serviceAccount);
+
+    $listed  = count($files);
+    $message = "Deleted {$deleted} of {$listed} spreadsheet(s) owned by the service account, then emptied trash.";
+
+    googleSheetsLog('Purge ALL service account spreadsheets: ' . $message);
+
+    return ['deleted' => $deleted, 'listed' => $listed, 'message' => $message];
+}
+
+/**
+ * @param array<string, mixed> $serviceAccount
+ * @return array{limit: string, usage: string, usageInDrive: string}|null
+ */
+function googleDriveStorageQuota(array $serviceAccount): ?array
+{
+    $project = (string) ($serviceAccount['project_id'] ?? '');
+    $token   = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/drive.readonly']);
+    if ($token === '') {
+        $token = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/drive']);
+    }
+    if ($token === '') {
+        return null;
+    }
+
+    $response = googleSheetsHttpRequest(
+        'GET',
+        'https://www.googleapis.com/drive/v3/about?fields=storageQuota',
+        googleSheetsAuthHeaders($token, $project, false)
+    );
+
+    if ($response['code'] !== 200) {
+        return null;
+    }
+
+    $data  = json_decode($response['body'], true);
+    $quota = is_array($data) ? ($data['storageQuota'] ?? null) : null;
+
+    if (!is_array($quota)) {
+        return null;
+    }
+
+    return [
+        'limit'         => (string) ($quota['limit'] ?? ''),
+        'usage'         => (string) ($quota['usage'] ?? ''),
+        'usageInDrive'  => (string) ($quota['usageInDrive'] ?? ''),
+    ];
 }
 
 /**
