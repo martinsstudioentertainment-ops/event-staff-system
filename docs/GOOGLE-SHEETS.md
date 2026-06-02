@@ -78,6 +78,7 @@ Without this, sheet URLs on events are ignored.
 | Permission denied | Share sheet with service account email as Editor |
 | Wrong tab | Set correct **Sheet tab name** on the event |
 | Still failing | Admin → **Google Sheets diagnostic** or read `storage/logs/google-sheets.log` |
+| HTTP 403 **storage quota** on create | Service account Drive is full — Admin → **Google Sheets diagnostic** → **Purge test spreadsheets**; avoid running create test repeatedly |
 | HTTP 403 PERMISSION_DENIED on **create** | APIs not enabled on the JSON `project_id`, or billing not linked — see steps 3–4 above; wait 5 min after enabling |
 | HTTP 403 SERVICE_DISABLED | Enable APIs on the **same** project as `project_id` in your JSON (not a different GCP project) |
 | HTTP 0 / curl error | Hosting blocks outbound HTTPS to `googleapis.com` — ask Namecheap to allow it |

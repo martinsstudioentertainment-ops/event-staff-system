@@ -360,6 +360,11 @@ function googleSheetsCreatePermissionHint(?string $apiBody, ?string $projectId =
             . $project . '”.';
     }
 
+    if (str_contains($body, 'storage quota') || str_contains($body, 'storagequotaexceeded')) {
+        return 'The service account’s Google Drive is full (each auto-created sheet uses its storage). '
+            . 'Admin → Google Sheets diagnostic → “Purge test spreadsheets”, or create a new service account key in a fresh GCP project.';
+    }
+
     return 'In Google Cloud project “' . $project
         . '”: confirm Sheets + Drive APIs are enabled, link billing, IAM → grant this service account “Service Usage Consumer” or Editor, wait 10 min, re-upload JSON key, retry.';
 }
@@ -397,7 +402,191 @@ function googleSheetsSummarizeApiError(string $body): string
 }
 
 /**
+ * @param array<string, mixed> $serviceAccount
+ */
+function googleDriveDeleteFile(array $serviceAccount, string $fileId): bool
+{
+    $fileId = trim($fileId);
+    if ($fileId === '') {
+        return false;
+    }
+
+    $project = (string) ($serviceAccount['project_id'] ?? '');
+    $token   = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/drive']);
+    if ($token === '') {
+        return false;
+    }
+
+    $response = googleSheetsHttpRequest(
+        'DELETE',
+        'https://www.googleapis.com/drive/v3/files/' . rawurlencode($fileId),
+        googleSheetsAuthHeaders($token, $project, false)
+    );
+
+    return $response['code'] >= 200 && $response['code'] < 300;
+}
+
+/**
+ * @param array<string, mixed> $serviceAccount
+ * @return list<array{id: string, name: string, createdTime: string}>
+ */
+function googleDriveListOwnedSpreadsheets(array $serviceAccount, int $maxResults = 500): array
+{
+    $project = (string) ($serviceAccount['project_id'] ?? '');
+    $token   = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/drive.readonly']);
+    if ($token === '') {
+        $token = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/drive']);
+    }
+    if ($token === '') {
+        return [];
+    }
+
+    $files      = [];
+    $pageToken  = '';
+    $remaining  = max(1, min(1000, $maxResults));
+
+    do {
+        $pageSize = min(100, $remaining);
+        $url      = 'https://www.googleapis.com/drive/v3/files?'
+            . 'q=' . rawurlencode("mimeType='application/vnd.google-apps.spreadsheet' and trashed=false")
+            . '&fields=nextPageToken,files(id,name,createdTime)'
+            . '&pageSize=' . $pageSize
+            . '&orderBy=createdTime desc';
+        if ($pageToken !== '') {
+            $url .= '&pageToken=' . rawurlencode($pageToken);
+        }
+
+        $response = googleSheetsHttpRequest(
+            'GET',
+            $url,
+            googleSheetsAuthHeaders($token, $project, false)
+        );
+
+        if ($response['code'] !== 200) {
+            googleSheetsLog('Drive list spreadsheets failed: HTTP ' . $response['code'] . ' — ' . $response['body']);
+            break;
+        }
+
+        $data = json_decode($response['body'], true);
+        if (!is_array($data)) {
+            break;
+        }
+
+        foreach ($data['files'] ?? [] as $file) {
+            if (!is_array($file)) {
+                continue;
+            }
+            $id = (string) ($file['id'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+            $files[] = [
+                'id'          => $id,
+                'name'        => (string) ($file['name'] ?? ''),
+                'createdTime' => (string) ($file['createdTime'] ?? ''),
+            ];
+            $remaining--;
+            if ($remaining <= 0) {
+                break 2;
+            }
+        }
+
+        $pageToken = (string) ($data['nextPageToken'] ?? '');
+    } while ($pageToken !== '');
+
+    return $files;
+}
+
+/**
+ * Delete diagnostic probe/test sheets and empty Drive trash for the service account.
+ *
+ * @param array<string, mixed> $serviceAccount
+ * @return array{deleted: int, listed: int, message: string}
+ */
+function googleDrivePurgeTestSpreadsheets(array $serviceAccount): array
+{
+    $patterns = [
+        'event staff api probe',
+        'event staff api test',
+    ];
+    $files   = googleDriveListOwnedSpreadsheets($serviceAccount, 1000);
+    $deleted = 0;
+
+    foreach ($files as $file) {
+        $name = mb_strtolower($file['name']);
+        $match = false;
+        foreach ($patterns as $pattern) {
+            if (str_contains($name, $pattern)) {
+                $match = true;
+                break;
+            }
+        }
+        if (!$match) {
+            continue;
+        }
+        if (googleDriveDeleteFile($serviceAccount, $file['id'])) {
+            $deleted++;
+        }
+    }
+
+    googleDriveEmptyTrash($serviceAccount);
+
+    $listed = count($files);
+    $message = $deleted > 0
+        ? "Deleted {$deleted} test spreadsheet(s). Listed {$listed} total owned by the service account."
+        : "No test spreadsheets matched (probe/test names). Listed {$listed} total — delete old sheets in Drive or purge manually via API.";
+
+    googleSheetsLog('Purge test spreadsheets: ' . $message);
+
+    return ['deleted' => $deleted, 'listed' => $listed, 'message' => $message];
+}
+
+/**
+ * @param array<string, mixed> $serviceAccount
+ */
+function googleDriveEmptyTrash(array $serviceAccount): bool
+{
+    $project = (string) ($serviceAccount['project_id'] ?? '');
+    $token   = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/drive']);
+    if ($token === '') {
+        return false;
+    }
+
+    $response = googleSheetsHttpRequest(
+        'DELETE',
+        'https://www.googleapis.com/drive/v3/files/trash',
+        googleSheetsAuthHeaders($token, $project, false)
+    );
+
+    return $response['code'] >= 200 && $response['code'] < 300;
+}
+
+/**
+ * @param array<string, mixed> $serviceAccount
+ */
+function googleSheetsProbeCleanupCreatedFile(array $serviceAccount, int $httpCode, string $responseBody, bool $driveApi): void
+{
+    if ($httpCode < 200 || $httpCode >= 300) {
+        return;
+    }
+
+    $data = json_decode($responseBody, true);
+    if (!is_array($data)) {
+        return;
+    }
+
+    $id = $driveApi
+        ? (string) ($data['id'] ?? '')
+        : (string) ($data['spreadsheetId'] ?? '');
+
+    if ($id !== '' && googleDriveDeleteFile($serviceAccount, $id)) {
+        googleSheetsLog('Probe cleanup: deleted temporary spreadsheet ' . $id);
+    }
+}
+
+/**
  * Raw create probes for admin diagnostic (Sheets API vs Drive API).
+ * Successful probes delete the temporary file so tests do not fill Drive quota.
  *
  * @param array<string, mixed> $serviceAccount
  * @return array{sheets: array{code: int, summary: string}, drive: array{code: int, summary: string}}
@@ -419,11 +608,13 @@ function googleSheetsProbeCreate(array $serviceAccount, string $title = 'Event S
             googleSheetsAuthHeaders($tokenSheets, $project),
             $payload ?: '{}'
         );
+        $ok = $resp['code'] >= 200 && $resp['code'] < 300;
+        if ($ok) {
+            googleSheetsProbeCleanupCreatedFile($serviceAccount, $resp['code'], $resp['body'], false);
+        }
         $result['sheets'] = [
             'code'    => $resp['code'],
-            'summary' => $resp['code'] >= 200 && $resp['code'] < 300
-                ? 'OK'
-                : googleSheetsSummarizeApiError($resp['body']),
+            'summary' => $ok ? 'OK (temp file removed)' : googleSheetsSummarizeApiError($resp['body']),
         ];
     }
 
@@ -439,11 +630,13 @@ function googleSheetsProbeCreate(array $serviceAccount, string $title = 'Event S
             googleSheetsAuthHeaders($tokenDrive, $project),
             $payload ?: '{}'
         );
+        $ok = $resp['code'] >= 200 && $resp['code'] < 300;
+        if ($ok) {
+            googleSheetsProbeCleanupCreatedFile($serviceAccount, $resp['code'], $resp['body'], true);
+        }
         $result['drive'] = [
             'code'    => $resp['code'],
-            'summary' => $resp['code'] >= 200 && $resp['code'] < 300
-                ? 'OK'
-                : googleSheetsSummarizeApiError($resp['body']),
+            'summary' => $ok ? 'OK (temp file removed)' : googleSheetsSummarizeApiError($resp['body']),
         ];
     }
 
