@@ -30,6 +30,10 @@ try {
 
 $allForms     = $pdo ? getEnabledRegistrationForms($pdo) : getDefaultRegistrationForms();
 $formSlug     = strtolower(trim((string) ($_GET['form'] ?? '')));
+// Static is merged into DSP & Static — keep old ?form=static links working.
+if ($formSlug === 'static') {
+    $formSlug = 'dsp';
+}
 $linkedForm   = ($formSlug !== '' && $pdo) ? getRegistrationForm($pdo, $formSlug) : null;
 $lockFormType = $linkedForm !== null;
 
@@ -176,6 +180,7 @@ if ($pdo) {
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                        <p class="form-hint"><?= h(t('your_role_hint')) ?></p>
                         <span class="form-error" id="form_slug-error"></span>
                     </div>
                     <?php else: ?>

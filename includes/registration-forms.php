@@ -15,27 +15,27 @@ function getDefaultRegistrationForms(): array
         'dsp' => [
             'slug'               => 'dsp',
             'staff_role'         => 'dsp',
-            'label'              => 'Door Supervisor (DSP)',
-            'short_label'        => 'DSP',
-            'title'              => 'DSP Registration',
-            'subtitle'           => 'For PSA-licensed Door Supervisors — nightclub, office, and special event work.',
-            'description'        => 'Choose your venue first, then select nightclub shifts, office security, or special events you are available for.',
+            'label'              => 'DSP & Static Security',
+            'short_label'        => 'DSP & Static',
+            'title'              => 'DSP & Static Registration',
+            'subtitle'           => 'For Door Supervisors (DSP) and static / site security — concerts, festivals, venues, and ongoing sites.',
+            'description'        => 'One form for both DSP and static work. Choose your venue, then tick the shifts you want (events and site security).',
             'icon'               => 'shield',
             'enabled'            => true,
             'show_notice'        => true,
             'selection_mode'     => 'venue_first',
-            'allowed_work_types' => ['nightclub', 'office', 'special_event', 'festival'],
+            'allowed_work_types' => ['nightclub', 'office', 'special_event', 'festival', 'static'],
         ],
         'static' => [
             'slug'               => 'static',
             'staff_role'         => 'static',
-            'label'              => 'Static Security',
+            'label'              => 'Static Security (legacy link)',
             'short_label'        => 'Static',
             'title'              => 'Static Guard Registration',
-            'subtitle'           => 'For ongoing static / site security — not concert or gig events.',
-            'description'        => 'Pick the venue or site, then choose available static shifts. This form does not list concerts or festival gigs.',
+            'subtitle'           => 'Use the main DSP & Static form instead — this link is kept for old bookmarks only.',
+            'description'        => 'Redirects staff to the combined DSP & Static registration.',
             'icon'               => 'shield',
-            'enabled'            => true,
+            'enabled'            => false,
             'show_notice'        => true,
             'selection_mode'     => 'venue_first',
             'allowed_work_types' => ['static'],
@@ -126,7 +126,7 @@ function getFormAllowedWorkTypes(array $form): array
 function formatStaffRoleLabel(string $role): string
 {
     return match (normalizeStaffRole($role)) {
-        'dsp'     => 'Door Supervisor (DSP)',
+        'dsp'     => 'DSP & Static Security',
         'static'  => 'Static Security',
         'steward' => 'Steward',
         default   => ucfirst($role),
@@ -158,6 +158,18 @@ function getRegistrationForms(?PDO $pdo = null): array
         $merged[$slug] = array_replace_recursive($default, $saved);
         $merged[$slug]['slug']       = $slug;
         $merged[$slug]['staff_role'] = $slug === 'steward' ? 'steward' : ($slug === 'static' ? 'static' : 'dsp');
+    }
+
+    // One "Your role" option on the main form: DSP covers static shifts too — hide duplicate Static form.
+    if (!empty($merged['dsp']['enabled'])) {
+        $merged['static']['enabled'] = false;
+        $merged['dsp']['allowed_work_types'] = normalizeFormAllowedWorkTypes(
+            ['allowed_work_types' => array_unique(array_merge(
+                normalizeFormAllowedWorkTypes($merged['dsp'], $defaults['dsp']),
+                ['static']
+            ))],
+            $defaults['dsp']
+        );
     }
 
     return $merged;
@@ -203,10 +215,17 @@ function getRegistrationForm(?PDO $pdo, string $slug): ?array
 /** @return array<string, array<string, mixed>> */
 function getEnabledRegistrationForms(?PDO $pdo): array
 {
-    return array_filter(
+    $forms = array_filter(
         getRegistrationForms($pdo),
         static fn(array $form): bool => !empty($form['enabled'])
     );
+
+    // Main register page: do not list a separate Static option when DSP & Static is enabled.
+    if (isset($forms['dsp'], $forms['static'])) {
+        unset($forms['static']);
+    }
+
+    return $forms;
 }
 
 function registrationFormRedirectPath(array $query, ?string $formSlug = null): string

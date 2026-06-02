@@ -52,6 +52,7 @@ return [
     'open_venue_maps'           => 'Open venue in Google Maps ↗',
     'registration_type'         => 'Registration type',
     'your_role'                 => 'Your role',
+    'your_role_hint'            => 'DSP & Static is one option (door supervisor and site security). Steward is separate.',
     'email_address'             => 'Email address',
     'email_hint'                => 'Registered before? Use the same email and we will fill in your details.',
     'personal_details'          => 'Personal details',

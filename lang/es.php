@@ -33,6 +33,7 @@ return [
     'sign_in_closes_at'         => 'El registro cierra a las',
     'registration_type'         => 'Tipo de registro',
     'your_role'                 => 'Tu rol',
+    'your_role_hint'            => 'DSP y Static es una sola opción. Steward es aparte.',
     'email_address'             => 'Correo electrónico',
     'personal_details'          => 'Datos personales',
     'surname'                   => 'Apellido',

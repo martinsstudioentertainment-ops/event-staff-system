@@ -273,5 +273,10 @@ function eventAcceptsStaffRole(array $event, string $staffRole): bool
     $staffRole = normalizeStaffRole($staffRole);
     $needed    = normalizeRolesNeeded(['roles_needed' => (string) ($event['roles_needed'] ?? '')]);
 
+    // Combined registration form: DSP applicants can select shifts posted for DSP or static.
+    if ($staffRole === 'dsp') {
+        return count(array_intersect($needed, ['dsp', 'static'])) > 0;
+    }
+
     return in_array($staffRole, $needed, true);
 }

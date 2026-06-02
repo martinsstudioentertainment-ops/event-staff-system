@@ -21,7 +21,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 <section class="card">
     <div class="card__header">
         <h2 class="card__title">Registration forms</h2>
-        <p class="card__subtitle">Three shareable forms — DSP (nightclub / office / special events), Static (non-event site work), and Steward. Each has its own link and venue-first shift picker.</p>
+        <p class="card__subtitle">Main forms: <strong>DSP &amp; Static</strong> (one role — concerts, venues, and site security) and <strong>Steward</strong>. The separate Static form is disabled so staff only pick one security role on the register page.</p>
     </div>
 
     <div class="admin-form-list">
