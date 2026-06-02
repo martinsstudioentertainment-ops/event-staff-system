@@ -257,11 +257,25 @@ $sa = loadGoogleServiceAccount();
 $saEmail = $sa ? (string) ($sa['client_email'] ?? '') : '';
 $googleOauthConnected = googleDriveOAuthConfigured($pdo);
 $googleOauthFlash = '';
+$googleOauthFlashType = 'info';
 if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
-    $googleOauthFlash = 'Google account connected. Run the diagnostic create test again.';
+    $googleOauthFlash = (string) ($_SESSION['google_oauth_success'] ?? 'Google account connected. Run the diagnostic create test again.');
+    unset($_SESSION['google_oauth_success']);
+    $googleOauthFlashType = 'success';
+    $googleOauthConnected = googleDriveOAuthConfigured($pdo);
 } elseif (isset($_GET['google_oauth'])) {
-    $googleOauthFlash = (string) ($_SESSION['google_oauth_error'] ?? 'Google connection failed. Check OAuth client ID/secret and redirect URI in Google Cloud.');
+    $oauthParam = (string) $_GET['google_oauth'];
+    $googleOauthFlash = (string) ($_SESSION['google_oauth_error'] ?? '');
     unset($_SESSION['google_oauth_error']);
+    if ($googleOauthFlash === '') {
+        $googleOauthFlash = match ($oauthParam) {
+            'invalid_state' => 'Sign-in session expired — click Connect Google account again while logged in to admin.',
+            'denied'        => 'Google sign-in was cancelled. Try Connect again.',
+            'no_code'       => 'Google did not return a code — check redirect URI in Google Cloud matches Settings.',
+            default         => 'Google connection failed. Check Client ID, secret, and redirect URI.',
+        };
+    }
+    $googleOauthFlashType = 'warning';
 }
 ?>
 <section class="card erp-settings-panel" id="google-sheets">
@@ -271,7 +285,7 @@ if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
     </div>
 
     <?php if ($googleOauthFlash !== ''): ?>
-        <div class="alert alert--info" style="margin-bottom:1rem"><?= h($googleOauthFlash) ?></div>
+        <div class="alert alert--<?= $googleOauthFlashType === 'success' ? 'success' : ($googleOauthFlashType === 'warning' ? 'warning' : 'info') ?> alert--visible" style="margin-bottom:1rem"><?= h($googleOauthFlash) ?></div>
     <?php endif; ?>
 
     <form method="post" class="erp-settings-form" enctype="multipart/form-data">

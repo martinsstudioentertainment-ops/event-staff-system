@@ -10,9 +10,19 @@ function googleDriveOAuthConfigured(?PDO $pdo = null): bool
 {
     $pdo = $pdo ?? getDB();
 
-    return trim(getSetting($pdo, 'google_oauth_client_id', '')) !== ''
-        && trim(getSetting($pdo, 'google_oauth_client_secret', '')) !== ''
-        && trim(getSetting($pdo, 'google_oauth_refresh_token', '')) !== '';
+    if (trim(getSetting($pdo, 'google_oauth_client_id', '')) === ''
+        || trim(getSetting($pdo, 'google_oauth_client_secret', '')) === '') {
+        return false;
+    }
+
+    if (trim(getSetting($pdo, 'google_oauth_refresh_token', '')) !== '') {
+        return true;
+    }
+
+    $access  = trim(getSetting($pdo, 'google_oauth_access_token', ''));
+    $expires = (int) getSetting($pdo, 'google_oauth_token_expires', '0');
+
+    return $access !== '' && $expires > time() + 60;
 }
 
 function googleDriveOAuthRedirectUri(?PDO $pdo = null): string
@@ -50,12 +60,37 @@ function googleDriveOAuthScopes(): array
     ];
 }
 
+function googleDriveOAuthStoreState(PDO $pdo, string $state): void
+{
+    setSetting($pdo, 'google_oauth_state', $state);
+    setSetting($pdo, 'google_oauth_state_time', (string) time());
+}
+
+function googleDriveOAuthValidateState(PDO $pdo, string $state): bool
+{
+    $expected = trim(getSetting($pdo, 'google_oauth_state', ''));
+    $created  = (int) getSetting($pdo, 'google_oauth_state_time', '0');
+    setSetting($pdo, 'google_oauth_state', '');
+    setSetting($pdo, 'google_oauth_state_time', '');
+
+    if ($expected === '' || $created < time() - 900) {
+        return false;
+    }
+
+    return hash_equals($expected, $state);
+}
+
 function googleDriveOAuthAuthorizeUrl(?PDO $pdo = null): string
 {
-    $pdo        = $pdo ?? getDB();
-    $clientId   = trim(getSetting($pdo, 'google_oauth_client_id', ''));
-    $state      = bin2hex(random_bytes(16));
+    $pdo = $pdo ?? getDB();
+    if (function_exists('initSecureSession')) {
+        initSecureSession();
+    }
+
+    $clientId = trim(getSetting($pdo, 'google_oauth_client_id', ''));
+    $state    = bin2hex(random_bytes(16));
     $_SESSION['google_drive_oauth_state'] = $state;
+    googleDriveOAuthStoreState($pdo, $state);
 
     $params = [
         'client_id'     => $clientId,
@@ -102,21 +137,30 @@ function googleDriveOAuthExchangeCode(PDO $pdo, string $code): array
     curl_close($ch);
 
     if ($codeHttp !== 200 || !is_string($responseBody)) {
-        return ['ok' => false, 'message' => 'Token exchange failed (HTTP ' . $codeHttp . ').'];
+        $snippet = is_string($responseBody) ? mb_substr($responseBody, 0, 200) : '';
+
+        return ['ok' => false, 'message' => 'Token exchange failed (HTTP ' . $codeHttp . '). ' . $snippet];
     }
 
     $data = json_decode($responseBody, true);
-    if (!is_array($data) || empty($data['refresh_token'])) {
-        return ['ok' => false, 'message' => 'No refresh token returned — revoke app access at myaccount.google.com/permissions and connect again.'];
+    if (!is_array($data) || empty($data['access_token'])) {
+        return ['ok' => false, 'message' => 'Google did not return an access token. Check redirect URI matches Google Cloud exactly.'];
     }
 
-    setSetting($pdo, 'google_oauth_refresh_token', (string) $data['refresh_token']);
-    if (!empty($data['access_token'])) {
-        setSetting($pdo, 'google_oauth_access_token', (string) $data['access_token']);
-        setSetting($pdo, 'google_oauth_token_expires', (string) (time() + (int) ($data['expires_in'] ?? 3600)));
+    setSetting($pdo, 'google_oauth_access_token', (string) $data['access_token']);
+    setSetting($pdo, 'google_oauth_token_expires', (string) (time() + (int) ($data['expires_in'] ?? 3600)));
+    clearSettingsCache();
+
+    if (!empty($data['refresh_token'])) {
+        setSetting($pdo, 'google_oauth_refresh_token', (string) $data['refresh_token']);
+
+        return ['ok' => true, 'message' => 'Google account connected for creating sheets in your Drive.'];
     }
 
-    return ['ok' => true, 'message' => 'Google account connected for creating sheets in your Drive.'];
+    return [
+        'ok'      => true,
+        'message' => 'Google connected for now. For a permanent connection: open https://myaccount.google.com/permissions, remove olasentra.com access, then Connect again.',
+    ];
 }
 
 function googleDriveGetUserAccessToken(?PDO $pdo = null): string

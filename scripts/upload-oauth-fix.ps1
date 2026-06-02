@@ -1,7 +1,5 @@
-# Upload app PHP files to Namecheap via FTP (when cPanel Git pull fails).
-# Prerequisite: deploy.local.ps1 with real FtpPassword (cPanel → FTP Accounts).
-#
-#   powershell -ExecutionPolicy Bypass -File .\scripts\upload-app-ftp.ps1
+# Upload Google OAuth callback fix only.
+#   powershell -ExecutionPolicy Bypass -File .\scripts\upload-oauth-fix.ps1
 
 $ErrorActionPreference = 'Stop'
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
@@ -49,21 +47,16 @@ function Send-FtpFile {
 $files = @(
     @{ Local = 'includes\google-drive-oauth.php'; Remote = 'includes/google-drive-oauth.php' },
     @{ Local = 'admin\google-drive-oauth-callback.php'; Remote = 'admin/google-drive-oauth-callback.php' },
-    @{ Local = 'admin\settings-production.php'; Remote = 'admin/settings-production.php' },
-    @{ Local = 'includes\google-sheets-sync.php'; Remote = 'includes/google-sheets-sync.php' },
-    @{ Local = 'admin\google-sheets-diagnostic.php'; Remote = 'admin/google-sheets-diagnostic.php' },
-    @{ Local = 'admin\event-form.php'; Remote = 'admin/event-form.php' },
-    @{ Local = 'includes\events-repository.php'; Remote = 'includes/events-repository.php' },
-    @{ Local = 'admin\events-sheets-action.php'; Remote = 'admin/events-sheets-action.php' }
+    @{ Local = 'admin\settings-production.php'; Remote = 'admin/settings-production.php' }
 )
 
-Write-Host 'Uploading app files to server ...' -ForegroundColor Green
+Write-Host 'Uploading OAuth fix to server ...' -ForegroundColor Green
 foreach ($f in $files) {
     Send-FtpFile -LocalPath (Join-Path $ProjectRoot $f.Local) -RemoteRelativePath $f.Remote -Deploy $cfg
 }
 
 Write-Host ''
 Write-Host 'Done. Open:' -ForegroundColor Green
-Write-Host '  https://admin.olasentra.com/google-sheets-diagnostic.php'
-Write-Host '  Then: Connect Google account on Settings, run diagnostic create test.'
+Write-Host '  https://admin.olasentra.com/settings-production.php#google-sheets'
+Write-Host '  Click Connect Google account again if Status still says Not connected.'
 Write-Host ''

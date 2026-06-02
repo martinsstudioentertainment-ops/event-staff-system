@@ -1,37 +1,53 @@
 <?php
+/**
+ * Google OAuth return URL (admin subdomain → /google-drive-oauth-callback.php via .htaccess).
+ * Completes token exchange before admin login check so a brief session gap does not drop the code.
+ */
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/google-drive-oauth.php';
 
-requireAdminCapability('settings');
-
 $pdo = getDB();
+
+$redirect = static function (string $query): void {
+    $path = isAdminLoggedIn()
+        ? 'settings-production.php?' . $query . '#google-sheets'
+        : 'login.php?' . $query;
+    header('Location: ' . $path);
+    exit;
+};
 
 $state = (string) ($_GET['state'] ?? '');
 $saved = (string) ($_SESSION['google_drive_oauth_state'] ?? '');
 unset($_SESSION['google_drive_oauth_state']);
 
-if ($state === '' || $saved === '' || !hash_equals($saved, $state)) {
-    header('Location: settings-production.php?google_oauth=invalid_state#google-sheets');
-    exit;
+$stateOk = $state !== ''
+    && (
+        ($saved !== '' && hash_equals($saved, $state))
+        || googleDriveOAuthValidateState($pdo, $state)
+    );
+
+if (!$stateOk) {
+    $_SESSION['google_oauth_error'] = 'Sign-in session expired. Click Connect Google account again (stay logged in to admin).';
+    $redirect('google_oauth=invalid_state');
 }
 
 if (isset($_GET['error'])) {
-    header('Location: settings-production.php?google_oauth=denied#google-sheets');
-    exit;
+    $_SESSION['google_oauth_error'] = 'Google sign-in was cancelled or denied.';
+    $redirect('google_oauth=denied');
 }
 
 $code = (string) ($_GET['code'] ?? '');
 if ($code === '') {
-    header('Location: settings-production.php?google_oauth=no_code#google-sheets');
-    exit;
+    $_SESSION['google_oauth_error'] = 'Google did not return an authorization code.';
+    $redirect('google_oauth=no_code');
 }
 
 $result = googleDriveOAuthExchangeCode($pdo, $code);
-$param  = $result['ok'] ? 'google_oauth=connected' : 'google_oauth=error';
-if (!$result['ok']) {
-    $_SESSION['google_oauth_error'] = $result['message'];
+if ($result['ok']) {
+    $_SESSION['google_oauth_success'] = $result['message'];
+    $redirect('google_oauth=connected');
 }
 
-header('Location: settings-production.php?' . $param . '#google-sheets');
-exit;
+$_SESSION['google_oauth_error'] = $result['message'];
+$redirect('google_oauth=error');
