@@ -278,6 +278,15 @@ $saEmail = $sa ? (string) ($sa['client_email'] ?? '') : '';
                 <code><?= h($saEmail !== '' ? $saEmail : 'service-account@project.iam.gserviceaccount.com') ?></code> as <strong>Editor</strong>
                 → open the folder → copy the ID from the browser URL (<code>…/folders/<strong>THIS_PART</strong></code>) → paste here → Save.
             </p>
+            <p class="form-hint">
+                Inside that folder, add one blank Google Sheet named <strong>Event Staff Template</strong> (the system copies it for each event — required for personal Gmail).
+            </p>
+        </div>
+
+        <div class="form-group form-group--full">
+            <label class="form-label" for="google_sheets_template_id">Template sheet URL (optional)</label>
+            <input class="form-input" type="text" id="google_sheets_template_id" name="google_sheets_template_id" value="<?= h($settings['google_sheets_template_id'] ?? '') ?>" placeholder="Leave blank if sheet is named Event Staff Template in the folder">
+            <p class="form-hint">Only needed if the template has a different name. Paste the sheet URL from inside your shared folder.</p>
         </div>
 
         <div class="form-group form-group--full">

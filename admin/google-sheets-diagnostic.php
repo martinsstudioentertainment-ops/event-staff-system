@@ -74,6 +74,14 @@ if ($folderId !== '' && ($token ?? '') !== '' && is_array($sa)) {
         $inspect['ok'] ? 'pass' : 'fail',
         h($inspect['summary']),
     ];
+    $templateId = googleDriveResolveTemplateSpreadsheetId($sa, $folderId, $pdo);
+    $rows[] = [
+        'Template sheet for copy',
+        $templateId !== null && $templateId !== '' ? 'pass' : 'fail',
+        $templateId !== null && $templateId !== ''
+            ? 'Using template ID ' . h($templateId) . ' (avoids robot storage quota)'
+            : 'In folder “Event Staff Sheets”, create a blank Google Sheet named **Event Staff Template**',
+    ];
 }
 
 $ownedCount = 0;

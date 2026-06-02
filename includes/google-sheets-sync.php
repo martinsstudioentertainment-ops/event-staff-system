@@ -61,6 +61,17 @@ function getGoogleSheetsDriveParentFolderId(?PDO $pdo = null): string
 }
 
 /**
+ * Optional template sheet in the shared folder (copy avoids service-account quota limits).
+ */
+function getGoogleSheetsTemplateSpreadsheetId(?PDO $pdo = null): string
+{
+    $pdo = $pdo ?? getDB();
+    $raw = trim((string) getSetting($pdo, 'google_sheets_template_id', ''));
+
+    return parseGoogleSpreadsheetId($raw) ?? '';
+}
+
+/**
  * @param array<string, mixed> $serviceAccount
  * @return array{ok: bool, name: string, mimeType: string, summary: string}
  */
@@ -476,8 +487,8 @@ function googleSheetsCreatePermissionHint(?string $apiBody, ?string $projectId =
     }
 
     if (str_contains($body, 'storage quota') || str_contains($body, 'storagequotaexceeded')) {
-        return 'Service accounts cannot store files in their own Drive. In Settings → Google Sheets, set **Drive folder ID** '
-            . '(a folder in your Gmail shared with the service account as Editor). See docs/GOOGLE-SHEETS.md.';
+        return 'In your shared Drive folder, create one blank Google Sheet named **Event Staff Template** (or set Template sheet URL in Settings). '
+            . 'The app copies that file instead of creating from scratch — this uses your Gmail storage, not the robot account.';
     }
 
     return 'In Google Cloud project “' . $project
@@ -870,7 +881,143 @@ function googleSheetsRenameFirstTab(array $serviceAccount, string $spreadsheetId
 }
 
 /**
- * Create via Drive API (fallback when Sheets API create returns 403).
+ * @param array<string, mixed> $serviceAccount
+ * @return list<array{id: string, name: string}>
+ */
+function googleDriveListSpreadsheetsInFolder(array $serviceAccount, string $folderId, int $maxResults = 50): array
+{
+    $folderId = trim($folderId);
+    if ($folderId === '') {
+        return [];
+    }
+
+    $project = (string) ($serviceAccount['project_id'] ?? '');
+    $token   = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/drive.readonly']);
+    if ($token === '') {
+        $token = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/drive']);
+    }
+    if ($token === '') {
+        return [];
+    }
+
+    $q = sprintf("'%s' in parents and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false", str_replace("'", "\\'", $folderId));
+    $url = 'https://www.googleapis.com/drive/v3/files?'
+        . 'q=' . rawurlencode($q)
+        . '&fields=files(id,name)&pageSize=' . min(50, max(1, $maxResults))
+        . '&supportsAllDrives=true&includeItemsFromAllDrives=true';
+
+    $response = googleSheetsHttpRequest(
+        'GET',
+        $url,
+        googleSheetsAuthHeaders($token, $project, false)
+    );
+
+    if ($response['code'] !== 200) {
+        return [];
+    }
+
+    $data  = json_decode($response['body'], true);
+    $files = [];
+    foreach ($data['files'] ?? [] as $file) {
+        if (!is_array($file)) {
+            continue;
+        }
+        $id = (string) ($file['id'] ?? '');
+        if ($id === '') {
+            continue;
+        }
+        $files[] = ['id' => $id, 'name' => (string) ($file['name'] ?? '')];
+    }
+
+    return $files;
+}
+
+/**
+ * @param array<string, mixed> $serviceAccount
+ */
+function googleDriveResolveTemplateSpreadsheetId(array $serviceAccount, string $folderId, ?PDO $pdo = null): ?string
+{
+    $configured = getGoogleSheetsTemplateSpreadsheetId($pdo);
+    if ($configured !== '') {
+        return $configured;
+    }
+
+    foreach (googleDriveListSpreadsheetsInFolder($serviceAccount, $folderId, 50) as $file) {
+        $name = mb_strtolower(trim($file['name']));
+        if ($name === 'event staff template' || str_contains($name, 'event staff template')) {
+            return $file['id'];
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Copy an existing sheet in the shared folder (works with personal Gmail; avoids SA quota).
+ *
+ * @param array<string, mixed> $serviceAccount
+ * @return array{spreadsheetId: string, tabName: string, url: string}|null
+ */
+function googleDriveCopySpreadsheetFromTemplate(
+    array $serviceAccount,
+    string $templateId,
+    string $title,
+    string $parentFolderId,
+    string $tabName
+): ?array {
+    $project = (string) ($serviceAccount['project_id'] ?? '');
+    $token   = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/drive']);
+    if ($token === '') {
+        return null;
+    }
+
+    $payload = json_encode([
+        'name'    => $title,
+        'parents' => [$parentFolderId],
+    ], JSON_UNESCAPED_UNICODE);
+
+    if ($payload === false) {
+        return null;
+    }
+
+    $url = 'https://www.googleapis.com/drive/v3/files/' . rawurlencode($templateId)
+        . '/copy?supportsAllDrives=true';
+
+    $response = googleSheetsHttpRequest(
+        'POST',
+        $url,
+        googleSheetsAuthHeaders($token, $project),
+        $payload
+    );
+
+    if ($response['code'] < 200 || $response['code'] >= 300) {
+        googleSheetsLog('Drive copy template failed: HTTP ' . $response['code'] . ' — ' . $response['body']);
+
+        return null;
+    }
+
+    $data = json_decode($response['body'], true);
+    $id   = is_array($data) ? (string) ($data['id'] ?? '') : '';
+    if ($id === '') {
+        return null;
+    }
+
+    $effectiveTab = $tabName;
+    if (!googleSheetsRenameFirstTab($serviceAccount, $id, $tabName)) {
+        $effectiveTab = 'Sheet1';
+    }
+
+    googleSheetsLog('Created spreadsheet via Drive copy: ' . buildGoogleSheetsSpreadsheetUrl($id));
+
+    return [
+        'spreadsheetId' => $id,
+        'tabName'       => $effectiveTab,
+        'url'           => buildGoogleSheetsSpreadsheetUrl($id),
+    ];
+}
+
+/**
+ * Create via Drive API (copy template first, then create in folder).
  *
  * @param array<string, mixed> $serviceAccount
  * @return array{spreadsheetId: string, tabName: string, url: string}|null
@@ -889,7 +1036,31 @@ function googleDriveCreateSpreadsheet(
     }
 
     $parentFolderId = $parentFolderId ?? getGoogleSheetsDriveParentFolderId();
-    $fileMeta       = [
+
+    $templateId = $parentFolderId !== ''
+        ? googleDriveResolveTemplateSpreadsheetId($serviceAccount, $parentFolderId)
+        : null;
+
+    if ($templateId !== null && $templateId !== '') {
+        $copied = googleDriveCopySpreadsheetFromTemplate(
+            $serviceAccount,
+            $templateId,
+            $title,
+            $parentFolderId,
+            $tabName
+        );
+        if ($copied !== null) {
+            return $copied;
+        }
+        googleSheetsLog('Template copy failed for ' . $templateId . ', trying Drive create…');
+    } elseif ($parentFolderId !== '') {
+        googleSheetsLog(
+            'No template sheet in folder — add a blank Google Sheet named "Event Staff Template" '
+            . 'inside your shared folder, then retry.'
+        );
+    }
+
+    $fileMeta = [
         'name'     => $title,
         'mimeType' => 'application/vnd.google-apps.spreadsheet',
     ];

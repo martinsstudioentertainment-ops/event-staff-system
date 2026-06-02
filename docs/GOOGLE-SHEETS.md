@@ -16,7 +16,8 @@ Data is always saved to the **database first**. Google Sheets sync is extra — 
 6. **Keys → Add key → JSON** — download the file (create a **new** key after APIs are enabled)
 7. Admin → **Settings → System → Google Sheets sync** → upload the JSON file
 8. Copy the **service account email** (e.g. `event-staff-sheets@event-staff-system-498114.iam.gserviceaccount.com`)
-9. **Drive folder (required for auto-create):** In your **personal Gmail** Google Drive, create a folder → **Share** with the service account as **Editor** → copy the folder ID from the URL (`https://drive.google.com/drive/folders/FOLDER_ID`) → paste in **Settings → Google Sheets → Drive folder ID** → Save. Service accounts cannot use their own Drive storage; new sheets must be created inside this shared folder.
+9. **Drive folder (required for auto-create):** In your **personal Gmail** Google Drive, create a folder → **Share** with the service account as **Editor** → copy the folder ID from the URL (`https://drive.google.com/drive/folders/FOLDER_ID`) → paste in **Settings → Google Sheets → Drive folder ID** → Save.
+10. **Template sheet (required for personal Gmail):** Inside that folder, create one blank Google Sheet named **Event Staff Template**. The app **copies** it for each event (avoids “storage quota exceeded” on the service account).
 
 ---
 

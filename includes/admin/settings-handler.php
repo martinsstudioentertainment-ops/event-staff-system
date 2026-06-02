@@ -234,9 +234,13 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
         $folderRaw  = trim((string) ($_POST['google_sheets_drive_folder_id'] ?? ''));
         $folderId   = parseGoogleDriveFolderId($folderRaw);
 
+        $templateRaw = trim((string) ($_POST['google_sheets_template_id'] ?? ''));
+        $templateId  = parseGoogleSpreadsheetId($templateRaw) ?? $templateRaw;
+
         saveSettings($pdo, [
             'google_sheets_sync_enabled'      => !empty($_POST['google_sheets_sync_enabled']) ? '1' : '0',
             'google_sheets_drive_folder_id'   => $folderId,
+            'google_sheets_template_id'       => $templateId,
             'google_sheets_share_with_email'  => trim((string) ($_POST['google_sheets_share_with_email'] ?? '')),
             'google_sheets_default_tab'       => trim((string) ($_POST['google_sheets_default_tab'] ?? 'Registrations')) ?: 'Registrations',
         ]);

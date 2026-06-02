@@ -73,6 +73,7 @@ function getDefaultSettings(): array
         'auto_backup_enabled'        => '0',
         'google_sheets_sync_enabled' => '0',
         'google_sheets_drive_folder_id' => '',
+        'google_sheets_template_id' => '',
         'google_sheets_share_with_email' => '',
         'google_sheets_default_tab' => 'Registrations',
         'commission_rate_dsp'        => '0',
