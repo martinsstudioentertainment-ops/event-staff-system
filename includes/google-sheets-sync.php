@@ -100,6 +100,8 @@ function buildGoogleSheetsRegistrationRow(array $row): array
 
 function googleSheetsLog(string $message): void
 {
+    $GLOBALS['_event_staff_google_sheets_last_error'] = $message;
+
     $dir = dirname(__DIR__) . '/storage/logs';
     if (!is_dir($dir)) {
         mkdir($dir, 0755, true);
@@ -110,6 +112,11 @@ function googleSheetsLog(string $message): void
         '[' . date('Y-m-d H:i:s') . '] ' . $message . "\n",
         FILE_APPEND | LOCK_EX
     );
+}
+
+function getLastGoogleSheetsApiError(): string
+{
+    return (string) ($GLOBALS['_event_staff_google_sheets_last_error'] ?? '');
 }
 
 /**
@@ -189,7 +196,12 @@ function googleSheetsHttpRequest(string $method, string $url, array $headers = [
         }
         $responseBody = curl_exec($ch);
         $code         = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError    = curl_error($ch);
         curl_close($ch);
+
+        if ($code === 0 && $curlError !== '') {
+            return ['code' => 0, 'body' => 'curl: ' . $curlError];
+        }
 
         return ['code' => $code, 'body' => is_string($responseBody) ? $responseBody : ''];
     }
@@ -320,7 +332,10 @@ function buildGoogleSheetsSpreadsheetUrl(string $spreadsheetId): string
 function googleSheetsCreateSpreadsheet(array $serviceAccount, string $title, string $tabName = 'Registrations'): ?array
 {
     $tabName = trim($tabName) !== '' ? trim($tabName) : 'Registrations';
-    $token   = googleSheetsGetAccessToken($serviceAccount);
+    $token   = googleSheetsGetAccessToken($serviceAccount, [
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive',
+    ]);
     if ($token === '') {
         return null;
     }
@@ -460,7 +475,13 @@ function createGoogleSheetForEvent(PDO $pdo, int $eventId): array
     );
 
     if ($created === null) {
-        return ['ok' => false, 'message' => 'Google API could not create the spreadsheet. Check storage/logs/google-sheets.log'];
+        $detail = getLastGoogleSheetsApiError();
+        $hint   = 'Check storage/logs/google-sheets.log';
+        if ($detail !== '') {
+            $hint = mb_strlen($detail) > 220 ? mb_substr($detail, 0, 220) . '…' : $detail;
+        }
+
+        return ['ok' => false, 'message' => 'Google API could not create the spreadsheet. ' . $hint];
     }
 
     $shareEmail = trim((string) getSetting($pdo, 'google_sheets_share_with_email', ''));
