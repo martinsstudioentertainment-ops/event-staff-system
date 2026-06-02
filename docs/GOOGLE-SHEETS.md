@@ -16,6 +16,7 @@ Data is always saved to the **database first**. Google Sheets sync is extra — 
 6. **Keys → Add key → JSON** — download the file (create a **new** key after APIs are enabled)
 7. Admin → **Settings → System → Google Sheets sync** → upload the JSON file
 8. Copy the **service account email** (e.g. `event-staff-sheets@event-staff-system-498114.iam.gserviceaccount.com`)
+9. **Drive folder (required for auto-create):** In your **personal Gmail** Google Drive, create a folder → **Share** with the service account as **Editor** → copy the folder ID from the URL (`https://drive.google.com/drive/folders/FOLDER_ID`) → paste in **Settings → Google Sheets → Drive folder ID** → Save. Service accounts cannot use their own Drive storage; new sheets must be created inside this shared folder.
 
 ---
 
@@ -78,7 +79,7 @@ Without this, sheet URLs on events are ignored.
 | Permission denied | Share sheet with service account email as Editor |
 | Wrong tab | Set correct **Sheet tab name** on the event |
 | Still failing | Admin → **Google Sheets diagnostic** or read `storage/logs/google-sheets.log` |
-| HTTP 403 **storage quota** on create | Service account Drive is full — Admin → **Google Sheets diagnostic** → **Purge test spreadsheets**; avoid running create test repeatedly |
+| HTTP 403 **storage quota** on create | Set **Drive folder ID** in Settings (folder in your Gmail shared with the service account). Purge test sheets only helps if old test files exist. |
 | HTTP 403 PERMISSION_DENIED on **create** | APIs not enabled on the JSON `project_id`, or billing not linked — see steps 3–4 above; wait 5 min after enabling |
 | HTTP 403 SERVICE_DISABLED | Enable APIs on the **same** project as `project_id` in your JSON (not a different GCP project) |
 | HTTP 0 / curl error | Hosting blocks outbound HTTPS to `googleapis.com` — ask Namecheap to allow it |

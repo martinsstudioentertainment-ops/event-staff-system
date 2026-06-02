@@ -232,9 +232,10 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
         require_once __DIR__ . '/../google-sheets-sync.php';
 
         saveSettings($pdo, [
-            'google_sheets_sync_enabled'     => !empty($_POST['google_sheets_sync_enabled']) ? '1' : '0',
-            'google_sheets_share_with_email' => trim((string) ($_POST['google_sheets_share_with_email'] ?? '')),
-            'google_sheets_default_tab'      => trim((string) ($_POST['google_sheets_default_tab'] ?? 'Registrations')) ?: 'Registrations',
+            'google_sheets_sync_enabled'      => !empty($_POST['google_sheets_sync_enabled']) ? '1' : '0',
+            'google_sheets_drive_folder_id'   => trim((string) ($_POST['google_sheets_drive_folder_id'] ?? '')),
+            'google_sheets_share_with_email'  => trim((string) ($_POST['google_sheets_share_with_email'] ?? '')),
+            'google_sheets_default_tab'       => trim((string) ($_POST['google_sheets_default_tab'] ?? 'Registrations')) ?: 'Registrations',
         ]);
 
         $success = 'Google Sheets settings saved.';

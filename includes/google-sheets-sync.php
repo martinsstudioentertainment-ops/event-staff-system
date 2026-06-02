@@ -49,6 +49,35 @@ function isGoogleSheetsConfigured(?PDO $pdo = null): bool
     return isGoogleSheetsSyncEnabled($pdo) && isGoogleServiceAccountConfigured();
 }
 
+/**
+ * Folder in a human's Drive (shared with the service account) where new sheets are created.
+ * Service accounts have no personal Drive quota — sheets must live in this folder.
+ */
+function getGoogleSheetsDriveParentFolderId(?PDO $pdo = null): string
+{
+    $pdo = $pdo ?? getDB();
+
+    return parseGoogleDriveFolderId((string) getSetting($pdo, 'google_sheets_drive_folder_id', ''));
+}
+
+function parseGoogleDriveFolderId(string $urlOrId): string
+{
+    $urlOrId = trim($urlOrId);
+    if ($urlOrId === '') {
+        return '';
+    }
+
+    if (preg_match('#/folders/([a-zA-Z0-9_-]+)#', $urlOrId, $m)) {
+        return $m[1];
+    }
+
+    if (preg_match('#^[a-zA-Z0-9_-]{10,}$#', $urlOrId)) {
+        return $urlOrId;
+    }
+
+    return '';
+}
+
 function parseGoogleSpreadsheetId(string $urlOrId): ?string
 {
     $urlOrId = trim($urlOrId);
@@ -361,8 +390,8 @@ function googleSheetsCreatePermissionHint(?string $apiBody, ?string $projectId =
     }
 
     if (str_contains($body, 'storage quota') || str_contains($body, 'storagequotaexceeded')) {
-        return 'The service account’s Google Drive is full (each auto-created sheet uses its storage). '
-            . 'Admin → Google Sheets diagnostic → “Purge test spreadsheets”, or create a new service account key in a fresh GCP project.';
+        return 'Service accounts cannot store files in their own Drive. In Settings → Google Sheets, set **Drive folder ID** '
+            . '(a folder in your Gmail shared with the service account as Editor). See docs/GOOGLE-SHEETS.md.';
     }
 
     return 'In Google Cloud project “' . $project
@@ -661,8 +690,9 @@ function googleSheetsProbeCleanupCreatedFile(array $serviceAccount, int $httpCod
  * @param array<string, mixed> $serviceAccount
  * @return array{sheets: array{code: int, summary: string}, drive: array{code: int, summary: string}}
  */
-function googleSheetsProbeCreate(array $serviceAccount, string $title = 'Event Staff API probe'): array
+function googleSheetsProbeCreate(array $serviceAccount, string $title = 'Event Staff API probe', ?string $parentFolderId = null): array
 {
+    $parentFolderId = $parentFolderId ?? getGoogleSheetsDriveParentFolderId();
     $project = (string) ($serviceAccount['project_id'] ?? '');
     $result  = [
         'sheets' => ['code' => 0, 'summary' => 'No token'],
@@ -690,10 +720,14 @@ function googleSheetsProbeCreate(array $serviceAccount, string $title = 'Event S
 
     $tokenDrive = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/drive']);
     if ($tokenDrive !== '') {
-        $payload = json_encode([
+        $fileMeta = [
             'name'     => $title,
             'mimeType' => 'application/vnd.google-apps.spreadsheet',
-        ], JSON_UNESCAPED_UNICODE);
+        ];
+        if ($parentFolderId !== '') {
+            $fileMeta['parents'] = [$parentFolderId];
+        }
+        $payload = json_encode($fileMeta, JSON_UNESCAPED_UNICODE);
         $resp    = googleSheetsHttpRequest(
             'POST',
             'https://www.googleapis.com/drive/v3/files',
@@ -755,8 +789,12 @@ function googleSheetsRenameFirstTab(array $serviceAccount, string $spreadsheetId
  * @param array<string, mixed> $serviceAccount
  * @return array{spreadsheetId: string, tabName: string, url: string}|null
  */
-function googleDriveCreateSpreadsheet(array $serviceAccount, string $title, string $tabName): ?array
-{
+function googleDriveCreateSpreadsheet(
+    array $serviceAccount,
+    string $title,
+    string $tabName,
+    ?string $parentFolderId = null
+): ?array {
     $tabName = trim($tabName) !== '' ? trim($tabName) : 'Registrations';
     $project = (string) ($serviceAccount['project_id'] ?? '');
     $token   = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/drive']);
@@ -764,10 +802,16 @@ function googleDriveCreateSpreadsheet(array $serviceAccount, string $title, stri
         return null;
     }
 
-    $payload = json_encode([
+    $parentFolderId = $parentFolderId ?? getGoogleSheetsDriveParentFolderId();
+    $fileMeta       = [
         'name'     => $title,
         'mimeType' => 'application/vnd.google-apps.spreadsheet',
-    ], JSON_UNESCAPED_UNICODE);
+    ];
+    if ($parentFolderId !== '') {
+        $fileMeta['parents'] = [$parentFolderId];
+    }
+
+    $payload = json_encode($fileMeta, JSON_UNESCAPED_UNICODE);
 
     if ($payload === false) {
         return null;
@@ -812,11 +856,22 @@ function googleDriveCreateSpreadsheet(array $serviceAccount, string $title, stri
  * @param array<string, mixed> $serviceAccount
  * @return array{spreadsheetId: string, tabName: string, url: string}|null
  */
-function googleSheetsCreateSpreadsheet(array $serviceAccount, string $title, string $tabName = 'Registrations'): ?array
-{
+function googleSheetsCreateSpreadsheet(
+    array $serviceAccount,
+    string $title,
+    string $tabName = 'Registrations',
+    ?string $parentFolderId = null
+): ?array {
     $tabName = trim($tabName) !== '' ? trim($tabName) : 'Registrations';
+    $parentFolderId = $parentFolderId ?? getGoogleSheetsDriveParentFolderId();
 
-    $viaDrive = googleDriveCreateSpreadsheet($serviceAccount, $title, $tabName);
+    if ($parentFolderId === '') {
+        googleSheetsLog('Cannot create sheet: google_sheets_drive_folder_id is not set (share a Drive folder with the service account).');
+
+        return null;
+    }
+
+    $viaDrive = googleDriveCreateSpreadsheet($serviceAccount, $title, $tabName, $parentFolderId);
     if ($viaDrive !== null) {
         $headerRows = [getGoogleSheetsExportHeaders()];
         if (!googleSheetsAppendRows($serviceAccount, $viaDrive['spreadsheetId'], $viaDrive['tabName'], $headerRows)) {

@@ -39,6 +39,15 @@ if ($keyOk && is_array($sa)) {
 }
 $rows[] = ['OAuth access token', ($token ?? '') !== '' ? 'pass' : 'fail', ($token ?? '') !== '' ? 'Received' : h(getLastGoogleSheetsApiError() ?: 'Token request failed — see log')];
 
+$folderId = getGoogleSheetsDriveParentFolderId();
+$rows[] = [
+    'Drive folder for new sheets',
+    $folderId !== '' ? 'pass' : 'fail',
+    $folderId !== ''
+        ? 'Folder ID ' . h($folderId) . ' (sheets are created inside your shared folder)'
+        : 'Not set — Settings → Google Sheets → Drive folder ID (required)',
+];
+
 $ownedCount = 0;
 if (($token ?? '') !== '' && is_array($sa)) {
     $owned = googleDriveListOwnedSpreadsheets($sa, 1000);
