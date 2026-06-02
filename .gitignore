@@ -1,0 +1,26 @@
+# Local secrets — never commit
+/config.php
+/storage/google/service-account.json
+/storage/google/*.json
+
+# Runtime data
+/storage/logs/*
+!/storage/logs/.gitkeep
+/storage/backups/*
+!/storage/backups/.gitkeep
+!/storage/backups/database/.gitkeep
+!/storage/backups/weekly/.gitkeep
+
+# IDE / OS
+/.vscode/
+/.idea/
+.DS_Store
+Thumbs.db
+*.log
+
+# Env / local overrides
+.env
+.env.*
+
+# Cursor (optional)
+/.cursor/

@@ -1,0 +1,11 @@
+{
+    "name": "event-staff/event-staff-system",
+    "description": "Event staff registration and admin",
+    "require": {
+        "php": ">=8.1",
+        "minishlink/web-push": "^9.0"
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

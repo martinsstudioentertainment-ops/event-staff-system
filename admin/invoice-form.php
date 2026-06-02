@@ -1,0 +1,242 @@
+<?php
+require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/events-repository.php';
+require_once __DIR__ . '/../includes/commission-invoice-repository.php';
+require_once __DIR__ . '/../includes/work-hours-repository.php';
+
+requireAdminCapability('invoices');
+
+if (!in_array(getAdminRole(), ['admin', 'manager'], true)) {
+    setAdminFlash('error', 'Only administrators and managers can edit commission invoices.');
+    header('Location: invoices.php');
+    exit;
+}
+
+$pdo       = getDB();
+$invoiceId = (int) ($_GET['id'] ?? 0);
+$eventId   = (int) ($_GET['event_id'] ?? 0);
+$events    = getEventsForFilter($pdo);
+$invoice   = null;
+$event     = null;
+$lines     = [];
+$error     = '';
+
+if ($invoiceId > 0) {
+    $invoice = getCommissionInvoiceById($pdo, $invoiceId);
+    if (!$invoice) {
+        setAdminFlash('error', 'Invoice not found.');
+        header('Location: invoices.php');
+        exit;
+    }
+    $eventId = (int) $invoice['event_id'];
+    $event   = getEventById($pdo, $eventId);
+    $lines   = getCommissionInvoiceLines($pdo, $invoiceId);
+} elseif ($eventId > 0) {
+    $event = getEventById($pdo, $eventId);
+    if (!$event) {
+        setAdminFlash('error', 'Event not found.');
+        header('Location: invoices.php');
+        exit;
+    }
+
+    $existing = getCommissionInvoiceByEventId($pdo, $eventId);
+    if ($existing) {
+        header('Location: invoice-form.php?id=' . (int) $existing['id']);
+        exit;
+    }
+
+    $lines = buildCommissionInvoiceLinesFromEvent($pdo, $eventId);
+    if ($lines === []) {
+        $error = 'No sign-ins for this event yet. Staff must check in before creating an invoice.';
+    }
+}
+
+$totals = recomputeCommissionInvoiceTotals($lines);
+$currency = $invoice['currency'] ?? getSystemCurrency($pdo);
+$canEdit  = true;
+
+$pageTitle  = $invoice ? 'Edit commission invoice' : ($event ? 'New commission invoice' : 'Create commission invoice');
+$activePage = 'invoices';
+
+include __DIR__ . '/../includes/admin/layout-top.php';
+?>
+
+<?php if ($error !== ''): ?>
+    <div class="alert alert--error alert--visible"><?= h($error) ?></div>
+<?php endif; ?>
+
+<section class="card">
+    <div class="card__header card__header--row">
+        <div>
+            <h2 class="card__title"><?= h($pageTitle) ?></h2>
+            <?php if ($event): ?>
+                <p class="card__subtitle"><?= h($event['name']) ?> · <?= h(formatEventDateLabel((string) $event['event_date'])) ?></p>
+            <?php else: ?>
+                <p class="card__subtitle">Pick an event with completed sign-ins to build the commission invoice.</p>
+            <?php endif; ?>
+        </div>
+        <a href="invoices.php" class="btn btn--secondary">← All invoices</a>
+    </div>
+
+    <?php if (!$event): ?>
+        <form method="get" class="filter-bar filter-bar--attendance">
+            <div class="filter-bar__group">
+                <label class="form-label" for="event_id">Event</label>
+                <select class="form-select" id="event_id" name="event_id" required>
+                    <option value="">Select event…</option>
+                    <?php foreach ($events as $ev): ?>
+                        <option value="<?= (int) $ev['id'] ?>"><?= h($ev['name'] . ' — ' . date('d.m.Y', strtotime($ev['event_date']))) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="filter-bar__actions">
+                <button type="submit" class="btn btn--primary">Continue</button>
+            </div>
+        </form>
+    <?php else: ?>
+
+    <div class="stat-grid" id="invoice-totals-bar" data-currency="<?= h(getSystemCurrency($pdo)) ?>">
+        <div class="stat-card">
+            <p class="stat-card__value" data-total="staff"><?= (int) $totals['staff_count'] ?></p>
+            <p class="stat-card__label">Staff (lads)</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card__value" data-total="hours-worked"><?= h(formatHoursDecimal($totals['total_hours_worked'])) ?></p>
+            <p class="stat-card__label">Total hours worked</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card__value" data-total="hours-billed"><?= h(formatHoursDecimal($totals['total_hours_billed'])) ?></p>
+            <p class="stat-card__label">Total hours billed</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card__value" data-total="amount"><?= h(formatSystemCurrencyAmount($totals['total_amount'], $pdo)) ?></p>
+            <p class="stat-card__label">Commission total</p>
+        </div>
+    </div>
+
+    <form method="post" action="invoice-action.php" class="invoice-form" id="commission-invoice-form">
+        <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+        <input type="hidden" name="event_id" value="<?= (int) $eventId ?>">
+        <input type="hidden" name="invoice_id" value="<?= (int) ($invoice['id'] ?? 0) ?>">
+
+        <div class="form-grid erp-settings-form__grid">
+            <div class="form-group">
+                <label class="form-label" for="invoice_number">Invoice number</label>
+                <input class="form-input" type="text" id="invoice_number" name="invoice_number" value="<?= h((string) ($invoice['invoice_number'] ?? '')) ?>" placeholder="Auto-generated if blank">
+            </div>
+            <div class="form-group">
+                <label class="form-label form-label--required" for="invoice_date">Invoice date</label>
+                <input class="form-input" type="date" id="invoice_date" name="invoice_date" value="<?= h((string) ($invoice['invoice_date'] ?? date('Y-m-d'))) ?>" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="client_name">Client name</label>
+                <input class="form-input" type="text" id="client_name" name="client_name" value="<?= h((string) ($invoice['client_name'] ?? '')) ?>" placeholder="Who pays this commission">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="status">Status</label>
+                <select class="form-select" id="status" name="status">
+                    <?php foreach (getCommissionInvoiceStatusOptions() as $value => $label): ?>
+                        <option value="<?= h($value) ?>"<?= (($invoice['status'] ?? 'draft') === $value) ? ' selected' : '' ?>><?= h($label) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="form-group form-group--full">
+                <label class="form-label" for="print_layout">Print layout (client copy)</label>
+                <select class="form-select" id="print_layout" name="print_layout">
+                    <?php foreach (getCommissionInvoicePrintLayoutOptions() as $value => $label): ?>
+                        <option value="<?= h($value) ?>"<?= (($invoice['print_layout'] ?? 'detailed') === $value) ? ' selected' : '' ?>><?= h($label) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <p class="form-hint">Use <strong>Summary</strong> when the client does not need every lad name — totals only on print/PDF.</p>
+            </div>
+            <div class="form-group form-group--full">
+                <label class="form-label" for="notes">Notes</label>
+                <textarea class="form-textarea" id="notes" name="notes" rows="2" placeholder="Optional notes on this commission"><?= h((string) ($invoice['notes'] ?? '')) ?></textarea>
+            </div>
+        </div>
+
+        <?php if ($lines === []): ?>
+            <p class="form-hint">No staff lines to invoice. Check in staff first via Attendance or Work hours.</p>
+        <?php else: ?>
+            <div class="table-wrap" style="margin-top:1.25rem;">
+                <table class="data-table invoice-lines-table" id="invoice-lines-table">
+                    <thead>
+                        <tr>
+                            <th>Staff</th>
+                            <th>Role</th>
+                            <th>Hours worked</th>
+                            <th>Hours billed</th>
+                            <th>Rate / hr</th>
+                            <th>Amount</th>
+                            <th>Override</th>
+                            <th>Note</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($lines as $index => $line): ?>
+                            <tr class="invoice-line" data-line-index="<?= (int) $index ?>">
+                                <td>
+                                    <strong><?= h((string) $line['staff_name']) ?></strong>
+                                    <input type="hidden" name="lines[<?= (int) $index ?>][staff_name]" value="<?= h((string) $line['staff_name']) ?>">
+                                    <input type="hidden" name="lines[<?= (int) $index ?>][registration_id]" value="<?= (int) $line['registration_id'] ?>">
+                                    <input type="hidden" name="lines[<?= (int) $index ?>][attendance_id]" value="<?= (int) ($line['attendance_id'] ?? 0) ?>">
+                                    <input type="hidden" name="lines[<?= (int) $index ?>][staff_role]" value="<?= h((string) ($line['staff_role'] ?? '')) ?>">
+                                    <input type="hidden" name="lines[<?= (int) $index ?>][sort_order]" value="<?= (int) ($line['sort_order'] ?? $index) ?>">
+                                </td>
+                                <td><?= h(formatRoleLabel((string) ($line['staff_role'] ?? ''))) ?></td>
+                                <td>
+                                    <input class="form-input invoice-line__hours-worked" type="number" step="0.25" min="0" name="lines[<?= (int) $index ?>][hours_worked]" value="<?= h((string) $line['hours_worked']) ?>">
+                                </td>
+                                <td>
+                                    <input class="form-input invoice-line__hours-billed" type="number" step="0.25" min="0" name="lines[<?= (int) $index ?>][hours_billed]" value="<?= h((string) $line['hours_billed']) ?>">
+                                </td>
+                                <td>
+                                    <input class="form-input invoice-line__rate" type="number" step="0.01" min="0" name="lines[<?= (int) $index ?>][hourly_rate]" value="<?= h((string) $line['hourly_rate']) ?>">
+                                </td>
+                                <td>
+                                    <input class="form-input invoice-line__amount" type="number" step="0.01" min="0" name="lines[<?= (int) $index ?>][line_amount]" value="<?= h((string) $line['line_amount']) ?>">
+                                </td>
+                                <td class="invoice-line__override-cell">
+                                    <label class="form-checkbox">
+                                        <input type="checkbox" class="invoice-line__override" name="lines[<?= (int) $index ?>][amount_override]" value="1"<?= !empty($line['amount_override']) ? ' checked' : '' ?>>
+                                        <span>Fixed</span>
+                                    </label>
+                                </td>
+                                <td>
+                                    <input class="form-input" type="text" name="lines[<?= (int) $index ?>][note]" value="<?= h((string) ($line['note'] ?? '')) ?>" placeholder="Optional">
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                    <tfoot>
+                        <tr class="data-table__foot">
+                            <td colspan="2"><strong>Event totals</strong></td>
+                            <td><strong data-total="hours-worked-foot"><?= h(formatHoursDecimal($totals['total_hours_worked'])) ?></strong></td>
+                            <td><strong data-total="hours-billed-foot"><?= h(formatHoursDecimal($totals['total_hours_billed'])) ?></strong></td>
+                            <td></td>
+                            <td><strong data-total="amount-foot"><?= h(formatSystemCurrencyAmount($totals['total_amount'], $pdo)) ?></strong></td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <p class="form-hint">Uncheck <strong>Fixed</strong> to recalculate amount from hours billed × rate. Default rates: <a href="settings-production.php">ERP settings → System</a>.</p>
+        <?php endif; ?>
+
+        <div class="form-actions form-actions--end" style="margin-top:1.25rem;">
+            <?php if ($invoice): ?>
+                <a href="print-invoice.php?id=<?= (int) $invoice['id'] ?>" class="btn btn--secondary" target="_blank" rel="noopener">Print</a>
+                <a href="export-invoice.php?id=<?= (int) $invoice['id'] ?>" class="btn btn--secondary">Export CSV</a>
+            <?php endif; ?>
+            <button type="submit" class="btn btn--primary"<?= $lines === [] ? ' disabled' : '' ?>>Save invoice</button>
+        </div>
+    </form>
+    <?php endif; ?>
+</section>
+
+<?php if ($event && $lines !== []): ?>
+<script src="../assets/js/invoice-form.js"></script>
+<?php endif; ?>
+
+<?php include __DIR__ . '/../includes/admin/layout-bottom.php'; ?>

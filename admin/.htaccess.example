@@ -1,0 +1,13 @@
+# Optional: restrict admin panel by IP (Apache)
+# Rename to .htaccess and replace YOUR.IP.ADDRESS
+
+<IfModule mod_authz_core.c>
+    Require ip YOUR.IP.ADDRESS
+    # Require ip 203.0.113.10
+</IfModule>
+
+# Alternative: HTTP basic auth (create .htpasswd separately)
+# AuthType Basic
+# AuthName "Admin"
+# AuthUserFile /path/to/.htpasswd
+# Require valid-user

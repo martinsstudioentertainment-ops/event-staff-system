@@ -1,0 +1,61 @@
+<?php
+require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/events-repository.php';
+require_once __DIR__ . '/../includes/staff-repository.php';
+
+requireAdminCapability('attendance');
+
+$pdo     = getDB();
+$eventId = (int) ($_GET['event_id'] ?? 0);
+$events  = getEventsForFilter($pdo);
+$event   = $eventId > 0 ? getEventById($pdo, $eventId) : null;
+
+$pageTitle  = 'Scan check-in';
+$activePage = 'scan-checkin';
+
+include __DIR__ . '/../includes/admin/layout-top.php';
+?>
+
+<section class="card">
+    <div class="card__header card__header--row">
+        <div>
+            <h2 class="card__title">Supervisor scan check-in</h2>
+            <p class="card__subtitle">Scan a staff member’s personal QR code from their Event Access Pass email or printed pass.</p>
+        </div>
+        <a href="attendance.php<?= $eventId > 0 ? '?event_id=' . (int) $eventId : '' ?>" class="btn btn--secondary">← Attendance</a>
+    </div>
+
+    <form method="get" class="filter-bar filter-bar--attendance">
+        <div class="filter-bar__group">
+            <select class="form-select" name="event_id" onchange="this.form.submit()">
+                <option value="">All events (any pass)</option>
+                <?php foreach ($events as $ev): ?>
+                    <option value="<?= (int) $ev['id'] ?>"<?= $eventId === (int) $ev['id'] ? ' selected' : '' ?>>
+                        <?= h($ev['name'] . ' — ' . date('d.m.Y', strtotime($ev['event_date']))) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+    </form>
+
+    <?php if ($event): ?>
+        <p class="form-hint">Filtering scans to: <strong><?= h($event['name']) ?></strong></p>
+    <?php endif; ?>
+
+    <div id="scan-checkin-root" class="scan-checkin" data-event-id="<?= (int) $eventId ?>" data-csrf="<?= h(csrfToken()) ?>">
+        <div id="scan-reader" class="scan-checkin__reader"></div>
+        <div id="scan-result" class="scan-checkin__result" hidden></div>
+        <p class="form-hint">Allow camera access when prompted. Hold the staff QR steady in the frame.</p>
+    </div>
+
+    <div class="scan-checkin__recent" id="scan-recent-wrap" hidden>
+        <h3 class="scan-checkin__recent-title">Recent scans this session</h3>
+        <ul id="scan-recent-list" class="scan-checkin__recent-list"></ul>
+    </div>
+</section>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="../assets/js/admin-scan-checkin.js"></script>
+
+<?php include __DIR__ . '/../includes/admin/layout-bottom.php'; ?>

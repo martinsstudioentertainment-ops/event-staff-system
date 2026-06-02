@@ -1,0 +1,54 @@
+# Deploy to Namecheap shared hosting (FTP) on push to main.
+#
+# Setup (one time):
+#   GitHub repo → Settings → Secrets → Actions:
+#     FTP_SERVER      e.g. ftp.yourdomain.com
+#     FTP_USERNAME    cPanel FTP user
+#     FTP_PASSWORD    FTP password
+#     FTP_SERVER_DIR  e.g. /public_html/  (must end with /)
+#
+# config.php is NOT deployed — create it once on the server from config.production.example.php
+
+name: Deploy to Namecheap
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.repository != ''
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          protocol: ftp
+          port: 21
+          dangerous-clean-slate: false
+          exclude: |
+            **/.git*
+            **/.github/**
+            **/.gitignore
+            **/.cursor/**
+            config.php
+            .env
+            .env.*
+            storage/logs/**
+            storage/backups/**
+            storage/google/**
+            database/setup.php
+            database/setup.bat
+            start-dev.bat
+            DEPLOY.md
+            docs/**

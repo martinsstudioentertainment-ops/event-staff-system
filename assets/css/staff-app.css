@@ -1,0 +1,428 @@
+/* ============================================
+   Staff app shell — cute mobile PWA home
+   ============================================ */
+
+.staff-app-shell {
+    margin: 0;
+    min-height: 100dvh;
+    font-family: var(--font-family, 'Poppins', system-ui, sans-serif);
+    color: #1e293b;
+    background: #eef2ff;
+    overflow-x: clip;
+    padding:
+        max(1rem, env(safe-area-inset-top))
+        max(1rem, env(safe-area-inset-right))
+        max(1.25rem, env(safe-area-inset-bottom))
+        max(1rem, env(safe-area-inset-left));
+}
+
+.staff-app__bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+    background: linear-gradient(165deg, #eef2ff 0%, #fdf4ff 45%, #e0f2fe 100%);
+}
+
+.staff-app__blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(40px);
+    opacity: 0.55;
+    animation: staff-app-float 8s ease-in-out infinite;
+}
+
+.staff-app__blob--1 {
+    width: 220px;
+    height: 220px;
+    top: -40px;
+    right: -60px;
+    background: #c4b5fd;
+}
+
+.staff-app__blob--2 {
+    width: 180px;
+    height: 180px;
+    bottom: 20%;
+    left: -50px;
+    background: #93c5fd;
+    animation-delay: -3s;
+}
+
+.staff-app__blob--3 {
+    width: 140px;
+    height: 140px;
+    bottom: -30px;
+    right: 15%;
+    background: #f9a8d4;
+    animation-delay: -5s;
+}
+
+@keyframes staff-app-float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(8px, -12px) scale(1.05); }
+}
+
+.staff-app__main {
+    position: relative;
+    z-index: 1;
+    max-width: 26rem;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+/* Hero */
+.staff-app__hero {
+    text-align: center;
+    padding: 0.5rem 0.25rem 0;
+}
+
+.staff-app__logo {
+    display: inline-flex;
+    margin-bottom: 0.75rem;
+    filter: drop-shadow(0 8px 20px rgba(99, 102, 241, 0.35));
+    animation: staff-app-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.staff-app__logo.brand-icon svg {
+    width: 56px;
+    height: 56px;
+    display: block;
+}
+
+@keyframes staff-app-pop {
+    from { opacity: 0; transform: scale(0.85) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.staff-app__greeting {
+    margin: 0 0 0.25rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #6366f1;
+    letter-spacing: 0.02em;
+}
+
+.staff-app__title {
+    margin: 0 0 0.5rem;
+    font-size: 1.625rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+}
+
+.staff-app__tagline {
+    margin: 0 auto;
+    max-width: 20rem;
+    font-size: 0.875rem;
+    line-height: 1.55;
+    color: #64748b;
+}
+
+/* Action tiles */
+.staff-app__nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+}
+
+.staff-app__tile {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 1rem 1rem 1rem 0.875rem;
+    border-radius: 18px;
+    text-decoration: none;
+    color: inherit;
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    box-shadow:
+        0 4px 16px rgba(99, 102, 241, 0.08),
+        0 1px 3px rgba(15, 23, 42, 0.06);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+a.staff-app__tile:active {
+    transform: scale(0.98);
+}
+
+.staff-app__tile--static {
+    cursor: default;
+    opacity: 0.92;
+}
+
+.staff-app__tile-icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    color: #fff;
+}
+
+.staff-app__tile--register .staff-app__tile-icon {
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
+}
+
+.staff-app__tile--status .staff-app__tile-icon {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+}
+
+.staff-app__tile--checkin .staff-app__tile-icon {
+    background: linear-gradient(135deg, #f472b6, #ec4899);
+    box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3);
+}
+
+.staff-app__tile-body {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+}
+
+.staff-app__tile-title {
+    display: block;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 0.15rem;
+}
+
+.staff-app__tile-desc {
+    display: block;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: #64748b;
+}
+
+.staff-app__tile-arrow {
+    flex-shrink: 0;
+    font-size: 1.5rem;
+    font-weight: 300;
+    color: #cbd5e1;
+    line-height: 1;
+    padding-right: 0.15rem;
+}
+
+/* How it works */
+.staff-app__how {
+    padding: 1rem 1.125rem;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px dashed rgba(99, 102, 241, 0.25);
+}
+
+.staff-app__how-title {
+    margin: 0 0 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6366f1;
+}
+
+.staff-app__steps {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.staff-app__steps li {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-size: 0.875rem;
+    color: #475569;
+}
+
+.staff-app__step-num {
+    flex-shrink: 0;
+    width: 1.625rem;
+    height: 1.625rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, #818cf8, #6366f1);
+}
+
+/* Footer install hint */
+.staff-app__footer {
+    padding-top: 0.25rem;
+}
+
+.staff-app__install-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.75rem 1rem;
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: #475569;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(99, 102, 241, 0.15);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.06);
+}
+
+.staff-app__install-icon {
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.staff-app__install-pill strong {
+    color: #4f46e5;
+    font-weight: 600;
+}
+
+/* Status lookup form */
+.staff-status-intro {
+    margin: 0 0 1rem;
+    font-size: 0.875rem;
+    line-height: 1.55;
+    color: #64748b;
+}
+
+.staff-status-or {
+    margin: 0.75rem 0;
+    text-align: center;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.staff-status-lookup .form-group {
+    margin-bottom: 0.875rem;
+}
+
+.staff-status-lookup .btn {
+    margin-top: 0.5rem;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    border: none;
+    font-weight: 600;
+    min-height: 48px;
+}
+
+/* Standalone / installed — hide redundant install pill */
+@media (display-mode: standalone) {
+    .staff-app__install-pill {
+        display: none;
+    }
+}
+
+/* Stagger tile entrance */
+.staff-app__tile:nth-child(1) { animation: staff-app-slide 0.5s ease 0.1s both; }
+.staff-app__tile:nth-child(2) { animation: staff-app-slide 0.5s ease 0.2s both; }
+.staff-app__tile:nth-child(3) { animation: staff-app-slide 0.5s ease 0.3s both; }
+
+@keyframes staff-app-slide {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.staff-app__how {
+    animation: staff-app-slide 0.5s ease 0.4s both;
+}
+
+/* Nicer install banner (matches app) */
+.pwa-install__inner {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 18px;
+    box-shadow: 0 8px 32px rgba(99, 102, 241, 0.15);
+}
+
+.pwa-install__text {
+    color: #334155;
+}
+
+.pwa-install__btn--primary {
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    border-radius: 10px;
+}
+
+.pwa-install__btn--ghost {
+    color: #64748b;
+}
+
+.pwa-install {
+    background: linear-gradient(180deg, transparent, rgba(238, 242, 255, 0.95));
+}
+
+/* Push prompt on status page */
+.push-prompt {
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.08);
+}
+
+.push-prompt--done {
+    background: rgba(240, 253, 244, 0.9);
+    border-color: rgba(34, 197, 94, 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .staff-app__blob,
+    .staff-app__logo,
+    .staff-app__tile,
+    .staff-app__how {
+        animation: none;
+    }
+}
+
+/* Mini header on check-in / status pages */
+.staff-app-mini-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding: max(0.5rem, env(safe-area-inset-top)) 0 0.5rem;
+    margin: -0.5rem 0 0.75rem;
+}
+
+.staff-app-mini-header__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.4rem 0.75rem 0.4rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #4f46e5;
+    text-decoration: none;
+    background: rgba(255, 255, 255, 0.75);
+    border: 1px solid rgba(99, 102, 241, 0.15);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.08);
+}
+
+body.staff-mobile-page {
+    background: linear-gradient(165deg, #eef2ff 0%, #fdf4ff 50%, #e0f2fe 100%);
+    min-height: 100dvh;
+}
+
+body.staff-mobile-page .login-card {
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 8px 32px rgba(99, 102, 241, 0.1);
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(8px);
+}

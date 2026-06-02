@@ -1,0 +1,23 @@
+# Protect sensitive paths (Apache)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Public branding images (WhatsApp/link previews, og:image)
+    RewriteRule ^storage/branding/.+\.(png|jpe?g|gif|webp|svg)$ - [L]
+
+    # Block direct access to includes and other storage
+    RewriteRule ^includes/ - [F,L]
+    RewriteRule ^storage/ - [F,L]
+
+    # Optional: force HTTPS on production (uncomment when live)
+    # RewriteCond %{HTTPS} off
+    # RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# Disable directory listing
+Options -Indexes
+
+# Protect config if ever exposed under web root misconfiguration
+<FilesMatch "^(config\.php|\.env)$">
+    Require all denied
+</FilesMatch>
