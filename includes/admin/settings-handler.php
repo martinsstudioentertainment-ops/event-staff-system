@@ -245,6 +245,7 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
             'google_sheets_default_tab'       => trim((string) ($_POST['google_sheets_default_tab'] ?? 'Registrations')) ?: 'Registrations',
             'google_oauth_client_id'          => trim((string) ($_POST['google_oauth_client_id'] ?? '')),
             'google_oauth_client_secret'      => trim((string) ($_POST['google_oauth_client_secret'] ?? '')),
+            'google_oauth_redirect_uri'       => trim((string) ($_POST['google_oauth_redirect_uri'] ?? '')),
         ]);
 
         clearSettingsCache();

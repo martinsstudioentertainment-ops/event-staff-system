@@ -4,6 +4,7 @@
  */
 
 require_once __DIR__ . '/settings-repository.php';
+require_once __DIR__ . '/site-urls.php';
 
 function googleDriveOAuthConfigured(?PDO $pdo = null): bool
 {
@@ -14,14 +15,28 @@ function googleDriveOAuthConfigured(?PDO $pdo = null): bool
         && trim(getSetting($pdo, 'google_oauth_refresh_token', '')) !== '';
 }
 
-function googleDriveOAuthRedirectUri(): string
+function googleDriveOAuthRedirectUri(?PDO $pdo = null): string
 {
-    $base = rtrim((string) (defined('ADMIN_SITE_URL') ? ADMIN_SITE_URL : ''), '/');
-    if ($base === '') {
-        $base = 'https://admin.olasentra.com/admin';
+    $pdo = $pdo ?? getDB();
+    $override = trim(getSetting($pdo, 'google_oauth_redirect_uri', ''));
+    if ($override !== '') {
+        return $override;
     }
 
-    return $base . '/google-drive-oauth-callback.php';
+    return normalizePublicSiteUrl(getAdminSiteUrl($pdo)) . '/google-drive-oauth-callback.php';
+}
+
+function googleDriveOAuthJavaScriptOrigin(?PDO $pdo = null): string
+{
+    $parts = parse_url(googleDriveOAuthRedirectUri($pdo));
+
+    if (!is_array($parts) || empty($parts['scheme']) || empty($parts['host'])) {
+        return '';
+    }
+
+    $port = isset($parts['port']) ? ':' . $parts['port'] : '';
+
+    return $parts['scheme'] . '://' . $parts['host'] . $port;
 }
 
 /**
@@ -44,7 +59,7 @@ function googleDriveOAuthAuthorizeUrl(?PDO $pdo = null): string
 
     $params = [
         'client_id'     => $clientId,
-        'redirect_uri'  => googleDriveOAuthRedirectUri(),
+        'redirect_uri'  => googleDriveOAuthRedirectUri($pdo),
         'response_type' => 'code',
         'scope'         => implode(' ', googleDriveOAuthScopes()),
         'access_type'   => 'offline',
@@ -70,7 +85,7 @@ function googleDriveOAuthExchangeCode(PDO $pdo, string $code): array
         'code'          => $code,
         'client_id'     => $clientId,
         'client_secret' => $clientSecret,
-        'redirect_uri'  => googleDriveOAuthRedirectUri(),
+        'redirect_uri'  => googleDriveOAuthRedirectUri($pdo),
         'grant_type'    => 'authorization_code',
     ]);
 

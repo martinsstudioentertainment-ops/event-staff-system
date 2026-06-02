@@ -292,10 +292,18 @@ if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
                 <label class="form-label" for="google_oauth_client_secret">OAuth Client secret</label>
                 <input class="form-input" type="password" id="google_oauth_client_secret" name="google_oauth_client_secret" value="<?= h($settings['google_oauth_client_secret'] ?? '') ?>" autocomplete="new-password">
             </div>
+            <div class="form-group">
+                <label class="form-label" for="google_oauth_redirect_uri">Redirect URI override (only if Google still says invalid)</label>
+                <input class="form-input" type="text" id="google_oauth_redirect_uri" name="google_oauth_redirect_uri" value="<?= h($settings['google_oauth_redirect_uri'] ?? '') ?>" placeholder="<?= h(googleDriveOAuthRedirectUri($pdo)) ?>">
+            </div>
             <p class="form-hint">
-                In Google Cloud, add authorized redirect URI:
-                <code><?= h(googleDriveOAuthRedirectUri()) ?></code>
+                In Google Cloud → your <strong>Web client</strong> → add these <strong>exactly</strong> (no extra <code>/admin</code> if you use the admin subdomain):
             </p>
+            <ul class="form-hint" style="margin:0.25rem 0 0 1rem">
+                <li>Authorized JavaScript origins: <code><?= h(googleDriveOAuthJavaScriptOrigin($pdo)) ?></code></li>
+                <li>Authorized redirect URIs: <code><?= h(googleDriveOAuthRedirectUri($pdo)) ?></code></li>
+            </ul>
+            <p class="form-hint">OAuth consent screen → add your Gmail as a <strong>Test user</strong> if the app is in Testing mode.</p>
             <?php if ($googleOauthConnected): ?>
                 <p class="form-hint"><strong>Status:</strong> Gmail connected.</p>
             <?php else: ?>
