@@ -42,7 +42,7 @@ function getApprovedRegistrationsWithAttendance(PDO $pdo, string $email): array
             LEFT JOIN attendance a ON a.registration_id = sr.id
             WHERE LOWER(sr.email) = LOWER(:email)
               AND sr.status = \'approved\'
-            ORDER BY e.event_date ASC, e.start_time ASC, sr.id ASC';
+            ORDER BY e.event_date ASC, sr.id ASC';
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute(['email' => $email]);

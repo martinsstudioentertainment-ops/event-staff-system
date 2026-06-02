@@ -23,6 +23,7 @@ require_once __DIR__ . '/includes/system-settings.php';
 require_once __DIR__ . '/includes/staff-blacklist.php';
 require_once __DIR__ . '/includes/google-sheets-sync.php';
 require_once __DIR__ . '/includes/staff-registration-schema.php';
+require_once __DIR__ . '/includes/status-repository.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -178,21 +179,25 @@ if (empty($errors)) {
 
 
 
+                $statusUrl = getRegistrationStatusUrlAfterSave($pdo, $ids, $email);
+
                 if (isAjaxRequest()) {
 
                     jsonResponse([
 
-                        'success' => true,
+                        'success'    => true,
 
-                        'message' => $message,
+                        'message'    => $message,
 
-                        'count'   => $count,
+                        'count'      => $count,
+
+                        'status_url' => $statusUrl,
 
                     ]);
 
                 }
 
-                header('Location: ' . registrationFormRedirectPath(['registered' => $count], $formSlug));
+                header('Location: ' . $statusUrl);
 
                 exit;
 

@@ -249,10 +249,7 @@ function formatEventLabel(array $row): string
  */
 function getStaffRegistrationById(PDO $pdo, int $id): ?array
 {
-    $sql = 'SELECT sr.*, e.name AS event_name, e.main_security_company, e.event_date, e.location AS event_location,
-                   e.reporting_point, e.venue_eircode,
-                   e.start_time AS event_start_time, e.end_time AS event_end_time,
-                   e.venue_lat, e.venue_lng, e.signin_radius_m
+    $sql = 'SELECT sr.*, e.name AS event_name, e.event_date, e.location AS event_location
             FROM staff_registrations sr
             INNER JOIN events e ON e.id = sr.event_id
             WHERE sr.id = :id
@@ -262,7 +259,26 @@ function getStaffRegistrationById(PDO $pdo, int $id): ?array
     $stmt->execute(['id' => $id]);
     $row = $stmt->fetch();
 
-    return $row ?: null;
+    if (!$row) {
+        return null;
+    }
+
+    try {
+        require_once __DIR__ . '/events-repository.php';
+        $event = getEventById($pdo, (int) ($row['event_id'] ?? 0));
+        if ($event !== null) {
+            foreach (['main_security_company', 'reporting_point', 'venue_eircode', 'start_time', 'end_time', 'venue_lat', 'venue_lng', 'signin_radius_m'] as $key) {
+                if (array_key_exists($key, $event)) {
+                    $alias = $key === 'start_time' ? 'event_start_time' : ($key === 'end_time' ? 'event_end_time' : $key);
+                    $row[$alias] = $event[$key];
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        // Optional event columns — core row is enough for admin view.
+    }
+
+    return $row;
 }
 
 /**

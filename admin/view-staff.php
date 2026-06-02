@@ -7,11 +7,13 @@ require_once __DIR__ . '/../includes/status-repository.php';
 require_once __DIR__ . '/../includes/maps.php';
 require_once __DIR__ . '/../includes/sensitive-data.php';
 require_once __DIR__ . '/../includes/staff-blacklist.php';
+require_once __DIR__ . '/../includes/staff-registration-schema.php';
 
 requireAdminCapability('staff');
 
 $id  = (int) ($_GET['id'] ?? 0);
 $pdo = getDB();
+ensureStaffRegistrationSaveSchema($pdo);
 $row = $id > 0 ? getStaffRegistrationById($pdo, $id) : null;
 
 if (!$row) {
@@ -22,10 +24,23 @@ if (!$row) {
 
 $relatedRows        = getStaffRegistrationsByEmail($pdo, $row['email']);
 $attendance         = $row['status'] === 'approved' ? getAttendanceByRegistration($pdo, (int) $row['id']) : null;
-$statusToken        = ensureStatusToken($pdo, (int) $row['id']);
-$statusUrl          = $statusToken ? getStatusUrl($statusToken, $pdo) : '';
-$blacklistEntry     = getActiveBlacklistEntry($pdo, (string) $row['email']);
-$consecutiveNoShows = countConsecutiveNoShows($pdo, (string) $row['email']);
+$statusToken = null;
+$statusUrl   = '';
+try {
+    $statusToken = ensureStatusToken($pdo, (int) $row['id']);
+    $statusUrl   = $statusToken ? getStatusUrl($statusToken, $pdo) : '';
+} catch (Throwable $e) {
+    error_log('[EventStaff] view-staff status token: ' . $e->getMessage());
+}
+
+$blacklistEntry     = null;
+$consecutiveNoShows = 0;
+try {
+    $blacklistEntry     = getActiveBlacklistEntry($pdo, (string) $row['email']);
+    $consecutiveNoShows = countConsecutiveNoShows($pdo, (string) $row['email']);
+} catch (Throwable $e) {
+    error_log('[EventStaff] view-staff blacklist: ' . $e->getMessage());
+}
 $flash              = getAdminFlash();
 
 $pageTitle  = 'Staff Details';
@@ -71,7 +86,12 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 if ($mapLink !== ''): ?>
                 <div class="detail-list__row"><dt>Location</dt><dd><a href="<?= h($mapLink) ?>" target="_blank" rel="noopener">View on Google Maps ↗</a> (<?= h((string) $row['location_lat']) ?>, <?= h((string) $row['location_lng']) ?>)</dd></div>
                 <?php endif; ?>
-                <div class="detail-list__row"><dt>Date of Birth</dt><dd><?= h(date('d.m.Y', strtotime($row['date_of_birth']))) ?></dd></div>
+                <?php
+                $dobRaw = (string) ($row['date_of_birth'] ?? '');
+                $dobTs  = $dobRaw !== '' ? strtotime($dobRaw) : false;
+                $dobDisplay = $dobTs ? date('d.m.Y', $dobTs) : $dobRaw;
+                ?>
+                <div class="detail-list__row"><dt>Date of Birth</dt><dd><?= h($dobDisplay) ?></dd></div>
                 <div class="detail-list__row"><dt>Gender</dt><dd><?= h(formatGenderLabel($row['gender'])) ?></dd></div>
             </dl>
         </div>

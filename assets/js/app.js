@@ -435,6 +435,10 @@
 
             if (result && typeof result === 'object') {
                 if (result.success) {
+                    if (result.status_url) {
+                        window.location.href = result.status_url;
+                        return;
+                    }
                     showAlert(result.message || 'Registration submitted successfully!', 'success');
                     resetFormAfterSuccess(form);
                     window.scrollTo({ top: 0, behavior: 'smooth' });

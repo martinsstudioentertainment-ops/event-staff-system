@@ -14,6 +14,13 @@ function generateStatusToken(): string
 
 function ensureStatusToken(PDO $pdo, int $registrationId): ?string
 {
+    require_once __DIR__ . '/staff-registration-schema.php';
+    ensureStaffRegistrationSaveSchema($pdo);
+
+    if (!staffRegistrationColumnExists($pdo, 'status_token')) {
+        return null;
+    }
+
     $stmt = $pdo->prepare('SELECT status_token FROM staff_registrations WHERE id = :id LIMIT 1');
     $stmt->execute(['id' => $registrationId]);
     $row = $stmt->fetch();
@@ -36,6 +43,26 @@ function ensureStatusToken(PDO $pdo, int $registrationId): ?string
 function getStatusUrl(string $token, ?PDO $pdo = null): string
 {
     return getRegistrationSiteUrl($pdo) . '/status.php?token=' . urlencode($token);
+}
+
+/**
+ * Status page URL after a new registration (uses first saved row / email).
+ *
+ * @param int[] $registrationIds
+ */
+function getRegistrationStatusUrlAfterSave(PDO $pdo, array $registrationIds, string $email): string
+{
+    $token = null;
+    if ($registrationIds !== []) {
+        $token = ensureStatusToken($pdo, (int) $registrationIds[0]);
+    }
+    if ($token === null || $token === '') {
+        $token = resolveStatusTokenByEmail($pdo, $email);
+    }
+
+    return $token !== null && $token !== ''
+        ? getStatusUrl($token, $pdo)
+        : getRegistrationSiteUrl($pdo) . '/status.php';
 }
 
 /**

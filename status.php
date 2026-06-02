@@ -10,6 +10,8 @@ require_once __DIR__ . '/includes/validation.php';
 require_once __DIR__ . '/includes/public/staff-public-shell.php';
 
 $pdo      = getDB();
+require_once __DIR__ . '/includes/staff-registration-schema.php';
+ensureStaffRegistrationSaveSchema($pdo);
 $siteName = getSiteName($pdo);
 $token    = trim((string) ($_GET['token'] ?? ''));
 $rows     = [];
