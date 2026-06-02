@@ -5,8 +5,11 @@ set -u
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 CPANEL_USER="${CPANEL_USER:-olastofx}"
 
+# Namecheap often uses /home/USER/register and /home/USER/admin (not register.olasentra.com).
 DESTS=(
   "/home/${CPANEL_USER}/public_html"
+  "/home/${CPANEL_USER}/register"
+  "/home/${CPANEL_USER}/admin"
   "/home/${CPANEL_USER}/register.olasentra.com"
   "/home/${CPANEL_USER}/admin.olasentra.com"
 )
@@ -52,12 +55,12 @@ for DEST in "${DESTS[@]}"; do
 done
 
 MAIN="/home/${CPANEL_USER}/public_html"
-REG="/home/${CPANEL_USER}/register.olasentra.com"
-ADM="/home/${CPANEL_USER}/admin.olasentra.com"
 
 if [ -f "${MAIN}/config.php" ]; then
-  /bin/cp -f "${MAIN}/config.php" "${REG}/config.php" 2>/dev/null || true
-  /bin/cp -f "${MAIN}/config.php" "${ADM}/config.php" 2>/dev/null || true
+  for DEST in "${DESTS[@]}"; do
+    [ "${DEST}" = "${MAIN}" ] && continue
+    /bin/cp -f "${MAIN}/config.php" "${DEST}/config.php" 2>/dev/null || true
+  done
   echo "Synced config.php from public_html (where possible)."
 else
   echo "WARNING: ${MAIN}/config.php missing — create it in public_html before deploy."

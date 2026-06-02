@@ -9,21 +9,32 @@ Main site `https://olasentra.com/` works because files are only in **`public_htm
 
 ---
 
-## Fix (recommended): point subdomains to `public_html`
+## Fix A (easiest): one folder `public_html` for all domains
 
 Use **one folder** for all three hostnames. `.htaccess` already routes each domain correctly.
 
 ### Step 1 — register.olasentra.com
 
 1. cPanel → **Domains** → **Manage** `register.olasentra.com`
-2. **Document root** → set to: **`public_html`**
-3. **Update**
+2. **New Document Root** — delete `/register` and type: **`public_html`**
+3. Click **Update**
 
 ### Step 2 — admin.olasentra.com
 
 1. **Manage** `admin.olasentra.com`
-2. **Document root** → **`public_html`**
+2. **New Document Root** → **`public_html`** (not `/admin`)
 3. **Update**
+
+---
+
+## Fix B: keep `/register` folder (your current screen)
+
+Your screenshot shows document root **`/register`** (= `/home/olastofx/register`). That folder was empty.
+
+1. Leave document root as **`/register`**
+2. **Git** → **Update from Remote** → **Deploy HEAD commit** (deploy now copies files into `/home/olastofx/register`)
+3. File Manager → `/home/olastofx/register` must contain `index.php`, `admin/`, `assets/`, `config.php`
+4. Repeat deploy for **admin** subdomain folder `/home/olastofx/admin` if admin uses that path
 
 ### Step 3 — Deploy (updates `.htaccess` in public_html)
 
