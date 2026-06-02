@@ -143,7 +143,7 @@ if ($pdo) {
     ?>
 
     <?php if ($showNotice): ?>
-        <?php $web = ['pdo' => $pdo]; include __DIR__ . '/includes/public/site-notice.php'; ?>
+        <?php $web = ['pdo' => $pdo, 'notice_variant' => 'static']; include __DIR__ . '/includes/public/site-notice.php'; ?>
     <?php endif; ?>
 
     <main class="registration-page__wrap staff-public-main">
@@ -198,7 +198,7 @@ if ($pdo) {
                                         'static'  => t('registering_as_static_detail'),
                                         'both'    => t('registering_as_both_detail'),
                                         default   => t('registering_as_dsp_detail'),
-                                    }) ?>"<?= $checked ? ' checked' : '' ?><?= $slug === array_key_first($allForms) ? ' required' : '' ?>>
+                                    }) ?>"<?= $checked ? ' checked' : '' ?><?= $firstRoleOption ? ' required' : '' ?>>
                                     <span class="role-picker__box">
                                         <span class="role-picker__title"><?= h($form['label'] ?? ucfirst($slug)) ?></span>
                                         <?php if (!empty($form['role_hint'])): ?>
@@ -206,7 +206,7 @@ if ($pdo) {
                                         <?php endif; ?>
                                     </span>
                                 </label>
-                            <?php endforeach; ?>
+                            <?php $firstRoleOption = false; endforeach; ?>
                         </div>
                         <p class="form-hint form-hint--compact"><?= h(t('your_role_hint')) ?></p>
                         <span class="form-error" id="form_slug-error"></span>

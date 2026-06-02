@@ -138,13 +138,14 @@ body {
     }
 }
 
-/* — Registration form: sticky submit bar — */
+/* — Registration form: sticky submit bar (skipped when .registration-page--compact — see registration-compact.css) — */
 @media (max-width: 768px) {
-    .registration-page .registration-page__wrap {
+    .registration-page:not(.registration-page--compact) .registration-page__wrap {
         padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
     }
 
-    .registration-page .card {
+    .registration-page .card,
+    .registration-page .staff-public-card {
         padding: var(--padding-medium);
     }
 
@@ -158,7 +159,7 @@ body {
         margin-top: 0.25rem;
     }
 
-    .registration-page .form-actions {
+    .registration-page:not(.registration-page--compact) .form-actions {
         position: fixed;
         left: 0;
         right: 0;
@@ -176,18 +177,19 @@ body {
         box-shadow: 0 -4px 24px rgba(15, 23, 42, 0.08);
     }
 
-    .registration-page .form-actions .btn {
+    .registration-page:not(.registration-page--compact) .form-actions .btn {
         width: auto;
         flex: 1;
         margin: 0;
     }
 
-    .registration-page .form-actions .btn--secondary {
+    .registration-page:not(.registration-page--compact) .form-actions .btn--secondary {
         flex: 0 1 auto;
         min-width: 5.5rem;
     }
 
-    .registration-page .footer--public {
+    .registration-page:not(.registration-page--compact) .staff-public-footer,
+    .registration-page:not(.registration-page--compact) .footer--public {
         padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
         font-size: 12px;
     }
@@ -519,12 +521,12 @@ body {
         --padding-medium: 16px;
     }
 
-    .registration-page .form-actions {
+    .registration-page:not(.registration-page--compact) .form-actions {
         flex-direction: column;
     }
 
-    .registration-page .form-actions .btn,
-    .registration-page .form-actions .btn--secondary {
+    .registration-page:not(.registration-page--compact) .form-actions .btn,
+    .registration-page:not(.registration-page--compact) .form-actions .btn--secondary {
         width: 100%;
         flex: none;
     }
