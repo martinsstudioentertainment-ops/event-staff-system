@@ -39,9 +39,14 @@ function loadGoogleServiceAccount(): ?array
         : null;
 }
 
+function isGoogleServiceAccountConfigured(): bool
+{
+    return loadGoogleServiceAccount() !== null;
+}
+
 function isGoogleSheetsConfigured(?PDO $pdo = null): bool
 {
-    return isGoogleSheetsSyncEnabled($pdo) && loadGoogleServiceAccount() !== null;
+    return isGoogleSheetsSyncEnabled($pdo) && isGoogleServiceAccountConfigured();
 }
 
 function parseGoogleSpreadsheetId(string $urlOrId): ?string
@@ -110,13 +115,20 @@ function googleSheetsLog(string $message): void
 /**
  * @param array<string, mixed> $serviceAccount
  */
-function googleSheetsGetAccessToken(array $serviceAccount): ?string
+/**
+ * @param list<string> $scopes
+ */
+function googleSheetsGetAccessToken(array $serviceAccount, array $scopes = []): ?string
 {
+    if ($scopes === []) {
+        $scopes = ['https://www.googleapis.com/auth/spreadsheets'];
+    }
+
     $now = time();
     $header = base64UrlEncode(json_encode(['alg' => 'RS256', 'typ' => 'JWT'], JSON_THROW_ON_ERROR));
     $claims = base64UrlEncode(json_encode([
         'iss'   => (string) $serviceAccount['client_email'],
-        'scope' => 'https://www.googleapis.com/auth/spreadsheets',
+        'scope' => implode(' ', $scopes),
         'aud'   => 'https://oauth2.googleapis.com/token',
         'iat'   => $now,
         'exp'   => $now + 3600,
@@ -279,6 +291,271 @@ function googleSheetsSheetNeedsHeader(array $serviceAccount, string $spreadsheet
     $values = $data['values'] ?? [];
 
     return $values === [] || trim((string) ($values[0][0] ?? '')) === '';
+}
+
+function buildGoogleSheetsTitleForEvent(array $event): string
+{
+    $date = '';
+    if (!empty($event['event_date'])) {
+        require_once __DIR__ . '/events-repository.php';
+        $date = formatEventDateLabel((string) $event['event_date']);
+    }
+
+    $name  = trim((string) ($event['name'] ?? 'Event'));
+    $title = $date !== '' ? $date . ' — ' . $name . ' — Staff' : $name . ' — Staff';
+    $title = preg_replace('/[\[\]\*\/\\\?\:]/', '', $title) ?? $title;
+
+    return mb_substr(trim($title), 0, 100);
+}
+
+function buildGoogleSheetsSpreadsheetUrl(string $spreadsheetId): string
+{
+    return 'https://docs.google.com/spreadsheets/d/' . $spreadsheetId . '/edit';
+}
+
+/**
+ * @param array<string, mixed> $serviceAccount
+ * @return array{spreadsheetId: string, tabName: string, url: string}|null
+ */
+function googleSheetsCreateSpreadsheet(array $serviceAccount, string $title, string $tabName = 'Registrations'): ?array
+{
+    $tabName = trim($tabName) !== '' ? trim($tabName) : 'Registrations';
+    $token   = googleSheetsGetAccessToken($serviceAccount);
+    if ($token === '') {
+        return null;
+    }
+
+    $payload = json_encode([
+        'properties' => ['title' => $title],
+        'sheets'     => [['properties' => ['title' => $tabName]]],
+    ], JSON_UNESCAPED_UNICODE);
+
+    if ($payload === false) {
+        return null;
+    }
+
+    $response = googleSheetsHttpRequest(
+        'POST',
+        'https://sheets.googleapis.com/v4/spreadsheets',
+        [
+            'Authorization: Bearer ' . $token,
+            'Content-Type: application/json',
+        ],
+        $payload
+    );
+
+    if ($response['code'] < 200 || $response['code'] >= 300) {
+        googleSheetsLog('Create spreadsheet failed: HTTP ' . $response['code'] . ' — ' . $response['body']);
+
+        return null;
+    }
+
+    $data = json_decode($response['body'], true);
+    $id   = is_array($data) ? (string) ($data['spreadsheetId'] ?? '') : '';
+    if ($id === '') {
+        return null;
+    }
+
+    $headerRows = [getGoogleSheetsExportHeaders()];
+    if (!googleSheetsAppendRows($serviceAccount, $id, $tabName, $headerRows)) {
+        googleSheetsLog('Created sheet ' . $id . ' but header row failed');
+    }
+
+    return [
+        'spreadsheetId' => $id,
+        'tabName'       => $tabName,
+        'url'           => buildGoogleSheetsSpreadsheetUrl($id),
+    ];
+}
+
+/**
+ * Let a human Google account open sheets created by the service account (optional).
+ *
+ * @param array<string, mixed> $serviceAccount
+ */
+function googleSheetsShareSpreadsheetWithEmail(array $serviceAccount, string $spreadsheetId, string $email): bool
+{
+    $email = trim($email);
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return false;
+    }
+
+    $token = googleSheetsGetAccessToken($serviceAccount, [
+        'https://www.googleapis.com/auth/drive.file',
+    ]);
+    if ($token === '') {
+        return false;
+    }
+
+    $payload = json_encode([
+        'type'                 => 'user',
+        'role'                 => 'writer',
+        'emailAddress'         => $email,
+        'sendNotificationEmail'=> false,
+    ], JSON_UNESCAPED_UNICODE);
+
+    if ($payload === false) {
+        return false;
+    }
+
+    $url = 'https://www.googleapis.com/drive/v3/files/'
+        . rawurlencode($spreadsheetId)
+        . '/permissions?supportsAllDrives=true';
+
+    $response = googleSheetsHttpRequest(
+        'POST',
+        $url,
+        [
+            'Authorization: Bearer ' . $token,
+            'Content-Type: application/json',
+        ],
+        $payload
+    );
+
+    if ($response['code'] >= 200 && $response['code'] < 300) {
+        return true;
+    }
+
+    googleSheetsLog("Share sheet {$spreadsheetId} with {$email}: HTTP {$response['code']} — {$response['body']}");
+
+    return false;
+}
+
+/**
+ * Create a Google Sheet for one event and store URL on the event row.
+ *
+ * @return array{ok: bool, message: string, url?: string}
+ */
+function createGoogleSheetForEvent(PDO $pdo, int $eventId): array
+{
+    ensureGoogleSheetsSchema($pdo);
+
+    if (!isGoogleServiceAccountConfigured()) {
+        return ['ok' => false, 'message' => 'Upload the service account JSON in Settings → Google Sheets.'];
+    }
+
+    $serviceAccount = loadGoogleServiceAccount();
+    if ($serviceAccount === null) {
+        return ['ok' => false, 'message' => 'Service account credentials missing.'];
+    }
+
+    $event = getEventById($pdo, $eventId);
+    if (!$event) {
+        return ['ok' => false, 'message' => 'Event not found.'];
+    }
+
+    if (trim((string) ($event['google_sheet_url'] ?? '')) !== '') {
+        return ['ok' => false, 'message' => 'This event already has a Google Sheet linked.'];
+    }
+
+    $tabName = trim((string) getSetting($pdo, 'google_sheets_default_tab', 'Registrations'));
+    if ($tabName === '') {
+        $tabName = 'Registrations';
+    }
+
+    $created = googleSheetsCreateSpreadsheet(
+        $serviceAccount,
+        buildGoogleSheetsTitleForEvent($event),
+        $tabName
+    );
+
+    if ($created === null) {
+        return ['ok' => false, 'message' => 'Google API could not create the spreadsheet. Check storage/logs/google-sheets.log'];
+    }
+
+    $shareEmail = trim((string) getSetting($pdo, 'google_sheets_share_with_email', ''));
+    if ($shareEmail !== '') {
+        googleSheetsShareSpreadsheetWithEmail($serviceAccount, $created['spreadsheetId'], $shareEmail);
+    }
+
+    $stmt = $pdo->prepare(
+        'UPDATE events SET google_sheet_url = :url, google_sheet_tab = :tab WHERE id = :id'
+    );
+    $stmt->execute([
+        'url' => $created['url'],
+        'tab' => $created['tabName'],
+        'id'  => $eventId,
+    ]);
+
+    googleSheetsLog("Auto-created sheet for event {$eventId}: {$created['url']}");
+
+    return [
+        'ok'      => true,
+        'message' => 'Google Sheet created and linked.',
+        'url'     => $created['url'],
+    ];
+}
+
+/**
+ * @return array{created: int, skipped: int, failed: int, errors: list<string>}
+ */
+function bulkCreateGoogleSheetsForEvents(PDO $pdo, bool $onlyMissing = true): array
+{
+    ensureGoogleSheetsSchema($pdo);
+
+    $stats = ['created' => 0, 'skipped' => 0, 'failed' => 0, 'errors' => []];
+
+    if (!isGoogleServiceAccountConfigured()) {
+        $stats['errors'][] = 'Upload the service account JSON in Settings → Google Sheets.';
+
+        return $stats;
+    }
+
+    $sql = 'SELECT id FROM events';
+    if ($onlyMissing) {
+        $sql .= " WHERE google_sheet_url IS NULL OR TRIM(google_sheet_url) = ''";
+    }
+    $sql .= ' ORDER BY event_date ASC, name ASC';
+
+    $ids = $pdo->query($sql)->fetchAll(PDO::FETCH_COLUMN);
+    if ($ids === []) {
+        return $stats;
+    }
+
+    foreach ($ids as $rawId) {
+        $eventId = (int) $rawId;
+        if ($eventId < 1) {
+            continue;
+        }
+
+        $event = getEventById($pdo, $eventId);
+        if ($onlyMissing && $event && trim((string) ($event['google_sheet_url'] ?? '')) !== '') {
+            $stats['skipped']++;
+            continue;
+        }
+
+        $result = createGoogleSheetForEvent($pdo, $eventId);
+        if ($result['ok']) {
+            $stats['created']++;
+        } else {
+            $stats['failed']++;
+            $label = $event ? buildGoogleSheetsTitleForEvent($event) : 'Event #' . $eventId;
+            $stats['errors'][] = $label . ': ' . $result['message'];
+        }
+
+        usleep(250000);
+    }
+
+    return $stats;
+}
+
+/**
+ * @return array{total: int, missing: int}
+ */
+function countEventsGoogleSheetStatus(PDO $pdo): array
+{
+    ensureGoogleSheetsSchema($pdo);
+
+    $total = (int) $pdo->query('SELECT COUNT(*) FROM events')->fetchColumn();
+    $stmt  = $pdo->query(
+        "SELECT COUNT(*) FROM events WHERE google_sheet_url IS NOT NULL AND TRIM(google_sheet_url) <> ''"
+    );
+    $linked = (int) $stmt->fetchColumn();
+
+    return [
+        'total'   => $total,
+        'missing' => max(0, $total - $linked),
+    ];
 }
 
 /**

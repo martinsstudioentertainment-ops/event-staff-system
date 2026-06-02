@@ -10,7 +10,7 @@ Data is always saved to the **database first**. Google Sheets sync is extra — 
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a project (or use an existing one)
-3. **APIs & Services → Enable APIs** → enable **Google Sheets API**
+3. **APIs & Services → Enable APIs** → enable **Google Sheets API** (and **Google Drive API** if you use auto-create + share with your Gmail)
 4. **IAM & Admin → Service accounts** → Create service account
 5. **Keys → Add key → JSON** — download the file
 6. Admin → **Settings → System → Google Sheets sync** → upload the JSON file
@@ -18,13 +18,27 @@ Data is always saved to the **database first**. Google Sheets sync is extra — 
 
 ---
 
-## Per event
+## Per event (manual — optional)
 
 1. Create a Google Sheet for the event (or use an existing one)
 2. **Share** the sheet with the service account email as **Editor**
 3. Admin → **Events → Edit event**
 4. Paste **Google Sheet URL** (from browser address bar)
 5. Set **Sheet tab name** if not `Sheet1` (bottom tab in Google Sheets)
+
+## Auto-create one sheet per event (recommended for many events)
+
+You do **not** need to create 100 spreadsheets by hand.
+
+1. Complete **One-time setup** (service account JSON uploaded)
+2. Admin → **Settings → System → Google Sheets**:
+   - Optional: **Share new auto-created sheets with** your Gmail (enable **Google Drive API** in the same Google Cloud project)
+   - Optional: change default tab name (default `Registrations`)
+3. Admin → **Events** → click **Create N Google Sheet(s)** (only events without a link)
+4. The system creates each spreadsheet, adds the payroll header row, saves the URL on the event, and shares with your Gmail if configured
+5. Tick **Enable live sync** and save
+
+For 32 summer events this takes about 10–20 seconds. For 100 events, allow a few minutes (Google API rate limits).
 
 ---
 

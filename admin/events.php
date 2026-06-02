@@ -3,12 +3,15 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/venues-repository.php';
+require_once __DIR__ . '/../includes/google-sheets-sync.php';
 
 requireAdminCapability('events');
 
-$pdo    = getDB();
-$events = getAllEvents($pdo);
-$flash  = getAdminFlash();
+$pdo         = getDB();
+$events      = getAllEvents($pdo);
+$flash       = getAdminFlash();
+$sheetStatus = countEventsGoogleSheetStatus($pdo);
+$canAutoSheet = isGoogleServiceAccountConfigured();
 
 $pageTitle  = 'Event Management';
 $activePage = 'events';
@@ -34,9 +37,21 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                 <button type="submit" class="btn btn--secondary">Import (quick)</button>
             </form>
+            <?php if ($canAutoSheet && $sheetStatus['missing'] > 0): ?>
+                <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Create <?= (int) $sheetStatus['missing'] ?> Google Sheet(s) via the service account? This may take a few minutes.');">
+                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                    <input type="hidden" name="action" value="create_all">
+                    <button type="submit" class="btn btn--secondary">Create <?= (int) $sheetStatus['missing'] ?> Google Sheet(s)</button>
+                </form>
+            <?php endif; ?>
         </div>
     </div>
     <p class="form-hint" style="margin:0 0 1rem;">Your full table is in <code>database/live-events-2026.php</code>. After deploy, open <a href="import-roster.php"><strong>Import master roster</strong></a> (or <code>https://admin.olasentra.com/import-roster.php</code> while logged in). Do not use <code>register.olasentra.com/import-summer-roster.php</code> — that URL often 404s if the register folder is empty.</p>
+    <?php if ($canAutoSheet): ?>
+        <p class="form-hint" style="margin:0 0 1rem;">Google Sheets: <strong><?= (int) ($sheetStatus['total'] - $sheetStatus['missing']) ?></strong> linked, <strong><?= (int) $sheetStatus['missing'] ?></strong> without a sheet. Use <strong>Create … Google Sheet(s)</strong> to auto-generate one spreadsheet per event (no manual copy/paste). Optional: add your Gmail in <a href="settings-production.php#google-sheets">Settings → Google Sheets</a> so new sheets are shared with you.</p>
+    <?php else: ?>
+        <p class="form-hint" style="margin:0 0 1rem;">To auto-create one Google Sheet per event, upload the service account JSON under <a href="settings-production.php#google-sheets">Settings → Google Sheets</a>.</p>
+    <?php endif; ?>
 
     <div class="table-wrap">
         <table class="data-table">

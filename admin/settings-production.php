@@ -266,6 +266,17 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <span>Enable live sync to Google Sheets on registration</span>
         </label>
 
+        <div class="form-group form-group--full">
+            <label class="form-label" for="google_sheets_share_with_email">Share new auto-created sheets with (Gmail)</label>
+            <input class="form-input" type="email" id="google_sheets_share_with_email" name="google_sheets_share_with_email" value="<?= h($settings['google_sheets_share_with_email'] ?? '') ?>" placeholder="you@olasentra.com">
+            <p class="form-hint">Optional. When you use <strong>Events → Create Google Sheet(s)</strong>, each new spreadsheet is shared with this address as Editor so it appears in your Drive. Enable <strong>Google Drive API</strong> in Google Cloud (same project as Sheets).</p>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="google_sheets_default_tab">Tab name on auto-created sheets</label>
+            <input class="form-input" type="text" id="google_sheets_default_tab" name="google_sheets_default_tab" value="<?= h($settings['google_sheets_default_tab'] ?? 'Registrations') ?>" maxlength="100">
+        </div>
+
         <?php
         $sa = loadGoogleServiceAccount();
         $saEmail = $sa ? (string) ($sa['client_email'] ?? '') : '';
@@ -273,7 +284,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <p class="form-hint">
             Service account:
             <?php if ($saEmail !== ''): ?>
-                <strong><?= h($saEmail) ?></strong> — share each event sheet with this email as <strong>Editor</strong>.
+                <strong><?= h($saEmail) ?></strong> — owns auto-created sheets; you only need manual sharing if you paste sheet URLs yourself.
             <?php else: ?>
                 <strong>Not uploaded</strong> — upload JSON from Google Cloud Console below.
             <?php endif; ?>
