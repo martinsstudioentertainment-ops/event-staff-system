@@ -6,7 +6,7 @@
 @{
     FtpServer        = 'ftp.olasentra.com'   # or hostname from cPanel FTP Accounts
     FtpUser          = 'olastofx'            # FTP username
-    FtpPassword      = 'YOUR_FTP_PASSWORD'
+    FtpPassword      = 'YOUR_FTP_PASSWORD'   # or: $env:EVENT_STAFF_FTP_PASSWORD in upload-to-server.ps1
     FtpRemoteDir     = '/public_html'        # must start with / ; no trailing slash
 
     DbHost           = 'localhost'
