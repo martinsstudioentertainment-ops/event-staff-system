@@ -375,8 +375,17 @@
     line-height: 1.4;
 }
 
+/* Role picker replaces the status banner — hide duplicate at every width */
+.registration-page--compact:has(#role-picker) #registration-role-banner {
+    display: none;
+}
+
+.registration-page--compact .form-hint--compact {
+    display: none;
+}
+
 /* Override mobile.css fixed footer — sticky inside card, smaller buttons */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
     .registration-page--compact .staff-public-header {
         flex-wrap: nowrap;
     }
@@ -390,14 +399,6 @@
     }
 
     .registration-page--compact .portal-legal-notice {
-        display: none;
-    }
-
-    .registration-page--compact:has(#role-picker) #registration-role-banner {
-        display: none;
-    }
-
-    .registration-page--compact .form-hint--compact {
         display: none;
     }
 
@@ -467,27 +468,35 @@
     }
 }
 
-@media (min-width: 769px) {
+@media (min-width: 1025px) {
     .registration-page--compact .registration-page__wrap {
         padding-left: 1rem;
         padding-right: 1rem;
     }
 
+    .registration-page--compact .staff-public-hero {
+        margin-bottom: 0.65rem;
+        padding: 0.35rem 0;
+    }
+
+    .registration-page--compact .staff-public-hero__eyebrow,
     .registration-page--compact .staff-public-hero__lead {
-        display: block;
+        display: none;
     }
 
-    .registration-page--compact .staff-public-hero__eyebrow {
-        display: inline-block;
+    .registration-page--compact .staff-public-hero__title {
+        font-size: 1.25rem;
     }
 
-    .role-picker {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (min-width: 900px) {
     .role-picker {
         grid-template-columns: repeat(4, 1fr);
+    }
+
+    .registration-page--compact .role-picker__box {
+        padding: 0.55rem 0.5rem;
+    }
+
+    .registration-page--compact .role-picker__hint {
+        display: none;
     }
 }
