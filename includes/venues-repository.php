@@ -268,6 +268,33 @@ function rolesNeededToString(array $roles): string
     return implode(',', normalizeRolesNeeded(['roles_needed' => $roles]));
 }
 
+/**
+ * Human-readable roles for a shift (registration UI).
+ */
+function formatEventRolesNeededDisplay(array $event): string
+{
+    $needed = normalizeRolesNeeded($event);
+    $parts  = [];
+
+    $hasDsp     = in_array('dsp', $needed, true);
+    $hasStatic  = in_array('static', $needed, true);
+    $hasSteward = in_array('steward', $needed, true);
+
+    if ($hasDsp && $hasStatic) {
+        $parts[] = 'DSP & Static';
+    } elseif ($hasDsp) {
+        $parts[] = 'DSP';
+    } elseif ($hasStatic) {
+        $parts[] = 'Static';
+    }
+
+    if ($hasSteward) {
+        $parts[] = 'Steward';
+    }
+
+    return $parts !== [] ? implode(' · ', $parts) : 'Open';
+}
+
 function eventAcceptsStaffRole(array $event, string $staffRole): bool
 {
     $staffRole = normalizeStaffRole($staffRole);

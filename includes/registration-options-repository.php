@@ -156,6 +156,8 @@ function formatRegistrationEvent(array $event): array
         'id'                  => (int) $event['id'],
         'name'                => (string) $event['name'],
         'mainSecurityCompany' => formatEventMainSecurityLabel($event),
+        'rolesLabel'          => formatEventRolesNeededDisplay($event),
+        'rolesNeeded'         => normalizeRolesNeeded($event),
         'date'                => $sortDate !== '' ? date('d.m.Y', strtotime($sortDate)) : '',
         'sortDate'            => $sortDate,
         'openForRegistration' => true,

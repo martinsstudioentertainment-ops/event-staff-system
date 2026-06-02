@@ -719,6 +719,44 @@ ul {
     z-index: 2;
 }
 
+.registration-role-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 0.65rem;
+    margin: 0 0 1.25rem;
+    padding: 0.85rem 1rem;
+    border-radius: var(--radius-md, 12px);
+    border: 1px solid color-mix(in srgb, var(--primary-color, #2563eb) 30%, transparent);
+    background: color-mix(in srgb, var(--primary-color, #2563eb) 7%, var(--card-bg, #fff));
+}
+
+.registration-role-banner__label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-muted, #64748b);
+}
+
+.registration-role-banner__name {
+    font-size: 1rem;
+    color: var(--text-color);
+}
+
+.registration-role-banner__detail {
+    flex: 1 1 100%;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: var(--text-muted, #64748b);
+}
+
+.event-checkbox__roles {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--primary-color, #1d4ed8);
+}
+
 .portal-legal-notice {
     margin: 0 0 1rem;
     padding: 0.85rem 1rem;

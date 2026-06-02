@@ -285,6 +285,17 @@ function appendShiftCheckboxContent(textEl, event, venueName, isRegistered) {
         textEl.appendChild(employerEl);
     }
 
+    const rolesLabel = String(event.rolesLabel || '').trim();
+    if (rolesLabel) {
+        const rolesEl = document.createElement('span');
+        rolesEl.className = 'event-checkbox__roles';
+        const rolesPrefix = (typeof document !== 'undefined' && document.body && document.body.dataset.rolesOnShiftLabel)
+            ? document.body.dataset.rolesOnShiftLabel + ': '
+            : 'Roles on this shift: ';
+        rolesEl.textContent = rolesPrefix + rolesLabel;
+        textEl.appendChild(rolesEl);
+    }
+
     const metaParts = [];
     if (event.date) {
         metaParts.push(event.date);
@@ -739,6 +750,44 @@ function setRegisteredEventIds(ids) {
 
 
 
+function updateRegistrationRoleBanner() {
+
+    const nameEl = document.getElementById('registration-role-banner-name');
+
+    const detailEl = document.getElementById('registration-role-banner-detail');
+
+    const formSlugEl = document.getElementById('form_slug');
+
+    if (!nameEl || !detailEl) {
+
+        return;
+
+    }
+
+    if (formSlugEl && formSlugEl.tagName === 'SELECT') {
+
+        const option = formSlugEl.selectedOptions[0];
+
+        if (option) {
+
+            nameEl.textContent = option.textContent.trim();
+
+            const role = option.dataset.role || '';
+
+            detailEl.textContent = role === 'steward'
+
+                ? (document.body.dataset.registeringStewardDetail || '')
+
+                : (document.body.dataset.registeringDspDetail || '');
+
+        }
+
+    }
+
+}
+
+
+
 async function initShiftSelection() {
 
     const container  = getShiftPickerList();
@@ -755,6 +804,8 @@ async function initShiftSelection() {
 
 
 
+    updateRegistrationRoleBanner();
+
     await loadRegistrationOptions(getFormSlug());
 
     refreshShiftPicker(window.REGISTERED_EVENT_IDS);
@@ -770,6 +821,8 @@ async function initShiftSelection() {
         formSlugEl.addEventListener('change', async function () {
 
             window.REGISTRATION_FORM_SLUG = formSlugEl.value;
+
+            updateRegistrationRoleBanner();
 
             container.dataset.selected = '[]';
 

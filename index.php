@@ -134,7 +134,7 @@ if ($pdo) {
     <link rel="stylesheet" href="assets/css/site-notice.css">
     <?php endif; ?>
 </head>
-<body class="staff-public-shell staff-public-shell--event-ops registration-page" data-registration-page="true" data-pwa-install="1" data-theme-category="<?= h($themeCategory) ?>" data-backend-submit="true" data-flash="<?= htmlspecialchars($flash, ENT_QUOTES, 'UTF-8') ?>" data-registered-count="<?= $registeredCount ?>" data-site-name="<?= h($siteName) ?>" data-locked-role="<?= h($lockFormType ? $lockedRole : '') ?>">
+<body class="staff-public-shell staff-public-shell--event-ops registration-page" data-registration-page="true" data-pwa-install="1" data-theme-category="<?= h($themeCategory) ?>" data-backend-submit="true" data-flash="<?= htmlspecialchars($flash, ENT_QUOTES, 'UTF-8') ?>" data-registered-count="<?= $registeredCount ?>" data-site-name="<?= h($siteName) ?>" data-locked-role="<?= h($lockFormType ? $lockedRole : '') ?>" data-registering-dsp-detail="<?= h(t('registering_as_dsp_detail')) ?>" data-registering-steward-detail="<?= h(t('registering_as_steward_detail')) ?>" data-roles-on-shift-label="<?= h(t('roles_on_shift')) ?>">
     <?php renderStaffPublicBackground(true); ?>
 
     <?php
@@ -167,6 +167,20 @@ if ($pdo) {
             <form id="registration-form" action="submit.php" method="post" novalidate>
                 <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                 <div class="form-grid">
+
+                    <?php
+                    $bannerRoleLabel = $selectedForm
+                        ? (string) ($selectedForm['label'] ?? formatStaffRoleLabel($lockedRole))
+                        : formatStaffRoleLabel($lockedRole);
+                    $bannerRoleDetail = normalizeStaffRole($lockedRole) === 'steward'
+                        ? t('registering_as_steward_detail')
+                        : t('registering_as_dsp_detail');
+                    ?>
+                    <div class="registration-role-banner" id="registration-role-banner" role="status">
+                        <span class="registration-role-banner__label"><?= h(t('registering_as')) ?>:</span>
+                        <strong class="registration-role-banner__name" id="registration-role-banner-name"><?= h($bannerRoleLabel) ?></strong>
+                        <span class="registration-role-banner__detail" id="registration-role-banner-detail"><?= h($bannerRoleDetail) ?></span>
+                    </div>
 
                     <?php if (!$lockFormType): ?>
                     <h3 class="form-section-title"><?= h(t('registration_type')) ?></h3>
