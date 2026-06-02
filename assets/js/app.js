@@ -249,9 +249,14 @@
             isValid = false;
         }
 
+        const pickedFormSlug = document.querySelector('input[name="form_slug"]:checked');
         const formSlugEl = document.getElementById('form_slug');
-        if (formSlugEl && formSlugEl.tagName === 'SELECT' && !formSlugEl.value) {
-            showFieldError('form_slug', 'Please select a registration form type.');
+        if (!pickedFormSlug && formSlugEl && formSlugEl.tagName === 'SELECT' && !formSlugEl.value) {
+            showFieldError('form_slug', 'Please select your role.');
+            isValid = false;
+        }
+        if (!pickedFormSlug && document.getElementById('role-picker') && !document.querySelector('input[type="hidden"][name="form_slug"]')) {
+            showFieldError('form_slug', 'Please select your role.');
             isValid = false;
         }
 
@@ -423,17 +428,29 @@
         }
         if (!form) return;
 
+        function syncRoleFromFormSlug() {
+            const roleInput = document.getElementById('staff_role');
+            const picked = document.querySelector('input[name="form_slug"]:checked');
+            const select = document.getElementById('form_slug');
+            if (roleInput && picked && picked.dataset.role) {
+                roleInput.value = picked.dataset.role;
+                window.REGISTRATION_FORM_SLUG = picked.value;
+            } else if (select && select.tagName === 'SELECT' && select.selectedOptions[0]) {
+                const option = select.selectedOptions[0];
+                if (roleInput && option.dataset.role) {
+                    roleInput.value = option.dataset.role;
+                }
+                window.REGISTRATION_FORM_SLUG = select.value;
+            }
+        }
+        document.querySelectorAll('input[name="form_slug"]').forEach(function (el) {
+            el.addEventListener('change', syncRoleFromFormSlug);
+        });
         const formSlugSelect = document.getElementById('form_slug');
         if (formSlugSelect && formSlugSelect.tagName === 'SELECT') {
-            formSlugSelect.addEventListener('change', function () {
-                const roleInput = document.getElementById('staff_role');
-                const option = formSlugSelect.selectedOptions[0];
-                if (roleInput && option) {
-                    roleInput.value = option.dataset.role || roleInput.value;
-                }
-                window.REGISTRATION_FORM_SLUG = formSlugSelect.value;
-            });
+            formSlugSelect.addEventListener('change', syncRoleFromFormSlug);
         }
+        syncRoleFromFormSlug();
 
         form.addEventListener('submit', function (e) {
             e.preventDefault();

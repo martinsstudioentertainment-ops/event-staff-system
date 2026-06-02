@@ -1,0 +1,103 @@
+/* Admin ERP login — centered, branded */
+
+.admin-shell.login-page {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+    background:
+        radial-gradient(ellipse 80% 60% at 50% -10%, rgba(59, 130, 246, 0.18), transparent 55%),
+        radial-gradient(ellipse 50% 40% at 100% 100%, rgba(99, 102, 241, 0.08), transparent),
+        var(--erp-bg, #0f172a);
+}
+
+.admin-shell.login-page .login-page__wrap {
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.admin-shell.login-page .login-card {
+    width: 100%;
+    padding: 1.75rem 1.5rem 1.5rem;
+    border-radius: 14px;
+    border: 1px solid var(--erp-card-border, rgba(148, 163, 184, 0.2));
+    background: var(--erp-card, rgba(30, 41, 59, 0.95));
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+}
+
+.admin-shell.login-page .login-card__brand {
+    text-align: center;
+    margin-bottom: 1.25rem;
+}
+
+.admin-shell.login-page .login-card__logo {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 0.75rem;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--primary-color, #2563eb) 20%, transparent);
+}
+
+.admin-shell.login-page .login-card__logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.admin-shell.login-page .login-card__logo svg {
+    width: 28px;
+    height: 28px;
+}
+
+.admin-shell.login-page .login-card .card__title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    margin: 0 0 0.25rem;
+    color: #f8fafc;
+}
+
+.admin-shell.login-page .login-card .card__subtitle {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--erp-text-muted, #94a3b8);
+}
+
+.admin-shell.login-page .login-form .form-input {
+    min-height: 44px;
+    font-size: 16px;
+}
+
+.admin-shell.login-page .login-card__hint {
+    margin: 1rem 0 0;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: var(--erp-text-muted, #94a3b8);
+    text-align: center;
+}
+
+.admin-shell.login-page .login-card__hint a {
+    color: var(--primary-color, #60a5fa);
+}
+
+[data-theme="light"].admin-shell.login-page {
+    background:
+        radial-gradient(ellipse 80% 50% at 50% 0%, rgba(37, 99, 235, 0.08), transparent),
+        #f1f5f9;
+}
+
+[data-theme="light"].admin-shell.login-page .login-card {
+    background: #fff;
+    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"].admin-shell.login-page .login-card .card__title {
+    color: #0f172a;
+}

@@ -15,30 +15,47 @@ function getDefaultRegistrationForms(): array
         'dsp' => [
             'slug'               => 'dsp',
             'staff_role'         => 'dsp',
-            'label'              => 'DSP & Static Security',
-            'short_label'        => 'DSP & Static',
+            'label'              => 'Door Supervisor (DSP)',
+            'short_label'        => 'DSP',
+            'role_hint'          => 'PSA door supervisor — events, clubs, festivals',
+            'title'              => 'DSP Registration',
+            'subtitle'           => 'For PSA-licensed Door Supervisors at events and venues.',
+            'description'        => 'Choose your venue, then select DSP shifts you are available for.',
+            'icon'               => 'shield',
+            'enabled'            => true,
+            'show_notice'        => true,
+            'selection_mode'     => 'venue_first',
+            'allowed_work_types' => ['nightclub', 'office', 'special_event', 'festival'],
+        ],
+        'static' => [
+            'slug'               => 'static',
+            'staff_role'         => 'static',
+            'label'              => 'Static Security',
+            'short_label'        => 'Static',
+            'role_hint'          => 'Site / gate / ongoing static posts',
+            'title'              => 'Static Guard Registration',
+            'subtitle'           => 'For static and site security — not concert door work.',
+            'description'        => 'Pick the site or venue, then choose static shifts.',
+            'icon'               => 'shield',
+            'enabled'            => true,
+            'show_notice'        => true,
+            'selection_mode'     => 'venue_first',
+            'allowed_work_types' => ['static'],
+        ],
+        'both' => [
+            'slug'               => 'both',
+            'staff_role'         => 'both',
+            'label'              => 'DSP & Static (Both)',
+            'short_label'        => 'DSP + Static',
+            'role_hint'          => 'Apply for DSP and static shifts on one form',
             'title'              => 'DSP & Static Registration',
-            'subtitle'           => 'For Door Supervisors (DSP) and static / site security — concerts, festivals, venues, and ongoing sites.',
-            'description'        => 'One form for both DSP and static work. Choose your venue, then tick the shifts you want (events and site security).',
+            'subtitle'           => 'For staff who do both door supervisor and static/site work.',
+            'description'        => 'Shows all DSP and static shifts. Choose venue, then tick what suits you.',
             'icon'               => 'shield',
             'enabled'            => true,
             'show_notice'        => true,
             'selection_mode'     => 'venue_first',
             'allowed_work_types' => ['nightclub', 'office', 'special_event', 'festival', 'static'],
-        ],
-        'static' => [
-            'slug'               => 'static',
-            'staff_role'         => 'static',
-            'label'              => 'Static Security (legacy link)',
-            'short_label'        => 'Static',
-            'title'              => 'Static Guard Registration',
-            'subtitle'           => 'Use the main DSP & Static form instead — this link is kept for old bookmarks only.',
-            'description'        => 'Redirects staff to the combined DSP & Static registration.',
-            'icon'               => 'shield',
-            'enabled'            => false,
-            'show_notice'        => true,
-            'selection_mode'     => 'venue_first',
-            'allowed_work_types' => ['static'],
         ],
         'steward' => [
             'slug'               => 'steward',
@@ -60,21 +77,30 @@ function getDefaultRegistrationForms(): array
 /** @return string[] */
 function getStaffRoleValues(): array
 {
-    return ['dsp', 'static', 'steward', 'security'];
+    return ['dsp', 'static', 'both', 'steward', 'security'];
 }
 
 function normalizeStaffRole(string $role): string
 {
     $role = strtolower(trim($role));
 
-    return $role === 'security' ? 'dsp' : $role;
+    if ($role === 'security' || $role === 'dsp-static' || $role === 'dsp_static') {
+        return 'both';
+    }
+
+    return in_array($role, ['dsp', 'static', 'both', 'steward'], true) ? $role : 'dsp';
 }
 
 function staffRoleToFormSlug(string $role): string
 {
     $role = normalizeStaffRole($role);
 
-    return in_array($role, ['dsp', 'static', 'steward'], true) ? $role : 'dsp';
+    return match ($role) {
+        'static'  => 'static',
+        'steward' => 'steward',
+        'both'    => 'both',
+        default   => 'dsp',
+    };
 }
 
 /** @return string[] */
@@ -83,6 +109,7 @@ function getDefaultWorkTypesForFormSlug(string $slug): array
     return match ($slug) {
         'dsp'     => ['nightclub', 'office', 'special_event', 'festival'],
         'static'  => ['static'],
+        'both'    => ['nightclub', 'office', 'special_event', 'festival', 'static'],
         'steward' => ['special_event', 'festival'],
         default   => ['special_event', 'nightclub', 'office', 'static', 'festival'],
     };
@@ -126,10 +153,21 @@ function getFormAllowedWorkTypes(array $form): array
 function formatStaffRoleLabel(string $role): string
 {
     return match (normalizeStaffRole($role)) {
-        'dsp'     => 'DSP & Static Security',
+        'dsp'     => 'Door Supervisor (DSP)',
         'static'  => 'Static Security',
+        'both'    => 'DSP & Static (Both)',
         'steward' => 'Steward',
         default   => ucfirst($role),
+    };
+}
+
+function registrationFormStaffRole(string $slug): string
+{
+    return match (strtolower(trim($slug))) {
+        'steward' => 'steward',
+        'static'  => 'static',
+        'both'    => 'both',
+        default   => 'dsp',
     };
 }
 
@@ -157,19 +195,7 @@ function getRegistrationForms(?PDO $pdo = null): array
         $saved = is_array($decoded[$slug] ?? null) ? $decoded[$slug] : [];
         $merged[$slug] = array_replace_recursive($default, $saved);
         $merged[$slug]['slug']       = $slug;
-        $merged[$slug]['staff_role'] = $slug === 'steward' ? 'steward' : ($slug === 'static' ? 'static' : 'dsp');
-    }
-
-    // One "Your role" option on the main form: DSP covers static shifts too — hide duplicate Static form.
-    if (!empty($merged['dsp']['enabled'])) {
-        $merged['static']['enabled'] = false;
-        $merged['dsp']['allowed_work_types'] = normalizeFormAllowedWorkTypes(
-            ['allowed_work_types' => array_unique(array_merge(
-                normalizeFormAllowedWorkTypes($merged['dsp'], $defaults['dsp']),
-                ['static']
-            ))],
-            $defaults['dsp']
-        );
+        $merged[$slug]['staff_role'] = registrationFormStaffRole($slug);
     }
 
     return $merged;
@@ -215,17 +241,23 @@ function getRegistrationForm(?PDO $pdo, string $slug): ?array
 /** @return array<string, array<string, mixed>> */
 function getEnabledRegistrationForms(?PDO $pdo): array
 {
-    $forms = array_filter(
-        getRegistrationForms($pdo),
-        static fn(array $form): bool => !empty($form['enabled'])
-    );
+    $order = ['dsp', 'static', 'both', 'steward'];
+    $all   = getRegistrationForms($pdo);
+    $out   = [];
 
-    // Main register page: do not list a separate Static option when DSP & Static is enabled.
-    if (isset($forms['dsp'], $forms['static'])) {
-        unset($forms['static']);
+    foreach ($order as $slug) {
+        if (isset($all[$slug]) && !empty($all[$slug]['enabled'])) {
+            $out[$slug] = $all[$slug];
+        }
     }
 
-    return $forms;
+    foreach ($all as $slug => $form) {
+        if (!isset($out[$slug]) && !empty($form['enabled'])) {
+            $out[$slug] = $form;
+        }
+    }
+
+    return $out;
 }
 
 function registrationFormRedirectPath(array $query, ?string $formSlug = null): string

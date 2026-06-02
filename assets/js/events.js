@@ -24,6 +24,14 @@ function getFormSlug() {
 
 
 
+    const checkedRole = document.querySelector('input[name="form_slug"]:checked');
+
+    if (checkedRole && checkedRole.value) {
+
+        return String(checkedRole.value);
+
+    }
+
     const formSlugEl = document.getElementById('form_slug');
 
     if (formSlugEl && formSlugEl.value) {
@@ -32,9 +40,7 @@ function getFormSlug() {
 
     }
 
-
-
-    const hidden = document.querySelector('input[name="form_slug"]');
+    const hidden = document.querySelector('input[type="hidden"][name="form_slug"]');
 
     if (hidden && hidden.value) {
 
@@ -764,6 +770,26 @@ function updateRegistrationRoleBanner() {
 
     }
 
+    const picked = document.querySelector('input[name="form_slug"]:checked');
+
+    if (picked) {
+
+        nameEl.textContent = picked.dataset.label || picked.value;
+
+        detailEl.textContent = picked.dataset.detail || '';
+
+        const roleInput = document.getElementById('staff_role');
+
+        if (roleInput && picked.dataset.role) {
+
+            roleInput.value = picked.dataset.role;
+
+        }
+
+        return;
+
+    }
+
     if (formSlugEl && formSlugEl.tagName === 'SELECT') {
 
         const option = formSlugEl.selectedOptions[0];
@@ -772,13 +798,15 @@ function updateRegistrationRoleBanner() {
 
             nameEl.textContent = option.textContent.trim();
 
-            const role = option.dataset.role || '';
+            detailEl.textContent = option.dataset.detail || '';
 
-            detailEl.textContent = role === 'steward'
+            const roleInput = document.getElementById('staff_role');
 
-                ? (document.body.dataset.registeringStewardDetail || '')
+            if (roleInput && option.dataset.role) {
 
-                : (document.body.dataset.registeringDspDetail || '');
+                roleInput.value = option.dataset.role;
+
+            }
 
         }
 
@@ -815,6 +843,26 @@ async function initShiftSelection() {
     container.addEventListener('change', onShiftCheckboxChange);
 
 
+
+    const roleInputs = document.querySelectorAll('input[name="form_slug"]');
+
+    roleInputs.forEach(function (input) {
+
+        input.addEventListener('change', async function () {
+
+            window.REGISTRATION_FORM_SLUG = input.value;
+
+            updateRegistrationRoleBanner();
+
+            container.dataset.selected = '[]';
+
+            await loadRegistrationOptions(input.value);
+
+            refreshShiftPicker(window.REGISTERED_EVENT_IDS);
+
+        });
+
+    });
 
     if (formSlugEl && formSlugEl.tagName === 'SELECT') {
 

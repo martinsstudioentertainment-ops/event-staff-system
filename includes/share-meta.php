@@ -12,19 +12,26 @@ function getAbsolutePublicUrl(string $path, ?PDO $pdo = null): string
     return $base . $path;
 }
 
+function isRasterShareImagePath(string $relative): bool
+{
+    $ext = strtolower(pathinfo($relative, PATHINFO_EXTENSION));
+
+    return in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'webp'], true);
+}
+
 function getShareImageRelativePath(?PDO $pdo): string
 {
     if ($pdo === null) {
-        return 'assets/img/share-default.svg';
+        return 'og-image.php';
     }
 
-    $relative = getCompanyLogoRelativePath($pdo);
+    $relative = ltrim(str_replace('\\', '/', getCompanyLogoRelativePath($pdo)), '/');
 
-    if ($relative !== '' && getCompanyLogoFilesystemPath($pdo) !== '') {
-        return ltrim(str_replace('\\', '/', $relative), '/');
+    if ($relative !== '' && getCompanyLogoFilesystemPath($pdo) !== '' && isRasterShareImagePath($relative)) {
+        return $relative;
     }
 
-    return 'assets/img/share-default.svg';
+    return 'og-image.php';
 }
 
 function getShareImageAbsoluteUrl(?PDO $pdo): string
@@ -34,8 +41,9 @@ function getShareImageAbsoluteUrl(?PDO $pdo): string
     }
 
     $base = normalizePublicSiteUrl(getRegistrationSiteUrl($pdo));
+    $path = getShareImageRelativePath($pdo);
 
-    return $base . '/' . getShareImageRelativePath($pdo);
+    return $base . '/' . ltrim($path, '/');
 }
 
 /**
@@ -98,6 +106,10 @@ function renderShareMeta(array $options, ?PDO $pdo = null): void
     <?php endif; ?>
     <?php if ($image !== ''): ?>
     <meta property="og:image" content="<?= h($image) ?>">
+    <meta property="og:image:secure_url" content="<?= h($image) ?>">
+    <meta property="og:image:type" content="<?= h(str_contains($image, 'og-image.php') ? 'image/png' : 'image/jpeg') ?>">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="<?= h($siteName !== '' ? $siteName . ' logo' : 'Event Staff') ?>">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:image" content="<?= h($image) ?>">

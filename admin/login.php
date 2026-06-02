@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/auth.php';
 
 require_once __DIR__ . '/../includes/settings-repository.php';
 require_once __DIR__ . '/../includes/admin-ui-settings.php';
+require_once __DIR__ . '/../includes/brand-logo.php';
 
 if (isAdminLoggedIn()) {
     header('Location: dashboard.php');
@@ -101,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ?>
 
     <link rel="stylesheet" href="../assets/css/admin.css">
+    <link rel="stylesheet" href="../assets/css/admin-login.css">
 
 </head>
 
@@ -111,13 +113,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <section class="card login-card">
 
             <div class="login-card__brand">
-
-                <div class="login-card__logo brand-icon" aria-hidden="true"><?= renderThemeBrandIcon($pdo) ?></div>
-
+                <div class="login-card__logo" aria-hidden="true">
+                    <?php if (hasCompanyLogo($pdo)): ?>
+                        <?php renderSiteBrandLogo($pdo, 'header', '../', $siteName); ?>
+                    <?php else: ?>
+                        <span class="brand-icon"><?= renderThemeBrandIcon($pdo) ?></span>
+                    <?php endif; ?>
+                </div>
                 <h1 class="card__title"><?= h($siteName) ?></h1>
-
-                <p class="card__subtitle">Sign in to the ERP console</p>
-
+                <p class="card__subtitle">Admin sign in</p>
             </div>
 
 

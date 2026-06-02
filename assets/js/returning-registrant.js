@@ -35,6 +35,19 @@
     function setFormSlug(slug) {
         if (!slug) return;
 
+        var radio = document.querySelector('input[name="form_slug"][value="' + slug + '"]');
+        if (radio && !radio.disabled) {
+            radio.checked = true;
+            radio.dispatchEvent(new Event('change', { bubbles: true }));
+            if (radio.dataset.role) {
+                var roleInput = document.getElementById('staff_role');
+                if (roleInput) {
+                    roleInput.value = radio.dataset.role;
+                }
+            }
+            return;
+        }
+
         var select = document.getElementById('form_slug');
         if (select && select.tagName === 'SELECT' && !select.disabled) {
             select.value = slug;

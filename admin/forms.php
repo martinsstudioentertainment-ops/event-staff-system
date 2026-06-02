@@ -21,7 +21,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 <section class="card">
     <div class="card__header">
         <h2 class="card__title">Registration forms</h2>
-        <p class="card__subtitle">Main forms: <strong>DSP &amp; Static</strong> (one role — concerts, venues, and site security) and <strong>Steward</strong>. The separate Static form is disabled so staff only pick one security role on the register page.</p>
+        <p class="card__subtitle">Shareable forms: <strong>DSP</strong>, <strong>Static</strong>, <strong>DSP &amp; Static (Both)</strong>, and <strong>Steward</strong>. Upload a <strong>PNG/JPG logo</strong> in Website → Global for WhatsApp link previews.</p>
     </div>
 
     <div class="admin-form-list">
