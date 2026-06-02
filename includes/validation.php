@@ -2,6 +2,8 @@
 require_once __DIR__ . '/registration-forms.php';
 require_once __DIR__ . '/maps.php';
 require_once __DIR__ . '/app-environment.php';
+require_once __DIR__ . '/staff-registration-schema.php';
+require_once __DIR__ . '/events-repository.php';
 
 /**
  * Field names match index.html / database staff_registrations columns.
@@ -272,9 +274,12 @@ function getInvalidEventIds(PDO $pdo, array $eventIds): array
  * @param array<string, mixed> $data
  * @param int $eventId
  */
-function saveRegistration(PDO $pdo, array $data, int $eventId): int
+function saveRegistration(PDO $pdo, array $data, int $eventId, ?string $staffRoleOverride = null): int
 {
+    ensureStaffRegistrationRoleColumn($pdo);
+
     $statusToken = bin2hex(random_bytes(32));
+    $staffRole   = $staffRoleOverride ?? normalizeStaffRole(trim((string) $data['staff_role']));
 
     $sql = 'INSERT INTO staff_registrations (
                 surname, first_name, full_address, eircode, location_lat, location_lng, email, mobile,
@@ -298,7 +303,7 @@ function saveRegistration(PDO $pdo, array $data, int $eventId): int
         'gender'              => trim((string) $data['gender']),
         'pps_number'          => trim((string) $data['pps_number']),
         'bank_iban'           => trim((string) $data['bank_iban']),
-        'staff_role'          => normalizeStaffRole(trim((string) $data['staff_role'])),
+        'staff_role'          => $staffRole,
         'event_id'            => $eventId,
         'status_token'        => $statusToken,
         'privacy_consented_at'=> registrationPrivacyAccepted($data) ? date('Y-m-d H:i:s') : null,
@@ -315,6 +320,7 @@ function saveRegistration(PDO $pdo, array $data, int $eventId): int
  */
 function saveRegistrations(PDO $pdo, array $data, array $eventIds): array
 {
+    ensureStaffRegistrationRoleColumn($pdo);
     $pdo->beginTransaction();
 
     try {
@@ -325,7 +331,14 @@ function saveRegistrations(PDO $pdo, array $data, array $eventIds): array
             if (registrationExistsForEmail($pdo, $email, $eventId)) {
                 throw new RuntimeException('Duplicate registration blocked for event ' . $eventId);
             }
-            $ids[] = saveRegistration($pdo, $data, $eventId);
+            $event = getEventById($pdo, $eventId);
+            $role  = $event !== null
+                ? resolveStaffRoleForEventRegistration((string) ($data['staff_role'] ?? ''), $event)
+                : normalizeStaffRole((string) ($data['staff_role'] ?? ''));
+            if ($role === 'both') {
+                $role = 'dsp';
+            }
+            $ids[] = saveRegistration($pdo, $data, $eventId, $role);
         }
         $pdo->commit();
         return $ids;

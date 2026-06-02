@@ -422,17 +422,18 @@
                 credentials: 'same-origin'
             });
 
-            const contentType = (response.headers.get('content-type') || '').toLowerCase();
             const rawBody = await response.text();
+            let result = null;
 
-            if (contentType.includes('application/json') && rawBody) {
-                let result;
+            if (rawBody && rawBody.trim().charAt(0) === '{') {
                 try {
                     result = JSON.parse(rawBody);
                 } catch (parseErr) {
-                    throw new Error('Invalid server response');
+                    result = null;
                 }
+            }
 
+            if (result && typeof result === 'object') {
                 if (result.success) {
                     showAlert(result.message || 'Registration submitted successfully!', 'success');
                     resetFormAfterSuccess(form);

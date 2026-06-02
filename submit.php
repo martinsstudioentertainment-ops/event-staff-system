@@ -22,10 +22,13 @@ require_once __DIR__ . '/includes/notifications.php';
 require_once __DIR__ . '/includes/system-settings.php';
 require_once __DIR__ . '/includes/staff-blacklist.php';
 require_once __DIR__ . '/includes/google-sheets-sync.php';
+require_once __DIR__ . '/includes/staff-registration-schema.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
-        enforceMaintenanceMode(getDB());
+        $pdoBoot = getDB();
+        ensureStaffRegistrationRoleColumn($pdoBoot);
+        enforceMaintenanceMode($pdoBoot);
     } catch (Throwable $e) {
         // allow if DB unavailable
     }
@@ -131,13 +134,21 @@ if (empty($errors)) {
 
             } else {
 
-                $ids   = saveRegistrations($pdo, $data, $newEventIds);
+                $ids = saveRegistrations($pdo, $data, $newEventIds);
 
-                notifyStaffRegistrationSubmitted($pdo, $data, $newEventIds, $ids);
+                try {
+                    notifyStaffRegistrationSubmitted($pdo, $data, $newEventIds, $ids);
+                } catch (Throwable $notifyErr) {
+                    error_log('[EventStaff] Registration email failed: ' . $notifyErr->getMessage());
+                }
 
-                $sheetStats = syncRegistrationsToGoogleSheets($pdo, $ids);
-                if ($sheetStats['failed'] > 0) {
-                    error_log('[EventStaff] Google Sheets sync failed for ' . $sheetStats['failed'] . ' registration(s). See storage/logs/google-sheets.log');
+                try {
+                    $sheetStats = syncRegistrationsToGoogleSheets($pdo, $ids);
+                    if ($sheetStats['failed'] > 0) {
+                        error_log('[EventStaff] Google Sheets sync failed for ' . $sheetStats['failed'] . ' registration(s). See storage/logs/google-sheets.log');
+                    }
+                } catch (Throwable $sheetErr) {
+                    error_log('[EventStaff] Google Sheets sync error: ' . $sheetErr->getMessage());
                 }
 
                 $count = count($ids);
@@ -194,11 +205,21 @@ if (empty($errors)) {
 
         error_log('[EventStaff] Database error: ' . $e->getMessage());
 
-
-
         if (str_contains($e->getMessage(), 'uq_staff_email_event') || str_contains($e->getMessage(), 'Duplicate entry')) {
 
             $errors['event_ids'] = 'You are already registered for one or more selected events.';
+
+        } elseif (str_contains($e->getMessage(), 'staff_role') || str_contains($e->getMessage(), 'Data truncated')) {
+
+            $errors['form_slug'] = 'Could not save your role. Please try DSP or Static only, or contact support.';
+
+            if (isAjaxRequest()) {
+                jsonResponse([
+                    'success' => false,
+                    'message' => $errors['form_slug'],
+                    'errors'  => $errors,
+                ], 422);
+            }
 
         } else {
 
@@ -209,6 +230,8 @@ if (empty($errors)) {
                     'success' => false,
 
                     'message' => 'We could not save your registration. Please try again in a few minutes.',
+
+                    'errors'  => $errors,
 
                 ], 500);
 
