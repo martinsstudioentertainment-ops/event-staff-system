@@ -129,11 +129,15 @@ function getWebsitePageRoutes(): array
 function getWebsitePageUrl(string $page, ?PDO $pdo = null, ?string $basePath = ''): string
 {
     if ($page === 'register') {
-        return $pdo ? getRegistrationFormUrl($pdo) : 'index.php';
+        return $pdo ? getRegistrationFormUrl($pdo) : getRegistrationSiteUrl($pdo) . '/index.php';
     }
 
     $routes = getWebsitePageRoutes();
     $file   = $routes[$page] ?? 'home.php';
+
+    if (registrationSiteIsExternal($pdo) || (defined('MAIN_SITE_URL') && MAIN_SITE_URL !== '')) {
+        return getMarketingSiteUrl($pdo) . '/' . $file;
+    }
 
     return $basePath . $file;
 }

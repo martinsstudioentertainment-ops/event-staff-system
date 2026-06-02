@@ -5,9 +5,18 @@ DirectoryIndex home.php index.php
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Staff registration subdomain: root opens the registration form (shared DB, same files)
+    # --- register.olasentra.com: staff only (same public_html, shared DB) ---
     RewriteCond %{HTTP_HOST} ^register\.olasentra\.com$ [NC]
     RewriteRule ^$ /index.php [L]
+
+    # Marketing pages on main domain only
+    RewriteCond %{HTTP_HOST} ^register\.olasentra\.com$ [NC]
+    RewriteCond %{REQUEST_URI} ^/(home|faq|events-page|how-it-works|privacy)\.php [NC]
+    RewriteRule ^ https://olasentra.com%{REQUEST_URI} [R=302,L]
+
+    # Main domain: staff registration lives on register subdomain
+    RewriteCond %{HTTP_HOST} ^(www\.)?olasentra\.com$ [NC]
+    RewriteRule ^index\.php$ https://register.olasentra.com/ [R=302,L]
 
     # Public branding images (WhatsApp/link previews, og:image)
     RewriteRule ^storage/branding/.+\.(png|jpe?g|gif|webp|svg)$ - [L]

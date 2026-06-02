@@ -22,6 +22,42 @@ function normalizePublicSiteUrl(string $url): string
 }
 
 /**
+ * Main marketing site (home.php, FAQ) — not the register subdomain.
+ */
+function getMarketingSiteUrl(?PDO $pdo = null): string
+{
+    if (defined('MAIN_SITE_URL') && MAIN_SITE_URL !== '') {
+        return normalizePublicSiteUrl((string) MAIN_SITE_URL);
+    }
+
+    $admin = getAdminSiteUrl($pdo);
+    if (str_ends_with($admin, '/admin')) {
+        return normalizePublicSiteUrl(substr($admin, 0, -strlen('/admin')));
+    }
+
+    return normalizePublicSiteUrl(getAppBaseUrl());
+}
+
+function isRegistrationSubdomain(): bool
+{
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    $host = preg_replace('/:\d+$/', '', $host) ?? $host;
+
+    if ($host === '') {
+        return false;
+    }
+
+    if (defined('REGISTRATION_SITE_URL') && REGISTRATION_SITE_URL !== '') {
+        $regHost = parse_url(REGISTRATION_SITE_URL, PHP_URL_HOST);
+        if (is_string($regHost) && $regHost !== '' && strtolower($regHost) === $host) {
+            return true;
+        }
+    }
+
+    return str_starts_with($host, 'register.');
+}
+
+/**
  * Base URL for the staff registration site (where index.php lives).
  */
 function getRegistrationSiteUrl(?PDO $pdo = null): string

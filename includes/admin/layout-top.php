@@ -19,7 +19,7 @@ $themeColor = getThemeColor($pdo);
 $layoutTheme = getSystemLayoutTheme($pdo);
 
 $registrationFormUrl = getRegistrationFormUrl($pdo);
-$homePageUrl         = normalizePublicSiteUrl(getAppBaseUrl()) . '/home.php';
+$homePageUrl         = getMarketingSiteUrl($pdo ?? null) . '/home.php';
 $enablePwa           = false;
 
 ?>

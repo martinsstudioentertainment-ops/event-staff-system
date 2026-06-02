@@ -20,8 +20,9 @@ $dbHost = getenv('DB_HOST') ?: 'localhost';
 $dbName = (string) getenv('DB_NAME');
 $dbUser = (string) getenv('DB_USER');
 $dbPass = (string) getenv('DB_PASS');
-$regUrl = getenv('REGISTRATION_SITE_URL') ?: 'https://olasentra.com';
-$admUrl = getenv('ADMIN_SITE_URL') ?: 'https://olasentra.com/admin';
+$mainUrl = getenv('MAIN_SITE_URL') ?: 'https://olasentra.com';
+$regUrl  = getenv('REGISTRATION_SITE_URL') ?: 'https://register.olasentra.com';
+$admUrl  = getenv('ADMIN_SITE_URL') ?: 'https://olasentra.com/admin';
 
 $content = '<?php
 /**
@@ -32,6 +33,7 @@ define(\'DB_NAME\', ' . var_export($dbName, true) . ');
 define(\'DB_USER\', ' . var_export($dbUser, true) . ');
 define(\'DB_PASS\', ' . var_export($dbPass, true) . ');
 
+define(\'MAIN_SITE_URL\', ' . var_export($mainUrl, true) . ');
 define(\'REGISTRATION_SITE_URL\', ' . var_export($regUrl, true) . ');
 define(\'ADMIN_SITE_URL\', ' . var_export($admUrl, true) . ');
 define(\'APP_ENV\', \'production\');

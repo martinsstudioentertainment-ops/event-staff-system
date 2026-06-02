@@ -22,7 +22,7 @@ $pageTitle          = 'General';
 $activePage         = 'settings-site';
 $erpSettingsActive  = 'general';
 $registrationUrl    = getRegistrationFormUrl($pdo);
-$homePageUrl        = normalizePublicSiteUrl(getAppBaseUrl()) . '/home.php';
+$homePageUrl        = getMarketingSiteUrl($pdo) . '/home.php';
 
 include __DIR__ . '/../includes/admin/layout-top.php';
 ?>
@@ -56,15 +56,15 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <tbody>
                 <tr class="url-format-guide__row--active">
                     <th scope="row">Main company website</th>
-                    <td><code>https://yourcompany.com</code></td>
+                    <td><code>https://olasentra.com</code></td>
                 </tr>
                 <tr class="url-format-guide__row--active">
                     <th scope="row">Staff registration form</th>
-                    <td><code>https://register.your-events.com</code></td>
+                    <td><code>https://register.olasentra.com</code></td>
                 </tr>
                 <tr class="url-format-guide__row--active">
                     <th scope="row">Admin panel</th>
-                    <td><code>https://manage.your-events.com/admin</code></td>
+                    <td><code>https://olasentra.com/admin</code></td>
                 </tr>
             </tbody>
         </table>

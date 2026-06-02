@@ -27,13 +27,15 @@ foreach ($key in @('FtpServer', 'FtpUser', 'FtpPassword', 'FtpRemoteDir', 'DbNam
 }
 
 $dbHost = if ($cfg.DbHost) { $cfg.DbHost } else { 'localhost' }
-$regUrl = if ($cfg.RegistrationUrl) { $cfg.RegistrationUrl } else { 'https://olasentra.com' }
-$admUrl = if ($cfg.AdminUrl) { $cfg.AdminUrl } else { 'https://olasentra.com/admin' }
+$mainUrl = if ($cfg.MainSiteUrl) { $cfg.MainSiteUrl } else { 'https://olasentra.com' }
+$regUrl  = if ($cfg.RegistrationUrl) { $cfg.RegistrationUrl } else { 'https://register.olasentra.com' }
+$admUrl  = if ($cfg.AdminUrl) { $cfg.AdminUrl } else { 'https://olasentra.com/admin' }
 
 $env:DB_HOST = $dbHost
 $env:DB_NAME = $cfg.DbName
 $env:DB_USER = $cfg.DbUser
 $env:DB_PASS = $cfg.DbPass
+$env:MAIN_SITE_URL = $mainUrl
 $env:REGISTRATION_SITE_URL = $regUrl
 $env:ADMIN_SITE_URL = $admUrl
 

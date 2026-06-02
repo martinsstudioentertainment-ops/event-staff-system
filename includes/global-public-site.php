@@ -52,7 +52,7 @@ function getGlobalPublicSiteConfig(?PDO $pdo, string $assetBase = ''): array
         'phone'           => getCompanyPhone($pdo),
         'themeColor'      => getThemeColor($pdo),
         'registrationUrl' => getRegistrationFormUrl($pdo),
-        'homeUrl'         => normalizePublicSiteUrl(getAppBaseUrl()) . '/home.php',
+        'homeUrl'         => getMarketingSiteUrl($pdo) . '/home.php',
         'logoUrl'         => getCompanyLogoUrl($pdo, $assetBase),
         'hasLogo'         => hasCompanyLogo($pdo),
     ];
