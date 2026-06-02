@@ -53,12 +53,15 @@ git push origin main
 
 ---
 
-## If `storage` is still wrong after deploy
+## If `storage` did not deploy
 
-1. File Manager → `public_html/storage`
-2. Delete **files** (not folders) named `logs`, `database`, or extra `backups` (0 bytes)
-3. Git → **Deploy HEAD commit** again
-4. Confirm folder exists: `public_html/storage/logs/` (directory, not a file)
+1. File Manager → delete the whole folder `/home/olastofx/public_html/storage` (only if it has wrong 0-byte **files** named `logs` / `database`)
+2. Git → **Update from Remote** → **Deploy HEAD commit**
+3. Confirm these **folders** exist (not 0-byte files):
+   - `/home/olastofx/public_html/storage/logs/`
+   - `/home/olastofx/public_html/storage/backups/database/`
+   - `/home/olastofx/public_html/storage/backups/weekly/`
+4. Permissions on `storage/logs` → **755**
 
 ---
 
