@@ -422,6 +422,8 @@ function createEvent(PDO $pdo, array $data): int
     ensureGoogleSheetsSchema($pdo);
     ensureEventTimesSchema($pdo);
     ensureEventMainSecuritySchema($pdo);
+    require_once __DIR__ . '/event-reporting-schema.php';
+    ensureEventReportingSchema($pdo);
     $payload = prepareEventPayloadFromForm($pdo, $data);
 
     $stmt = $pdo->prepare(
@@ -442,6 +444,8 @@ function updateEvent(PDO $pdo, int $id, array $data): bool
     ensureGoogleSheetsSchema($pdo);
     ensureEventTimesSchema($pdo);
     ensureEventMainSecuritySchema($pdo);
+    require_once __DIR__ . '/event-reporting-schema.php';
+    ensureEventReportingSchema($pdo);
     $payload = prepareEventPayloadFromForm($pdo, $data);
     $payload['id'] = $id;
 

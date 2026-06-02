@@ -229,6 +229,8 @@ function syncLiveEventsFromMasterFile(PDO $pdo, bool $dryRun = false, ?string $d
     ensureGoLiveStaffNeededColumn($pdo);
     ensureEventTimesSchema($pdo);
     ensureEventMainSecuritySchema($pdo);
+    require_once __DIR__ . '/event-reporting-schema.php';
+    ensureEventReportingSchema($pdo);
 
     $messages = [];
     $errors   = [];

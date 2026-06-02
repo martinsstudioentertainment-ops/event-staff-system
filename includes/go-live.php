@@ -133,6 +133,10 @@ function runSafeSchemaEnsures(PDO $pdo): array
         'events_staff_needed' => static function (PDO $pdo): void {
             ensureGoLiveStaffNeededColumn($pdo);
         },
+        'events_reporting_point' => static function (PDO $pdo): void {
+            require_once __DIR__ . '/event-reporting-schema.php';
+            ensureEventReportingSchema($pdo);
+        },
         'staff_reminder_column' => static function (PDO $pdo): void {
             ensureGoLiveReminderColumn($pdo);
         },

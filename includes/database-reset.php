@@ -105,6 +105,8 @@ function resetDatabaseToZero(PDO $pdo, array $options = []): array
 {
     require_once __DIR__ . '/live-events-sync.php';
     require_once __DIR__ . '/go-live.php';
+    require_once __DIR__ . '/event-reporting-schema.php';
+    ensureEventReportingSchema($pdo);
 
     $messages = [];
     $errors   = [];
