@@ -5,4 +5,6 @@
 deployment:
   tasks:
     - export DEPLOYPATH=/home/olastofx/public_html/
-    - /bin/cp -R admin api assets check-in.php config.production.example.php cron database docs events-page.php faq.php home.php how-it-works.php includes index.php manifest.php offline.php privacy.php setup-check.php staff-app.php status.php submit.php sw.js vendor lang storage $DEPLOYPATH
+    - /bin/cp -R admin api assets cron database docs includes lang vendor storage $DEPLOYPATH
+    - /bin/cp -f .htaccess sw.js config.production.example.php $DEPLOYPATH
+    - /bin/cp -f *.php $DEPLOYPATH

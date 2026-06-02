@@ -62,6 +62,28 @@ git push origin main
 
 ---
 
+## Why the public page looked wrong or broken
+
+| Cause | What you saw |
+|--------|----------------|
+| **Old deploy copied only some files** | Missing `submit.php`, `staff-app.php`, or `assets/css/public-front.css` → plain layout, form does not save, links 404 |
+| **`config.php` is not in Git** | Page can load but DB/features fail until you created `config.php` on the server |
+| **Database OK but schema old** | Page loads; admin **Go live** still needed for full features |
+| **`parking-page.shtml` still in `public_html`** | Namecheap default page sometimes shows instead of your app |
+| **Wrong `storage` setup** | Does **not** break the public page; only logs/backups |
+
+After **Update from Remote → Deploy HEAD commit**, check these exist:
+
+`/home/olastofx/public_html/index.php`  
+`/home/olastofx/public_html/submit.php`  
+`/home/olastofx/public_html/staff-app.php`  
+`/home/olastofx/public_html/assets/css/public-front.css`  
+`/home/olastofx/public_html/.htaccess`
+
+Optional: delete `/home/olastofx/public_html/parking-page.shtml` if you do not need it.
+
+---
+
 ## If Deploy fails
 
 Open the deploy log in Git Version Control and read the red error line, or use **File Manager** to confirm `.cpanel.yml` exists in the repo root on GitHub.
