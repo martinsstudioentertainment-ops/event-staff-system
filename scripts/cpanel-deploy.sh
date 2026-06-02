@@ -39,13 +39,13 @@ MAIN="/home/${CPANEL_USER}/public_html"
 REG="/home/${CPANEL_USER}/register.olasentra.com"
 ADM="/home/${CPANEL_USER}/admin.olasentra.com"
 
+# Never overwrite config.php with the example template (that breaks the database).
 if [ -f "${MAIN}/config.php" ]; then
   /bin/cp -f "${MAIN}/config.php" "${REG}/config.php"
   /bin/cp -f "${MAIN}/config.php" "${ADM}/config.php"
-elif [ -f "${REPO}/config.production.example.php" ]; then
-  /bin/cp -f "${REPO}/config.production.example.php" "${MAIN}/config.php"
-  /bin/cp -f "${REPO}/config.production.example.php" "${REG}/config.php"
-  /bin/cp -f "${REPO}/config.production.example.php" "${ADM}/config.php"
+  echo "Synced config.php from public_html to register + admin."
+else
+  echo "WARNING: ${MAIN}/config.php is missing — create it manually (see config.production.example.php). Deploy did not create config.php."
 fi
 
 echo "Deployed to public_html, register.olasentra.com, and admin.olasentra.com"

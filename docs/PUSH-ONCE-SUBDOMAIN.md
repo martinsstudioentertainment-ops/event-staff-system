@@ -23,6 +23,9 @@ define('APP_ENV', 'production');
 
 (Keep your `DB_*` lines unchanged.)
 
+**Important:** `DB_PASS` must be your real cPanel MySQL password — not `YOUR_DATABASE_PASSWORD_HERE`.  
+If health shows `"database":"error"` after deploy, fix this file and **Save**, then deploy again.
+
 ---
 
 ## Deploy
