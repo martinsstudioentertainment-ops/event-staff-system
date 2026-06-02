@@ -143,7 +143,7 @@ if ($pdo) {
     ?>
 
     <?php if ($showNotice): ?>
-        <?php $web = ['pdo' => $pdo, 'notice_variant' => 'static']; include __DIR__ . '/includes/public/site-notice.php'; ?>
+        <?php $web = ['pdo' => $pdo, 'notice_variant' => 'static', 'notice_collapsible' => true]; include __DIR__ . '/includes/public/site-notice.php'; ?>
     <?php endif; ?>
 
     <main class="registration-page__wrap staff-public-main">
@@ -155,6 +155,7 @@ if ($pdo) {
         ]);
         ?>
         <section class="card staff-public-card staff-public-card--no-inner-title">
+            <p class="registration-mobile-title"><?= h($pageTitle) ?></p>
             <div class="card__header" aria-hidden="true">
                 <h2 class="card__title"><?= h($pageTitle) ?></h2>
             </div>
@@ -193,16 +194,16 @@ if ($pdo) {
                                 $checked = ($old['form_slug'] ?? $selectedFormSlug) === $slug;
                                 ?>
                                 <label class="role-picker__option">
-                                    <input type="radio" name="form_slug" value="<?= h($slug) ?>" data-role="<?= h($roleVal) ?>" data-label="<?= h((string) ($form['label'] ?? $slug)) ?>" data-detail="<?= h(match ($roleVal) {
+                                    <input type="radio" name="form_slug" value="<?= h($slug) ?>" aria-label="<?= h((string) ($form['label'] ?? $slug)) ?>" data-role="<?= h($roleVal) ?>" data-label="<?= h((string) ($form['label'] ?? $slug)) ?>" data-detail="<?= h(match ($roleVal) {
                                         'steward' => t('registering_as_steward_detail'),
                                         'static'  => t('registering_as_static_detail'),
                                         'both'    => t('registering_as_both_detail'),
                                         default   => t('registering_as_dsp_detail'),
                                     }) ?>"<?= $checked ? ' checked' : '' ?><?= $firstRoleOption ? ' required' : '' ?>>
                                     <span class="role-picker__box">
-                                        <span class="role-picker__title"><?= h($form['label'] ?? ucfirst($slug)) ?></span>
+                                        <span class="role-picker__title"><?= h((string) ($form['short_label'] ?? $form['label'] ?? $slug)) ?></span>
                                         <?php if (!empty($form['role_hint'])): ?>
-                                        <span class="role-picker__hint"><?= h((string) $form['role_hint']) ?></span>
+                                        <span class="role-picker__hint" title="<?= h((string) ($form['label'] ?? '')) ?>"><?= h((string) $form['role_hint']) ?></span>
                                         <?php endif; ?>
                                     </span>
                                 </label>
