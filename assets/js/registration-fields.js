@@ -8,15 +8,14 @@ const REGISTRATION_FIELDS = [
     { name: 'surname',        label: 'Surname',                      spreadsheet: 'Surname' },
     { name: 'first_name',     label: 'First Name',                   spreadsheet: 'First Name' },
     { name: 'full_address',   label: 'Full address',                 spreadsheet: 'Full Address' },
-    { name: 'eircode',        label: 'Eircode',                      spreadsheet: 'Eircode' },
-    { name: 'email',          label: 'Email Address',                spreadsheet: 'Email Address' },
+    { name: 'eircode',        label: 'Eircode',                      spreadsheet: 'Postcode' },
+    { name: 'email',          label: 'Email Address',                spreadsheet: 'Email' },
     { name: 'mobile',         label: 'Mobile Number',                spreadsheet: 'Mobile Number' },
-    { name: 'date_of_birth',  label: 'Date of Birth',                spreadsheet: 'Date of Birth' },
+    { name: 'date_of_birth',  label: 'Date of Birth',                spreadsheet: 'Date Of Birth' },
     { name: 'gender',         label: 'Gender',                       spreadsheet: 'Gender' },
-    { name: 'pps_number',     label: 'NI / PPS Number',              spreadsheet: 'NI / PPS Number' },
-    { name: 'bank_iban',      label: 'Bank Account / IBAN',          spreadsheet: 'Bank Account / IBAN' },
-    { name: 'staff_role',     label: 'Role',                         spreadsheet: 'DSP / Static (PSA security)' }
-    /* event_ids[] — multi-select checkboxes, one DB row per event */
+    { name: 'pps_number',     label: 'NI / PPS Number',              spreadsheet: 'National Insurance/PPS' },
+    { name: 'bank_iban',      label: 'Bank Account / IBAN',          spreadsheet: 'Bank Account/IBAN' },
+    /* staff_role + event_ids[] — stored in DB; not in employee payroll spreadsheet */
 ];
 
 /** Irish Eircode: 3-character routing key + 4-character unique id (space optional) */

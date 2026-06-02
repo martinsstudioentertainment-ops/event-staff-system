@@ -4,6 +4,7 @@ require_once __DIR__ . '/config.php';
 
 initSecureSession();
 
+require_once __DIR__ . '/includes/staff-registration-schema.php';
 require_once __DIR__ . '/includes/settings-repository.php';
 
 require_once __DIR__ . '/includes/staff-repository.php';
@@ -22,6 +23,12 @@ require_once __DIR__ . '/includes/i18n.php';
 
 
 $pdo = getDB();
+
+try {
+    ensureStaffRegistrationCheckinSchema($pdo);
+} catch (Throwable $e) {
+    error_log('[EventStaff] check-in schema: ' . $e->getMessage());
+}
 
 bootstrapAppLocale($pdo);
 

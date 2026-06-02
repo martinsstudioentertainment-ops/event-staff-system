@@ -28,17 +28,22 @@ Data is always saved to the **database first**. Google Sheets sync is extra — 
 
 ---
 
-## Row columns (same as CSV export)
+## Row columns (same as Admin → Export Staff CSV)
+
+Employee payroll columns only (10):
 
 | Column | Content |
 |--------|---------|
-| Surname, First Name, Address, Eircode, GPS, Email, Mobile | Registration form |
-| DOB, Gender, PPS, IBAN, Role | Registration form |
-| Status | `Pending` on submit |
-| Registered At | Timestamp |
-| Registration ID | Internal ID |
+| Surname, First Name, Full Address | Registration form |
+| Postcode | Eircode from the form |
+| Email, Mobile Number | Registration form |
+| Date Of Birth, Gender | Registration form |
+| National Insurance/PPS | Full PPS (not last-4) |
+| Bank Account/IBAN | Full IBAN |
 
-If the sheet is **empty**, a header row is added automatically on first sync.
+Role, event, status, GPS, and timestamps are **not** written to the sheet.
+
+If the sheet is **empty**, this header row is added automatically on first sync.
 
 ---
 

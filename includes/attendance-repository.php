@@ -327,20 +327,62 @@ function getCheckinUrl(string $token, ?PDO $pdo = null): string
  */
 function getRegistrationByToken(PDO $pdo, string $token): ?array
 {
-    $sql = 'SELECT sr.*, e.name AS event_name, e.main_security_company, e.event_date, e.location AS event_location,
-                   e.reporting_point, e.venue_eircode,
-                   e.start_time AS event_start_time, e.end_time AS event_end_time,
-                   e.venue_lat, e.venue_lng, e.signin_radius_m
+    $token = trim($token);
+    if ($token === '') {
+        return null;
+    }
+
+    require_once __DIR__ . '/staff-registration-schema.php';
+    ensureStaffRegistrationCheckinSchema($pdo);
+
+    if (!staffRegistrationColumnExists($pdo, 'checkin_token')) {
+        return null;
+    }
+
+    $sql = 'SELECT sr.*, e.name AS event_name, e.event_date, e.location AS event_location
             FROM staff_registrations sr
             INNER JOIN events e ON e.id = sr.event_id
             WHERE sr.checkin_token = :token
             LIMIT 1';
 
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute(['token' => $token]);
-    $row = $stmt->fetch();
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(['token' => $token]);
+        $row = $stmt->fetch();
+    } catch (PDOException $e) {
+        error_log('[EventStaff] getRegistrationByToken: ' . $e->getMessage());
 
-    return $row ?: null;
+        return null;
+    }
+
+    if (!$row) {
+        return null;
+    }
+
+    try {
+        $event = getEventById($pdo, (int) ($row['event_id'] ?? 0));
+        if ($event !== null) {
+            foreach (['main_security_company', 'reporting_point', 'venue_eircode', 'start_time', 'end_time', 'venue_lat', 'venue_lng', 'signin_radius_m', 'name'] as $key) {
+                if (!array_key_exists($key, $event)) {
+                    continue;
+                }
+                $alias = match ($key) {
+                    'start_time' => 'event_start_time',
+                    'end_time'   => 'event_end_time',
+                    'name'       => 'event_name',
+                    default      => $key,
+                };
+                $row[$alias] = $event[$key];
+            }
+            if (!isset($row['location']) && isset($event['location'])) {
+                $row['event_location'] = $event['location'];
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('[EventStaff] getRegistrationByToken event merge: ' . $e->getMessage());
+    }
+
+    return $row;
 }
 
 function parseCheckinTokenFromScan(string $raw): ?string
@@ -363,10 +405,16 @@ function parseCheckinTokenFromScan(string $raw): ?string
 
 function hasCheckedIn(PDO $pdo, int $registrationId): bool
 {
-    $stmt = $pdo->prepare('SELECT id FROM attendance WHERE registration_id = :id LIMIT 1');
-    $stmt->execute(['id' => $registrationId]);
+    try {
+        $stmt = $pdo->prepare('SELECT id FROM attendance WHERE registration_id = :id LIMIT 1');
+        $stmt->execute(['id' => $registrationId]);
 
-    return (bool) $stmt->fetchColumn();
+        return (bool) $stmt->fetchColumn();
+    } catch (PDOException $e) {
+        error_log('[EventStaff] hasCheckedIn: ' . $e->getMessage());
+
+        return false;
+    }
 }
 
 /**

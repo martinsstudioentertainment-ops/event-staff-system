@@ -83,8 +83,22 @@ function ensureStaffRegistrationSaveSchema(PDO $pdo): void
         error_log('[EventStaff] staff_role column upgrade: ' . $e->getMessage());
     }
 
+    if (!staffRegistrationColumnExists($pdo, 'checkin_token')) {
+        try {
+            $pdo->exec('ALTER TABLE staff_registrations ADD COLUMN checkin_token VARCHAR(64) NULL DEFAULT NULL');
+        } catch (Throwable $e) {
+            error_log('[EventStaff] checkin_token column: ' . $e->getMessage());
+        }
+    }
+
     staffRegistrationInvalidateColumnCache();
     $ready = true;
+}
+
+/** Ensure check-in token column exists (safe to call before token lookup). */
+function ensureStaffRegistrationCheckinSchema(PDO $pdo): void
+{
+    ensureStaffRegistrationSaveSchema($pdo);
 }
 
 /** @deprecated Use ensureStaffRegistrationSaveSchema */

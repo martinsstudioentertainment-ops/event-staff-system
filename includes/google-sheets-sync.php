@@ -7,6 +7,7 @@ require_once __DIR__ . '/google-sheets-schema.php';
 require_once __DIR__ . '/settings-repository.php';
 require_once __DIR__ . '/staff-repository.php';
 require_once __DIR__ . '/staff-labels.php';
+require_once __DIR__ . '/staff-employee-export.php';
 require_once __DIR__ . '/events-repository.php';
 
 function isGoogleSheetsSyncEnabled(?PDO $pdo = null): bool
@@ -80,50 +81,16 @@ function escapeGoogleSheetRangeTab(string $tab): string
  */
 function getGoogleSheetsExportHeaders(): array
 {
-    return [
-        'Surname',
-        'First Name',
-        'Full Address',
-        'Eircode',
-        'Latitude',
-        'Longitude',
-        'Email Address',
-        'Mobile Number',
-        'Date of Birth',
-        'Gender',
-        'NI / PPS Number',
-        'Bank Account / IBAN',
-        'DSP / Static / Steward',
-        'Status',
-        'Registered At',
-        'Registration ID',
-    ];
+    return getEmployeeSpreadsheetHeaders();
 }
 
 /**
  * @param array<string, mixed> $row
- * @return list<string|int|float|null>
+ * @return list<string>
  */
 function buildGoogleSheetsRegistrationRow(array $row): array
 {
-    return [
-        (string) ($row['surname'] ?? ''),
-        (string) ($row['first_name'] ?? ''),
-        (string) ($row['full_address'] ?? ''),
-        (string) ($row['eircode'] ?? ''),
-        $row['location_lat'] ?? '',
-        $row['location_lng'] ?? '',
-        (string) ($row['email'] ?? ''),
-        (string) ($row['mobile'] ?? ''),
-        (string) ($row['date_of_birth'] ?? ''),
-        formatGenderLabel((string) ($row['gender'] ?? '')),
-        (string) ($row['pps_number'] ?? ''),
-        (string) ($row['bank_iban'] ?? ''),
-        formatRoleLabel((string) ($row['staff_role'] ?? '')),
-        formatStatusLabel((string) ($row['status'] ?? 'pending')),
-        (string) ($row['created_at'] ?? ''),
-        (int) ($row['id'] ?? 0),
-    ];
+    return buildEmployeeSpreadsheetRow($row);
 }
 
 function googleSheetsLog(string $message): void
