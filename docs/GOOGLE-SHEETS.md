@@ -10,11 +10,12 @@ Data is always saved to the **database first**. Google Sheets sync is extra — 
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a project (or use an existing one)
-3. **APIs & Services → Enable APIs** → enable **Google Sheets API** (and **Google Drive API** if you use auto-create + share with your Gmail)
-4. **IAM & Admin → Service accounts** → Create service account
-5. **Keys → Add key → JSON** — download the file
-6. Admin → **Settings → System → Google Sheets sync** → upload the JSON file
-7. Copy the **service account email** (e.g. `event-staff@my-project.iam.gserviceaccount.com`)
+3. **APIs & Services → Library** (with project **event-staff-system-498114** selected in the top bar) → enable **Google Sheets API** and **Google Drive API** — both are required for auto-create. If you only enabled APIs under Credentials, open **Library** and enable them there.
+4. **Billing** → link a billing account to the project if Google prompts you (Sheets/Drive are free at normal volume, but new projects sometimes block API calls until billing is linked).
+5. **IAM & Admin → Service accounts** → Create service account
+6. **Keys → Add key → JSON** — download the file (create a **new** key after APIs are enabled)
+7. Admin → **Settings → System → Google Sheets sync** → upload the JSON file
+8. Copy the **service account email** (e.g. `event-staff-sheets@event-staff-system-498114.iam.gserviceaccount.com`)
 
 ---
 
@@ -76,7 +77,11 @@ Without this, sheet URLs on events are ignored.
 | Row not appearing | Check sync is enabled, event has sheet URL, service account uploaded |
 | Permission denied | Share sheet with service account email as Editor |
 | Wrong tab | Set correct **Sheet tab name** on the event |
-| Still failing | Read `storage/logs/google-sheets.log` |
+| Still failing | Admin → **Google Sheets diagnostic** or read `storage/logs/google-sheets.log` |
+| HTTP 403 PERMISSION_DENIED on **create** | APIs not enabled on the JSON `project_id`, or billing not linked — see steps 3–4 above; wait 5 min after enabling |
+| HTTP 403 SERVICE_DISABLED | Enable APIs on the **same** project as `project_id` in your JSON (not a different GCP project) |
+| HTTP 0 / curl error | Hosting blocks outbound HTTPS to `googleapis.com` — ask Namecheap to allow it |
+| Token error / invalid_grant | Re-upload a **new** JSON key; old key may have been deleted in Google Cloud |
 
 ---
 

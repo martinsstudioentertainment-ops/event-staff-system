@@ -388,6 +388,38 @@ function syncEventFieldsFromVenue(PDO $pdo, int $venueId, array &$payload): void
 }
 
 /**
+ * When an event is saved with GPS, store it on the linked venue and refresh sibling events.
+ */
+function persistVenueGpsFromEventPayload(PDO $pdo, array $payload): void
+{
+    $venueId = (int) ($payload['venue_id'] ?? 0);
+    if ($venueId < 1) {
+        return;
+    }
+
+    $eircode = trim((string) ($payload['venue_eircode'] ?? ''));
+    if ($eircode === '' || $payload['venue_lat'] === null || $payload['venue_lng'] === null) {
+        return;
+    }
+
+    ensureVenuesSchema($pdo);
+
+    $stmt = $pdo->prepare(
+        'UPDATE venues
+         SET venue_eircode = :venue_eircode, venue_lat = :venue_lat, venue_lng = :venue_lng
+         WHERE id = :id'
+    );
+    $stmt->execute([
+        'venue_eircode' => $eircode,
+        'venue_lat'     => $payload['venue_lat'],
+        'venue_lng'     => $payload['venue_lng'],
+        'id'            => $venueId,
+    ]);
+
+    propagateVenueDetailsToLinkedEvents($pdo, $venueId);
+}
+
+/**
  * @param array<string, mixed> $payload
  */
 function findOrCreateVenueByName(PDO $pdo, string $name, array $payload): int
@@ -431,8 +463,10 @@ function createEvent(PDO $pdo, array $data): int
          VALUES (:name, :main_security_company, :event_date, :location, :venue_id, :work_type, :roles_needed, :reporting_point, :venue_eircode, :venue_lat, :venue_lng, :signin_radius_m, :staff_needed, :start_time, :end_time, :times_confirmed, :is_active, :google_sheet_url, :google_sheet_tab)'
     );
     $stmt->execute($payload);
+    $newId = (int) $pdo->lastInsertId();
+    persistVenueGpsFromEventPayload($pdo, $payload);
 
-    return (int) $pdo->lastInsertId();
+    return $newId;
 }
 
 /**
@@ -461,8 +495,10 @@ function updateEvent(PDO $pdo, int $id, array $data): bool
          WHERE id = :id'
     );
     $stmt->execute($payload);
+    $updated = $stmt->rowCount() > 0;
+    persistVenueGpsFromEventPayload($pdo, $payload);
 
-    return $stmt->rowCount() > 0;
+    return $updated;
 }
 
 /**

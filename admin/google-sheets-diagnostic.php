@@ -37,17 +37,36 @@ if ($keyOk && is_array($sa)) {
 }
 $rows[] = ['OAuth access token', ($token ?? '') !== '' ? 'pass' : 'fail', ($token ?? '') !== '' ? 'Received' : h(getLastGoogleSheetsApiError() ?: 'Token request failed — see log')];
 
+$probe = null;
+if (($token ?? '') !== '' && is_array($sa) && isset($_GET['test_create'])) {
+    $probe = googleSheetsProbeCreate($sa, 'Event Staff API probe ' . date('Y-m-d H:i'));
+    $rows[] = [
+        'Drive API create probe',
+        ($probe['drive']['code'] ?? 0) >= 200 && ($probe['drive']['code'] ?? 0) < 300 ? 'pass' : 'fail',
+        'HTTP ' . (int) ($probe['drive']['code'] ?? 0) . ' — ' . h((string) ($probe['drive']['summary'] ?? '')),
+    ];
+    $rows[] = [
+        'Sheets API create probe',
+        ($probe['sheets']['code'] ?? 0) >= 200 && ($probe['sheets']['code'] ?? 0) < 300 ? 'pass' : 'fail',
+        'HTTP ' . (int) ($probe['sheets']['code'] ?? 0) . ' — ' . h((string) ($probe['sheets']['summary'] ?? '')),
+    ];
+}
+
 $createOk = false;
 $createDetail = '';
+$permissionHint = '';
 if (($token ?? '') !== '' && is_array($sa) && isset($_GET['test_create'])) {
     $test = googleSheetsCreateSpreadsheet($sa, 'Event Staff API test ' . date('Y-m-d H:i'), 'Registrations');
     $createOk     = $test !== null;
     $createDetail = $createOk
         ? 'Created: ' . ($test['url'] ?? '')
-        : (getLastGoogleSheetsApiError() ?: 'Unknown error');
+        : h(getLastGoogleSheetsApiError() ?: 'Unknown error');
+    if (!$createOk) {
+        $permissionHint = googleSheetsCreatePermissionHint(getLastGoogleSheetsApiError(), $projectId !== '' ? $projectId : null);
+    }
 }
 if (isset($_GET['test_create'])) {
-    $rows[] = ['Create test spreadsheet', $createOk ? 'pass' : 'fail', h($createDetail)];
+    $rows[] = ['Create test spreadsheet (app)', $createOk ? 'pass' : 'fail', $createDetail];
 }
 
 $pageTitle  = 'Google Sheets diagnostic';
@@ -83,6 +102,20 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         </p>
     <?php endif; ?>
 
+    <?php if ($permissionHint !== ''): ?>
+        <div class="alert alert--warning" style="margin-top:1rem">
+            <strong>How to fix HTTP 403</strong>
+            <ol style="margin:0.5rem 0 0 1.25rem">
+                <li>Open <a href="https://console.cloud.google.com/apis/library?project=<?= h(rawurlencode($projectId)) ?>" target="_blank" rel="noopener">APIs &amp; Services → Library</a> with project <code><?= h($projectId) ?></code> selected — confirm both APIs show <strong>Enabled</strong>.</li>
+                <li><a href="https://console.cloud.google.com/billing/linkedaccount?project=<?= h(rawurlencode($projectId)) ?>" target="_blank" rel="noopener">Link billing</a> to this project (required on many new projects even for free API use).</li>
+                <li><a href="https://console.cloud.google.com/iam-admin/iam?project=<?= h(rawurlencode($projectId)) ?>" target="_blank" rel="noopener">IAM</a> → find <code><?= h($email) ?></code> → add role <strong>Service Usage Consumer</strong> (or <strong>Editor</strong>).</li>
+                <li>Keys → create a <strong>new</strong> JSON key → re-upload in Settings → Google Sheets.</li>
+                <li>Wait 10 minutes, then run the create test again.</li>
+            </ol>
+            <p style="margin-top:0.75rem;margin-bottom:0"><?= h($permissionHint) ?></p>
+        </div>
+    <?php endif; ?>
+
     <div class="toolbar" style="margin-top:1rem">
         <a href="?test_create=1" class="btn btn--primary">Run create test (one sheet)</a>
         <a href="settings-production.php#google-sheets" class="btn btn--secondary">Google Sheets settings</a>
@@ -91,6 +124,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
     <p class="form-hint" style="margin-top:1rem">
         Server log: <code>storage/logs/google-sheets.log</code> (cPanel File Manager → <code>public_html/storage/logs/</code>).
+        Deploy latest <code>includes/google-sheets-sync.php</code> and this page before testing.
     </p>
 </section>
 

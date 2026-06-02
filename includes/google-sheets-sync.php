@@ -178,11 +178,31 @@ function googleSheetsGetAccessToken(array $serviceAccount, array $scopes = []): 
 }
 
 /**
+ * @return list<string>
+ */
+function googleSheetsAuthHeaders(string $token, ?string $quotaProject = null, bool $jsonContentType = true): array
+{
+    $headers = ['Authorization: Bearer ' . $token];
+    if ($jsonContentType) {
+        $headers[] = 'Content-Type: application/json';
+    }
+    if ($quotaProject !== null && $quotaProject !== '') {
+        $headers[] = 'X-Goog-User-Project: ' . $quotaProject;
+    }
+
+    return $headers;
+}
+
+/**
  * @param list<string> $headers
  * @return array{code: int, body: string}
  */
-function googleSheetsHttpRequest(string $method, string $url, array $headers = [], ?string $body = null): array
+function googleSheetsHttpRequest(string $method, string $url, array $headers = [], ?string $body = null, ?string $quotaProject = null): array
 {
+    if ($quotaProject !== null && $quotaProject !== '' && str_contains($url, 'googleapis.com')) {
+        $headers[] = 'X-Goog-User-Project: ' . $quotaProject;
+    }
+
     if (function_exists('curl_init')) {
         $ch = curl_init($url);
         curl_setopt_array($ch, [
@@ -254,14 +274,13 @@ function googleSheetsAppendRows(
         return false;
     }
 
+    $project  = (string) ($serviceAccount['project_id'] ?? '');
     $response = googleSheetsHttpRequest(
         'POST',
         $url,
-        [
-            'Authorization: Bearer ' . $token,
-            'Content-Type: application/json',
-        ],
-        $payload
+        googleSheetsAuthHeaders($token, $project),
+        $payload,
+        $project
     );
 
     if ($response['code'] >= 200 && $response['code'] < 300) {
@@ -289,10 +308,13 @@ function googleSheetsSheetNeedsHeader(array $serviceAccount, string $spreadsheet
         . '/values/'
         . rawurlencode($range);
 
+    $project  = (string) ($serviceAccount['project_id'] ?? '');
     $response = googleSheetsHttpRequest(
         'GET',
         $url,
-        ['Authorization: Bearer ' . $token]
+        googleSheetsAuthHeaders($token, $project, false),
+        null,
+        $project
     );
 
     if ($response['code'] !== 200) {
@@ -326,12 +348,227 @@ function buildGoogleSheetsSpreadsheetUrl(string $spreadsheetId): string
 }
 
 /**
+ * Actionable hint when Google returns 403 on create (API project / billing / enablement).
+ */
+function googleSheetsCreatePermissionHint(?string $apiBody, ?string $projectId = null): string
+{
+    $body = strtolower((string) $apiBody);
+    $project = $projectId !== null && $projectId !== '' ? $projectId : 'your JSON project_id';
+
+    if (str_contains($body, 'service_disabled') || str_contains($body, 'has not been used in project')) {
+        return 'Enable Google Sheets API and Google Drive API on GCP project “'
+            . $project
+            . '” (APIs & Services → Library), wait 5 minutes, then retry.';
+    }
+
+    return 'In Google Cloud project “' . $project
+        . '”: confirm Sheets + Drive APIs are enabled, link billing, IAM → grant this service account “Service Usage Consumer” or Editor, wait 10 min, re-upload JSON key, retry.';
+}
+
+/**
+ * Short error summary from a Google API JSON body.
+ */
+function googleSheetsSummarizeApiError(string $body): string
+{
+    $data = json_decode($body, true);
+    if (!is_array($data) || !isset($data['error']) || !is_array($data['error'])) {
+        return mb_substr(trim($body), 0, 200);
+    }
+
+    $err    = $data['error'];
+    $msg    = (string) ($err['message'] ?? 'Unknown error');
+    $status = (string) ($err['status'] ?? '');
+    $reason = '';
+    foreach ($err['details'] ?? [] as $detail) {
+        if (is_array($detail) && ($detail['reason'] ?? '') !== '') {
+            $reason = (string) $detail['reason'];
+            break;
+        }
+    }
+
+    $line = $msg;
+    if ($status !== '') {
+        $line = $status . ': ' . $line;
+    }
+    if ($reason !== '') {
+        $line .= ' (' . $reason . ')';
+    }
+
+    return $line;
+}
+
+/**
+ * Raw create probes for admin diagnostic (Sheets API vs Drive API).
+ *
+ * @param array<string, mixed> $serviceAccount
+ * @return array{sheets: array{code: int, summary: string}, drive: array{code: int, summary: string}}
+ */
+function googleSheetsProbeCreate(array $serviceAccount, string $title = 'Event Staff API probe'): array
+{
+    $project = (string) ($serviceAccount['project_id'] ?? '');
+    $result  = [
+        'sheets' => ['code' => 0, 'summary' => 'No token'],
+        'drive'  => ['code' => 0, 'summary' => 'No token'],
+    ];
+
+    $tokenSheets = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/spreadsheets']);
+    if ($tokenSheets !== '') {
+        $payload = json_encode(['properties' => ['title' => $title]], JSON_UNESCAPED_UNICODE);
+        $resp    = googleSheetsHttpRequest(
+            'POST',
+            'https://sheets.googleapis.com/v4/spreadsheets',
+            googleSheetsAuthHeaders($tokenSheets, $project),
+            $payload ?: '{}',
+            $project
+        );
+        $result['sheets'] = [
+            'code'    => $resp['code'],
+            'summary' => $resp['code'] >= 200 && $resp['code'] < 300
+                ? 'OK'
+                : googleSheetsSummarizeApiError($resp['body']),
+        ];
+    }
+
+    $tokenDrive = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/drive']);
+    if ($tokenDrive !== '') {
+        $payload = json_encode([
+            'name'     => $title,
+            'mimeType' => 'application/vnd.google-apps.spreadsheet',
+        ], JSON_UNESCAPED_UNICODE);
+        $resp    = googleSheetsHttpRequest(
+            'POST',
+            'https://www.googleapis.com/drive/v3/files',
+            googleSheetsAuthHeaders($tokenDrive, $project),
+            $payload ?: '{}',
+            $project
+        );
+        $result['drive'] = [
+            'code'    => $resp['code'],
+            'summary' => $resp['code'] >= 200 && $resp['code'] < 300
+                ? 'OK'
+                : googleSheetsSummarizeApiError($resp['body']),
+        ];
+    }
+
+    return $result;
+}
+
+/**
+ * @param array<string, mixed> $serviceAccount
+ */
+function googleSheetsRenameFirstTab(array $serviceAccount, string $spreadsheetId, string $tabName): bool
+{
+    $tabName = trim($tabName) !== '' ? trim($tabName) : 'Registrations';
+    $project = (string) ($serviceAccount['project_id'] ?? '');
+    $token   = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/spreadsheets']);
+    if ($token === '') {
+        return false;
+    }
+
+    $payload = json_encode([
+        'requests' => [[
+            'updateSheetProperties' => [
+                'properties' => ['sheetId' => 0, 'title' => $tabName],
+                'fields'     => 'title',
+            ],
+        ]],
+    ], JSON_UNESCAPED_UNICODE);
+
+    if ($payload === false) {
+        return false;
+    }
+
+    $url      = 'https://sheets.googleapis.com/v4/spreadsheets/' . rawurlencode($spreadsheetId) . ':batchUpdate';
+    $response = googleSheetsHttpRequest(
+        'POST',
+        $url,
+        googleSheetsAuthHeaders($token, $project),
+        $payload,
+        $project
+    );
+
+    return $response['code'] >= 200 && $response['code'] < 300;
+}
+
+/**
+ * Create via Drive API (fallback when Sheets API create returns 403).
+ *
+ * @param array<string, mixed> $serviceAccount
+ * @return array{spreadsheetId: string, tabName: string, url: string}|null
+ */
+function googleDriveCreateSpreadsheet(array $serviceAccount, string $title, string $tabName): ?array
+{
+    $tabName = trim($tabName) !== '' ? trim($tabName) : 'Registrations';
+    $project = (string) ($serviceAccount['project_id'] ?? '');
+    $token   = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/drive']);
+    if ($token === '') {
+        return null;
+    }
+
+    $payload = json_encode([
+        'name'     => $title,
+        'mimeType' => 'application/vnd.google-apps.spreadsheet',
+    ], JSON_UNESCAPED_UNICODE);
+
+    if ($payload === false) {
+        return null;
+    }
+
+    $response = googleSheetsHttpRequest(
+        'POST',
+        'https://www.googleapis.com/drive/v3/files',
+        googleSheetsAuthHeaders($token, $project),
+        $payload,
+        $project
+    );
+
+    if ($response['code'] < 200 || $response['code'] >= 300) {
+        googleSheetsLog(
+            'Drive create spreadsheet failed: HTTP ' . $response['code'] . ' — ' . $response['body']
+            . ' | ' . googleSheetsCreatePermissionHint($response['body'], $project)
+        );
+
+        return null;
+    }
+
+    $data = json_decode($response['body'], true);
+    $id   = is_array($data) ? (string) ($data['id'] ?? '') : '';
+    if ($id === '') {
+        return null;
+    }
+
+    $effectiveTab = $tabName;
+    if (!googleSheetsRenameFirstTab($serviceAccount, $id, $tabName)) {
+        $effectiveTab = 'Sheet1';
+        googleSheetsLog('Drive created ' . $id . ' but tab rename to ' . $tabName . ' failed — using Sheet1');
+    }
+
+    return [
+        'spreadsheetId' => $id,
+        'tabName'       => $effectiveTab,
+        'url'           => buildGoogleSheetsSpreadsheetUrl($id),
+    ];
+}
+
+/**
  * @param array<string, mixed> $serviceAccount
  * @return array{spreadsheetId: string, tabName: string, url: string}|null
  */
 function googleSheetsCreateSpreadsheet(array $serviceAccount, string $title, string $tabName = 'Registrations'): ?array
 {
     $tabName = trim($tabName) !== '' ? trim($tabName) : 'Registrations';
+
+    $viaDrive = googleDriveCreateSpreadsheet($serviceAccount, $title, $tabName);
+    if ($viaDrive !== null) {
+        $headerRows = [getGoogleSheetsExportHeaders()];
+        if (!googleSheetsAppendRows($serviceAccount, $viaDrive['spreadsheetId'], $viaDrive['tabName'], $headerRows)) {
+            googleSheetsLog('Drive-created sheet ' . $viaDrive['spreadsheetId'] . ' but header row failed');
+        }
+
+        return $viaDrive;
+    }
+
+    $project = (string) ($serviceAccount['project_id'] ?? '');
     $token   = googleSheetsGetAccessToken($serviceAccount, [
         'https://www.googleapis.com/auth/spreadsheets',
         'https://www.googleapis.com/auth/drive',
@@ -352,15 +589,16 @@ function googleSheetsCreateSpreadsheet(array $serviceAccount, string $title, str
     $response = googleSheetsHttpRequest(
         'POST',
         'https://sheets.googleapis.com/v4/spreadsheets',
-        [
-            'Authorization: Bearer ' . $token,
-            'Content-Type: application/json',
-        ],
-        $payload
+        googleSheetsAuthHeaders($token, $project),
+        $payload,
+        $project
     );
 
     if ($response['code'] < 200 || $response['code'] >= 300) {
-        googleSheetsLog('Create spreadsheet failed: HTTP ' . $response['code'] . ' — ' . $response['body']);
+        googleSheetsLog(
+            'Create spreadsheet (Sheets API) failed: HTTP ' . $response['code'] . ' — ' . $response['body']
+            . ' | ' . googleSheetsCreatePermissionHint($response['body'], $project)
+        );
 
         return null;
     }
@@ -375,6 +613,8 @@ function googleSheetsCreateSpreadsheet(array $serviceAccount, string $title, str
     if (!googleSheetsAppendRows($serviceAccount, $id, $tabName, $headerRows)) {
         googleSheetsLog('Created sheet ' . $id . ' but header row failed');
     }
+
+    googleSheetsLog('Created spreadsheet via Sheets API: ' . buildGoogleSheetsSpreadsheetUrl($id));
 
     return [
         'spreadsheetId' => $id,
@@ -413,18 +653,17 @@ function googleSheetsShareSpreadsheetWithEmail(array $serviceAccount, string $sp
         return false;
     }
 
-    $url = 'https://www.googleapis.com/drive/v3/files/'
+    $project = (string) ($serviceAccount['project_id'] ?? '');
+    $url     = 'https://www.googleapis.com/drive/v3/files/'
         . rawurlencode($spreadsheetId)
         . '/permissions?supportsAllDrives=true';
 
     $response = googleSheetsHttpRequest(
         'POST',
         $url,
-        [
-            'Authorization: Bearer ' . $token,
-            'Content-Type: application/json',
-        ],
-        $payload
+        googleSheetsAuthHeaders($token, $project),
+        $payload,
+        $project
     );
 
     if ($response['code'] >= 200 && $response['code'] < 300) {
@@ -475,11 +714,8 @@ function createGoogleSheetForEvent(PDO $pdo, int $eventId): array
     );
 
     if ($created === null) {
-        $detail = getLastGoogleSheetsApiError();
-        $hint   = 'Check storage/logs/google-sheets.log';
-        if ($detail !== '') {
-            $hint = mb_strlen($detail) > 220 ? mb_substr($detail, 0, 220) . '…' : $detail;
-        }
+        $projectId = is_array($serviceAccount) ? (string) ($serviceAccount['project_id'] ?? '') : '';
+        $hint      = googleSheetsCreatePermissionHint(getLastGoogleSheetsApiError(), $projectId !== '' ? $projectId : null);
 
         return ['ok' => false, 'message' => 'Google API could not create the spreadsheet. ' . $hint];
     }

@@ -294,6 +294,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <label class="form-label" for="google_service_account">Service account JSON</label>
             <input class="form-input" type="file" id="google_service_account" name="google_service_account" accept=".json,application/json">
             <p class="form-hint">Google Cloud → IAM → Service accounts → Keys → Add key → JSON. See <code>docs/GOOGLE-SHEETS.md</code>.</p>
+            <p class="form-hint"><a href="google-sheets-diagnostic.php"><strong>Google Sheets diagnostic</strong></a> — if bulk create fails, run this after deploy.</p>
         </div>
 
         <div class="form-actions form-actions--end">
