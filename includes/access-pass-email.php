@@ -126,35 +126,41 @@ function buildEventAccessPassEmail(PDO $pdo, array $row): array
 
 function sendEventAccessPassEmail(PDO $pdo, int $registrationId): bool
 {
-    $row = getStaffRegistrationById($pdo, $registrationId);
-    if (!$row || ($row['status'] ?? '') !== 'approved') {
-        return false;
-    }
-
-    $email = trim((string) ($row['email'] ?? ''));
-    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        return false;
-    }
-
-    $pass = buildEventAccessPassEmail($pdo, $row);
-    $sent = sendEmail($pdo, $email, $pass['subject'], $pass['text'], $pass['html']);
-
-    if ($sent) {
-        require_once __DIR__ . '/pwa-push.php';
-        if (isPwaPushEnabled($pdo)) {
-            $siteName   = getSiteName($pdo);
-            $eventLabel = formatEventLabel($row);
-            $token      = ensureCheckinToken($pdo, $registrationId);
-            $url        = $token ? getCheckinUrl($token, $pdo) : getRegistrationSiteUrl($pdo) . '/staff-app.php';
-            notifyRegistrationPush(
-                $pdo,
-                $registrationId,
-                $siteName . ' — Approved',
-                'You are approved for ' . $eventLabel . '. Tap to check in.',
-                $url
-            );
+    try {
+        $row = getStaffRegistrationById($pdo, $registrationId);
+        if (!$row || ($row['status'] ?? '') !== 'approved') {
+            return false;
         }
-    }
 
-    return $sent;
+        $email = trim((string) ($row['email'] ?? ''));
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+
+        $pass = buildEventAccessPassEmail($pdo, $row);
+        $sent = sendEmail($pdo, $email, $pass['subject'], $pass['text'], $pass['html']);
+
+        if ($sent) {
+            require_once __DIR__ . '/pwa-push.php';
+            if (isPwaPushEnabled($pdo)) {
+                $siteName   = getSiteName($pdo);
+                $eventLabel = formatEventLabel($row);
+                $token      = ensureCheckinToken($pdo, $registrationId);
+                $url        = $token ? getCheckinUrl($token, $pdo) : getRegistrationSiteUrl($pdo) . '/staff-app.php';
+                notifyRegistrationPush(
+                    $pdo,
+                    $registrationId,
+                    $siteName . ' — Approved',
+                    'You are approved for ' . $eventLabel . '. Tap to check in.',
+                    $url
+                );
+            }
+        }
+
+        return $sent;
+    } catch (Throwable $e) {
+        error_log('[EventStaff] sendEventAccessPassEmail: ' . $e->getMessage());
+
+        return false;
+    }
 }

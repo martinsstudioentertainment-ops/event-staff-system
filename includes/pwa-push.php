@@ -170,10 +170,16 @@ function getPushSubscriptionsForRegistration(PDO $pdo, int $registrationId): arr
 {
     ensurePwaSchema($pdo);
 
-    $stmt = $pdo->prepare('SELECT * FROM push_subscriptions WHERE registration_id = :id');
-    $stmt->execute(['id' => $registrationId]);
+    try {
+        $stmt = $pdo->prepare('SELECT * FROM push_subscriptions WHERE registration_id = :id');
+        $stmt->execute(['id' => $registrationId]);
 
-    return $stmt->fetchAll();
+        return $stmt->fetchAll();
+    } catch (Throwable $e) {
+        error_log('[EventStaff] getPushSubscriptionsForRegistration: ' . $e->getMessage());
+
+        return [];
+    }
 }
 
 /**

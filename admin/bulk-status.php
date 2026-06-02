@@ -5,6 +5,8 @@ require_once __DIR__ . '/../includes/staff-repository.php';
 require_once __DIR__ . '/../includes/notifications.php';
 require_once __DIR__ . '/../includes/attendance-repository.php';
 require_once __DIR__ . '/../includes/audit-log.php';
+require_once __DIR__ . '/../includes/staff-registration-schema.php';
+require_once __DIR__ . '/../includes/event-reporting-schema.php';
 
 requireAdminCapability('staff');
 
@@ -32,7 +34,10 @@ if (!in_array($status, ['approved', 'rejected', 'pending'], true)) {
     exit;
 }
 
-$pdo     = getDB();
+$pdo = getDB();
+ensureStaffRegistrationCheckinSchema($pdo);
+ensureEventReportingSchema($pdo);
+
 $updated = 0;
 
 foreach ($ids as $rawId) {
@@ -47,11 +52,15 @@ foreach ($ids as $rawId) {
 
     $updated++;
 
-    if ($status === 'approved') {
-        ensureCheckinToken($pdo, $id);
-    }
+    try {
+        if ($status === 'approved') {
+            ensureCheckinToken($pdo, $id);
+        }
 
-    notifyStaffStatusChange($pdo, $id, $status);
+        notifyStaffStatusChange($pdo, $id, $status);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] bulk-status id=' . $id . ': ' . $e->getMessage());
+    }
 }
 
 logAdminAudit($pdo, 'bulk_status_change', 'registration', null, 'Updated ' . $updated . ' to ' . $status);

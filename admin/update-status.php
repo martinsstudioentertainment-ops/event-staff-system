@@ -5,6 +5,8 @@ require_once __DIR__ . '/../includes/staff-repository.php';
 require_once __DIR__ . '/../includes/notifications.php';
 require_once __DIR__ . '/../includes/attendance-repository.php';
 require_once __DIR__ . '/../includes/audit-log.php';
+require_once __DIR__ . '/../includes/staff-registration-schema.php';
+require_once __DIR__ . '/../includes/event-reporting-schema.php';
 
 requireAdminCapability('staff');
 
@@ -29,11 +31,18 @@ if ($id <= 0 || !in_array($status, ['pending', 'approved', 'rejected'], true)) {
 }
 
 $pdo = getDB();
+ensureStaffRegistrationCheckinSchema($pdo);
+ensureEventReportingSchema($pdo);
+
 if (updateStaffStatus($pdo, $id, $status)) {
-    if ($status === 'approved') {
-        ensureCheckinToken($pdo, $id);
+    try {
+        if ($status === 'approved') {
+            ensureCheckinToken($pdo, $id);
+        }
+        notifyStaffStatusChange($pdo, $id, $status);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] update-status id=' . $id . ': ' . $e->getMessage());
     }
-    notifyStaffStatusChange($pdo, $id, $status);
     logAdminAudit($pdo, 'status_change', 'registration', $id, 'Status set to ' . $status);
     setAdminFlash('success', 'Registration status updated to ' . formatStatusLabel($status) . '.');
 } else {

@@ -13,6 +13,17 @@ require_once __DIR__ . '/email-copy.php';
 
 function notifyStaffStatusChange(PDO $pdo, int $registrationId, string $newStatus): bool
 {
+    try {
+        return notifyStaffStatusChangeInner($pdo, $registrationId, $newStatus);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] notifyStaffStatusChange: ' . $e->getMessage());
+
+        return false;
+    }
+}
+
+function notifyStaffStatusChangeInner(PDO $pdo, int $registrationId, string $newStatus): bool
+{
     if (!isNotifyStaffEnabled($pdo)) {
         return false;
     }

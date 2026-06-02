@@ -307,23 +307,36 @@ function generateCheckinToken(): string
 
 function ensureCheckinToken(PDO $pdo, int $registrationId): ?string
 {
-    $stmt = $pdo->prepare('SELECT checkin_token, status FROM staff_registrations WHERE id = :id LIMIT 1');
-    $stmt->execute(['id' => $registrationId]);
-    $row = $stmt->fetch();
+    require_once __DIR__ . '/staff-registration-schema.php';
+    ensureStaffRegistrationCheckinSchema($pdo);
 
-    if (!$row || $row['status'] !== 'approved') {
+    if (!staffRegistrationColumnExists($pdo, 'checkin_token')) {
         return null;
     }
 
-    if (!empty($row['checkin_token'])) {
-        return (string) $row['checkin_token'];
+    try {
+        $stmt = $pdo->prepare('SELECT checkin_token, status FROM staff_registrations WHERE id = :id LIMIT 1');
+        $stmt->execute(['id' => $registrationId]);
+        $row = $stmt->fetch();
+
+        if (!$row || $row['status'] !== 'approved') {
+            return null;
+        }
+
+        if (!empty($row['checkin_token'])) {
+            return (string) $row['checkin_token'];
+        }
+
+        $token = generateCheckinToken();
+        $update = $pdo->prepare('UPDATE staff_registrations SET checkin_token = :token WHERE id = :id');
+        $update->execute(['token' => $token, 'id' => $registrationId]);
+
+        return $token;
+    } catch (Throwable $e) {
+        error_log('[EventStaff] ensureCheckinToken: ' . $e->getMessage());
+
+        return null;
     }
-
-    $token = generateCheckinToken();
-    $update = $pdo->prepare('UPDATE staff_registrations SET checkin_token = :token WHERE id = :id');
-    $update->execute(['token' => $token, 'id' => $registrationId]);
-
-    return $token;
 }
 
 function getCheckinUrl(string $token, ?PDO $pdo = null): string
