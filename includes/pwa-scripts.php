@@ -7,7 +7,11 @@ $assetBase       = $assetBase ?? '';
 $enablePwaPush   = $enablePwaPush ?? false;
 $enablePwaInstall = $enablePwaInstall ?? false;
 ?>
-<script src="<?= htmlspecialchars($assetBase, ENT_QUOTES, 'UTF-8') ?>assets/js/app.js"></script>
+<?php
+$appJsPath = dirname(__DIR__) . '/assets/js/app.js';
+$appJsVer  = is_file($appJsPath) ? (string) filemtime($appJsPath) : '1';
+?>
+<script src="<?= htmlspecialchars($assetBase, ENT_QUOTES, 'UTF-8') ?>assets/js/app.js?v=<?= htmlspecialchars($appJsVer, ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="<?= htmlspecialchars($assetBase, ENT_QUOTES, 'UTF-8') ?>assets/js/mobile.js"></script>
 <script src="<?= htmlspecialchars($assetBase, ENT_QUOTES, 'UTF-8') ?>assets/js/pwa.js"></script>
 <?php if ($enablePwaInstall): ?>

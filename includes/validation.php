@@ -112,7 +112,13 @@ function validateRegistration(array $data): array
     if ($eventIds === []) {
         $errors['event_ids'] = 'Please select at least one shift or event.';
     } else {
-        $perDayError = validateOneShiftPerDay($eventIds);
+        $pdoForDay = null;
+        try {
+            $pdoForDay = getDB();
+        } catch (Throwable $e) {
+            $pdoForDay = null;
+        }
+        $perDayError = validateOneShiftPerDay($eventIds, $pdoForDay);
         if ($perDayError !== null) {
             $errors['event_ids'] = $perDayError;
         }
@@ -140,7 +146,7 @@ function validateRegistration(array $data): array
     }
 
     $staffRole = normalizeStaffRole(trim((string) ($data['staff_role'] ?? '')));
-    if ($staffRole !== '' && !in_array($staffRole, ['dsp', 'static', 'steward'], true)) {
+    if ($staffRole !== '' && !in_array($staffRole, ['dsp', 'static', 'both', 'steward'], true)) {
         $errors['staff_role'] = 'Please select a valid role.';
     }
 

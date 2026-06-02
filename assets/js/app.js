@@ -203,8 +203,25 @@
         if (shiftList) shiftList.classList.remove('shift-picker-list--error');
     }
 
+    function syncStaffRoleFromFormSlug(form) {
+        const roleInput = document.getElementById('staff_role');
+        const picked = document.querySelector('input[name="form_slug"]:checked');
+        const select = document.getElementById('form_slug');
+        if (roleInput && picked && picked.dataset.role) {
+            roleInput.value = picked.dataset.role;
+            return;
+        }
+        if (roleInput && select && select.tagName === 'SELECT' && select.selectedOptions[0]) {
+            const role = select.selectedOptions[0].dataset.role;
+            if (role) {
+                roleInput.value = role;
+            }
+        }
+    }
+
     function validateForm(form) {
         clearErrors(form);
+        syncStaffRoleFromFormSlug(form);
         let isValid = true;
 
         if (typeof REGISTRATION_FIELDS !== 'undefined') {
@@ -377,6 +394,8 @@
         const alertEl = document.getElementById('form-alert');
         const submitBtn = form.querySelector('[type="submit"]');
 
+        syncStaffRoleFromFormSlug(form);
+
         if (!validateForm(form)) {
             if (alertEl) {
                 alertEl.textContent = 'Please correct the highlighted fields before submitting.';
@@ -399,20 +418,45 @@
             const response = await fetch(form.action, {
                 method: 'POST',
                 body: new FormData(form),
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin'
             });
 
-            const result = await response.json();
+            const contentType = (response.headers.get('content-type') || '').toLowerCase();
+            const rawBody = await response.text();
 
-            if (result.success) {
-                showAlert(result.message || 'Registration submitted successfully!', 'success');
-                resetFormAfterSuccess(form);
+            if (contentType.includes('application/json') && rawBody) {
+                let result;
+                try {
+                    result = JSON.parse(rawBody);
+                } catch (parseErr) {
+                    throw new Error('Invalid server response');
+                }
+
+                if (result.success) {
+                    showAlert(result.message || 'Registration submitted successfully!', 'success');
+                    resetFormAfterSuccess(form);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    return;
+                }
+
+                if (result.errors) applyServerErrors(result.errors);
+                showAlert(result.message || 'Please correct the highlighted fields before submitting.', 'error');
                 return;
             }
 
-            if (result.errors) applyServerErrors(result.errors);
-            showAlert(result.message || 'Please correct the highlighted fields before submitting.', 'error');
+            if (response.ok || response.redirected) {
+                window.location.href = response.url || form.action;
+                return;
+            }
+
+            showAlert('We could not save your registration. Please try again.', 'error');
         } catch (err) {
+            if (!form.dataset.nativeSubmit) {
+                form.dataset.nativeSubmit = '1';
+                form.submit();
+                return;
+            }
             showAlert('We could not reach the server. Check your connection and try again.', 'error');
         } finally {
             if (submitBtn) submitBtn.disabled = false;
@@ -429,18 +473,14 @@
         if (!form) return;
 
         function syncRoleFromFormSlug() {
-            const roleInput = document.getElementById('staff_role');
-            const picked = document.querySelector('input[name="form_slug"]:checked');
+            syncStaffRoleFromFormSlug(form);
             const select = document.getElementById('form_slug');
-            if (roleInput && picked && picked.dataset.role) {
-                roleInput.value = picked.dataset.role;
-                window.REGISTRATION_FORM_SLUG = picked.value;
-            } else if (select && select.tagName === 'SELECT' && select.selectedOptions[0]) {
-                const option = select.selectedOptions[0];
-                if (roleInput && option.dataset.role) {
-                    roleInput.value = option.dataset.role;
-                }
+            if (select && select.tagName === 'SELECT') {
                 window.REGISTRATION_FORM_SLUG = select.value;
+            }
+            const picked = document.querySelector('input[name="form_slug"]:checked');
+            if (picked) {
+                window.REGISTRATION_FORM_SLUG = picked.value;
             }
         }
         document.querySelectorAll('input[name="form_slug"]').forEach(function (el) {

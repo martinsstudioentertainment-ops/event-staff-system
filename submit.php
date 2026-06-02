@@ -51,15 +51,16 @@ if ($formSlug !== '') {
         $formDef = getRegistrationForm($pdoForm, $formSlug);
         if ($formDef !== null) {
             $data['staff_role'] = normalizeStaffRole((string) $formDef['staff_role']);
+            $data['form_slug']  = $formSlug;
         }
     } catch (Throwable $e) {
         // validated below
     }
 }
 
-$errors   = validateRegistration($data);
-$eventIds = normalizeEventIds($data);
 $data['staff_role'] = normalizeStaffRole((string) ($data['staff_role'] ?? ''));
+$errors             = validateRegistration($data);
+$eventIds = normalizeEventIds($data);
 
 if (empty($errors)) {
     try {

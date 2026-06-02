@@ -40,7 +40,7 @@ function getDefaultRegistrationForms(): array
             'enabled'            => true,
             'show_notice'        => true,
             'selection_mode'     => 'venue_first',
-            'allowed_work_types' => ['static'],
+            'allowed_work_types' => ['nightclub', 'office', 'special_event', 'festival', 'static'],
         ],
         'both' => [
             'slug'               => 'both',
@@ -108,7 +108,7 @@ function getDefaultWorkTypesForFormSlug(string $slug): array
 {
     return match ($slug) {
         'dsp'     => ['nightclub', 'office', 'special_event', 'festival'],
-        'static'  => ['static'],
+        'static'  => ['nightclub', 'office', 'special_event', 'festival', 'static'],
         'both'    => ['nightclub', 'office', 'special_event', 'festival', 'static'],
         'steward' => ['special_event', 'festival'],
         default   => ['special_event', 'nightclub', 'office', 'static', 'festival'],
@@ -147,7 +147,19 @@ function getFormAllowedWorkTypes(array $form): array
         }
     }
 
-    return $filtered !== [] ? $filtered : getDefaultWorkTypesForFormSlug((string) ($form['slug'] ?? ''));
+    if ($filtered === []) {
+        $filtered = getDefaultWorkTypesForFormSlug((string) ($form['slug'] ?? ''));
+    }
+
+    $role = normalizeStaffRole((string) ($form['staff_role'] ?? $form['slug'] ?? ''));
+    if (in_array($role, ['static', 'both'], true)) {
+        $filtered = array_values(array_unique(array_merge(
+            $filtered,
+            ['nightclub', 'office', 'special_event', 'festival', 'static']
+        )));
+    }
+
+    return $filtered;
 }
 
 function formatStaffRoleLabel(string $role): string

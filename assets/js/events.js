@@ -554,13 +554,13 @@ function populateShiftPicker(container, registeredIds, events, options) {
 
 
     if (list.length === 0) {
-
-        container.innerHTML = '<p class="form-hint">No shifts open for registration right now — check back later.</p>';
-
+        const role = (document.getElementById('staff_role') || {}).value || '';
+        const emptyMsg = role === 'static'
+            ? 'No static shifts are open right now. Events must include Static in roles needed — contact the organiser if you expect listings here.'
+            : 'No shifts open for registration right now — check back later.';
+        container.innerHTML = '<p class="form-hint">' + emptyMsg + '</p>';
         updateShiftSelectionSummary(container);
-
         return;
-
     }
 
 
