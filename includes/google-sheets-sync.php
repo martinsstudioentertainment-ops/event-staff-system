@@ -60,6 +60,92 @@ function getGoogleSheetsDriveParentFolderId(?PDO $pdo = null): string
     return parseGoogleDriveFolderId((string) getSetting($pdo, 'google_sheets_drive_folder_id', ''));
 }
 
+/**
+ * @param array<string, mixed> $serviceAccount
+ * @return array{ok: bool, name: string, mimeType: string, summary: string}
+ */
+function googleDriveInspectParentFolder(array $serviceAccount, string $folderId): array
+{
+    $folderId = trim($folderId);
+    if ($folderId === '') {
+        return ['ok' => false, 'name' => '', 'mimeType' => '', 'summary' => 'Folder ID is empty'];
+    }
+
+    $project = (string) ($serviceAccount['project_id'] ?? '');
+    $token   = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/drive']);
+    if ($token === '') {
+        return ['ok' => false, 'name' => '', 'mimeType' => '', 'summary' => 'No Drive API token'];
+    }
+
+    $url = 'https://www.googleapis.com/drive/v3/files/' . rawurlencode($folderId)
+        . '?fields=id,name,mimeType,capabilities&supportsAllDrives=true';
+
+    $response = googleSheetsHttpRequest(
+        'GET',
+        $url,
+        googleSheetsAuthHeaders($token, $project, false)
+    );
+
+    if ($response['code'] === 404) {
+        return [
+            'ok'       => false,
+            'name'     => '',
+            'mimeType' => '',
+            'summary'  => 'Folder not found — share the folder (not only a sheet file) with the service account as Editor',
+        ];
+    }
+
+    if ($response['code'] !== 200) {
+        return [
+            'ok'       => false,
+            'name'     => '',
+            'mimeType' => '',
+            'summary'  => 'HTTP ' . $response['code'] . ': ' . googleSheetsSummarizeApiError($response['body']),
+        ];
+    }
+
+    $data     = json_decode($response['body'], true);
+    $name     = is_array($data) ? (string) ($data['name'] ?? '') : '';
+    $mime     = is_array($data) ? (string) ($data['mimeType'] ?? '') : '';
+    $canAdd   = is_array($data) && is_array($data['capabilities'] ?? null)
+        ? (bool) ($data['capabilities']['canAddChildren'] ?? false)
+        : false;
+
+    if ($mime === 'application/vnd.google-apps.spreadsheet') {
+        return [
+            'ok'       => false,
+            'name'     => $name,
+            'mimeType' => $mime,
+            'summary'  => 'This ID is a spreadsheet file, not a folder — in Drive use New → Folder, share that folder, copy its URL',
+        ];
+    }
+
+    if ($mime !== 'application/vnd.google-apps.folder') {
+        return [
+            'ok'       => false,
+            'name'     => $name,
+            'mimeType' => $mime,
+            'summary'  => 'Not a Drive folder (mime: ' . $mime . ')',
+        ];
+    }
+
+    if (!$canAdd) {
+        return [
+            'ok'       => false,
+            'name'     => $name,
+            'mimeType' => $mime,
+            'summary'  => 'Folder “' . $name . '” found but service account cannot add files — re-share as Editor',
+        ];
+    }
+
+    return [
+        'ok'       => true,
+        'name'     => $name,
+        'mimeType' => $mime,
+        'summary'  => 'Folder “' . $name . '” — service account can create sheets here',
+    ];
+}
+
 function parseGoogleDriveFolderId(string $urlOrId): string
 {
     $urlOrId = trim($urlOrId);
@@ -730,7 +816,7 @@ function googleSheetsProbeCreate(array $serviceAccount, string $title = 'Event S
         $payload = json_encode($fileMeta, JSON_UNESCAPED_UNICODE);
         $resp    = googleSheetsHttpRequest(
             'POST',
-            'https://www.googleapis.com/drive/v3/files',
+            'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true',
             googleSheetsAuthHeaders($tokenDrive, $project),
             $payload ?: '{}'
         );
@@ -817,16 +903,20 @@ function googleDriveCreateSpreadsheet(
         return null;
     }
 
-    $response = googleSheetsHttpRequest(
+    $createUrl = 'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true';
+    $response  = googleSheetsHttpRequest(
         'POST',
-        'https://www.googleapis.com/drive/v3/files',
+        $createUrl,
         googleSheetsAuthHeaders($token, $project),
         $payload
     );
 
     if ($response['code'] < 200 || $response['code'] >= 300) {
+        $inspect = $parentFolderId !== '' ? googleDriveInspectParentFolder($serviceAccount, $parentFolderId) : null;
+        $extra   = $inspect !== null && !$inspect['ok'] ? ' | ' . $inspect['summary'] : '';
         googleSheetsLog(
             'Drive create spreadsheet failed: HTTP ' . $response['code'] . ' — ' . $response['body']
+            . $extra
             . ' | ' . googleSheetsCreatePermissionHint($response['body'], $project)
         );
 
@@ -871,6 +961,13 @@ function googleSheetsCreateSpreadsheet(
         return null;
     }
 
+    $inspect = googleDriveInspectParentFolder($serviceAccount, $parentFolderId);
+    if (!$inspect['ok']) {
+        googleSheetsLog('Drive parent folder check failed: ' . $inspect['summary']);
+
+        return null;
+    }
+
     $viaDrive = googleDriveCreateSpreadsheet($serviceAccount, $title, $tabName, $parentFolderId);
     if ($viaDrive !== null) {
         $headerRows = [getGoogleSheetsExportHeaders()];
@@ -881,58 +978,7 @@ function googleSheetsCreateSpreadsheet(
         return $viaDrive;
     }
 
-    $project = (string) ($serviceAccount['project_id'] ?? '');
-    $token   = googleSheetsGetAccessToken($serviceAccount, [
-        'https://www.googleapis.com/auth/spreadsheets',
-        'https://www.googleapis.com/auth/drive',
-    ]);
-    if ($token === '') {
-        return null;
-    }
-
-    $payload = json_encode([
-        'properties' => ['title' => $title],
-        'sheets'     => [['properties' => ['title' => $tabName]]],
-    ], JSON_UNESCAPED_UNICODE);
-
-    if ($payload === false) {
-        return null;
-    }
-
-    $response = googleSheetsHttpRequest(
-        'POST',
-        'https://sheets.googleapis.com/v4/spreadsheets',
-        googleSheetsAuthHeaders($token, $project),
-        $payload
-    );
-
-    if ($response['code'] < 200 || $response['code'] >= 300) {
-        googleSheetsLog(
-            'Create spreadsheet (Sheets API) failed: HTTP ' . $response['code'] . ' — ' . $response['body']
-            . ' | ' . googleSheetsCreatePermissionHint($response['body'], $project)
-        );
-
-        return null;
-    }
-
-    $data = json_decode($response['body'], true);
-    $id   = is_array($data) ? (string) ($data['spreadsheetId'] ?? '') : '';
-    if ($id === '') {
-        return null;
-    }
-
-    $headerRows = [getGoogleSheetsExportHeaders()];
-    if (!googleSheetsAppendRows($serviceAccount, $id, $tabName, $headerRows)) {
-        googleSheetsLog('Created sheet ' . $id . ' but header row failed');
-    }
-
-    googleSheetsLog('Created spreadsheet via Sheets API: ' . buildGoogleSheetsSpreadsheetUrl($id));
-
-    return [
-        'spreadsheetId' => $id,
-        'tabName'       => $tabName,
-        'url'           => buildGoogleSheetsSpreadsheetUrl($id),
-    ];
+    return null;
 }
 
 /**

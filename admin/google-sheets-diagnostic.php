@@ -67,6 +67,15 @@ $rows[] = [
         : 'Not set — Settings → Google Sheets → Drive folder ID (required)',
 ];
 
+if ($folderId !== '' && ($token ?? '') !== '' && is_array($sa)) {
+    $inspect = googleDriveInspectParentFolder($sa, $folderId);
+    $rows[] = [
+        'Shared parent folder access',
+        $inspect['ok'] ? 'pass' : 'fail',
+        h($inspect['summary']),
+    ];
+}
+
 $ownedCount = 0;
 if (($token ?? '') !== '' && is_array($sa)) {
     $owned = googleDriveListOwnedSpreadsheets($sa, 1000);
