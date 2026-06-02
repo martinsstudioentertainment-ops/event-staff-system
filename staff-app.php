@@ -180,13 +180,13 @@ if ($hour < 12) {
 
         <footer class="staff-app__footer">
 
-            <div class="staff-app__install-pill">
+            <button type="button" class="staff-app__install-pill" id="staff-app-install-btn" aria-label="How to install this app on your phone">
 
                 <span class="staff-app__install-icon" aria-hidden="true">📲</span>
 
-                <span>Tap <strong>Share → Add to Home Screen</strong> to install this app</span>
+                <span class="staff-app__install-pill-text">Install on your phone — <strong>tap for steps</strong></span>
 
-            </div>
+            </button>
 
         </footer>
 

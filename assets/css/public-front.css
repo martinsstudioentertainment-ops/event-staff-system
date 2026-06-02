@@ -928,6 +928,10 @@
     color: #fff;
 }
 
+.staff-public-shell--event-ops.staff-app-shell .staff-app__install-pill strong {
+    color: #fff;
+}
+
 .staff-public-shell--event-ops .login-card .card__title {
     color: var(--staff-ink);
 }

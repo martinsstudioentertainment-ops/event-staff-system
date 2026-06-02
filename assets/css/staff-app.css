@@ -279,6 +279,8 @@ a.staff-app__tile:active {
     background: rgba(255, 255, 255, 0.7);
     border: 1px solid rgba(99, 102, 241, 0.15);
     box-shadow: 0 2px 8px rgba(99, 102, 241, 0.06);
+    position: relative;
+    z-index: 2;
 }
 
 .staff-app__install-icon {
