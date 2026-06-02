@@ -1,14 +1,16 @@
 # Deploy once — three hosts, one database
 
-Create subdomains in cPanel (document roots can stay the default folders cPanel gives you):
+Create subdomains in cPanel, then set **both** subdomain document roots to **`public_html`** (same as main site).
 
-| Subdomain | Typical folder |
-|-----------|----------------|
-| `register.olasentra.com` | `/home/olastofx/register.olasentra.com` |
-| `admin.olasentra.com` | `/home/olastofx/admin.olasentra.com` |
-| `olasentra.com` | `/home/olastofx/public_html` |
+| Host | Document root |
+|------|----------------|
+| `olasentra.com` | `public_html` |
+| `register.olasentra.com` | **`public_html`** |
+| `admin.olasentra.com` | **`public_html`** |
 
-**Deploy HEAD commit** copies the full app into all three folders and syncs `config.php` from `public_html`.
+If you see **Index of /** on a subdomain, the folder is empty — use **`public_html`** for document root. See [SUBDOMAIN-FIX.md](SUBDOMAIN-FIX.md).
+
+**Deploy HEAD commit** updates `public_html` (and tries to mirror other folders if they exist).
 
 ---
 
