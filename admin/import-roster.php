@@ -34,7 +34,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['run'])) {
 
     echo '<!DOCTYPE html><html><body style="font-family:sans-serif;padding:2rem;max-width:720px">';
     echo '<h1>Summer roster imported</h1>';
-    echo '<p><strong>Working for:</strong> ' . htmlspecialchars($result['main_security_company'], ENT_QUOTES, 'UTF-8') . '</p>';
+    $contractor = trim((string) ($result['main_security_company'] ?? ''));
+    echo '<p><strong>Listed contractor (roster default):</strong> '
+        . ($contractor !== '' ? htmlspecialchars($contractor, ENT_QUOTES, 'UTF-8') : 'none — portal-only') . '</p>';
     echo '<p>Created: ' . (int) $result['created'] . ' · Updated: ' . (int) $result['updated'] . ' · Skipped: ' . (int) $result['skipped'] . '</p>';
     echo '<ul>';
     foreach (array_slice($result['messages'], 0, 40) as $line) {
@@ -78,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['run'])) {
         <li>Location / venue</li>
         <li>Staff needed</li>
         <li>Times (where set)</li>
-        <li>Working for: <strong>1Plus Security</strong></li>
+        <li>On-site company: only if you set it per event (optional)</li>
     </ul>
     <form method="post">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken(), ENT_QUOTES, 'UTF-8') ?>">

@@ -719,6 +719,30 @@ ul {
     z-index: 2;
 }
 
+.portal-legal-notice {
+    margin: 0 0 1rem;
+    padding: 0.85rem 1rem;
+    border-radius: var(--radius-md, 12px);
+    border: 1px solid color-mix(in srgb, var(--warning-color, #d97706) 40%, transparent);
+    background: color-mix(in srgb, var(--warning-color, #d97706) 6%, var(--card-bg, #fff));
+}
+
+.portal-legal-notice__title {
+    margin: 0 0 0.35rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--warning-color, #b45309);
+}
+
+.portal-legal-notice__text {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: var(--text-muted, #64748b);
+}
+
 .employer-notice {
     margin: 0 0 1rem;
     padding: 0.85rem 1rem;

@@ -278,12 +278,12 @@ function appendShiftCheckboxContent(textEl, event, venueName, isRegistered) {
     textEl.appendChild(title);
 
     const employer = String(event.mainSecurityCompany || '').trim();
-    const employerEl = document.createElement('span');
-    employerEl.className = 'event-checkbox__employer' + (employer ? '' : ' event-checkbox__employer--pending');
-    employerEl.textContent = employer
-        ? ('Working for: ' + employer)
-        : 'Working for: to be confirmed (office will update)';
-    textEl.appendChild(employerEl);
+    if (employer) {
+        const employerEl = document.createElement('span');
+        employerEl.className = 'event-checkbox__employer';
+        employerEl.textContent = 'Listed contractor (info only): ' + employer;
+        textEl.appendChild(employerEl);
+    }
 
     const metaParts = [];
     if (event.date) {

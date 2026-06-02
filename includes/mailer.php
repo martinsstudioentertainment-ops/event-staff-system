@@ -148,7 +148,14 @@ function sendEmail(PDO $pdo, string $to, string $subject, string $body, ?string 
 
 
 
-        logMailAttempt($to, $subject, $body, false, 'smtp failed — saved to storage/logs/mail.log');
+        $smtpNote = getLastSmtpError();
+        logMailAttempt(
+            $to,
+            $subject,
+            $body,
+            false,
+            $smtpNote !== '' ? 'smtp failed: ' . $smtpNote : 'smtp failed'
+        );
 
         return false;
 
@@ -221,15 +228,43 @@ function sendTestEmail(PDO $pdo, string $to): bool|string
 
     }
 
+    $transport = getMailTransport($pdo);
+    $fromEmail = trim(getSetting($pdo, 'mail_from_email', ''));
 
+    if ($transport === 'smtp') {
+        $host = trim(getSetting($pdo, 'smtp_host', ''));
+        $user = trim(getSetting($pdo, 'smtp_username', ''));
+        $pass = trim(getSetting($pdo, 'smtp_password', ''));
+
+        if ($host === '') {
+            return 'SMTP host is empty. For Namecheap/cPanel use mail.olasentra.com (see Email Accounts → Connect devices).';
+        }
+        if ($fromEmail === '' || !filter_var($fromEmail, FILTER_VALIDATE_EMAIL)) {
+            return 'From email is invalid. Use your mailbox address, e.g. noreply@olasentra.com';
+        }
+        if ($user === '') {
+            return 'SMTP username is empty. Use the full email (e.g. noreply@olasentra.com).';
+        }
+        if ($pass === '') {
+            return 'SMTP password is empty. Re-enter the mailbox password, Save email settings, then send test again.';
+        }
+    } elseif ($transport === 'php_mail') {
+        return 'Transport is PHP mail(), which usually fails on shared hosting. Switch to SMTP.';
+    }
 
     $siteName = getSiteName($pdo);
 
     $subject  = $siteName . ' — Test Email';
 
+    require_once __DIR__ . '/email-copy.php';
+
     $body     = implode("\n", [
 
         'This is a test email from ' . $siteName . '.',
+
+        '',
+
+        getPortalLegalNotice($pdo),
 
         '',
 
@@ -247,7 +282,12 @@ function sendTestEmail(PDO $pdo, string $to): bool|string
 
     if (!sendEmail($pdo, $to, $subject, $body)) {
 
-        return 'Test email could not be sent. Check SMTP settings or storage/logs/mail.log.';
+        $detail = getLastSmtpError();
+        if ($detail !== '') {
+            return 'Test email failed: ' . $detail;
+        }
+
+        return 'Test email could not be sent. Check storage/logs/mail.log on the server.';
 
     }
 

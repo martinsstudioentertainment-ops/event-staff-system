@@ -34,7 +34,7 @@ if ($result['success'] && $result['skipped'] === 0) {
     setAdminFlash(
         'success',
         "Master roster imported: {$result['updated']} updated, {$result['created']} created. "
-        . "Working for: {$result['main_security_company']}. "
+        . 'Listed contractor default: ' . (trim((string) ($result['main_security_company'] ?? '')) !== '' ? $result['main_security_company'] : 'none') . '. '
         . 'Check Events list for location, staff needed, and times.'
     );
 } elseif ($result['updated'] > 0 || $result['created'] > 0) {

@@ -21,7 +21,7 @@ function ensureEventMainSecuritySchema(PDO $pdo): void
             $pdo->exec(
                 "ALTER TABLE events
                  ADD COLUMN main_security_company VARCHAR(150) NULL DEFAULT NULL
-                     COMMENT 'Security contractor / employer name shown to staff'
+                     COMMENT 'Optional third-party contractor name (information only)'
                      AFTER name"
             );
         } catch (Throwable $e) {

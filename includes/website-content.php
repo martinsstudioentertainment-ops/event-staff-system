@@ -16,10 +16,10 @@ function getDefaultWebsiteContent(): array
             'footer_tagline' => 'Helping people find event and security work across Ireland.',
             'notice_enabled' => true,
             'notice_items'   => [
-                'This platform is provided free of charge for PSA-licensed security staff who never get the chance to find event work.',
-                'We only list registration opportunities — we are not your employer, event organiser, or security company, and we do not handle wages or payroll.',
-                'We accept no liability for payment or any work you do. Pay, hours, and conditions are agreed directly with the event organiser or the security company running that event.',
-                'Always confirm who is paying you — the event organiser or the security firm — before you start work.',
+                'This is a free registration portal to help people find security and event work — we are not a security company, employer, or payroll provider.',
+                'We only collect applications and share details where needed for events — we do not hire you, issue PSA licences, or pay wages.',
+                'Pay, hours, and conditions are agreed directly with the event organiser or any contractor named for a shift. Always confirm who pays you before you start.',
+                'Any contractor name shown on a shift is third-party information only, not us acting as that company.',
             ],
         ],
         'home' => [

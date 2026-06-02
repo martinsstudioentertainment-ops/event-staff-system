@@ -75,10 +75,14 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <input type="hidden" name="action" value="site">
 
         <h4 class="form-section-title form-group--full">Company homepage</h4>
+        <?php
+        require_once __DIR__ . '/../includes/email-copy.php';
+        renderRegistrationPortalNotice($pdo);
+        ?>
         <div class="form-group form-group--full">
-            <label class="form-label form-label--required" for="company_name">Company name</label>
-            <input class="form-input" type="text" id="company_name" name="company_name" value="<?= h($settings['company_name'] ?? '') ?>" required>
-            <p class="form-hint">Shown on the public homepage (<code>home.php</code>) — header, footer, and hero brand panel. Also used on the registration form unless you set a different registration name below.</p>
+            <label class="form-label form-label--required" for="company_name">Portal / company name</label>
+            <input class="form-input" type="text" id="company_name" name="company_name" value="<?= h($settings['company_name'] ?? '') ?>" required placeholder="e.g. Olasentra">
+            <p class="form-hint">Your registration portal name — used on the website, registration form, and as the <strong>From name</strong> on staff emails. Use your own brand, not a security contractor clients work with on site.</p>
         </div>
         <div class="form-group form-group--full">
             <label class="form-label" for="company_tagline">Tagline</label>

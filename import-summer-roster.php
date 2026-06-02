@@ -41,6 +41,6 @@ foreach ($result['errors'] as $line) {
     echo 'ERROR: ' . $line . "\n";
 }
 
-echo "\nWorking for: {$result['main_security_company']}\n";
+echo "\nListed contractor: " . (trim((string) ($result['main_security_company'] ?? '')) !== '' ? $result['main_security_company'] : 'none (portal-only)') . "\n";
 echo "Created {$result['created']}, updated {$result['updated']}, skipped {$result['skipped']}\n";
-echo "Refresh https://register.olasentra.com/ — shifts should show 1Plus Security and real venues.\n";
+echo "Refresh the registration form — venues and times should update; on-site company only if set in roster.\n";

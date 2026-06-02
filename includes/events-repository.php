@@ -462,7 +462,7 @@ function updateEvent(PDO $pdo, int $id, array $data): bool
 }
 
 /**
- * Security contractor / employer for this shift (not the registration portal).
+ * Optional third-party contractor name for this shift (information only — not the portal).
  */
 function formatEventMainSecurityLabel(array $event): string
 {

@@ -84,7 +84,7 @@ if [ "${SKIP_ROSTER_IMPORT:-0}" != "1" ] && [ -f "${MAIN}/database/sync-live-eve
   /bin/mkdir -p "${MAIN}/storage/logs" 2>/dev/null || true
   echo "Importing summer roster (live-events-2026.php) into database..."
   if (cd "${MAIN}" && "${PHP_BIN}" database/sync-live-events.php >> "${ROSTER_LOG}" 2>&1); then
-    echo "OK: roster imported (events, venues, staff needed, times, 1Plus Security)."
+    echo "OK: roster imported (events, venues, staff needed, times)."
     /bin/tail -n 3 "${ROSTER_LOG}" 2>/dev/null || true
   else
     echo "WARN: auto roster import failed — see ${ROSTER_LOG}"

@@ -233,11 +233,15 @@ function applyGoLiveSettingsDefaults(PDO $pdo): array
         if (filter_var($company, FILTER_VALIDATE_EMAIL)) {
             setSetting($pdo, 'mail_from_email', $company);
         } else {
-            $host = parse_url(getRegistrationSiteUrl($pdo), PHP_URL_HOST);
-            $host = is_string($host) && $host !== '' ? $host : 'olasentra.com';
-            setSetting($pdo, 'mail_from_email', 'noreply@' . $host);
+            setSetting($pdo, 'mail_from_email', getRecommendedProductionEmails($pdo)['from_email']);
         }
         $fixed[] = 'mail_from_email';
+    }
+
+    $fromName = trim(getSetting($pdo, 'mail_from_name', ''));
+    if ($fromName === '' || $fromName === 'Event Staff System') {
+        setSetting($pdo, 'mail_from_name', getRecommendedProductionEmails($pdo)['from_name']);
+        $fixed[] = 'mail_from_name';
     }
 
     $rateSet = (float) getSetting($pdo, 'commission_rate_dsp', '0') > 0

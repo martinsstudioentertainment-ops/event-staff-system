@@ -26,7 +26,7 @@ foreach ($result['errors'] as $line) {
     echo "ERROR: {$line}\n";
 }
 
-echo "\nWorking for: {$result['main_security_company']}\n";
+echo "\nListed contractor (optional): " . (trim((string) ($result['main_security_company'] ?? '')) !== '' ? $result['main_security_company'] : 'none') . "\n";
 echo "Done. Created {$result['created']}, updated {$result['updated']}, skipped {$result['skipped']}.\n";
 if ($dryRun) {
     echo "Re-run without --dry-run to apply.\n";

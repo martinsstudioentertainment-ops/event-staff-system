@@ -9,6 +9,7 @@ require_once __DIR__ . '/includes/registration-forms.php';
 require_once __DIR__ . '/includes/website-content.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/i18n.php';
+require_once __DIR__ . '/includes/email-copy.php';
 
 require_once __DIR__ . '/includes/global-public-site.php';
 require_once __DIR__ . '/includes/public/staff-public-shell.php';
@@ -256,10 +257,12 @@ if ($pdo) {
 
                     <h3 class="form-section-title">Shift selection</h3>
 
+                    <?php if ($pdo): renderRegistrationPortalNotice($pdo); endif; ?>
+
                     <div class="form-group form-group--full" id="event-selection-wrap">
                         <label class="form-label form-label--required" id="shift-picker-label">Available shifts</label>
                         <p class="form-hint" id="event-selection-hint">
-                            Tick every shift you want. Each line shows <strong>who you are working for</strong> (main security company), plus the <strong>date</strong> and <strong>time</strong> when set. Only <strong>one shift per date</strong>. This registration portal is not your employer — pay and conditions are with the security company shown.
+                            <?= h(t('shift_list_hint')) ?>
                         </p>
                         <div
                             id="shift-picker-list"
@@ -278,7 +281,7 @@ if ($pdo) {
                     <div class="form-group form-group--full">
                         <label class="form-checkbox">
                             <input type="checkbox" name="privacy_consent" value="1"<?= !empty($old['privacy_consent']) ? ' checked' : '' ?> required>
-                            I agree to the <a href="privacy.php" target="_blank" rel="noopener">Privacy Notice</a> and consent to my personal data (including PPS and bank details) being processed for event staffing and payroll.
+                            I agree to the <a href="privacy.php" target="_blank" rel="noopener">Privacy Notice</a> and understand this website is a <strong>registration portal only</strong> (not my employer). I consent to my data being processed to register my interest in event shifts and to pass my details to event organisers or contractors where required.
                         </label>
                         <span class="form-error" id="privacy_consent-error"></span>
                     </div>

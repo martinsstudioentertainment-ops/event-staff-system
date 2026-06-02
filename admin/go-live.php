@@ -62,7 +62,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <button type="submit" class="btn btn--primary">Fix automated FAIL items</button>
             </form>
         <?php endif; ?>
-        <form method="post" action="go-live-action.php" class="inline-form" onsubmit="return confirm('Import all summer events (date, location, staff needed, times, 1Plus Security)?');">
+        <form method="post" action="go-live-action.php" class="inline-form" onsubmit="return confirm('Import all summer events (date, location, staff needed, times)?');">
             <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
             <input type="hidden" name="action" value="sync_roster">
             <button type="submit" class="btn btn--secondary">Import summer event roster</button>

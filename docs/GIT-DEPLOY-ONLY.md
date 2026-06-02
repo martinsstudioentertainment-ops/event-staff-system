@@ -42,7 +42,7 @@ git push origin main
 ### Step 3 — Test
 
 - `https://olasentra.com/api/health.php`
-- `https://register.olasentra.com/` (Ctrl+F5) — shifts show **1Plus Security** and real venues
+- `https://register.olasentra.com/` (Ctrl+F5) — shifts show real venues (on-site company only if set per event)
 - `https://admin.olasentra.com/login.php`
 
 ---

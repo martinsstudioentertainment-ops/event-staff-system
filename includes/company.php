@@ -141,10 +141,10 @@ function getCompanyEventTypes(): array
 function getCompanyTrustPoints(): array
 {
     return [
-        'Free online registration — one form for multiple events',
+        'Free registration portal — we help you find shifts, not employ you',
         'Clear list of open events with dates and roles',
         'Email updates when your application is reviewed',
-        'Check-in link sent when you are approved for an event',
+        'Check-in link when approved — portal only, not a security licence',
     ];
 }
 

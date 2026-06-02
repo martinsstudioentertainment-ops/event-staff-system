@@ -5,6 +5,7 @@ require_once __DIR__ . '/staff-repository.php';
 require_once __DIR__ . '/events-repository.php';
 require_once __DIR__ . '/attendance-repository.php';
 require_once __DIR__ . '/rich-text.php';
+require_once __DIR__ . '/email-copy.php';
 
 /**
  * @return array{sent: int, failed: int, total: int}
@@ -71,11 +72,13 @@ function sendEventStaffBroadcast(PDO $pdo, int $eventId, string $subject, string
             $personalLinksText = "\nYour personal check-in link:\n{$checkinUrl}\n";
         }
 
-        $html = $greetingHtml . $bodyHtml . $eventBlockHtml . $linksHtml . $personalLinksHtml
-            . '<p>— ' . htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8') . '</p>';
+        $html = $greetingHtml . '<p style="font-size:12px;color:#64748b;">' . htmlspecialchars(getPortalLegalNotice($pdo), ENT_QUOTES, 'UTF-8') . '</p>'
+            . $bodyHtml . $eventBlockHtml . $linksHtml . $personalLinksHtml
+            . '<p style="font-size:12px;color:#64748b;">' . htmlspecialchars(getEmailSenderDisclaimer($pdo), ENT_QUOTES, 'UTF-8') . '</p>'
+            . '<p>— ' . htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8') . ' (registration portal)</p>';
 
         $text = $greetingText . plainTextFromRich($htmlMessage, 5000) . "\n\n" . $eventBlockText . $linksText . $personalLinksText
-            . "\n— {$siteName}\n";
+            . "\n\n" . getEmailSenderDisclaimer($pdo) . "\n\n— {$siteName} (registration portal)\n";
 
         if (sendEmail($pdo, (string) $row['email'], $subject, $text, $html)) {
             $sent++;

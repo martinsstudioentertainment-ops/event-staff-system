@@ -178,3 +178,46 @@ function getWebsiteNoticeEditUrl(?PDO $pdo = null): string
 {
     return getAdminSiteUrl($pdo) . '/website-global.php#notice_items';
 }
+
+/**
+ * Main domain for @addresses (SPF/DKIM should be on this host, not register.* subdomain).
+ */
+function getMainSiteEmailDomain(?PDO $pdo = null): string
+{
+    $url = getMarketingSiteUrl($pdo);
+    $host = parse_url($url, PHP_URL_HOST);
+
+    if (is_string($host) && $host !== '') {
+        return strtolower($host);
+    }
+
+    return 'olasentra.com';
+}
+
+/**
+ * Recommended addresses for production (one sender; links use register/admin URLs).
+ *
+ * @return array{from_name: string, from_email: string, contact_email: string, reply_hint: string}
+ */
+function getRecommendedProductionEmails(?PDO $pdo = null): array
+{
+    $domain = getMainSiteEmailDomain($pdo);
+    $name   = 'Olasentra';
+    if ($pdo !== null) {
+        $company = trim(getSetting($pdo, 'company_name', ''));
+        if ($company !== '') {
+            $name = $company;
+        } elseif (trim(getSetting($pdo, 'site_name', '')) !== '') {
+            $name = trim(getSetting($pdo, 'site_name', ''));
+        } elseif (trim(getSetting($pdo, 'mail_from_name', '')) !== '') {
+            $name = trim(getSetting($pdo, 'mail_from_name', ''));
+        }
+    }
+
+    return [
+        'from_name'     => $name,
+        'from_email'    => 'noreply@' . $domain,
+        'contact_email' => 'info@' . $domain,
+        'reply_hint'    => 'Staff reply to contact email in General settings — not register@ or admin@ unless you create those mailboxes.',
+    ];
+}

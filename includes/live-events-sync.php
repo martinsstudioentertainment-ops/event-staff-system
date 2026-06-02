@@ -46,7 +46,7 @@ function loadLiveEventsMasterData(?string $dataFile = null): array
         throw new RuntimeException('Master roster file must return an array.');
     }
 
-    $mainSecurity = '1Plus Security';
+    $mainSecurity = '';
     $rows         = $loaded;
     if (isset($loaded['events']) && is_array($loaded['events'])) {
         $rows = $loaded['events'];
@@ -371,17 +371,19 @@ function syncLiveEventsFromMasterFile(PDO $pdo, bool $dryRun = false, ?string $d
             $messages[] = "Linked {$relinked} event(s) to venues by location.";
         }
 
-        $fillEmployer = $pdo->prepare(
-            "UPDATE events
-             SET main_security_company = :company
-             WHERE is_active = 1
-               AND event_date >= CURDATE()
-               AND (main_security_company IS NULL OR TRIM(main_security_company) = '')"
-        );
-        $fillEmployer->execute(['company' => $mainSecurity]);
-        $filled = $fillEmployer->rowCount();
-        if ($filled > 0) {
-            $messages[] = "Set working for on {$filled} upcoming event(s): {$mainSecurity}.";
+        if ($mainSecurity !== '') {
+            $fillEmployer = $pdo->prepare(
+                "UPDATE events
+                 SET main_security_company = :company
+                 WHERE is_active = 1
+                   AND event_date >= CURDATE()
+                   AND (main_security_company IS NULL OR TRIM(main_security_company) = '')"
+            );
+            $fillEmployer->execute(['company' => $mainSecurity]);
+            $filled = $fillEmployer->rowCount();
+            if ($filled > 0) {
+                $messages[] = "Set on-site security company on {$filled} upcoming event(s): {$mainSecurity}.";
+            }
         }
     }
 

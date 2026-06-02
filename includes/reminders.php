@@ -12,6 +12,7 @@ require_once __DIR__ . '/events-repository.php';
 require_once __DIR__ . '/attendance-repository.php';
 require_once __DIR__ . '/status-repository.php';
 require_once __DIR__ . '/site-urls.php';
+require_once __DIR__ . '/email-copy.php';
 
 function isReminderDailyEnabled(PDO $pdo): bool
 {
@@ -218,12 +219,16 @@ function sendDailyEventReminder(PDO $pdo, array $row): bool
         'This is your daily reminder about your upcoming event registration.',
         '',
         'Event: ' . $event,
-        'Working for: ' . (formatEventMainSecurityLabel($row) !== '' ? formatEventMainSecurityLabel($row) : 'See event details'),
         'Time: ' . $times,
         'Location: ' . $location,
         'Role: ' . $role,
         'Status: ' . $status,
     ];
+
+    $onSite = formatEmailOnSiteSecurityLine($pdo, $row);
+    if ($onSite !== null) {
+        $bodyLines[] = $onSite;
+    }
 
     if ($row['status'] === 'approved') {
         $token = ensureCheckinToken($pdo, $regId);
@@ -260,6 +265,7 @@ function sendDailyEventReminder(PDO $pdo, array $row): bool
         . ' – ' . $window['closes_at']->format('d.m.Y H:i');
     $bodyLines[] = '';
     $bodyLines[] = 'Daily reminders stop automatically after this event ends.';
+    $bodyLines = appendEmailPortalContext($pdo, $bodyLines);
     $bodyLines[] = '';
     $bodyLines[] = 'Regards,';
     $bodyLines[] = $siteName;
@@ -316,6 +322,7 @@ function sendSignupNudgeEmail(PDO $pdo, string $email, array $missingEvents): bo
     $bodyLines[] = 'You can select multiple events on one form using the same email address.';
     $bodyLines[] = '';
     $bodyLines[] = 'These reminders stop once an event has passed or you register for it.';
+    $bodyLines = appendEmailPortalContext($pdo, $bodyLines);
     $bodyLines[] = '';
     $bodyLines[] = 'Regards,';
     $bodyLines[] = $siteName;

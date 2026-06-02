@@ -4,7 +4,7 @@
  *
  * Usage:
  *   php database/apply-main-security-company.php
- *   php database/apply-main-security-company.php "1Plus Security" --all-active
+ *   php database/apply-main-security-company.php "Contractor Name" --all-active
  */
 
 require __DIR__ . '/../config.php';
@@ -31,7 +31,9 @@ if ($company === '') {
 }
 
 if ($company === '') {
-    $company = '1Plus Security';
+    fwrite(STDERR, "Usage: php database/apply-main-security-company.php \"Company name\" [--all-active]\n");
+    fwrite(STDERR, "To clear the field on events: php database/clear-main-security-company.php\n");
+    exit(1);
 }
 
 $pdo = getDB();

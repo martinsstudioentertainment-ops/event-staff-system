@@ -54,7 +54,7 @@ function getDefaultSettings(): array
         'registration_site_url'    => '',
         'admin_site_url'           => '',
         'company_name'             => 'Event Staff Ireland',
-        'company_tagline'          => 'Helping people find security, steward, and event jobs — even if you have never done it before',
+        'company_tagline'          => 'Free registration portal — helping people find security and event work (we are not your employer)',
         'company_email'            => 'info@example.com',
         'company_phone'            => '+353 1 000 0000',
         'company_whatsapp'         => '+353 1 000 0000',

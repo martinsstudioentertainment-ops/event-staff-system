@@ -9,6 +9,7 @@ require_once __DIR__ . '/events-repository.php';
 require_once __DIR__ . '/attendance-repository.php';
 require_once __DIR__ . '/status-repository.php';
 require_once __DIR__ . '/access-pass-email.php';
+require_once __DIR__ . '/email-copy.php';
 
 function notifyStaffStatusChange(PDO $pdo, int $registrationId, string $newStatus): bool
 {
@@ -42,10 +43,14 @@ function notifyStaffStatusChange(PDO $pdo, int $registrationId, string $newStatu
         $intro,
         '',
         'Event: ' . $event,
-        'Working for: ' . (formatEventMainSecurityLabel($row) !== '' ? formatEventMainSecurityLabel($row) : 'See event details'),
         'Role: ' . $role,
         'Status: ' . $status,
     ];
+
+    $onSite = formatEmailOnSiteSecurityLine($pdo, $row);
+    if ($onSite !== null) {
+        $bodyLines[] = $onSite;
+    }
 
     $statusToken = ensureStatusToken($pdo, $registrationId);
     if ($statusToken) {
@@ -55,7 +60,8 @@ function notifyStaffStatusChange(PDO $pdo, int $registrationId, string $newStatu
     }
 
     $bodyLines[] = '';
-    $bodyLines[] = 'If you have questions, please contact the events team.';
+    $bodyLines[] = 'If you have questions, please contact us using the contact details on the website.';
+    $bodyLines = appendEmailPortalContext($pdo, $bodyLines);
     $bodyLines[] = '';
     $bodyLines[] = 'Regards,';
     $bodyLines[] = $siteName;
@@ -113,6 +119,7 @@ function notifyStaffRegistrationSubmitted(PDO $pdo, array $data, array $eventIds
 
     $bodyLines[] = '';
     $bodyLines[] = 'You will receive another email when your application is reviewed.';
+    $bodyLines = appendEmailPortalContext($pdo, $bodyLines);
     $bodyLines[] = '';
     $bodyLines[] = 'Regards,';
     $bodyLines[] = $siteName;
@@ -161,18 +168,24 @@ function notifyStaffCheckin(PDO $pdo, int $registrationId, string $method = 'sel
         'You have successfully checked in.',
         '',
         'Event: ' . $event,
-        'Working for: ' . (formatEventMainSecurityLabel($row) !== '' ? formatEventMainSecurityLabel($row) : 'See event details'),
         'Role: ' . $role,
         'Reporting time: ' . $times,
         'Venue: ' . $location,
         'Checked in at: ' . $dateLabel,
         'Method: ' . $methodLabel,
-        '',
-        'Thank you for signing in. If this was not you, contact the events team immediately.',
-        '',
-        'Regards,',
-        $siteName,
     ];
+
+    $onSite = formatEmailOnSiteSecurityLine($pdo, $row);
+    if ($onSite !== null) {
+        $bodyLines[] = $onSite;
+    }
+
+    $bodyLines[] = '';
+    $bodyLines[] = 'Thank you for signing in. If this was not you, contact us immediately using the website contact details.';
+    $bodyLines = appendEmailPortalContext($pdo, $bodyLines);
+    $bodyLines[] = '';
+    $bodyLines[] = 'Regards,';
+    $bodyLines[] = $siteName;
 
     $body = implode("\n", $bodyLines);
 

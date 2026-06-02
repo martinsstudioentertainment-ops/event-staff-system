@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/settings-repository.php';
+require_once __DIR__ . '/../includes/site-urls.php';
 require_once __DIR__ . '/../includes/admin/settings-handler.php';
 require_once __DIR__ . '/../includes/admin/admin-nav.php';
 
@@ -24,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $pageTitle          = 'Email';
 $activePage         = 'settings-email';
 $erpSettingsActive  = 'email';
+$emailGuide         = getRecommendedProductionEmails($pdo);
 
 include __DIR__ . '/../includes/admin/layout-top.php';
 ?>
@@ -40,6 +42,29 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     <?php if ($error !== ''): ?>
         <div class="alert alert--error alert--visible"><?= h($error) ?></div>
     <?php endif; ?>
+
+    <div class="url-format-guide" role="note" style="margin-bottom:1.25rem;">
+        <p class="url-format-guide__title">Email vs your 3 domains</p>
+        <p class="form-hint" style="margin:0 0 0.75rem;">You only need <strong>one</strong> sending address on the <strong>main domain</strong>. Subdomains are for websites, not separate From addresses.</p>
+        <table class="url-format-guide__table">
+            <tbody>
+                <tr>
+                    <th scope="row">olasentra.com</th>
+                    <td>Marketing site — use <code><?= h($emailGuide['from_email']) ?></code> for system mail (create mailbox in cPanel)</td>
+                </tr>
+                <tr>
+                    <th scope="row">register.olasentra.com</th>
+                    <td>Staff form — links in emails point here (Settings → General → registration URL)</td>
+                </tr>
+                <tr>
+                    <th scope="row">admin.olasentra.com</th>
+                    <td>Admin only — not used as From address</td>
+                </tr>
+            </tbody>
+        </table>
+        <p class="form-hint" style="margin:0.75rem 0 0;"><strong>Recommended:</strong> From name <code><?= h($emailGuide['from_name']) ?></code> · From email <code><?= h($emailGuide['from_email']) ?></code> · Contact (General) <code><?= h($emailGuide['contact_email']) ?></code> · Transport <strong>SMTP</strong> with that mailbox’s cPanel credentials.</p>
+        <p class="form-hint" style="margin:0.5rem 0 0;">You run a <strong>registration portal only</strong> — not a security employer. All emails must use your portal name and <code>noreply@yourdomain.com</code>. Never use another company’s name in From name or subject. Optional “Listed contractor” on events is third-party info only.</p>
+    </div>
 
     <form method="post" class="form-grid settings-form">
         <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
@@ -100,7 +125,8 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         </div>
         <div class="form-group">
             <label class="form-label" for="mail_from_email">From email</label>
-            <input class="form-input" type="email" id="mail_from_email" name="mail_from_email" value="<?= h($settings['mail_from_email'] ?? '') ?>">
+            <input class="form-input" type="email" id="mail_from_email" name="mail_from_email" value="<?= h($settings['mail_from_email'] ?? '') ?>" placeholder="<?= h($emailGuide['from_email']) ?>">
+            <p class="form-hint">Use <code>@<?= h(getMainSiteEmailDomain($pdo)) ?></code> (main domain), not <code>@register.…</code>. Must match the SMTP mailbox you authenticate with.</p>
         </div>
         <div class="form-group form-group--full">
             <label class="form-label form-label--required" for="mail_transport">Email transport</label>

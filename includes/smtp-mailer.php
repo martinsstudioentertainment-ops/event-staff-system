@@ -3,11 +3,36 @@
  * Event Staff System — Lightweight SMTP client (AUTH LOGIN, TLS/SSL)
  */
 
+/** @var string Last SMTP failure (for admin test email). */
+$GLOBALS['_event_staff_last_smtp_error'] = '';
+
+function getLastSmtpError(): string
+{
+    return (string) ($GLOBALS['_event_staff_last_smtp_error'] ?? '');
+}
+
+function setLastSmtpError(string $message): void
+{
+    $GLOBALS['_event_staff_last_smtp_error'] = $message;
+}
+
+/**
+ * @param resource $socket
+ */
+function smtpFail(string $step, string $response = ''): bool
+{
+    $detail = $response !== '' ? ' — ' . $response : '';
+    setLastSmtpError($step . $detail);
+
+    return false;
+}
+
 /**
  * @param array{host: string, port: int, encryption: string, username: string, password: string} $config
  */
 function sendSmtpMessage(array $config, string $to, string $subject, string $body, string $fromName, string $fromEmail, ?string $htmlBody = null): bool
 {
+    setLastSmtpError('');
     $host        = trim($config['host']);
     $port        = (int) ($config['port'] ?: 587);
     $encryption  = strtolower(trim($config['encryption'] ?: 'tls'));
@@ -17,8 +42,19 @@ function sendSmtpMessage(array $config, string $to, string $subject, string $bod
     $fromName    = trim($fromName);
     $to          = trim($to);
 
-    if ($host === '' || $fromEmail === '' || $to === '') {
-        return false;
+    if ($host === '') {
+        return smtpFail('SMTP host is empty');
+    }
+    if ($fromEmail === '') {
+        return smtpFail('From email is empty — set it in Email settings');
+    }
+    if ($to === '') {
+        return smtpFail('Recipient email is empty');
+    }
+
+    $ehloHost = 'olasentra.com';
+    if (str_contains($fromEmail, '@')) {
+        $ehloHost = substr($fromEmail, strpos($fromEmail, '@') + 1) ?: $ehloHost;
     }
 
     $remote = ($encryption === 'ssl' ? 'ssl://' : '') . $host . ':' . $port;
@@ -29,59 +65,86 @@ function sendSmtpMessage(array $config, string $to, string $subject, string $bod
         $remote,
         $errno,
         $errstr,
-        20,
+        30,
         STREAM_CLIENT_CONNECT,
         stream_context_create(['ssl' => ['verify_peer' => false, 'verify_peer_name' => false]])
     );
 
     if (!$socket) {
-        return false;
+        return smtpFail("Cannot connect to {$host}:{$port}", $errstr !== '' ? "{$errno} {$errstr}" : '');
     }
 
-    stream_set_timeout($socket, 20);
+    stream_set_timeout($socket, 30);
 
-    if (!smtpExpect($socket, [220]) || !smtpCommand($socket, 'EHLO localhost', [250])) {
+    if (!smtpExpect($socket, [220])) {
+        $greet = getLastSmtpError();
         fclose($socket);
-        return false;
+
+        return smtpFail('SMTP greeting failed', $greet);
+    }
+    if (!smtpCommand($socket, 'EHLO ' . $ehloHost, [250])) {
+        fclose($socket);
+
+        return smtpFail('EHLO failed', getLastSmtpError() !== '' ? getLastSmtpError() : smtpRead($socket));
     }
 
     if ($encryption === 'tls') {
         if (!smtpCommand($socket, 'STARTTLS', [220])) {
             fclose($socket);
-            return false;
+
+            return smtpFail('STARTTLS failed', smtpRead($socket));
         }
 
         if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
             fclose($socket);
-            return false;
+
+            return smtpFail('TLS handshake failed');
         }
 
-        if (!smtpCommand($socket, 'EHLO localhost', [250])) {
+        if (!smtpCommand($socket, 'EHLO ' . $ehloHost, [250])) {
             fclose($socket);
-            return false;
+
+            return smtpFail('EHLO after TLS failed', smtpRead($socket));
         }
     }
 
-    if ($username !== '' && $password !== '') {
-        if (!smtpCommand($socket, 'AUTH LOGIN', [334])
-            || !smtpCommand($socket, base64_encode($username), [334])
-            || !smtpCommand($socket, base64_encode($password), [235])) {
+    if ($username !== '') {
+        if ($password === '') {
             fclose($socket);
-            return false;
+
+            return smtpFail('SMTP password is empty — re-enter mailbox password and Save email settings');
+        }
+        if (!smtpCommand($socket, 'AUTH LOGIN', [334])) {
+            fclose($socket);
+
+            return smtpFail('AUTH LOGIN rejected', smtpRead($socket));
+        }
+        if (!smtpCommand($socket, base64_encode($username), [334])) {
+            fclose($socket);
+
+            return smtpFail('SMTP username rejected', smtpRead($socket));
+        }
+        if (!smtpCommand($socket, base64_encode($password), [235])) {
+            fclose($socket);
+
+            return smtpFail('SMTP password rejected (wrong password or username must be full email)', smtpRead($socket));
         }
     }
 
     $fromHeader = sprintf('"%s" <%s>', str_replace('"', '', $fromName), $fromEmail);
     $encodedSubject = smtpEncodeHeader($subject);
-    $messageId      = '<' . bin2hex(random_bytes(8)) . '@event-staff.local>';
+    $messageDomain  = $ehloHost;
+    $messageId      = '<' . bin2hex(random_bytes(12)) . '@' . $messageDomain . '>';
 
     $headers = [
         'Date: ' . date('r'),
         'From: ' . $fromHeader,
+        'Reply-To: ' . $fromEmail,
         'To: ' . $to,
         'Subject: ' . $encodedSubject,
         'Message-ID: ' . $messageId,
         'MIME-Version: 1.0',
+        'X-Mailer: Event-Staff-System',
     ];
 
     if ($htmlBody !== null && trim($htmlBody) !== '') {
@@ -105,16 +168,31 @@ function sendSmtpMessage(array $config, string $to, string $subject, string $bod
     $payload = implode("\r\n", $headers) . "\r\n\r\n" . $payloadBody;
     $payload = smtpDotStuff($payload);
 
-    $ok = smtpCommand($socket, 'MAIL FROM:<' . $fromEmail . '>', [250])
-        && smtpCommand($socket, 'RCPT TO:<' . $to . '>', [250, 251])
-        && smtpCommand($socket, 'DATA', [354])
-        && fwrite($socket, $payload . "\r\n.\r\n") !== false
-        && smtpExpect($socket, [250]);
+    if (!smtpCommand($socket, 'MAIL FROM:<' . $fromEmail . '>', [250])) {
+        fclose($socket);
+
+        return smtpFail('MAIL FROM rejected — From email must match SMTP mailbox', smtpRead($socket));
+    }
+    if (!smtpCommand($socket, 'RCPT TO:<' . $to . '>', [250, 251])) {
+        fclose($socket);
+
+        return smtpFail('RCPT TO rejected', smtpRead($socket));
+    }
+    if (!smtpCommand($socket, 'DATA', [354])) {
+        fclose($socket);
+
+        return smtpFail('DATA command failed', smtpRead($socket));
+    }
+    if (fwrite($socket, $payload . "\r\n.\r\n") === false || !smtpExpect($socket, [250])) {
+        fclose($socket);
+
+        return smtpFail('Message body rejected', smtpRead($socket));
+    }
 
     smtpCommand($socket, 'QUIT', [221]);
     fclose($socket);
 
-    return $ok;
+    return true;
 }
 
 /**
@@ -129,7 +207,13 @@ function smtpExpect($socket, array $expectedCodes): bool
     }
 
     $code = (int) substr($response, 0, 3);
-    return in_array($code, $expectedCodes, true);
+    if (!in_array($code, $expectedCodes, true)) {
+        setLastSmtpError($response);
+
+        return false;
+    }
+
+    return true;
 }
 
 /**

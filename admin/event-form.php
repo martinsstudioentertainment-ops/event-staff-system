@@ -79,9 +79,9 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         </div>
 
         <div class="form-group form-group--full">
-            <label class="form-label form-label--required" for="main_security_company">Main security company</label>
-            <input class="form-input" type="text" id="main_security_company" name="main_security_company" value="<?= eventOld($old, $event, 'main_security_company', '1Plus Security') ?>" placeholder="e.g. 1Plus Security">
-            <p class="form-hint">Who staff are <strong>working for</strong> on this shift. Shown on registration and sign-in — this portal is not their employer.</p>
+            <label class="form-label" for="main_security_company">Listed contractor (optional)</label>
+            <input class="form-input" type="text" id="main_security_company" name="main_security_company" value="<?= eventOld($old, $event, 'main_security_company', '') ?>" placeholder="Leave blank unless you must show a third-party name">
+            <p class="form-hint">Third-party information only — e.g. who provides security on site. Leave empty if unsure. Emails and the portal always send from <strong>your</strong> company name in Settings, never from this field.</p>
         </div>
 
         <div class="form-group">
@@ -141,7 +141,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <div class="form-group form-group--full">
             <label class="form-label" for="reporting_point">Reporting point / gate</label>
             <input class="form-input" type="text" id="reporting_point" name="reporting_point" value="<?= eventOld($old, $event, 'reporting_point') ?>" placeholder="e.g. Gate 08 — staff entrance, north side">
-            <p class="form-hint">Shown on sign-in pages, access pass email, and event roster.</p>
+            <p class="form-hint">Optional info for staff (who provides security on site). Emails are always sent from your company in Settings — not from this name.</p>
         </div>
 
         <div class="form-group form-group--full">

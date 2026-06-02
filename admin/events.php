@@ -43,7 +43,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <thead>
                 <tr>
                     <th>Event Name</th>
-                    <th>Main security</th>
+                    <th>Listed contractor</th>
                     <th>Date</th>
                     <th>Venue</th>
                     <th>Work type</th>
