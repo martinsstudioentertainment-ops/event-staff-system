@@ -133,6 +133,20 @@ if (empty($errors)) {
             if ($newEventIds === []) {
 
                 $errors['event_ids'] = formatDuplicateEventsMessage($duplicates);
+                $statusUrl = getRegistrationStatusUrlAfterSave($pdo, [], $email);
+                $_SESSION['registration_status_message'] = $errors['event_ids'];
+
+                if (isAjaxRequest()) {
+                    jsonResponse([
+                        'success'    => false,
+                        'message'    => $errors['event_ids'],
+                        'status_url' => $statusUrl,
+                        'errors'     => $errors,
+                    ], 422);
+                }
+
+                header('Location: ' . $statusUrl);
+                exit;
 
             } else {
 
@@ -180,6 +194,7 @@ if (empty($errors)) {
 
 
                 $statusUrl = getRegistrationStatusUrlAfterSave($pdo, $ids, $email);
+                $_SESSION['registration_status_message'] = $message;
 
                 if (isAjaxRequest()) {
 

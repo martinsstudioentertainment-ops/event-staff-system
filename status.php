@@ -14,9 +14,15 @@ require_once __DIR__ . '/includes/staff-registration-schema.php';
 ensureStaffRegistrationSaveSchema($pdo);
 $siteName = getSiteName($pdo);
 $token    = trim((string) ($_GET['token'] ?? ''));
-$rows     = [];
-$error    = '';
-$showLookup = false;
+$rows        = [];
+$error       = '';
+$successMsg  = '';
+$showLookup  = false;
+
+if (!empty($_SESSION['registration_status_message'])) {
+    $successMsg = (string) $_SESSION['registration_status_message'];
+    unset($_SESSION['registration_status_message']);
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['status_lookup'])) {
     if (!verifyCsrf($_POST['csrf_token'] ?? null)) {
@@ -74,6 +80,10 @@ $themeColor = getThemeColor($pdo);
                 <h1 class="card__title">My Registration</h1>
                 <p class="card__subtitle"><?= h($siteName) ?></p>
             </div>
+
+            <?php if ($successMsg !== ''): ?>
+                <div class="alert alert--success alert--visible"><?= h($successMsg) ?></div>
+            <?php endif; ?>
 
             <?php if ($showLookup): ?>
                 <?php if ($error !== ''): ?>

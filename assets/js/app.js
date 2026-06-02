@@ -498,6 +498,41 @@
         syncRoleFromFormSlug();
 
         form.addEventListener('submit', function (e) {
+            syncStaffRoleFromFormSlug(form);
+
+            if (!validateForm(form)) {
+                e.preventDefault();
+                var alertEl = document.getElementById('form-alert');
+                if (alertEl) {
+                    alertEl.textContent = 'Please correct the highlighted fields before submitting.';
+                    alertEl.className = 'alert alert--error alert--visible';
+                }
+                var firstError = form.querySelector('.form-error--visible');
+                if (firstError) {
+                    var fieldId = (firstError.id || '').replace(/-error$/, '');
+                    var field = fieldId ? document.getElementById(fieldId) : null;
+                    if (field && typeof field.scrollIntoView === 'function') {
+                        field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+                return;
+            }
+
+            /* Registration: normal POST so server can redirect to status.php (AJAX was saving but staying on form). */
+            if (document.body.dataset.registrationPage === 'true' && isBackendSubmit()) {
+                if (form.dataset.submitting === '1') {
+                    e.preventDefault();
+                    return;
+                }
+                form.dataset.submitting = '1';
+                var regSubmitBtn = form.querySelector('[type="submit"]');
+                if (regSubmitBtn) {
+                    regSubmitBtn.disabled = true;
+                    regSubmitBtn.textContent = 'Submitting…';
+                }
+                return;
+            }
+
             e.preventDefault();
             if (isBackendSubmit()) {
                 handleSubmitBackend(form);
