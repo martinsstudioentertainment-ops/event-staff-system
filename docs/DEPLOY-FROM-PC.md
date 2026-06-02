@@ -19,7 +19,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\push-production.ps1
 
 Then open:
 
-- `https://olasentra.com/api/health.php` → `"database":"ok"`
+- `https://olasentra.com/api/health.php` → `"database":"ok"` and `"storage":"ok"`
+
+**If cPanel shows 0-byte files named `logs` or `database` inside `storage` (not folders):** delete those files, create real **folders** named `logs` (and `backups/database`, etc.), chmod `logs` to **755**, then run the script again.
 - `https://olasentra.com/admin/login.php`
 
 `deploy.local.ps1` is **not** committed to Git.

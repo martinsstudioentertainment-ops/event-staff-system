@@ -94,24 +94,44 @@ function Ensure-FtpDirectory {
     }
 }
 
+function Ensure-FtpDirectoryChain {
+    param([string]$RemoteRelativePath, [hashtable]$Deploy)
+    $parts = $RemoteRelativePath.Trim('/').Split('/')
+    $built = ''
+    foreach ($part in $parts) {
+        $built = if ($built) { "$built/$part" } else { $part }
+        Ensure-FtpDirectory -RemoteRelativePath $built -Deploy $Deploy
+    }
+}
+
+# Required directories (must exist before uploads — otherwise FTP creates 0-byte files named "logs", etc.)
+$storageDirs = @(
+    'storage',
+    'storage/logs',
+    'storage/backups',
+    'storage/backups/database',
+    'storage/backups/weekly',
+    'storage/branding',
+    'storage/google'
+)
+
 Write-Host 'Uploading via FTP ...' -ForegroundColor Cyan
 Send-FtpFile -LocalPath $configPath -RemoteRelativePath 'config.php' -Deploy $cfg
 
+Write-Host 'Creating storage directories ...' -ForegroundColor Cyan
+foreach ($dir in $storageDirs) {
+    Ensure-FtpDirectoryChain -RemoteRelativePath $dir -Deploy $cfg
+}
+
 $storageRoot = Join-Path $ProjectRoot 'storage'
 if (Test-Path $storageRoot) {
-    Write-Host 'Uploading storage/ folders ...' -ForegroundColor Cyan
+    Write-Host 'Uploading storage files ...' -ForegroundColor Cyan
     Get-ChildItem -Path $storageRoot -Recurse -File -Force | ForEach-Object {
         $relative = $_.FullName.Substring($storageRoot.Length + 1).Replace('\', '/')
-        $remoteDir = Split-Path $relative -Parent
-        if ($remoteDir) {
-            $parts = $remoteDir -split '/'
-            $built = ''
-            foreach ($part in $parts) {
-                $built = if ($built) { "$built/$part" } else { $part }
-                Ensure-FtpDirectory -RemoteRelativePath "storage/$built" -Deploy $cfg
-            }
+        $parent = Split-Path $relative -Parent
+        if ($parent) {
+            Ensure-FtpDirectoryChain -RemoteRelativePath "storage/$parent" -Deploy $cfg
         }
-        Ensure-FtpDirectory -RemoteRelativePath 'storage' -Deploy $cfg
         Send-FtpFile -LocalPath $_.FullName -RemoteRelativePath "storage/$relative" -Deploy $cfg
     }
 }
