@@ -796,7 +796,7 @@ function updateRegistrationRoleBanner() {
 
         if (option) {
 
-            nameEl.textContent = option.textContent.trim();
+            nameEl.textContent = option.dataset.label || option.textContent.trim();
 
             detailEl.textContent = option.dataset.detail || '';
 

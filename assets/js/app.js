@@ -255,7 +255,7 @@
             showFieldError('form_slug', 'Please select your role.');
             isValid = false;
         }
-        if (!pickedFormSlug && document.getElementById('role-picker') && !document.querySelector('input[type="hidden"][name="form_slug"]')) {
+        if (!pickedFormSlug && !formSlugEl && !document.querySelector('input[type="hidden"][name="form_slug"]')) {
             showFieldError('form_slug', 'Please select your role.');
             isValid = false;
         }

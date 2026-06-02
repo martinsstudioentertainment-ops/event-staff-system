@@ -293,60 +293,14 @@
     line-height: 1.35;
 }
 
-.role-picker {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.45rem;
+.registration-page--compact .registration-role-field .form-select {
     width: 100%;
-    min-width: 0;
+    min-height: 44px;
+    font-size: 0.9375rem;
 }
 
-.role-picker__option {
-    margin: 0;
-    cursor: pointer;
-    min-width: 0;
-}
-
-.role-picker__option input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.role-picker__box {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-    min-height: 0;
-    padding: 0.5rem 0.45rem;
-    border-radius: 8px;
-    border: 2px solid color-mix(in srgb, var(--primary-color, #2563eb) 22%, transparent);
-    background: var(--card-bg, #fff);
-    transition: border-color 0.15s, background 0.15s;
-}
-
-.role-picker__title {
-    font-size: 0.75rem;
-    font-weight: 700;
-    line-height: 1.2;
-    color: var(--text-color);
-    word-wrap: break-word;
-}
-
-.role-picker__hint {
-    font-size: 0.625rem;
-    line-height: 1.25;
-    color: var(--text-muted, #64748b);
-}
-
-.role-picker__option input:checked + .role-picker__box {
-    border-color: var(--primary-color, #2563eb);
-    background: color-mix(in srgb, var(--primary-color, #2563eb) 8%, var(--card-bg, #fff));
-}
-
-.role-picker__option input:focus-visible + .role-picker__box {
-    outline: 2px solid var(--primary-color, #2563eb);
-    outline-offset: 2px;
+.registration-page--compact .registration-role-banner {
+    margin-top: 0;
 }
 
 .registration-page--compact .shift-picker-list {
@@ -375,15 +329,6 @@
     line-height: 1.4;
 }
 
-/* Role picker replaces the status banner — hide duplicate at every width */
-.registration-page--compact:has(#role-picker) #registration-role-banner {
-    display: none;
-}
-
-.registration-page--compact .form-hint--compact {
-    display: none;
-}
-
 /* Override mobile.css fixed footer — sticky inside card, smaller buttons */
 @media (max-width: 1024px) {
     .registration-page--compact .staff-public-header {
@@ -400,26 +345,6 @@
 
     .registration-page--compact .portal-legal-notice {
         display: none;
-    }
-
-    .registration-page--compact .role-picker__hint {
-        display: none;
-    }
-
-    .registration-page--compact .role-picker {
-        grid-template-columns: 1fr 1fr;
-        gap: 0.35rem;
-    }
-
-    .registration-page--compact .role-picker__box {
-        padding: 0.45rem 0.35rem;
-        min-height: 2.5rem;
-        justify-content: center;
-    }
-
-    .registration-page--compact .role-picker__title {
-        font-size: 0.6875rem;
-        text-align: center;
     }
 
     .registration-page--compact.registration-page .registration-page__wrap {
@@ -488,15 +413,4 @@
         font-size: 1.25rem;
     }
 
-    .role-picker {
-        grid-template-columns: repeat(4, 1fr);
-    }
-
-    .registration-page--compact .role-picker__box {
-        padding: 0.55rem 0.5rem;
-    }
-
-    .registration-page--compact .role-picker__hint {
-        display: none;
-    }
 }

@@ -177,45 +177,38 @@ if ($pdo) {
                         default   => t('registering_as_dsp_detail'),
                     };
                     ?>
-                    <div class="registration-role-banner registration-role-banner--compact" id="registration-role-banner" role="status">
-                        <span class="registration-role-banner__label"><?= h(t('registering_as')) ?>:</span>
-                        <strong class="registration-role-banner__name" id="registration-role-banner-name"><?= h($bannerRoleLabel) ?></strong>
-                        <span class="registration-role-banner__detail" id="registration-role-banner-detail"><?= h($bannerRoleDetail) ?></span>
-                    </div>
-
                     <?php if (!$lockFormType): ?>
-                    <h3 class="form-section-title form-section-title--compact"><?= h(t('your_role')) ?></h3>
-                    <div class="form-group form-group--full">
-                        <div class="role-picker" id="role-picker" role="radiogroup" aria-label="<?= h(t('your_role')) ?>">
-                            <?php $firstRoleOption = true; foreach ($allForms as $slug => $form): ?>
+                    <div class="form-group form-group--full registration-role-field">
+                        <label class="form-label form-label--required" for="form_slug"><?= h(t('your_role')) ?></label>
+                        <select class="form-select" id="form_slug" name="form_slug" required>
+                            <?php foreach ($allForms as $slug => $form): ?>
                                 <?php if (empty($form['enabled'])) continue; ?>
                                 <?php
                                 $roleVal = normalizeStaffRole((string) ($form['staff_role'] ?? $slug));
-                                $checked = ($old['form_slug'] ?? $selectedFormSlug) === $slug;
+                                $selected = ($old['form_slug'] ?? $selectedFormSlug) === $slug;
+                                $roleDetail = match ($roleVal) {
+                                    'steward' => t('registering_as_steward_detail'),
+                                    'static'  => t('registering_as_static_detail'),
+                                    'both'    => t('registering_as_both_detail'),
+                                    default   => t('registering_as_dsp_detail'),
+                                };
                                 ?>
-                                <label class="role-picker__option">
-                                    <input type="radio" name="form_slug" value="<?= h($slug) ?>" aria-label="<?= h((string) ($form['label'] ?? $slug)) ?>" data-role="<?= h($roleVal) ?>" data-label="<?= h((string) ($form['label'] ?? $slug)) ?>" data-detail="<?= h(match ($roleVal) {
-                                        'steward' => t('registering_as_steward_detail'),
-                                        'static'  => t('registering_as_static_detail'),
-                                        'both'    => t('registering_as_both_detail'),
-                                        default   => t('registering_as_dsp_detail'),
-                                    }) ?>"<?= $checked ? ' checked' : '' ?><?= $firstRoleOption ? ' required' : '' ?>>
-                                    <span class="role-picker__box">
-                                        <span class="role-picker__title"><?= h((string) ($form['short_label'] ?? $form['label'] ?? $slug)) ?></span>
-                                        <?php if (!empty($form['role_hint'])): ?>
-                                        <span class="role-picker__hint" title="<?= h((string) ($form['label'] ?? '')) ?>"><?= h((string) $form['role_hint']) ?></span>
-                                        <?php endif; ?>
-                                    </span>
-                                </label>
-                            <?php $firstRoleOption = false; endforeach; ?>
-                        </div>
-                        <p class="form-hint form-hint--compact"><?= h(t('your_role_hint')) ?></p>
+                                <option value="<?= h($slug) ?>" data-role="<?= h($roleVal) ?>" data-label="<?= h((string) ($form['label'] ?? $slug)) ?>" data-detail="<?= h($roleDetail) ?>"<?= $selected ? ' selected' : '' ?>><?= h((string) ($form['label'] ?? $slug)) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <p class="form-hint"><?= h(t('your_role_hint')) ?></p>
                         <span class="form-error" id="form_slug-error"></span>
                     </div>
                     <?php else: ?>
                         <input type="hidden" name="form_slug" value="<?= h($formSlug) ?>">
                     <?php endif; ?>
                         <input type="hidden" name="staff_role" id="staff_role" value="<?= h($lockedRole) ?>">
+
+                    <div class="registration-role-banner registration-role-banner--compact" id="registration-role-banner" role="status">
+                        <span class="registration-role-banner__label"><?= h(t('registering_as')) ?>:</span>
+                        <strong class="registration-role-banner__name" id="registration-role-banner-name"><?= h($bannerRoleLabel) ?></strong>
+                        <span class="registration-role-banner__detail" id="registration-role-banner-detail"><?= h($bannerRoleDetail) ?></span>
+                    </div>
 
                     <div class="form-group form-group--full">
                         <label class="form-label form-label--required" for="email"><?= h(t('email_address')) ?></label>
