@@ -487,8 +487,8 @@ function googleSheetsCreatePermissionHint(?string $apiBody, ?string $projectId =
     }
 
     if (str_contains($body, 'storage quota') || str_contains($body, 'storagequotaexceeded')) {
-        return 'In your shared Drive folder, create one blank Google Sheet named **Event Staff Template** (or set Template sheet URL in Settings). '
-            . 'The app copies that file instead of creating from scratch — this uses your Gmail storage, not the robot account.';
+        return 'Google Drive storage is full for the Gmail account that owns the shared folder (check https://one.google.com/storage). '
+            . 'Delete old files or buy more storage, then retry. Template copy cannot run until there is free space.';
     }
 
     return 'In Google Cloud project “' . $project
@@ -971,27 +971,35 @@ function googleDriveCopySpreadsheetFromTemplate(
         return null;
     }
 
-    $payload = json_encode([
-        'name'    => $title,
-        'parents' => [$parentFolderId],
-    ], JSON_UNESCAPED_UNICODE);
+    $url = 'https://www.googleapis.com/drive/v3/files/' . rawurlencode($templateId)
+        . '/copy?supportsAllDrives=true&includeItemsFromAllDrives=true';
 
-    if ($payload === false) {
-        return null;
+    $attempts = [
+        json_encode(['name' => $title], JSON_UNESCAPED_UNICODE),
+        json_encode(['name' => $title, 'parents' => [$parentFolderId]], JSON_UNESCAPED_UNICODE),
+    ];
+
+    $response = ['code' => 0, 'body' => ''];
+    foreach ($attempts as $payload) {
+        if ($payload === false) {
+            continue;
+        }
+        $response = googleSheetsHttpRequest(
+            'POST',
+            $url,
+            googleSheetsAuthHeaders($token, $project),
+            $payload
+        );
+        if ($response['code'] >= 200 && $response['code'] < 300) {
+            break;
+        }
     }
 
-    $url = 'https://www.googleapis.com/drive/v3/files/' . rawurlencode($templateId)
-        . '/copy?supportsAllDrives=true';
-
-    $response = googleSheetsHttpRequest(
-        'POST',
-        $url,
-        googleSheetsAuthHeaders($token, $project),
-        $payload
-    );
-
     if ($response['code'] < 200 || $response['code'] >= 300) {
-        googleSheetsLog('Drive copy template failed: HTTP ' . $response['code'] . ' — ' . $response['body']);
+        googleSheetsLog(
+            'Drive copy template failed: HTTP ' . $response['code'] . ' — ' . $response['body']
+            . ' | ' . googleSheetsCreatePermissionHint($response['body'], $project)
+        );
 
         return null;
     }
@@ -1042,75 +1050,20 @@ function googleDriveCreateSpreadsheet(
         : null;
 
     if ($templateId !== null && $templateId !== '') {
-        $copied = googleDriveCopySpreadsheetFromTemplate(
+        return googleDriveCopySpreadsheetFromTemplate(
             $serviceAccount,
             $templateId,
             $title,
             $parentFolderId,
             $tabName
         );
-        if ($copied !== null) {
-            return $copied;
-        }
-        googleSheetsLog('Template copy failed for ' . $templateId . ', trying Drive create…');
-    } elseif ($parentFolderId !== '') {
-        googleSheetsLog(
-            'No template sheet in folder — add a blank Google Sheet named "Event Staff Template" '
-            . 'inside your shared folder, then retry.'
-        );
     }
 
-    $fileMeta = [
-        'name'     => $title,
-        'mimeType' => 'application/vnd.google-apps.spreadsheet',
-    ];
-    if ($parentFolderId !== '') {
-        $fileMeta['parents'] = [$parentFolderId];
-    }
-
-    $payload = json_encode($fileMeta, JSON_UNESCAPED_UNICODE);
-
-    if ($payload === false) {
-        return null;
-    }
-
-    $createUrl = 'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true';
-    $response  = googleSheetsHttpRequest(
-        'POST',
-        $createUrl,
-        googleSheetsAuthHeaders($token, $project),
-        $payload
+    googleSheetsLog(
+        'No template sheet in folder — add a blank Google Sheet named "Event Staff Template" inside your shared folder.'
     );
 
-    if ($response['code'] < 200 || $response['code'] >= 300) {
-        $inspect = $parentFolderId !== '' ? googleDriveInspectParentFolder($serviceAccount, $parentFolderId) : null;
-        $extra   = $inspect !== null && !$inspect['ok'] ? ' | ' . $inspect['summary'] : '';
-        googleSheetsLog(
-            'Drive create spreadsheet failed: HTTP ' . $response['code'] . ' — ' . $response['body']
-            . $extra
-            . ' | ' . googleSheetsCreatePermissionHint($response['body'], $project)
-        );
-
-        return null;
-    }
-
-    $data = json_decode($response['body'], true);
-    $id   = is_array($data) ? (string) ($data['id'] ?? '') : '';
-    if ($id === '') {
-        return null;
-    }
-
-    $effectiveTab = $tabName;
-    if (!googleSheetsRenameFirstTab($serviceAccount, $id, $tabName)) {
-        $effectiveTab = 'Sheet1';
-        googleSheetsLog('Drive created ' . $id . ' but tab rename to ' . $tabName . ' failed — using Sheet1');
-    }
-
-    return [
-        'spreadsheetId' => $id,
-        'tabName'       => $effectiveTab,
-        'url'           => buildGoogleSheetsSpreadsheetUrl($id),
-    ];
+    return null;
 }
 
 /**

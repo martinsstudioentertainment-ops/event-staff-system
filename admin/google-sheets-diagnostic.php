@@ -135,9 +135,13 @@ if (($token ?? '') !== '' && is_array($sa) && isset($_GET['test_create'])) {
     $createOk     = $test !== null;
     if ($createOk && isset($test['spreadsheetId'])) {
         googleDriveDeleteFile($sa, $test['spreadsheetId']);
-        $createDetail = 'Created OK (test sheet removed to save quota)';
+        $createDetail = 'Copy OK (test sheet removed to save space)';
     } else {
-        $createDetail = h(getLastGoogleSheetsApiError() ?: 'Unknown error');
+        $err = getLastGoogleSheetsApiError() ?: 'Unknown error';
+        if (str_contains(mb_strtolower($err), 'drive create spreadsheet failed')) {
+            $err = getLastGoogleSheetsApiError() ?: $err;
+        }
+        $createDetail = h($err);
     }
     if (!$createOk) {
         $permissionHint = googleSheetsCreatePermissionHint(getLastGoogleSheetsApiError(), $projectId !== '' ? $projectId : null);
@@ -176,7 +180,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <li>If still full, click <strong>Delete ALL service account sheets</strong> (removes every sheet the robot owns — you can run <strong>Create N Google Sheet(s)</strong> on Events again later).</li>
                 <li>Then <strong>Run create test</strong> once only — do not click it many times.</li>
             </ol>
-            <p style="margin:0.5rem 0 0"><strong>Do not click “Run create test” again until after purge.</strong> Each click tries to create more files.</p>
+            <p style="margin:0.5rem 0 0"><strong>If copy fails with storage quota:</strong> your <strong>Gmail</strong> Drive is full (not the robot). Open https://one.google.com/storage and free space, then retry.</p>
         </div>
     <?php endif; ?>
 
