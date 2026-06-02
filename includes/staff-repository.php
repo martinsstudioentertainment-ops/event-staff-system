@@ -91,7 +91,7 @@ function buildStaffWhereClause(array $filters): array
         $params['status'] = $filters['status'];
     }
 
-    if (in_array(normalizeStaffRole($filters['role']), ['dsp', 'static', 'both', 'steward', 'fire_marshal'], true)) {
+    if (in_array(normalizeStaffRole($filters['role']), getKnownStaffRoles(), true)) {
         $where[] = 'sr.staff_role = :role';
         $params['role'] = normalizeStaffRole($filters['role']);
     }

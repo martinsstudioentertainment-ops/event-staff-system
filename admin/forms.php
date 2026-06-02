@@ -19,9 +19,12 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 ?>
 
 <section class="card">
-    <div class="card__header">
-        <h2 class="card__title">Registration forms</h2>
-        <p class="card__subtitle">Public registration: <strong>DSP</strong>, <strong>Static</strong>, <strong>DSP &amp; Static (Both)</strong>, and <strong>Fire Marshal</strong>. Steward form is disabled. Upload a <strong>PNG/JPG logo</strong> in Website → Global for WhatsApp link previews.</p>
+    <div class="card__header card__header--row">
+        <div>
+            <h2 class="card__title">Registration forms</h2>
+            <p class="card__subtitle">Add roles and share links yourself — no developer needed. Each form is a staff role on events and registration.</p>
+        </div>
+        <a href="form-new.php" class="btn btn--primary">+ Add form / role</a>
     </div>
 
     <div class="admin-form-list">

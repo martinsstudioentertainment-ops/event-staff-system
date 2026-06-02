@@ -21,7 +21,9 @@ function getVenueTypeOptions(): array
 /** @return string[] */
 function getStaffRoleValuesForEvents(): array
 {
-    return ['dsp', 'static', 'steward', 'fire_marshal'];
+    require_once __DIR__ . '/registration-forms.php';
+
+    return getStaffRolesForEvents();
 }
 
 function formatVenueTypeLabel(string $venueType): string
@@ -273,28 +275,13 @@ function rolesNeededToString(array $roles): string
  */
 function formatEventRolesNeededDisplay(array $event): string
 {
+    require_once __DIR__ . '/registration-forms.php';
+
     $needed = normalizeRolesNeeded($event);
     $parts  = [];
 
-    $hasDsp     = in_array('dsp', $needed, true);
-    $hasStatic  = in_array('static', $needed, true);
-    $hasSteward     = in_array('steward', $needed, true);
-    $hasFireMarshal = in_array('fire_marshal', $needed, true);
-
-    if ($hasDsp && $hasStatic) {
-        $parts[] = 'DSP & Static';
-    } elseif ($hasDsp) {
-        $parts[] = 'DSP';
-    } elseif ($hasStatic) {
-        $parts[] = 'Static';
-    }
-
-    if ($hasSteward) {
-        $parts[] = 'Steward';
-    }
-
-    if ($hasFireMarshal) {
-        $parts[] = 'Fire Marshal';
+    foreach ($needed as $role) {
+        $parts[] = formatStaffRoleLabel($role);
     }
 
     return $parts !== [] ? implode(' · ', $parts) : 'Open';

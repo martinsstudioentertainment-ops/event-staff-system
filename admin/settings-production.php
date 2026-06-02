@@ -13,6 +13,7 @@ require_once __DIR__ . '/../includes/world-timezones.php';
 require_once __DIR__ . '/../includes/pwa-push.php';
 require_once __DIR__ . '/../includes/google-sheets-sync.php';
 require_once __DIR__ . '/../includes/google-drive-oauth.php';
+require_once __DIR__ . '/../includes/registration-forms.php';
 
 requireAdminCapability('settings');
 
@@ -193,24 +194,15 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <input type="hidden" name="action" value="commission_rates">
 
         <div class="erp-settings-form__grid">
+            <?php foreach (getStaffRolesForEvents($pdo) as $commissionRole): ?>
+                <?php $rateKey = commissionRateSettingKey($commissionRole); ?>
+                <div class="form-group">
+                    <label class="form-label" for="<?= h($rateKey) ?>"><?= h(formatStaffRoleLabel($commissionRole, $pdo)) ?> rate / hour<?= $commissionRole === 'dsp' ? ' (' . h(getSystemCurrency($pdo)) . ')' : '' ?></label>
+                    <input class="form-input" type="number" step="0.01" min="0" id="<?= h($rateKey) ?>" name="<?= h($rateKey) ?>" value="<?= h($settings[$rateKey] ?? '0') ?>">
+                </div>
+            <?php endforeach; ?>
             <div class="form-group">
-                <label class="form-label" for="commission_rate_dsp">DSP rate / hour (<?= h(getSystemCurrency($pdo)) ?>)</label>
-                <input class="form-input" type="number" step="0.01" min="0" id="commission_rate_dsp" name="commission_rate_dsp" value="<?= h($settings['commission_rate_dsp'] ?? '0') ?>">
-            </div>
-            <div class="form-group">
-                <label class="form-label" for="commission_rate_steward">Steward rate / hour</label>
-                <input class="form-input" type="number" step="0.01" min="0" id="commission_rate_steward" name="commission_rate_steward" value="<?= h($settings['commission_rate_steward'] ?? '0') ?>">
-            </div>
-            <div class="form-group">
-                <label class="form-label" for="commission_rate_static">Static rate / hour</label>
-                <input class="form-input" type="number" step="0.01" min="0" id="commission_rate_static" name="commission_rate_static" value="<?= h($settings['commission_rate_static'] ?? '0') ?>">
-            </div>
-            <div class="form-group">
-                <label class="form-label" for="commission_rate_fire_marshal">Fire Marshal rate / hour</label>
-                <input class="form-input" type="number" step="0.01" min="0" id="commission_rate_fire_marshal" name="commission_rate_fire_marshal" value="<?= h($settings['commission_rate_fire_marshal'] ?? '0') ?>">
-            </div>
-            <div class="form-group">
-                <label class="form-label" for="commission_rate_default">Other roles / hour</label>
+                <label class="form-label" for="commission_rate_default">Fallback / other roles / hour</label>
                 <input class="form-input" type="number" step="0.01" min="0" id="commission_rate_default" name="commission_rate_default" value="<?= h($settings['commission_rate_default'] ?? '0') ?>">
             </div>
         </div>

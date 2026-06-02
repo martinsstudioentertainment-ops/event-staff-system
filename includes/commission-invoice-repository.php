@@ -34,14 +34,9 @@ function normalizeCommissionInvoicePrintLayout(string $layout): string
 
 function getDefaultCommissionRate(PDO $pdo, string $role): float
 {
-    $role = strtolower(trim($role));
-    $key  = match ($role) {
-        'dsp'          => 'commission_rate_dsp',
-        'steward'      => 'commission_rate_steward',
-        'static'       => 'commission_rate_static',
-        'fire_marshal' => 'commission_rate_fire_marshal',
-        default        => 'commission_rate_default',
-    };
+    require_once __DIR__ . '/registration-forms.php';
+
+    $key = commissionRateSettingKey($role);
 
     return max(0, round((float) getSetting($pdo, $key, '0'), 2));
 }

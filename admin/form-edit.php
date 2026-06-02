@@ -4,14 +4,14 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/settings-repository.php';
 require_once __DIR__ . '/../includes/site-urls.php';
 require_once __DIR__ . '/../includes/registration-forms.php';
-require_once __DIR__ . '/../includes/venues-repository.php';
+require_once __DIR__ . '/../includes/work-types-repository.php';
 require_once __DIR__ . '/../includes/rich-text.php';
 require_once __DIR__ . '/../includes/admin/forms-nav.php';
 
 requireAdminCapability('forms');
 
 $pdo   = getDB();
-$slug  = strtolower(trim((string) ($_GET['slug'] ?? '')));
+$slug  = normalizeRegistrationFormSlug((string) ($_GET['slug'] ?? ''));
 $forms = getRegistrationForms($pdo);
 
 if ($slug === '' || !isset($forms[$slug])) {
@@ -19,44 +19,41 @@ if ($slug === '' || !isset($forms[$slug])) {
     exit;
 }
 
-$form   = $forms[$slug];
-$error  = '';
-$success = '';
+$form    = $forms[$slug];
+$error   = '';
+$success = isset($_GET['created']) ? 'Form created. Copy the share link below.' : '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf($_POST['csrf_token'] ?? null)) {
         $error = 'Invalid request.';
-    } else {
-        $payload = [];
-        foreach ($forms as $formSlug => $existing) {
-        $payload[$slug] = [
-            'label'              => (string) ($existing['label'] ?? ''),
-            'short_label'        => (string) ($existing['short_label'] ?? ''),
-            'title'              => (string) ($existing['title'] ?? ''),
-            'subtitle'           => (string) ($existing['subtitle'] ?? ''),
-            'description'        => (string) ($existing['description'] ?? ''),
-            'enabled'            => !empty($existing['enabled']),
-            'show_notice'        => !empty($existing['show_notice']),
-            'selection_mode'     => (string) ($existing['selection_mode'] ?? 'venue_first'),
-            'allowed_work_types' => is_array($existing['allowed_work_types'] ?? null) ? $existing['allowed_work_types'] : getDefaultWorkTypesForFormSlug($formSlug),
-        ];
+    } elseif (isset($_POST['delete_form']) && $_POST['delete_form'] === '1') {
+        $result = deleteRegistrationForm($pdo, $slug);
+        if ($result['ok']) {
+            header('Location: forms.php?deleted=1');
+            exit;
         }
+        $error = $result['message'];
+    } else {
+        $payload = registrationFormsToSavePayload($forms);
         $payload[$slug] = [
             'label'              => (string) ($_POST['label'] ?? ''),
             'short_label'        => (string) ($_POST['short_label'] ?? ''),
+            'role_hint'          => (string) ($_POST['role_hint'] ?? ''),
             'title'              => (string) ($_POST['title'] ?? ''),
             'subtitle'           => richPost('subtitle'),
             'description'        => richPost('description'),
+            'staff_role'         => (string) ($form['staff_role'] ?? $slug),
             'enabled'            => !empty($_POST['enabled']),
             'show_notice'        => !empty($_POST['show_notice']),
             'selection_mode'     => 'venue_first',
             'allowed_work_types' => array_values(array_filter(
                 array_map('strval', (array) ($_POST['allowed_work_types'] ?? []))
             )),
+            'sort_order'         => (int) ($_POST['sort_order'] ?? ($form['sort_order'] ?? 100)),
         ];
         saveRegistrationForms($pdo, $payload);
-        $forms = getRegistrationForms($pdo);
-        $form  = $forms[$slug];
+        $forms   = getRegistrationForms($pdo);
+        $form    = $forms[$slug];
         $success = 'Form saved.';
     }
 }
@@ -66,6 +63,7 @@ $pageTitle          = (string) ($form['label'] ?? ucfirst($slug));
 $activePage         = 'forms';
 $adminSectionNav    = getAdminFormsNavItems();
 $adminSectionActive = $slug;
+$canDelete          = !isBuiltinRegistrationFormSlug($slug);
 
 include __DIR__ . '/../includes/admin/layout-top.php';
 ?>
@@ -74,7 +72,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     <div class="card__header card__header--row">
         <div>
             <h2 class="card__title"><?= h($form['label'] ?? ucfirst($slug)) ?></h2>
-            <p class="card__subtitle">Edit this registration form and copy its share link.</p>
+            <p class="card__subtitle">Form ID: <code><?= h($slug) ?></code> · Staff role stored as <code><?= h((string) ($form['staff_role'] ?? $slug)) ?></code></p>
         </div>
         <a href="forms.php" class="btn btn--secondary">← All forms</a>
     </div>
@@ -102,8 +100,17 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <label class="form-label" for="short_label">Short label</label>
             <input class="form-input" id="short_label" name="short_label" value="<?= h($form['short_label'] ?? '') ?>">
         </div>
+        <div class="form-group">
+            <label class="form-label" for="sort_order">Sort order</label>
+            <input class="form-input" type="number" id="sort_order" name="sort_order" value="<?= h((string) ($form['sort_order'] ?? 100)) ?>" min="0" max="999">
+            <p class="form-hint">Lower numbers appear first on the registration role list.</p>
+        </div>
         <div class="form-group form-group--full">
-            <label class="form-radio">
+            <label class="form-label" for="role_hint">Role hint (registration dropdown)</label>
+            <input class="form-input" id="role_hint" name="role_hint" value="<?= h($form['role_hint'] ?? '') ?>" placeholder="Short line shown when staff pick this role">
+        </div>
+        <div class="form-group form-group--full">
+            <label class="form-checkbox">
                 <input type="checkbox" name="enabled" value="1"<?= !empty($form['enabled']) ? ' checked' : '' ?>>
                 Form enabled
             </label>
@@ -121,7 +128,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <textarea class="form-textarea rich-text" id="description" name="description" rows="2"><?= h($form['description'] ?? '') ?></textarea>
         </div>
         <div class="form-group form-group--full">
-            <label class="form-radio">
+            <label class="form-checkbox">
                 <input type="checkbox" name="show_notice" value="1"<?= !empty($form['show_notice']) ? ' checked' : '' ?>>
                 Show scrolling notice on this form
             </label>
@@ -144,8 +151,11 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <p class="form-hint">Staff choose a venue first, then only postings with these work types appear. <a href="work-types.php">Add more work types</a> if yours are not listed.</p>
         </div>
 
-        <div class="form-actions form-group--full">
+        <div class="form-actions form-group--full" style="flex-wrap:wrap;gap:0.5rem">
             <button type="submit" class="btn btn--primary">Save form</button>
+            <?php if ($canDelete): ?>
+                <button type="submit" name="delete_form" value="1" class="btn btn--secondary" onclick="return confirm('Delete this form permanently? Existing registrations keep their saved role.');">Delete form</button>
+            <?php endif; ?>
         </div>
     </form>
 </section>

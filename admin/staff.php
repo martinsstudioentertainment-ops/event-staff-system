@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/staff-repository.php';
+require_once __DIR__ . '/../includes/registration-forms.php';
 
 requireAdminCapability('staff');
 
@@ -52,10 +53,10 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <div class="filter-bar__group">
             <select class="form-select" name="role">
                 <option value="">All roles</option>
-                <option value="dsp"<?= $filters['role'] === 'dsp' ? ' selected' : '' ?>>Door Supervisor (DSP)</option>
-                <option value="static"<?= $filters['role'] === 'static' ? ' selected' : '' ?>>Static Security</option>
-                <option value="steward"<?= $filters['role'] === 'steward' ? ' selected' : '' ?>>Steward</option>
-                <option value="fire_marshal"<?= $filters['role'] === 'fire_marshal' ? ' selected' : '' ?>>Fire Marshal</option>
+                <?php foreach (getKnownStaffRoles() as $role): ?>
+                    <?php if ($role === 'both' || $role === 'security') { continue; } ?>
+                    <option value="<?= h($role) ?>"<?= $filters['role'] === $role ? ' selected' : '' ?>><?= h(formatStaffRoleLabel($role)) ?></option>
+                <?php endforeach; ?>
             </select>
         </div>
         <div class="filter-bar__group">

@@ -148,7 +148,7 @@ function validateRegistration(array $data): array
     }
 
     $staffRole = normalizeStaffRole(trim((string) ($data['staff_role'] ?? '')));
-    if ($staffRole !== '' && !in_array($staffRole, ['dsp', 'static', 'both', 'steward', 'fire_marshal'], true)) {
+    if ($staffRole !== '' && !in_array($staffRole, getKnownStaffRoles(), true)) {
         $errors['staff_role'] = 'Please select a valid role.';
     }
 

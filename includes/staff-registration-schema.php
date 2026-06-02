@@ -164,7 +164,8 @@ function resolveStaffRoleForEventRegistration(string $staffRole, array $event): 
 function sanitizeStaffRoleForDb(string $role): string
 {
     $role = normalizeStaffRole($role);
-    if (in_array($role, ['dsp', 'static', 'steward', 'fire_marshal'], true)) {
+    require_once __DIR__ . '/registration-forms.php';
+    if (in_array($role, getStaffRolesForEvents(), true)) {
         return $role;
     }
 
