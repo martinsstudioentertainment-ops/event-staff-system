@@ -117,7 +117,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <label class="form-label form-label--required">Roles that can register</label>
             <div class="form-checkbox-group">
                 <?php
-                $savedRoles = normalizeRolesNeeded(['roles_needed' => $old['roles_needed'] ?? $event['roles_needed'] ?? 'dsp,static,steward']);
+                $savedRoles = normalizeRolesNeeded(['roles_needed' => $old['roles_needed'] ?? $event['roles_needed'] ?? 'dsp,static']);
                 foreach (getStaffRoleValuesForEvents() as $role):
                 ?>
                     <label class="form-checkbox">

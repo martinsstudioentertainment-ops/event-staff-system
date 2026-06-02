@@ -139,7 +139,7 @@ function forceApplyLiveEventRow(PDO $pdo, int $eventId, array $fields): void
              times_confirmed = :times_confirmed,
              is_active = 1,
              work_type = \'special_event\',
-             roles_needed = \'dsp,static,steward\'
+             roles_needed = \'dsp,static\'
          WHERE id = :id'
     );
     $stmt->execute([
@@ -294,7 +294,7 @@ function syncLiveEventsFromMasterFile(PDO $pdo, bool $dryRun = false, ?string $d
             'staff_needed'          => $staffNeeded,
             'is_active'             => 1,
             'work_type'             => 'special_event',
-            'roles_needed'          => 'dsp,static,steward',
+            'roles_needed'          => 'dsp,static',
             'start_time'            => $parsedTimes['start'] ?? '09:00',
             'end_time'              => $parsedTimes['end'] ?? '23:00',
             'times_confirmed'       => $parsedTimes['confirmed'] ?? 0,

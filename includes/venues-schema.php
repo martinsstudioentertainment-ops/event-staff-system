@@ -40,7 +40,7 @@ function ensureVenuesSchema(PDO $pdo): void
     $eventAdds = [
         'venue_id'      => 'INT UNSIGNED NULL',
         'work_type'     => "ENUM('special_event', 'nightclub', 'office', 'static', 'festival') NOT NULL DEFAULT 'special_event'",
-        'roles_needed'  => "VARCHAR(50) NOT NULL DEFAULT 'dsp,static,steward'",
+        'roles_needed'  => "VARCHAR(50) NOT NULL DEFAULT 'dsp,static'",
     ];
 
     foreach ($eventAdds as $column => $definition) {

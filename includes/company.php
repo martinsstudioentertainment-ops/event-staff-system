@@ -18,7 +18,7 @@ function getCompanyTagline(PDO $pdo): string
     return getSetting(
         $pdo,
         'company_tagline',
-        'Helping people find security, steward, and event jobs — even if you have never done it before'
+        'Helping PSA-licensed security staff find door supervisor and static shifts at events'
     );
 }
 
@@ -97,9 +97,9 @@ function getCompanyServices(): array
             'icon'  => 'shield',
         ],
         [
-            'title' => 'Stewarding',
-            'desc'  => 'Apply for steward jobs — helping guests, guiding crowds, and front-of-house support.',
-            'icon'  => 'steward',
+            'title' => 'Static Security',
+            'desc'  => 'PSA static and site security — gates, perimeter, and venue posts at events.',
+            'icon'  => 'shield',
         ],
         [
             'title' => 'Crowd & Entry',

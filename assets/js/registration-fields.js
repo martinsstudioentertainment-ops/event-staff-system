@@ -15,7 +15,7 @@ const REGISTRATION_FIELDS = [
     { name: 'gender',         label: 'Gender',                       spreadsheet: 'Gender' },
     { name: 'pps_number',     label: 'NI / PPS Number',              spreadsheet: 'NI / PPS Number' },
     { name: 'bank_iban',      label: 'Bank Account / IBAN',          spreadsheet: 'Bank Account / IBAN' },
-    { name: 'staff_role',     label: 'Role',                         spreadsheet: 'DSP / Static / Steward' }
+    { name: 'staff_role',     label: 'Role',                         spreadsheet: 'DSP / Static (PSA security)' }
     /* event_ids[] — multi-select checkboxes, one DB row per event */
 ];
 

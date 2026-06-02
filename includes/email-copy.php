@@ -15,7 +15,8 @@ function getPortalLegalNotice(PDO $pdo): string
     $site = getSiteName($pdo);
 
     return $site
-        . ' is a free registration portal that helps people find security and event work.'
+        . ' is a free registration portal for PSA-licensed security staff (door supervisors and static guards) to find event shifts.'
+        . ' Listings are for licensed security work only — not stewarding or general event crew.'
         . ' We are not a security company, PSA licence holder, employer, event organiser, or payroll provider.'
         . ' We do not hire staff, assign shifts as an employer, or pay wages.'
         . ' Pay, hours, and working conditions are agreed directly with the event organiser or any on-site contractor named for a shift.';

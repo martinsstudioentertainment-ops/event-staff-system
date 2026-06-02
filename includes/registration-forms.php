@@ -32,9 +32,9 @@ function getDefaultRegistrationForms(): array
             'staff_role'         => 'static',
             'label'              => 'Static Security',
             'short_label'        => 'Static',
-            'role_hint'          => 'Site / gate / ongoing static posts',
             'title'              => 'Static Guard Registration',
-            'subtitle'           => 'For static and site security — not concert door work.',
+            'subtitle'           => 'For PSA-licensed static and site security at events and venues.',
+            'role_hint'          => 'PSA static / site security — gates, perimeter, posts',
             'description'        => 'Pick the site or venue, then choose static shifts.',
             'icon'               => 'shield',
             'enabled'            => true,
@@ -47,9 +47,9 @@ function getDefaultRegistrationForms(): array
             'staff_role'         => 'both',
             'label'              => 'DSP & Static (Both)',
             'short_label'        => 'DSP + Static',
-            'role_hint'          => 'Apply for DSP and static shifts on one form',
             'title'              => 'DSP & Static Registration',
-            'subtitle'           => 'For staff who do both door supervisor and static/site work.',
+            'subtitle'           => 'For PSA-licensed staff who do both door supervisor and static/site work.',
+            'role_hint'          => 'PSA DSP and static — one form for all security shifts',
             'description'        => 'Shows all DSP and static shifts. Choose venue, then tick what suits you.',
             'icon'               => 'shield',
             'enabled'            => true,
@@ -63,10 +63,10 @@ function getDefaultRegistrationForms(): array
             'label'              => 'Steward',
             'short_label'        => 'Steward',
             'title'              => 'Steward Registration',
-            'subtitle'           => 'For crowd guidance and front-of-house at concerts, festivals, and venues.',
-            'description'        => 'Select the venue, then tick the events or festival days you want to work as a steward.',
+            'subtitle'           => 'Not used on this portal — listings are PSA security only.',
+            'description'        => 'Disabled. This portal registers PSA-licensed security (DSP / Static) only.',
             'icon'               => 'steward',
-            'enabled'            => true,
+            'enabled'            => false,
             'show_notice'        => true,
             'selection_mode'     => 'venue_first',
             'allowed_work_types' => ['special_event', 'festival'],
@@ -208,6 +208,9 @@ function getRegistrationForms(?PDO $pdo = null): array
         $merged[$slug] = array_replace_recursive($default, $saved);
         $merged[$slug]['slug']       = $slug;
         $merged[$slug]['staff_role'] = registrationFormStaffRole($slug);
+        if ($slug === 'steward') {
+            $merged[$slug]['enabled'] = false;
+        }
     }
 
     return $merged;
@@ -253,11 +256,14 @@ function getRegistrationForm(?PDO $pdo, string $slug): ?array
 /** @return array<string, array<string, mixed>> */
 function getEnabledRegistrationForms(?PDO $pdo): array
 {
-    $order = ['dsp', 'static', 'both', 'steward'];
+    $order = ['dsp', 'static', 'both'];
     $all   = getRegistrationForms($pdo);
     $out   = [];
 
     foreach ($order as $slug) {
+        if ($slug === 'steward') {
+            continue;
+        }
         if (isset($all[$slug]) && !empty($all[$slug]['enabled'])) {
             $out[$slug] = $all[$slug];
         }

@@ -94,7 +94,7 @@ $pageTitle = $linkedForm
     : 'Register for Events';
 $pageSubtitle = $linkedForm
     ? (string) ($linkedForm['subtitle'] ?? '')
-    : 'Pick your role, enter your details once, and select the events you want.';
+    : t('register_page_subtitle');
 
 $showNotice = $pdo && isWebsiteNoticeEnabled($pdo);
 
@@ -149,7 +149,7 @@ if ($pdo) {
     <main class="registration-page__wrap staff-public-main">
         <?php
         renderStaffPublicHero([
-            'eyebrow' => $linkedForm ? (string) ($linkedForm['short_label'] ?? 'Registration') : 'Live events · concerts · festivals',
+            'eyebrow' => $linkedForm ? (string) ($linkedForm['short_label'] ?? 'Registration') : 'PSA security · DSP & Static',
             'title'   => $pageTitle,
             'lead'    => renderRichText($pageSubtitle),
         ]);
@@ -290,7 +290,7 @@ if ($pdo) {
                     <div class="form-group form-group--full">
                         <label class="form-checkbox">
                             <input type="checkbox" name="privacy_consent" value="1"<?= !empty($old['privacy_consent']) ? ' checked' : '' ?> required>
-                            I agree to the <a href="privacy.php" target="_blank" rel="noopener">Privacy Notice</a> and understand this website is a <strong>registration portal only</strong> (not my employer). I consent to my data being processed to register my interest in event shifts and to pass my details to event organisers or contractors where required.
+                            I agree to the <a href="privacy.php" target="_blank" rel="noopener">Privacy Notice</a> and confirm I am applying as <strong>PSA-licensed security staff</strong> (not stewarding). This site is a <strong>registration portal only</strong> (not my employer). I consent to my data being processed to register for security shifts and to pass my details to organisers or contractors where required.
                         </label>
                         <span class="form-error" id="privacy_consent-error"></span>
                     </div>

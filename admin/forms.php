@@ -21,7 +21,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 <section class="card">
     <div class="card__header">
         <h2 class="card__title">Registration forms</h2>
-        <p class="card__subtitle">Shareable forms: <strong>DSP</strong>, <strong>Static</strong>, <strong>DSP &amp; Static (Both)</strong>, and <strong>Steward</strong>. Upload a <strong>PNG/JPG logo</strong> in Website → Global for WhatsApp link previews.</p>
+        <p class="card__subtitle">Public registration: <strong>DSP</strong>, <strong>Static</strong>, and <strong>DSP &amp; Static (Both)</strong> — PSA-licensed security only. Steward form is disabled. Upload a <strong>PNG/JPG logo</strong> in Website → Global for WhatsApp link previews.</p>
     </div>
 
     <div class="admin-form-list">
