@@ -1,0 +1,153 @@
+<?php
+/**
+ * Optional OAuth (user Gmail) for Drive copy/create — service accounts cannot own new files.
+ */
+
+require_once __DIR__ . '/settings-repository.php';
+
+function googleDriveOAuthConfigured(?PDO $pdo = null): bool
+{
+    $pdo = $pdo ?? getDB();
+
+    return trim(getSetting($pdo, 'google_oauth_client_id', '')) !== ''
+        && trim(getSetting($pdo, 'google_oauth_client_secret', '')) !== ''
+        && trim(getSetting($pdo, 'google_oauth_refresh_token', '')) !== '';
+}
+
+function googleDriveOAuthRedirectUri(): string
+{
+    $base = rtrim((string) (defined('ADMIN_SITE_URL') ? ADMIN_SITE_URL : ''), '/');
+    if ($base === '') {
+        $base = 'https://admin.olasentra.com/admin';
+    }
+
+    return $base . '/google-drive-oauth-callback.php';
+}
+
+/**
+ * @return list<string>
+ */
+function googleDriveOAuthScopes(): array
+{
+    return [
+        'https://www.googleapis.com/auth/drive.file',
+        'https://www.googleapis.com/auth/spreadsheets',
+    ];
+}
+
+function googleDriveOAuthAuthorizeUrl(?PDO $pdo = null): string
+{
+    $pdo        = $pdo ?? getDB();
+    $clientId   = trim(getSetting($pdo, 'google_oauth_client_id', ''));
+    $state      = bin2hex(random_bytes(16));
+    $_SESSION['google_drive_oauth_state'] = $state;
+
+    $params = [
+        'client_id'     => $clientId,
+        'redirect_uri'  => googleDriveOAuthRedirectUri(),
+        'response_type' => 'code',
+        'scope'         => implode(' ', googleDriveOAuthScopes()),
+        'access_type'   => 'offline',
+        'prompt'        => 'consent',
+        'state'         => $state,
+    ];
+
+    return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query($params);
+}
+
+/**
+ * @return array{ok: bool, message: string}
+ */
+function googleDriveOAuthExchangeCode(PDO $pdo, string $code): array
+{
+    $clientId     = trim(getSetting($pdo, 'google_oauth_client_id', ''));
+    $clientSecret = trim(getSetting($pdo, 'google_oauth_client_secret', ''));
+    if ($clientId === '' || $clientSecret === '') {
+        return ['ok' => false, 'message' => 'OAuth client ID and secret are required in Settings.'];
+    }
+
+    $body = http_build_query([
+        'code'          => $code,
+        'client_id'     => $clientId,
+        'client_secret' => $clientSecret,
+        'redirect_uri'  => googleDriveOAuthRedirectUri(),
+        'grant_type'    => 'authorization_code',
+    ]);
+
+    $ch = curl_init('https://oauth2.googleapis.com/token');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => $body,
+        CURLOPT_HTTPHEADER     => ['Content-Type: application/x-www-form-urlencoded'],
+        CURLOPT_TIMEOUT        => 20,
+    ]);
+    $responseBody = curl_exec($ch);
+    $codeHttp     = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($codeHttp !== 200 || !is_string($responseBody)) {
+        return ['ok' => false, 'message' => 'Token exchange failed (HTTP ' . $codeHttp . ').'];
+    }
+
+    $data = json_decode($responseBody, true);
+    if (!is_array($data) || empty($data['refresh_token'])) {
+        return ['ok' => false, 'message' => 'No refresh token returned — revoke app access at myaccount.google.com/permissions and connect again.'];
+    }
+
+    setSetting($pdo, 'google_oauth_refresh_token', (string) $data['refresh_token']);
+    if (!empty($data['access_token'])) {
+        setSetting($pdo, 'google_oauth_access_token', (string) $data['access_token']);
+        setSetting($pdo, 'google_oauth_token_expires', (string) (time() + (int) ($data['expires_in'] ?? 3600)));
+    }
+
+    return ['ok' => true, 'message' => 'Google account connected for creating sheets in your Drive.'];
+}
+
+function googleDriveGetUserAccessToken(?PDO $pdo = null): string
+{
+    $pdo = $pdo ?? getDB();
+    if (!googleDriveOAuthConfigured($pdo)) {
+        return '';
+    }
+
+    $expires = (int) getSetting($pdo, 'google_oauth_token_expires', '0');
+    $cached  = trim(getSetting($pdo, 'google_oauth_access_token', ''));
+    if ($cached !== '' && $expires > time() + 60) {
+        return $cached;
+    }
+
+    $body = http_build_query([
+        'client_id'     => trim(getSetting($pdo, 'google_oauth_client_id', '')),
+        'client_secret' => trim(getSetting($pdo, 'google_oauth_client_secret', '')),
+        'refresh_token' => trim(getSetting($pdo, 'google_oauth_refresh_token', '')),
+        'grant_type'    => 'refresh_token',
+    ]);
+
+    $ch = curl_init('https://oauth2.googleapis.com/token');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => $body,
+        CURLOPT_HTTPHEADER     => ['Content-Type: application/x-www-form-urlencoded'],
+        CURLOPT_TIMEOUT        => 20,
+    ]);
+    $responseBody = curl_exec($ch);
+    $codeHttp     = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($codeHttp !== 200 || !is_string($responseBody)) {
+        return '';
+    }
+
+    $data = json_decode($responseBody, true);
+    $token = is_array($data) ? (string) ($data['access_token'] ?? '') : '';
+    if ($token === '') {
+        return '';
+    }
+
+    setSetting($pdo, 'google_oauth_access_token', $token);
+    setSetting($pdo, 'google_oauth_token_expires', (string) (time() + (int) ($data['expires_in'] ?? 3600)));
+
+    return $token;
+}

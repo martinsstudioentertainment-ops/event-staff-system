@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/google-sheets-schema.php';
 require_once __DIR__ . '/settings-repository.php';
+require_once __DIR__ . '/google-drive-oauth.php';
 require_once __DIR__ . '/staff-repository.php';
 require_once __DIR__ . '/staff-labels.php';
 require_once __DIR__ . '/staff-employee-export.php';
@@ -487,8 +488,8 @@ function googleSheetsCreatePermissionHint(?string $apiBody, ?string $projectId =
     }
 
     if (str_contains($body, 'storage quota') || str_contains($body, 'storagequotaexceeded')) {
-        return 'Google Drive storage is full for the Gmail account that owns the shared folder (check https://one.google.com/storage). '
-            . 'Delete old files or buy more storage, then retry. Template copy cannot run until there is free space.';
+        return 'Service accounts cannot own new files (0 GB). In Settings → Google Sheets, click **Connect Google account** '
+            . 'and sign in with your Gmail so copies use your Drive space. Also check https://one.google.com/storage.';
     }
 
     return 'In Google Cloud project “' . $project
@@ -965,9 +966,20 @@ function googleDriveCopySpreadsheetFromTemplate(
     string $parentFolderId,
     string $tabName
 ): ?array {
-    $project = (string) ($serviceAccount['project_id'] ?? '');
-    $token   = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/drive']);
-    if ($token === '') {
+    $project   = (string) ($serviceAccount['project_id'] ?? '');
+    $userToken = googleDriveGetUserAccessToken();
+    $saToken   = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/drive']);
+
+    $tokenPlan = [];
+    if ($userToken !== '') {
+        $tokenPlan[] = ['token' => $userToken, 'label' => 'Gmail OAuth', 'quotaProject' => null];
+    }
+    if ($saToken !== '') {
+        $tokenPlan[] = ['token' => $saToken, 'label' => 'service account', 'quotaProject' => $project];
+    }
+    if ($tokenPlan === []) {
+        googleSheetsLog('Drive copy: no access token (connect Google in Settings or check service account JSON).');
+
         return null;
     }
 
@@ -980,25 +992,31 @@ function googleDriveCopySpreadsheetFromTemplate(
     ];
 
     $response = ['code' => 0, 'body' => ''];
-    foreach ($attempts as $payload) {
-        if ($payload === false) {
-            continue;
+    foreach ($tokenPlan as $plan) {
+        foreach ($attempts as $payload) {
+            if ($payload === false) {
+                continue;
+            }
+            $response = googleSheetsHttpRequest(
+                'POST',
+                $url,
+                googleSheetsAuthHeaders($plan['token'], $plan['quotaProject']),
+                $payload
+            );
+            if ($response['code'] >= 200 && $response['code'] < 300) {
+                break 2;
+            }
         }
-        $response = googleSheetsHttpRequest(
-            'POST',
-            $url,
-            googleSheetsAuthHeaders($token, $project),
-            $payload
+        googleSheetsLog(
+            'Drive copy (' . $plan['label'] . ') failed: HTTP ' . $response['code'] . ' — ' . $response['body']
         );
-        if ($response['code'] >= 200 && $response['code'] < 300) {
-            break;
-        }
     }
 
     if ($response['code'] < 200 || $response['code'] >= 300) {
         googleSheetsLog(
             'Drive copy template failed: HTTP ' . $response['code'] . ' — ' . $response['body']
             . ' | ' . googleSheetsCreatePermissionHint($response['body'], $project)
+            . ($userToken === '' ? ' | Connect your Gmail in Settings → Google Sheets (OAuth) so copies use your 15 GB storage.' : '')
         );
 
         return null;

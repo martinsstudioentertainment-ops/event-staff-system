@@ -243,6 +243,8 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
             'google_sheets_template_id'       => $templateId,
             'google_sheets_share_with_email'  => trim((string) ($_POST['google_sheets_share_with_email'] ?? '')),
             'google_sheets_default_tab'       => trim((string) ($_POST['google_sheets_default_tab'] ?? 'Registrations')) ?: 'Registrations',
+            'google_oauth_client_id'          => trim((string) ($_POST['google_oauth_client_id'] ?? '')),
+            'google_oauth_client_secret'      => trim((string) ($_POST['google_oauth_client_secret'] ?? '')),
         ]);
 
         clearSettingsCache();

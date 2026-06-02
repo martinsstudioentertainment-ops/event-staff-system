@@ -12,6 +12,7 @@ require_once __DIR__ . '/../includes/world-locales.php';
 require_once __DIR__ . '/../includes/world-timezones.php';
 require_once __DIR__ . '/../includes/pwa-push.php';
 require_once __DIR__ . '/../includes/google-sheets-sync.php';
+require_once __DIR__ . '/../includes/google-drive-oauth.php';
 
 requireAdminCapability('settings');
 
@@ -254,6 +255,14 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 <?php
 $sa = loadGoogleServiceAccount();
 $saEmail = $sa ? (string) ($sa['client_email'] ?? '') : '';
+$googleOauthConnected = googleDriveOAuthConfigured($pdo);
+$googleOauthFlash = '';
+if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
+    $googleOauthFlash = 'Google account connected. Run the diagnostic create test again.';
+} elseif (isset($_GET['google_oauth'])) {
+    $googleOauthFlash = (string) ($_SESSION['google_oauth_error'] ?? 'Google connection failed. Check OAuth client ID/secret and redirect URI in Google Cloud.');
+    unset($_SESSION['google_oauth_error']);
+}
 ?>
 <section class="card erp-settings-panel" id="google-sheets">
     <div class="card__header">
@@ -261,9 +270,38 @@ $saEmail = $sa ? (string) ($sa['client_email'] ?? '') : '';
         <p class="card__subtitle">Each event can have its own Google Sheet URL — new registrations append a row automatically.</p>
     </div>
 
+    <?php if ($googleOauthFlash !== ''): ?>
+        <div class="alert alert--info" style="margin-bottom:1rem"><?= h($googleOauthFlash) ?></div>
+    <?php endif; ?>
+
     <form method="post" class="erp-settings-form" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
         <input type="hidden" name="action" value="google_sheets">
+
+        <div class="form-group form-group--full">
+            <label class="form-label">Connect your Gmail (required for auto-create)</label>
+            <p class="form-hint">
+                Service accounts have <strong>no Drive storage</strong>. Sign in once with the Gmail that owns
+                <strong>Event Staff Sheets</strong> so the app can copy <strong>Event Staff Template</strong> using your 15 GB.
+            </p>
+            <div class="form-group">
+                <label class="form-label" for="google_oauth_client_id">OAuth Client ID (Web application)</label>
+                <input class="form-input" type="text" id="google_oauth_client_id" name="google_oauth_client_id" value="<?= h($settings['google_oauth_client_id'] ?? '') ?>" placeholder="From Google Cloud → APIs &amp; Credentials → Web client">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="google_oauth_client_secret">OAuth Client secret</label>
+                <input class="form-input" type="password" id="google_oauth_client_secret" name="google_oauth_client_secret" value="<?= h($settings['google_oauth_client_secret'] ?? '') ?>" autocomplete="new-password">
+            </div>
+            <p class="form-hint">
+                In Google Cloud, add authorized redirect URI:
+                <code><?= h(googleDriveOAuthRedirectUri()) ?></code>
+            </p>
+            <?php if ($googleOauthConnected): ?>
+                <p class="form-hint"><strong>Status:</strong> Gmail connected.</p>
+            <?php else: ?>
+                <p class="form-hint"><strong>Status:</strong> Not connected — save Client ID/secret below, then connect.</p>
+            <?php endif; ?>
+        </div>
 
         <label class="form-checkbox" style="margin-bottom:1rem;">
             <input type="checkbox" name="google_sheets_sync_enabled" value="1"<?= ($settings['google_sheets_sync_enabled'] ?? '0') === '1' ? ' checked' : '' ?>>
@@ -316,8 +354,12 @@ $saEmail = $sa ? (string) ($sa['client_email'] ?? '') : '';
             <p class="form-hint"><a href="google-sheets-diagnostic.php"><strong>Google Sheets diagnostic</strong></a> — if bulk create fails, run this after deploy.</p>
         </div>
 
-        <div class="form-actions form-actions--end">
+        <div class="form-actions form-actions--end" style="flex-wrap:wrap;gap:0.5rem">
             <button type="submit" class="btn btn--primary">Save Google Sheets settings</button>
+            <?php if (trim($settings['google_oauth_client_id'] ?? '') !== '' && trim($settings['google_oauth_client_secret'] ?? '') !== ''): ?>
+                <a href="<?= h(googleDriveOAuthAuthorizeUrl($pdo)) ?>" class="btn btn--secondary">Connect Google account</a>
+            <?php endif; ?>
+            <a href="google-sheets-diagnostic.php" class="btn btn--secondary">Diagnostic</a>
         </div>
     </form>
 </section>

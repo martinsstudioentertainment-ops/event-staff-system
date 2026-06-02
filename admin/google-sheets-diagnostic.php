@@ -5,6 +5,7 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/google-sheets-sync.php';
+require_once __DIR__ . '/../includes/google-drive-oauth.php';
 require_once __DIR__ . '/../includes/settings-repository.php';
 
 requireAdminCapability('settings');
@@ -57,6 +58,15 @@ if ($keyOk && is_array($sa)) {
     ]);
 }
 $rows[] = ['OAuth access token', ($token ?? '') !== '' ? 'pass' : 'fail', ($token ?? '') !== '' ? 'Received' : h(getLastGoogleSheetsApiError() ?: 'Token request failed — see log')];
+
+$oauthOk = googleDriveOAuthConfigured($pdo);
+$rows[] = [
+    'Gmail connected (OAuth)',
+    $oauthOk ? 'pass' : 'fail',
+    $oauthOk
+        ? 'Your Gmail token is saved — sheet copies use your Drive storage'
+        : 'Required for auto-create — Settings → Google Sheets → Connect Google account',
+];
 
 $folderId = getGoogleSheetsDriveParentFolderId();
 $rows[] = [
