@@ -16,5 +16,5 @@
 
     MainSiteUrl      = 'https://olasentra.com'
     RegistrationUrl  = 'https://register.olasentra.com'
-    AdminUrl         = 'https://olasentra.com/admin'
+    AdminUrl         = 'https://admin.olasentra.com'
 }

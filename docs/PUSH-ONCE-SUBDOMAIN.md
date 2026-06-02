@@ -1,59 +1,55 @@
-# Deploy once — minimal steps
+# Deploy once — three hosts, one database
 
-Your subdomain can stay on folder **`/home/olastofx/register.olasentra.com`** (no need to change document root in cPanel).
+Create subdomains in cPanel (document roots can stay the default folders cPanel gives you):
 
-Each **Deploy HEAD commit** copies the full app to **both**:
+| Subdomain | Typical folder |
+|-----------|----------------|
+| `register.olasentra.com` | `/home/olastofx/register.olasentra.com` |
+| `admin.olasentra.com` | `/home/olastofx/admin.olasentra.com` |
+| `olasentra.com` | `/home/olastofx/public_html` |
 
-- `/home/olastofx/public_html/`
-- `/home/olastofx/register.olasentra.com/`
-
-It also copies `public_html/config.php` → register folder (same database, same settings).
+**Deploy HEAD commit** copies the full app into all three folders and syncs `config.php` from `public_html`.
 
 ---
 
-## One-time: `config.php` only in `public_html`
-
-File Manager → **`public_html/config.php`** — set these lines (keep your `DB_*` password):
+## One edit: `public_html/config.php` only
 
 ```php
 define('MAIN_SITE_URL', 'https://olasentra.com');
 define('REGISTRATION_SITE_URL', 'https://register.olasentra.com');
-define('ADMIN_SITE_URL', 'https://olasentra.com/admin');
+define('ADMIN_SITE_URL', 'https://admin.olasentra.com');
 define('APP_ENV', 'production');
 ```
 
-You do **not** edit register’s folder by hand — deploy syncs it.
+(Keep your `DB_*` lines unchanged.)
 
 ---
 
-## Every update (only this)
+## Deploy
 
-### PC
+**Git** → **Update from Remote** → **Deploy HEAD commit**
 
-```powershell
-cd c:\laragon\www\event-staff-system
-git push origin main
-```
-
-### cPanel
-
-**Git Version Control** → **Update from Remote** → **Deploy HEAD commit**
+**AutoSSL** for `admin.olasentra.com` and `register.olasentra.com`.
 
 ---
 
 ## URLs
 
-| URL | Page |
-|-----|------|
+| URL | Use |
+|-----|-----|
+| `https://admin.olasentra.com/login.php` | Admin login |
+| `https://admin.olasentra.com/dashboard.php` | Admin (after login) |
 | `https://register.olasentra.com/` | Staff registration |
 | `https://olasentra.com/` | Homepage |
-| `https://olasentra.com/admin/login.php` | Admin |
+
+`https://olasentra.com/admin/` redirects to `https://admin.olasentra.com/`.
 
 ---
 
-## Subdomain in cPanel
+## Ongoing
 
-Only confirm **`register.olasentra.com`** exists with document root  
-`/home/olastofx/register.olasentra.com` — leave it as-is.
+```powershell
+git push origin main
+```
 
-Run **AutoSSL** for the subdomain once.
+cPanel → **Update from Remote** → **Deploy HEAD commit**

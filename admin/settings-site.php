@@ -64,7 +64,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 </tr>
                 <tr class="url-format-guide__row--active">
                     <th scope="row">Admin panel</th>
-                    <td><code>https://olasentra.com/admin</code></td>
+                    <td><code>https://admin.olasentra.com</code></td>
                 </tr>
             </tbody>
         </table>

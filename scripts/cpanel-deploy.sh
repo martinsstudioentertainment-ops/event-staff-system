@@ -8,6 +8,7 @@ CPANEL_USER="${CPANEL_USER:-olastofx}"
 DESTS=(
   "/home/${CPANEL_USER}/public_html"
   "/home/${CPANEL_USER}/register.olasentra.com"
+  "/home/${CPANEL_USER}/admin.olasentra.com"
 )
 
 for DEST in "${DESTS[@]}"; do
@@ -36,12 +37,15 @@ done
 
 MAIN="/home/${CPANEL_USER}/public_html"
 REG="/home/${CPANEL_USER}/register.olasentra.com"
+ADM="/home/${CPANEL_USER}/admin.olasentra.com"
 
 if [ -f "${MAIN}/config.php" ]; then
   /bin/cp -f "${MAIN}/config.php" "${REG}/config.php"
+  /bin/cp -f "${MAIN}/config.php" "${ADM}/config.php"
 elif [ -f "${REPO}/config.production.example.php" ]; then
   /bin/cp -f "${REPO}/config.production.example.php" "${MAIN}/config.php"
   /bin/cp -f "${REPO}/config.production.example.php" "${REG}/config.php"
+  /bin/cp -f "${REPO}/config.production.example.php" "${ADM}/config.php"
 fi
 
-echo "Deployed to public_html and register.olasentra.com"
+echo "Deployed to public_html, register.olasentra.com, and admin.olasentra.com"

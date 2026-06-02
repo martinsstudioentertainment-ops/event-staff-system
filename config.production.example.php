@@ -13,8 +13,8 @@ define('DB_PASS', 'YOUR_DATABASE_PASSWORD_HERE');
 define('MAIN_SITE_URL', 'https://olasentra.com');
 /** Staff registration + staff-app (subdomain). Same DB as main site. */
 define('REGISTRATION_SITE_URL', 'https://register.olasentra.com');
-/** Admin ERP — main domain /admin folder. */
-define('ADMIN_SITE_URL', 'https://olasentra.com/admin');
+/** Admin ERP — admin subdomain (/login.php, /dashboard.php, …). */
+define('ADMIN_SITE_URL', 'https://admin.olasentra.com');
 define('APP_ENV', 'production');
 
 require_once __DIR__ . '/includes/helpers.php';

@@ -22,7 +22,7 @@ $dbUser = (string) getenv('DB_USER');
 $dbPass = (string) getenv('DB_PASS');
 $mainUrl = getenv('MAIN_SITE_URL') ?: 'https://olasentra.com';
 $regUrl  = getenv('REGISTRATION_SITE_URL') ?: 'https://register.olasentra.com';
-$admUrl  = getenv('ADMIN_SITE_URL') ?: 'https://olasentra.com/admin';
+$admUrl  = getenv('ADMIN_SITE_URL') ?: 'https://admin.olasentra.com';
 
 $content = '<?php
 /**

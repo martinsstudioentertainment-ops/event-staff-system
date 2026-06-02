@@ -119,7 +119,30 @@ function getAdminSiteUrl(?PDO $pdo = null): string
         return normalizePublicSiteUrl(ADMIN_SITE_URL);
     }
 
+    if (isAdminSubdomain()) {
+        return normalizePublicSiteUrl(getAppBaseUrl());
+    }
+
     return normalizePublicSiteUrl(getAppBaseUrl()) . '/admin';
+}
+
+function isAdminSubdomain(): bool
+{
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    $host = preg_replace('/:\d+$/', '', $host) ?? $host;
+
+    if ($host === '') {
+        return false;
+    }
+
+    if (defined('ADMIN_SITE_URL') && ADMIN_SITE_URL !== '') {
+        $adminHost = parse_url(ADMIN_SITE_URL, PHP_URL_HOST);
+        if (is_string($adminHost) && $adminHost !== '' && strtolower($adminHost) === $host) {
+            return true;
+        }
+    }
+
+    return str_starts_with($host, 'admin.');
 }
 
 function isAdminRequest(): bool

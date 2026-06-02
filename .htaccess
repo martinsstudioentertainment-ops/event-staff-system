@@ -18,6 +18,21 @@ DirectoryIndex home.php index.php
     RewriteCond %{HTTP_HOST} ^(www\.)?olasentra\.com$ [NC]
     RewriteRule ^index\.php$ https://register.olasentra.com/ [R=302,L]
 
+    # Main domain: admin UI on admin subdomain (https://admin.olasentra.com/login.php)
+    RewriteCond %{HTTP_HOST} ^(www\.)?olasentra\.com$ [NC]
+    RewriteRule ^admin/?(.*)$ https://admin.olasentra.com/$1 [R=302,L]
+
+    # --- admin.olasentra.com: ERP at /login.php (files live under /admin/) ---
+    RewriteCond %{HTTP_HOST} ^admin\.olasentra\.com$ [NC]
+    RewriteRule ^$ admin/login.php [L]
+
+    RewriteCond %{HTTP_HOST} ^admin\.olasentra\.com$ [NC]
+    RewriteCond %{REQUEST_URI} !^/admin/
+    RewriteCond %{REQUEST_URI} !^/(assets|api|includes|vendor|storage|cron|database|lang|docs)/
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ admin%{REQUEST_URI} [L]
+
     # Public branding images (WhatsApp/link previews, og:image)
     RewriteRule ^storage/branding/.+\.(png|jpe?g|gif|webp|svg)$ - [L]
 
