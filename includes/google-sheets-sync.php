@@ -197,12 +197,8 @@ function googleSheetsAuthHeaders(string $token, ?string $quotaProject = null, bo
  * @param list<string> $headers
  * @return array{code: int, body: string}
  */
-function googleSheetsHttpRequest(string $method, string $url, array $headers = [], ?string $body = null, ?string $quotaProject = null): array
+function googleSheetsHttpRequest(string $method, string $url, array $headers = [], ?string $body = null): array
 {
-    if ($quotaProject !== null && $quotaProject !== '' && str_contains($url, 'googleapis.com')) {
-        $headers[] = 'X-Goog-User-Project: ' . $quotaProject;
-    }
-
     if (function_exists('curl_init')) {
         $ch = curl_init($url);
         curl_setopt_array($ch, [
@@ -279,8 +275,7 @@ function googleSheetsAppendRows(
         'POST',
         $url,
         googleSheetsAuthHeaders($token, $project),
-        $payload,
-        $project
+        $payload
     );
 
     if ($response['code'] >= 200 && $response['code'] < 300) {
@@ -313,8 +308,7 @@ function googleSheetsSheetNeedsHeader(array $serviceAccount, string $spreadsheet
         'GET',
         $url,
         googleSheetsAuthHeaders($token, $project, false),
-        null,
-        $project
+        null
     );
 
     if ($response['code'] !== 200) {
@@ -359,6 +353,11 @@ function googleSheetsCreatePermissionHint(?string $apiBody, ?string $projectId =
         return 'Enable Google Sheets API and Google Drive API on GCP project “'
             . $project
             . '” (APIs & Services → Library), wait 5 minutes, then retry.';
+    }
+
+    if (str_contains($body, 'user_project_denied') || str_contains($body, ',event-staff')) {
+        return 'Deploy the latest google-sheets-sync.php (duplicate quota project header bug). Then retry; if still failing, grant the service account “Service Usage Consumer” on project “'
+            . $project . '”.';
     }
 
     return 'In Google Cloud project “' . $project
@@ -418,8 +417,7 @@ function googleSheetsProbeCreate(array $serviceAccount, string $title = 'Event S
             'POST',
             'https://sheets.googleapis.com/v4/spreadsheets',
             googleSheetsAuthHeaders($tokenSheets, $project),
-            $payload ?: '{}',
-            $project
+            $payload ?: '{}'
         );
         $result['sheets'] = [
             'code'    => $resp['code'],
@@ -439,8 +437,7 @@ function googleSheetsProbeCreate(array $serviceAccount, string $title = 'Event S
             'POST',
             'https://www.googleapis.com/drive/v3/files',
             googleSheetsAuthHeaders($tokenDrive, $project),
-            $payload ?: '{}',
-            $project
+            $payload ?: '{}'
         );
         $result['drive'] = [
             'code'    => $resp['code'],
@@ -483,8 +480,7 @@ function googleSheetsRenameFirstTab(array $serviceAccount, string $spreadsheetId
         'POST',
         $url,
         googleSheetsAuthHeaders($token, $project),
-        $payload,
-        $project
+        $payload
     );
 
     return $response['code'] >= 200 && $response['code'] < 300;
@@ -518,8 +514,7 @@ function googleDriveCreateSpreadsheet(array $serviceAccount, string $title, stri
         'POST',
         'https://www.googleapis.com/drive/v3/files',
         googleSheetsAuthHeaders($token, $project),
-        $payload,
-        $project
+        $payload
     );
 
     if ($response['code'] < 200 || $response['code'] >= 300) {
@@ -590,8 +585,7 @@ function googleSheetsCreateSpreadsheet(array $serviceAccount, string $title, str
         'POST',
         'https://sheets.googleapis.com/v4/spreadsheets',
         googleSheetsAuthHeaders($token, $project),
-        $payload,
-        $project
+        $payload
     );
 
     if ($response['code'] < 200 || $response['code'] >= 300) {
@@ -662,8 +656,7 @@ function googleSheetsShareSpreadsheetWithEmail(array $serviceAccount, string $sp
         'POST',
         $url,
         googleSheetsAuthHeaders($token, $project),
-        $payload,
-        $project
+        $payload
     );
 
     if ($response['code'] >= 200 && $response['code'] < 300) {
