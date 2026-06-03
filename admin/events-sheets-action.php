@@ -35,6 +35,37 @@ if ($action === 'create_one') {
     exit;
 }
 
+if ($action === 'link_from_folder') {
+    @set_time_limit(120);
+
+    $stats = linkExistingGoogleSheetsFromDriveFolder($pdo);
+    logAdminAudit(
+        $pdo,
+        'bulk_sheet_link',
+        'system',
+        null,
+        "linked {$stats['linked']}, unmatched {$stats['unmatched']}"
+    );
+
+    if ($stats['linked'] > 0) {
+        $msg = "Linked {$stats['linked']} event(s) to spreadsheets in your Drive folder.";
+        if ($stats['unmatched'] > 0) {
+            $msg .= " {$stats['unmatched']} event(s) had no matching file name.";
+        }
+        setAdminFlash('success', $msg);
+    } elseif ($stats['errors'] !== []) {
+        setAdminFlash('error', implode(' ', $stats['errors']));
+    } else {
+        setAdminFlash(
+            'warning',
+            'No events were linked. Check that sheet names match the format: date — event name — Staff (see google-sheets.log).'
+        );
+    }
+
+    header('Location: events.php');
+    exit;
+}
+
 if ($action === 'sync_registrations') {
     @set_time_limit(600);
 

@@ -1507,6 +1507,225 @@ function googleSheetsShareSpreadsheetWithEmail(array $serviceAccount, string $sp
     return false;
 }
 
+function googleDriveNormalizeSheetTitle(string $title): string
+{
+    $title = mb_strtolower(trim($title));
+    $title = str_replace(['—', '–', '-'], ' ', $title);
+
+    return trim(preg_replace('/\s+/', ' ', $title) ?? '');
+}
+
+/**
+ * @param array<string, mixed> $serviceAccount
+ * @return list<array{token: string, label: string, quotaProject: ?string}>
+ */
+function googleDriveBuildTokenPlan(array $serviceAccount): array
+{
+    $project   = (string) ($serviceAccount['project_id'] ?? '');
+    $userToken = googleDriveGetUserAccessToken();
+    $saToken   = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/drive']);
+    $oauthOn   = function_exists('googleDriveOAuthConfigured') && googleDriveOAuthConfigured();
+    $tokenPlan = [];
+
+    if ($userToken !== '') {
+        $tokenPlan[] = ['token' => $userToken, 'label' => 'Gmail OAuth', 'quotaProject' => null];
+    }
+    if (!$oauthOn && $saToken !== '') {
+        $tokenPlan[] = ['token' => $saToken, 'label' => 'service account', 'quotaProject' => $project];
+    }
+    if ($oauthOn && $saToken !== '' && $userToken === '') {
+        $tokenPlan[] = ['token' => $saToken, 'label' => 'service account', 'quotaProject' => $project];
+    }
+
+    return $tokenPlan;
+}
+
+/**
+ * @param array<string, mixed> $serviceAccount
+ * @return array<string, array{id: string, name: string}>
+ */
+function googleDriveListSpreadsheetsInFolder(array $serviceAccount, string $folderId): array
+{
+    $folderId = trim($folderId);
+    if ($folderId === '') {
+        return [];
+    }
+
+    $tokenPlan = googleDriveBuildTokenPlan($serviceAccount);
+    if ($tokenPlan === []) {
+        googleSheetsLog('Drive list: no access token.');
+
+        return [];
+    }
+
+    $query      = rawurlencode("'" . $folderId . "' in parents and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false");
+    $filesByKey = [];
+    $pageToken  = '';
+
+    foreach ($tokenPlan as $plan) {
+        $filesByKey = [];
+        $pageToken  = '';
+
+        do {
+            $url = 'https://www.googleapis.com/drive/v3/files?q=' . $query
+                . '&fields=nextPageToken,files(id,name)&pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true';
+            if ($pageToken !== '') {
+                $url .= '&pageToken=' . rawurlencode($pageToken);
+            }
+
+            $response = googleSheetsHttpRequest(
+                'GET',
+                $url,
+                googleSheetsAuthHeaders($plan['token'], $plan['quotaProject'], false),
+                null
+            );
+
+            if ($response['code'] !== 200) {
+                googleSheetsLog('Drive list (' . $plan['label'] . '): HTTP ' . $response['code'] . ' — ' . $response['body']);
+                $filesByKey = [];
+                break;
+            }
+
+            $data = json_decode($response['body'], true);
+            foreach ($data['files'] ?? [] as $file) {
+                if (!is_array($file)) {
+                    continue;
+                }
+                $id   = trim((string) ($file['id'] ?? ''));
+                $name = trim((string) ($file['name'] ?? ''));
+                if ($id === '' || $name === '') {
+                    continue;
+                }
+                $filesByKey[googleDriveNormalizeSheetTitle($name)] = ['id' => $id, 'name' => $name];
+            }
+
+            $pageToken = trim((string) ($data['nextPageToken'] ?? ''));
+        } while ($pageToken !== '' && $response['code'] === 200);
+
+        if ($filesByKey !== []) {
+            googleSheetsLog('Drive list (' . $plan['label'] . '): found ' . count($filesByKey) . ' spreadsheet(s) in folder.');
+
+            return $filesByKey;
+        }
+    }
+
+    return [];
+}
+
+/**
+ * @param array<string, array{id: string, name: string}> $filesByKey
+ * @param array<string, mixed> $event
+ * @return array{id: string, name: string}|null
+ */
+function googleDriveMatchSpreadsheetForEvent(array $filesByKey, array $event): ?array
+{
+    $expected = googleDriveNormalizeSheetTitle(buildGoogleSheetsTitleForEvent($event));
+    if ($expected !== '' && isset($filesByKey[$expected])) {
+        return $filesByKey[$expected];
+    }
+
+    $nameNorm = googleDriveNormalizeSheetTitle((string) ($event['name'] ?? ''));
+    $dateNorm = '';
+    if (!empty($event['event_date'])) {
+        require_once __DIR__ . '/events-repository.php';
+        $dateNorm = googleDriveNormalizeSheetTitle(formatEventDateLabel((string) $event['event_date']));
+    }
+
+    $best     = null;
+    $bestScore = 0;
+    foreach ($filesByKey as $fileNorm => $file) {
+        $score = 0;
+        if ($nameNorm !== '' && str_contains($fileNorm, $nameNorm)) {
+            $score += 2;
+        }
+        if ($dateNorm !== '' && str_contains($fileNorm, $dateNorm)) {
+            $score += 2;
+        }
+        if (str_contains($fileNorm, 'staff')) {
+            $score += 1;
+        }
+        if ($score > $bestScore) {
+            $bestScore = $score;
+            $best      = $file;
+        }
+    }
+
+    return $bestScore >= 3 ? $best : null;
+}
+
+/**
+ * Link spreadsheets already in the shared Drive folder to events (by file name).
+ *
+ * @return array{linked: int, skipped: int, unmatched: int, errors: list<string>}
+ */
+function linkExistingGoogleSheetsFromDriveFolder(PDO $pdo): array
+{
+    ensureGoogleSheetsSchema($pdo);
+
+    $stats = ['linked' => 0, 'skipped' => 0, 'unmatched' => 0, 'errors' => []];
+
+    $folderId = getGoogleSheetsDriveParentFolderId($pdo);
+    if ($folderId === '') {
+        $stats['errors'][] = 'Set the Drive folder ID in Settings → Google Sheets.';
+
+        return $stats;
+    }
+
+    $serviceAccount = loadGoogleServiceAccount();
+    if ($serviceAccount === null) {
+        $stats['errors'][] = 'Upload the service account JSON in Settings.';
+
+        return $stats;
+    }
+
+    $filesInFolder = googleDriveListSpreadsheetsInFolder($serviceAccount, $folderId);
+    if ($filesInFolder === []) {
+        $stats['errors'][] = 'No spreadsheets found in your Drive folder (or API cannot read the folder). Check folder ID and sharing.';
+
+        return $stats;
+    }
+
+    $tabName = trim((string) getSetting($pdo, 'google_sheets_default_tab', 'Registrations'));
+    if ($tabName === '') {
+        $tabName = 'Registrations';
+    }
+
+    $update = $pdo->prepare(
+        'UPDATE events SET google_sheet_url = :url, google_sheet_tab = :tab WHERE id = :id'
+    );
+
+    $ids = $pdo->query('SELECT id FROM events ORDER BY event_date ASC, name ASC')->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($ids as $rawId) {
+        $eventId = (int) $rawId;
+        if ($eventId < 1) {
+            continue;
+        }
+
+        $event = getEventById($pdo, $eventId);
+        if (!$event) {
+            continue;
+        }
+
+        if (trim((string) ($event['google_sheet_url'] ?? '')) !== '') {
+            $stats['skipped']++;
+            continue;
+        }
+
+        $match = googleDriveMatchSpreadsheetForEvent($filesInFolder, $event);
+        if ($match === null) {
+            $stats['unmatched']++;
+            continue;
+        }
+
+        $url = buildGoogleSheetsSpreadsheetUrl($match['id']);
+        $update->execute(['url' => $url, 'tab' => $tabName, 'id' => $eventId]);
+        $stats['linked']++;
+        googleSheetsLog("Linked event {$eventId} → {$match['name']} ({$url})");
+    }
+
+    return $stats;
+}
+
 /**
  * Create a Google Sheet for one event and store URL on the event row.
  *

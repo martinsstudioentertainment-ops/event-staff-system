@@ -68,11 +68,16 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                 <button type="submit" class="btn btn--secondary">Import (quick)</button>
             </form>
-            <?php if ($canAutoSheet && $sheetStatus['missing'] > 0): ?>
-                <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Create <?= (int) $sheetStatus['missing'] ?> Google Sheet(s) via the service account? This may take a few minutes.');">
+            <?php if ($canAutoSheet && $missingSheets > 0): ?>
+                <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Link existing spreadsheets in your Drive folder to the <?= (int) $missingSheets ?> events that have no sheet URL saved?');">
+                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                    <input type="hidden" name="action" value="link_from_folder">
+                    <button type="submit" class="btn btn--primary">Link sheets from Drive folder</button>
+                </form>
+                <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Create <?= (int) $missingSheets ?> new Google Sheet(s)? Skip this if sheets already exist in the folder — use Link sheets from Drive folder instead.');">
                     <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                     <input type="hidden" name="action" value="create_all">
-                    <button type="submit" class="btn btn--secondary">Create <?= (int) $sheetStatus['missing'] ?> Google Sheet(s)</button>
+                    <button type="submit" class="btn btn--secondary">Create <?= (int) $missingSheets ?> Google Sheet(s)</button>
                 </form>
             <?php endif; ?>
             <?php if ($syncEnabled): ?>
@@ -93,7 +98,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <ol style="margin:0 0 0 1.25rem;padding:0">
             <li><strong>Import roster</strong> — <a href="import-roster.php">Import master roster</a> → <em>Run import now</em> (loads 32 events + listed contractor from <code>live-events-2026.php</code>). Do not use <code>register.olasentra.com/import-summer-roster.php</code> (often 404).</li>
             <li><strong>Google Sheets setup</strong> — <a href="settings-production.php#google-sheets">Settings → Google Sheets</a>: service account JSON, Drive folder ID, <em>Connect Google account</em> (Gmail), enable <em>live sync</em>. Optional: <a href="google-sheets-diagnostic.php">Run diagnostic</a>.</li>
-            <li><strong>Create sheets</strong> — Click <strong>Create <?= $missingSheets ?> Google Sheet(s)</strong> above (one file per event in your Drive folder). Status: <strong><?= $linkedSheets ?> linked</strong>, <strong><?= $missingSheets ?> still need a sheet</strong>.</li>
+            <li><strong>Link sheets</strong> — If files are already in your Drive folder, click <strong>Link sheets from Drive folder</strong>. Otherwise use <strong>Create <?= $missingSheets ?> Google Sheet(s)</strong>. Status: <strong><?= $linkedSheets ?> linked</strong>, <strong><?= $missingSheets ?> not linked in admin</strong>.</li>
             <?php if ($syncEnabled && $linkedSheets > 0): ?>
                 <li><strong>Sync staff rows</strong> — After sheets exist, click <strong>Sync registrations to sheets</strong> (or approve staff — each approval updates the sheet).</li>
             <?php elseif ($syncEnabled): ?>
@@ -112,8 +117,8 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     </div>
     <?php if ($missingSheets > 0 && $canAutoSheet): ?>
         <div class="alert alert--warning alert--visible" style="margin-bottom:1rem">
-            <strong><?= $missingSheets ?> event(s)</strong> have no Google Sheet yet. Click
-            <strong>Create <?= $missingSheets ?> Google Sheet(s)</strong> in the toolbar (may take a few minutes).
+            <strong><?= $missingSheets ?> event(s)</strong> are not linked in admin (Google Sheet column shows —).
+            If you already created files in Drive, click <strong>Link sheets from Drive folder</strong> — do not create duplicates.
         </div>
     <?php endif; ?>
 
