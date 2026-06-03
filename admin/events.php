@@ -69,6 +69,13 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                     <button type="submit" class="btn btn--secondary">Create <?= (int) $sheetStatus['missing'] ?> Google Sheet(s)</button>
                 </form>
             <?php endif; ?>
+            <?php if ($sheetStatus['total'] > $sheetStatus['missing'] && isGoogleSheetsSyncEnabled($pdo)): ?>
+                <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Push all registrations to their linked Google Sheets?');">
+                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                    <input type="hidden" name="action" value="sync_registrations">
+                    <button type="submit" class="btn btn--secondary">Sync registrations to sheets</button>
+                </form>
+            <?php endif; ?>
         </div>
     </div>
     <p class="form-hint" style="margin:0 0 1rem;">Your full table is in <code>database/live-events-2026.php</code>. After deploy, open <a href="import-roster.php"><strong>Import master roster</strong></a> (or <code>https://admin.olasentra.com/import-roster.php</code> while logged in). Do not use <code>register.olasentra.com/import-summer-roster.php</code> — that URL often 404s if the register folder is empty.</p>

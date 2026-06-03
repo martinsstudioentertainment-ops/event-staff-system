@@ -7,6 +7,7 @@ require_once __DIR__ . '/../includes/attendance-repository.php';
 require_once __DIR__ . '/../includes/audit-log.php';
 require_once __DIR__ . '/../includes/staff-registration-schema.php';
 require_once __DIR__ . '/../includes/event-reporting-schema.php';
+require_once __DIR__ . '/../includes/google-sheets-sync.php';
 
 requireAdminCapability('staff');
 
@@ -43,8 +44,18 @@ if (updateStaffStatus($pdo, $id, $status)) {
     } catch (Throwable $e) {
         error_log('[EventStaff] update-status id=' . $id . ': ' . $e->getMessage());
     }
+
+    $sheetNote = '';
+    try {
+        if (isGoogleSheetsSyncEnabled($pdo) && syncRegistrationToGoogleSheet($pdo, $id)) {
+            $sheetNote = ' Google Sheet updated.';
+        }
+    } catch (Throwable $sheetErr) {
+        error_log('[EventStaff] Google Sheets sync on status change: ' . $sheetErr->getMessage());
+    }
+
     logAdminAudit($pdo, 'status_change', 'registration', $id, 'Status set to ' . $status);
-    setAdminFlash('success', 'Registration status updated to ' . formatStatusLabel($status) . '.');
+    setAdminFlash('success', 'Registration status updated to ' . formatStatusLabel($status) . '.' . $sheetNote);
 } else {
     setAdminFlash('error', 'Registration not found.');
 }

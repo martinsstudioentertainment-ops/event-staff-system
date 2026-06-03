@@ -47,7 +47,44 @@ function isGoogleServiceAccountConfigured(): bool
 
 function isGoogleSheetsConfigured(?PDO $pdo = null): bool
 {
-    return isGoogleSheetsSyncEnabled($pdo) && isGoogleServiceAccountConfigured();
+    return isGoogleSheetsSyncEnabled($pdo) && googleSheetsResolveApiAuth($pdo) !== null;
+}
+
+/**
+ * Service account JWT or connected Gmail OAuth token for Sheets API writes.
+ *
+ * @return array{token: string, project: ?string, label: string}|null
+ */
+function googleSheetsResolveApiAuth(?PDO $pdo = null): ?array
+{
+    $pdo = $pdo ?? getDB();
+
+    if (!isGoogleSheetsSyncEnabled($pdo)) {
+        return null;
+    }
+
+    $serviceAccount = loadGoogleServiceAccount();
+    if ($serviceAccount !== null) {
+        $token = googleSheetsGetAccessToken($serviceAccount);
+        if ($token !== '') {
+            return [
+                'token'   => $token,
+                'project' => (string) ($serviceAccount['project_id'] ?? ''),
+                'label'   => 'service account',
+            ];
+        }
+    }
+
+    $userToken = googleDriveGetUserAccessToken($pdo);
+    if ($userToken !== '') {
+        return [
+            'token'   => $userToken,
+            'project' => null,
+            'label'   => 'Gmail OAuth',
+        ];
+    }
+
+    return null;
 }
 
 /**
@@ -222,7 +259,234 @@ function getGoogleSheetsExportHeaders(): array
  */
 function buildGoogleSheetsRegistrationRow(array $row): array
 {
-    return buildEmployeeSpreadsheetRow($row);
+    return buildGoogleSheetsSyncRow($row);
+}
+
+/**
+ * @return list<string>
+ */
+function getGoogleSheetsSyncHeaders(): array
+{
+    return array_merge(
+        ['Registration ID', 'Status', 'Event', 'Role'],
+        getEmployeeSpreadsheetHeaders()
+    );
+}
+
+/**
+ * @param array<string, mixed> $row
+ * @return list<string|int>
+ */
+function buildGoogleSheetsSyncRow(array $row): array
+{
+    require_once __DIR__ . '/events-repository.php';
+
+    return array_merge(
+        [
+            (string) ($row['id'] ?? ''),
+            formatStatusLabel((string) ($row['status'] ?? '')),
+            formatEventLabel($row),
+            formatRoleLabel((string) ($row['staff_role'] ?? '')),
+        ],
+        buildEmployeeSpreadsheetRow($row)
+    );
+}
+
+/**
+ * @return array<int, list<string>>|null
+ */
+function googleSheetsReadRangeValues(string $token, ?string $project, string $spreadsheetId, string $range): ?array
+{
+    $url = 'https://sheets.googleapis.com/v4/spreadsheets/'
+        . rawurlencode($spreadsheetId)
+        . '/values/'
+        . rawurlencode($range);
+
+    $response = googleSheetsHttpRequest(
+        'GET',
+        $url,
+        googleSheetsAuthHeaders($token, $project, false),
+        null
+    );
+
+    if ($response['code'] !== 200) {
+        googleSheetsLog("Read range failed ({$spreadsheetId}): HTTP {$response['code']} — {$response['body']}");
+
+        return null;
+    }
+
+    $data = json_decode($response['body'], true);
+
+    return is_array($data['values'] ?? null) ? $data['values'] : [];
+}
+
+/**
+ * @param list<list<string|int|float|null>> $rows
+ */
+function googleSheetsWriteRangeValues(
+    string $token,
+    ?string $project,
+    string $spreadsheetId,
+    string $range,
+    array $rows
+): bool {
+    if ($rows === []) {
+        return true;
+    }
+
+    $url = 'https://sheets.googleapis.com/v4/spreadsheets/'
+        . rawurlencode($spreadsheetId)
+        . '/values/'
+        . rawurlencode($range)
+        . '?valueInputOption=USER_ENTERED';
+
+    $payload = json_encode(['values' => $rows], JSON_UNESCAPED_UNICODE);
+    if ($payload === false) {
+        return false;
+    }
+
+    $response = googleSheetsHttpRequest(
+        'PUT',
+        $url,
+        googleSheetsAuthHeaders($token, $project),
+        $payload
+    );
+
+    if ($response['code'] >= 200 && $response['code'] < 300) {
+        return true;
+    }
+
+    googleSheetsLog("Update range failed ({$spreadsheetId}): HTTP {$response['code']} — {$response['body']}");
+
+    return false;
+}
+
+/**
+ * @param list<list<string|int|float|null>> $rows
+ */
+function googleSheetsAppendRangeValues(
+    string $token,
+    ?string $project,
+    string $spreadsheetId,
+    string $range,
+    array $rows
+): bool {
+    if ($rows === []) {
+        return true;
+    }
+
+    $url = 'https://sheets.googleapis.com/v4/spreadsheets/'
+        . rawurlencode($spreadsheetId)
+        . '/values/'
+        . rawurlencode($range)
+        . ':append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS';
+
+    $payload = json_encode(['values' => $rows], JSON_UNESCAPED_UNICODE);
+    if ($payload === false) {
+        return false;
+    }
+
+    $response = googleSheetsHttpRequest(
+        'POST',
+        $url,
+        googleSheetsAuthHeaders($token, $project),
+        $payload
+    );
+
+    if ($response['code'] >= 200 && $response['code'] < 300) {
+        return true;
+    }
+
+    googleSheetsLog("Append failed ({$spreadsheetId}): HTTP {$response['code']} — {$response['body']}");
+
+    return false;
+}
+
+function googleSheetsSyncColumnLetter(int $zeroBasedIndex): string
+{
+    $index = max(0, $zeroBasedIndex);
+    $letter = '';
+    while ($index >= 0) {
+        $letter = chr(65 + ($index % 26)) . $letter;
+        $index  = (int) floor($index / 26) - 1;
+    }
+
+    return $letter !== '' ? $letter : 'A';
+}
+
+function googleSheetsSheetHasSyncHeaders(string $token, ?string $project, string $spreadsheetId, string $tabName): bool
+{
+    $range    = escapeGoogleSheetRangeTab($tabName) . '!A1:D1';
+    $values   = googleSheetsReadRangeValues($token, $project, $spreadsheetId, $range);
+    $firstRow = $values[0] ?? [];
+
+    return isset($firstRow[0]) && trim((string) $firstRow[0]) === 'Registration ID';
+}
+
+function googleSheetsFindRegistrationRowNumber(
+    string $token,
+    ?string $project,
+    string $spreadsheetId,
+    string $tabName,
+    int $registrationId
+): ?int {
+    if ($registrationId < 1) {
+        return null;
+    }
+
+    $range  = escapeGoogleSheetRangeTab($tabName) . '!A:A';
+    $values = googleSheetsReadRangeValues($token, $project, $spreadsheetId, $range);
+    if ($values === null) {
+        return null;
+    }
+
+    $needle = (string) $registrationId;
+    foreach ($values as $index => $row) {
+        if ($index === 0) {
+            continue;
+        }
+        if (trim((string) ($row[0] ?? '')) === $needle) {
+            return $index + 1;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * @param array{token: string, project: ?string, label: string} $auth
+ */
+function googleSheetsUpsertRegistrationRow(
+    array $auth,
+    string $spreadsheetId,
+    string $tabName,
+    int $registrationId,
+    array $rowValues
+): bool {
+    $token   = $auth['token'];
+    $project = $auth['project'];
+    $tabName = trim($tabName) !== '' ? trim($tabName) : 'Registrations';
+    $colEnd  = googleSheetsSyncColumnLetter(count($rowValues) - 1);
+
+    $rowsToWrite = [];
+    if (!googleSheetsSheetHasSyncHeaders($token, $project, $spreadsheetId, $tabName)) {
+        $first = googleSheetsReadRangeValues($token, $project, $spreadsheetId, escapeGoogleSheetRangeTab($tabName) . '!A1:A1');
+        if ($first === null || $first === [] || trim((string) ($first[0][0] ?? '')) === '') {
+            $rowsToWrite[] = getGoogleSheetsSyncHeaders();
+        }
+    }
+
+    $existingRow = googleSheetsFindRegistrationRowNumber($token, $project, $spreadsheetId, $tabName, $registrationId);
+    if ($existingRow !== null) {
+        $range = escapeGoogleSheetRangeTab($tabName) . '!A' . $existingRow . ':' . $colEnd . $existingRow;
+
+        return googleSheetsWriteRangeValues($token, $project, $spreadsheetId, $range, [$rowValues]);
+    }
+
+    $rowsToWrite[] = $rowValues;
+    $range         = escapeGoogleSheetRangeTab($tabName) . '!A:' . $colEnd;
+
+    return googleSheetsAppendRangeValues($token, $project, $spreadsheetId, $range, $rowsToWrite);
 }
 
 function googleSheetsLog(string $message): void
@@ -1390,12 +1654,10 @@ function syncRegistrationToGoogleSheet(PDO $pdo, int $registrationId): bool
 {
     ensureGoogleSheetsSchema($pdo);
 
-    if (!isGoogleSheetsConfigured($pdo)) {
-        return false;
-    }
+    $auth = googleSheetsResolveApiAuth($pdo);
+    if ($auth === null) {
+        googleSheetsLog("Sync skipped for registration {$registrationId}: live sync off or no Google auth");
 
-    $serviceAccount = loadGoogleServiceAccount();
-    if ($serviceAccount === null) {
         return false;
     }
 
@@ -1411,12 +1673,14 @@ function syncRegistrationToGoogleSheet(PDO $pdo, int $registrationId): bool
 
     $sheetUrl = trim((string) ($event['google_sheet_url'] ?? ''));
     if ($sheetUrl === '') {
+        googleSheetsLog("Sync skipped for registration {$registrationId}: event has no Google Sheet linked");
+
         return false;
     }
 
     $tabName = trim((string) ($event['google_sheet_tab'] ?? ''));
     if ($tabName === '') {
-        $tabName = 'Sheet1';
+        $tabName = 'Registrations';
     }
 
     $spreadsheetId = parseGoogleSpreadsheetId($sheetUrl);
@@ -1426,22 +1690,36 @@ function syncRegistrationToGoogleSheet(PDO $pdo, int $registrationId): bool
         return false;
     }
 
-    if ($tabName === '') {
-        $tabName = 'Sheet1';
-    }
-
-    $rows = [];
-    if (googleSheetsSheetNeedsHeader($serviceAccount, $spreadsheetId, $tabName)) {
-        $rows[] = getGoogleSheetsExportHeaders();
-    }
-    $rows[] = buildGoogleSheetsRegistrationRow($row);
-
-    $ok = googleSheetsAppendRows($serviceAccount, $spreadsheetId, $tabName, $rows);
+    $rowValues = buildGoogleSheetsSyncRow($row);
+    $ok        = googleSheetsUpsertRegistrationRow($auth, $spreadsheetId, $tabName, $registrationId, $rowValues);
     if ($ok) {
-        googleSheetsLog("Synced registration {$registrationId} → sheet {$spreadsheetId}");
+        googleSheetsLog("Synced registration {$registrationId} → sheet {$spreadsheetId} ({$auth['label']})");
+    } else {
+        googleSheetsLog("Sync failed for registration {$registrationId} ({$auth['label']}): " . getLastGoogleSheetsApiError());
     }
 
     return $ok;
+}
+
+/**
+ * Backfill every registration that belongs to an event with a linked sheet.
+ *
+ * @return array{synced: int, skipped: int, failed: int}
+ */
+function syncAllRegistrationsToLinkedGoogleSheets(PDO $pdo): array
+{
+    ensureGoogleSheetsSchema($pdo);
+
+    $stmt = $pdo->query(
+        "SELECT sr.id
+         FROM staff_registrations sr
+         INNER JOIN events e ON e.id = sr.event_id
+         WHERE e.google_sheet_url IS NOT NULL AND TRIM(e.google_sheet_url) <> ''
+         ORDER BY sr.id ASC"
+    );
+    $ids = $stmt ? $stmt->fetchAll(PDO::FETCH_COLUMN) : [];
+
+    return syncRegistrationsToGoogleSheets($pdo, array_map('intval', $ids ?: []));
 }
 
 /**
@@ -1452,7 +1730,7 @@ function syncRegistrationsToGoogleSheets(PDO $pdo, array $registrationIds): arra
 {
     $stats = ['synced' => 0, 'skipped' => 0, 'failed' => 0];
 
-    if (!isGoogleSheetsConfigured($pdo)) {
+    if (googleSheetsResolveApiAuth($pdo) === null) {
         $stats['skipped'] = count($registrationIds);
 
         return $stats;

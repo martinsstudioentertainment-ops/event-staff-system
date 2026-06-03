@@ -35,6 +35,41 @@ if ($action === 'create_one') {
     exit;
 }
 
+if ($action === 'sync_registrations') {
+    @set_time_limit(600);
+
+    if (!isGoogleSheetsSyncEnabled($pdo)) {
+        setAdminFlash('error', 'Enable live sync in Settings → Google Sheets first.');
+        header('Location: events.php');
+        exit;
+    }
+
+    $stats = syncAllRegistrationsToLinkedGoogleSheets($pdo);
+    logAdminAudit(
+        $pdo,
+        'bulk_sheet_sync',
+        'system',
+        null,
+        "synced {$stats['synced']}, skipped {$stats['skipped']}, failed {$stats['failed']}"
+    );
+
+    if ($stats['synced'] > 0 && $stats['failed'] === 0) {
+        setAdminFlash('success', "Synced {$stats['synced']} registration row(s) to linked Google Sheets.");
+    } elseif ($stats['synced'] > 0) {
+        setAdminFlash(
+            'warning',
+            "Synced {$stats['synced']} row(s); {$stats['failed']} failed. Check storage/logs/google-sheets.log"
+        );
+    } elseif ($stats['skipped'] > 0 && $stats['failed'] === 0) {
+        setAdminFlash('error', 'No registrations synced — link sheets to events and enable Google auth in Settings.');
+    } else {
+        setAdminFlash('error', 'Sheet sync failed. Check storage/logs/google-sheets.log');
+    }
+
+    header('Location: events.php');
+    exit;
+}
+
 if ($action !== 'create_all') {
     setAdminFlash('error', 'Unknown action.');
     header('Location: events.php');
@@ -57,7 +92,7 @@ if ($stats['created'] > 0 && $stats['failed'] === 0) {
     setAdminFlash(
         'success',
         "Created and linked {$stats['created']} Google Sheet(s). "
-        . 'Enable live sync in Settings if you have not already.'
+        . 'Enable live sync in Settings, then use Sync registrations to sheets on Events.'
     );
 } elseif ($stats['created'] > 0) {
     $hint = implode('; ', array_slice($stats['errors'], 0, 3));
