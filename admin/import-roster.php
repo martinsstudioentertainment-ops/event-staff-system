@@ -11,81 +11,147 @@ require_once __DIR__ . '/../includes/audit-log.php';
 
 requireAdminCapability('events');
 
-header('Content-Type: text/html; charset=utf-8');
+$pdo          = getDB();
+$importResult = null;
+$importError  = null;
+$ranImport    = $_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['run']);
 
-$pdo = getDB();
+if ($ranImport) {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && !verifyCsrf($_POST['csrf_token'] ?? null)) {
+        setAdminFlash('error', 'Invalid request. Please try again.');
+        header('Location: import-roster.php');
+        exit;
+    }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['run'])) {
     try {
-        $result = syncLiveEventsFromMasterFile($pdo, false);
+        $importResult = syncLiveEventsFromMasterFile($pdo, false);
         logAdminAudit(
             $pdo,
             'import_live_roster',
             'system',
             0,
-            "created {$result['created']}, updated {$result['updated']}"
+            'created ' . (int) $importResult['created'] . ', updated ' . (int) $importResult['updated']
         );
     } catch (Throwable $e) {
-        echo '<!DOCTYPE html><html><body style="font-family:sans-serif;padding:2rem">';
-        echo '<h1>Import failed</h1><pre>' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . '</pre>';
-        echo '<p><a href="events.php">Back to Events</a></p></body></html>';
-        exit;
+        $importError = $e->getMessage();
     }
-
-    echo '<!DOCTYPE html><html><body style="font-family:sans-serif;padding:2rem;max-width:720px">';
-    echo '<h1>Summer roster imported</h1>';
-    $contractor = trim((string) ($result['main_security_company'] ?? ''));
-    echo '<p><strong>Listed contractor (roster default):</strong> '
-        . ($contractor !== '' ? htmlspecialchars($contractor, ENT_QUOTES, 'UTF-8') : 'none — portal-only') . '</p>';
-    echo '<p>Created: ' . (int) $result['created'] . ' · Updated: ' . (int) $result['updated'] . ' · Skipped: ' . (int) $result['skipped'] . '</p>';
-    echo '<ul>';
-    foreach (array_slice($result['messages'], 0, 40) as $line) {
-        echo '<li>' . htmlspecialchars($line, ENT_QUOTES, 'UTF-8') . '</li>';
-    }
-    if (count($result['messages']) > 40) {
-        echo '<li>… and ' . (count($result['messages']) - 40) . ' more</li>';
-    }
-    echo '</ul>';
-    if ($result['errors'] !== []) {
-        echo '<h2>Errors</h2><ul>';
-        foreach ($result['errors'] as $err) {
-            echo '<li>' . htmlspecialchars($err, ENT_QUOTES, 'UTF-8') . '</li>';
-        }
-        echo '</ul>';
-    }
-    $regUrl = function_exists('getRegistrationSiteUrl') ? getRegistrationSiteUrl($pdo) : 'https://register.olasentra.com/';
-    echo '<p><a href="' . htmlspecialchars($regUrl, ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener">Open registration form ↗</a> (hard refresh Ctrl+F5)</p>';
-    $sample = getLiveRosterSampleEvent($pdo, 'Nick Cave');
-    echo '<h2>Verify (Nick Cave)</h2><pre style="background:#f1f5f9;padding:1rem">';
-    echo htmlspecialchars(json_encode($sample, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?: 'not found', ENT_QUOTES, 'UTF-8');
-    echo '</pre>';
-    if ($sample && trim((string) ($sample['main_security_company'] ?? '')) === '') {
-        echo '<p style="color:#b91c1c"><strong>main_security_company still empty</strong> — check database/migrate-phase33 or contact support.</p>';
-    }
-    echo '<p><a href="roster-diagnostic.php">Full diagnostic</a> · <a href="events.php">Back to Events</a></p></body></html>';
-    exit;
 }
 
+$masterPath = getLiveEventsMasterFilePath();
+$regUrl     = getRegistrationSiteUrl($pdo);
+$sample     = $importResult !== null ? getLiveRosterSampleEvent($pdo, 'Nick Cave') : null;
+
+$pageTitle  = 'Import summer roster';
+$activePage = 'events';
+$flash      = getAdminFlash();
+
+include __DIR__ . '/../includes/admin/layout-top.php';
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Import summer roster</title>
-</head>
-<body style="font-family:sans-serif;padding:2rem;max-width:520px">
-    <h1>Import summer roster</h1>
-    <p>This loads all 32 events from <code>database/live-events-2026.php</code>:</p>
-    <ul>
-        <li>Location / venue</li>
-        <li>Staff needed</li>
-        <li>Times (where set)</li>
-        <li>On-site company: only if you set it per event (optional)</li>
-    </ul>
-    <form method="post">
-        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
-        <button type="submit" style="padding:0.75rem 1.25rem;font-size:1rem;cursor:pointer">Run import now</button>
-    </form>
-    <p style="margin-top:1.5rem"><a href="events.php">← Events</a></p>
-</body>
-</html>
+
+<?php if ($flash): ?>
+    <div class="alert alert--<?= h($flash['type']) ?> alert--visible"><?= h($flash['message']) ?></div>
+<?php endif; ?>
+
+<?php if ($importError !== null): ?>
+    <div class="alert alert--error alert--visible"><?= h($importError) ?></div>
+<?php endif; ?>
+
+<?php if ($importResult !== null): ?>
+    <div class="alert alert--success alert--visible">
+        Summer roster imported — created <?= (int) $importResult['created'] ?>,
+        updated <?= (int) $importResult['updated'] ?>,
+        skipped <?= (int) $importResult['skipped'] ?>.
+    </div>
+<?php endif; ?>
+
+<section class="card">
+    <div class="card__header">
+        <h2 class="card__title">Import summer roster</h2>
+        <p class="card__subtitle">
+            Loads all 32 events from <code>database/live-events-2026.php</code> into the database.
+        </p>
+    </div>
+
+    <?php if (!$ranImport || $importResult === null): ?>
+        <ul class="form-hint" style="margin:0 0 1.25rem 1.25rem">
+            <li>Location / venue</li>
+            <li>Staff needed</li>
+            <li>Times (where set)</li>
+            <li>On-site company: only if you set it per event (optional)</li>
+        </ul>
+
+        <dl class="detail-list" style="margin-bottom:1.25rem">
+            <div class="detail-list__row">
+                <dt>Master file on server</dt>
+                <dd><?= is_file($masterPath) ? 'Yes — ' . h($masterPath) : 'Missing — deploy Git first' ?></dd>
+            </div>
+        </dl>
+
+        <form method="post" class="toolbar">
+            <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+            <button type="submit" class="btn btn--primary">Run import now</button>
+            <a href="events.php" class="btn btn--secondary">← Events</a>
+            <a href="roster-diagnostic.php" class="btn btn--secondary">Roster diagnostic</a>
+        </form>
+    <?php else: ?>
+        <?php
+        $contractor = trim((string) ($importResult['main_security_company'] ?? ''));
+        ?>
+        <dl class="detail-list">
+            <div class="detail-list__row">
+                <dt>Listed contractor (roster default)</dt>
+                <dd><?= $contractor !== '' ? h($contractor) : 'none — portal-only' ?></dd>
+            </div>
+            <div class="detail-list__row">
+                <dt>Created / updated / skipped</dt>
+                <dd>
+                    <?= (int) $importResult['created'] ?> /
+                    <?= (int) $importResult['updated'] ?> /
+                    <?= (int) $importResult['skipped'] ?>
+                </dd>
+            </div>
+        </dl>
+
+        <?php if ($importResult['messages'] !== []): ?>
+            <h3 class="form-section-title">Import log</h3>
+            <ul class="form-hint" style="margin:0 0 1rem 1.25rem;max-height:240px;overflow:auto">
+                <?php foreach (array_slice($importResult['messages'], 0, 40) as $line): ?>
+                    <li><?= h((string) $line) ?></li>
+                <?php endforeach; ?>
+                <?php if (count($importResult['messages']) > 40): ?>
+                    <li>… and <?= count($importResult['messages']) - 40 ?> more</li>
+                <?php endif; ?>
+            </ul>
+        <?php endif; ?>
+
+        <?php if ($importResult['errors'] !== []): ?>
+            <div class="alert alert--error alert--visible">
+                <strong>Errors</strong>
+                <ul style="margin:0.5rem 0 0 1.25rem">
+                    <?php foreach ($importResult['errors'] as $err): ?>
+                        <li><?= h((string) $err) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+
+        <h3 class="form-section-title">Verify (Nick Cave sample)</h3>
+        <pre style="margin:0 0 1rem;white-space:pre-wrap;background:var(--color-surface-muted, #f1f5f9);padding:1rem;border-radius:6px"><?= h(json_encode($sample, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?: 'not found') ?></pre>
+
+        <?php if ($sample && trim((string) ($sample['main_security_company'] ?? '')) === ''): ?>
+            <div class="alert alert--error alert--visible">
+                <strong>main_security_company still empty</strong> — check database/migrate-phase33 or contact support.
+            </div>
+        <?php endif; ?>
+
+        <div class="toolbar">
+            <a href="<?= h($regUrl) ?>" class="btn btn--primary" target="_blank" rel="noopener">Open registration form ↗</a>
+            <a href="roster-diagnostic.php" class="btn btn--secondary">Full diagnostic</a>
+            <a href="import-roster.php" class="btn btn--secondary">Import again</a>
+            <a href="events.php" class="btn btn--secondary">← Events</a>
+        </div>
+        <p class="form-hint" style="margin-top:0.75rem">Hard refresh the registration site (Ctrl+F5) after import.</p>
+    <?php endif; ?>
+</section>
+
+<?php include __DIR__ . '/../includes/admin/layout-bottom.php'; ?>
