@@ -1227,7 +1227,7 @@ function googleDriveListSpreadsheetsInFolder(array $serviceAccount, string $fold
     $q = sprintf("'%s' in parents and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false", str_replace("'", "\\'", $folderId));
     $url = 'https://www.googleapis.com/drive/v3/files?'
         . 'q=' . rawurlencode($q)
-        . '&fields=files(id,name)&pageSize=' . min(50, max(1, $maxResults))
+        . '&fields=files(id,name)&pageSize=' . min(100, max(1, $maxResults))
         . '&supportsAllDrives=true&includeItemsFromAllDrives=true';
 
     $response = googleSheetsHttpRequest(
@@ -1516,100 +1516,24 @@ function googleDriveNormalizeSheetTitle(string $title): string
 }
 
 /**
- * @param array<string, mixed> $serviceAccount
- * @return list<array{token: string, label: string, quotaProject: ?string}>
- */
-function googleDriveBuildTokenPlan(array $serviceAccount): array
-{
-    $project   = (string) ($serviceAccount['project_id'] ?? '');
-    $userToken = googleDriveGetUserAccessToken();
-    $saToken   = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/drive']);
-    $oauthOn   = function_exists('googleDriveOAuthConfigured') && googleDriveOAuthConfigured();
-    $tokenPlan = [];
-
-    if ($userToken !== '') {
-        $tokenPlan[] = ['token' => $userToken, 'label' => 'Gmail OAuth', 'quotaProject' => null];
-    }
-    if (!$oauthOn && $saToken !== '') {
-        $tokenPlan[] = ['token' => $saToken, 'label' => 'service account', 'quotaProject' => $project];
-    }
-    if ($oauthOn && $saToken !== '' && $userToken === '') {
-        $tokenPlan[] = ['token' => $saToken, 'label' => 'service account', 'quotaProject' => $project];
-    }
-
-    return $tokenPlan;
-}
-
-/**
- * @param array<string, mixed> $serviceAccount
+ * @param list<array{id: string, name: string}> $files
  * @return array<string, array{id: string, name: string}>
  */
-function googleDriveListSpreadsheetsInFolder(array $serviceAccount, string $folderId): array
+function googleDriveIndexSpreadsheetsByTitle(array $files): array
 {
-    $folderId = trim($folderId);
-    if ($folderId === '') {
-        return [];
-    }
-
-    $tokenPlan = googleDriveBuildTokenPlan($serviceAccount);
-    if ($tokenPlan === []) {
-        googleSheetsLog('Drive list: no access token.');
-
-        return [];
-    }
-
-    $query      = rawurlencode("'" . $folderId . "' in parents and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false");
-    $filesByKey = [];
-    $pageToken  = '';
-
-    foreach ($tokenPlan as $plan) {
-        $filesByKey = [];
-        $pageToken  = '';
-
-        do {
-            $url = 'https://www.googleapis.com/drive/v3/files?q=' . $query
-                . '&fields=nextPageToken,files(id,name)&pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true';
-            if ($pageToken !== '') {
-                $url .= '&pageToken=' . rawurlencode($pageToken);
-            }
-
-            $response = googleSheetsHttpRequest(
-                'GET',
-                $url,
-                googleSheetsAuthHeaders($plan['token'], $plan['quotaProject'], false),
-                null
-            );
-
-            if ($response['code'] !== 200) {
-                googleSheetsLog('Drive list (' . $plan['label'] . '): HTTP ' . $response['code'] . ' — ' . $response['body']);
-                $filesByKey = [];
-                break;
-            }
-
-            $data = json_decode($response['body'], true);
-            foreach ($data['files'] ?? [] as $file) {
-                if (!is_array($file)) {
-                    continue;
-                }
-                $id   = trim((string) ($file['id'] ?? ''));
-                $name = trim((string) ($file['name'] ?? ''));
-                if ($id === '' || $name === '') {
-                    continue;
-                }
-                $filesByKey[googleDriveNormalizeSheetTitle($name)] = ['id' => $id, 'name' => $name];
-            }
-
-            $pageToken = trim((string) ($data['nextPageToken'] ?? ''));
-        } while ($pageToken !== '' && $response['code'] === 200);
-
-        if ($filesByKey !== []) {
-            googleSheetsLog('Drive list (' . $plan['label'] . '): found ' . count($filesByKey) . ' spreadsheet(s) in folder.');
-
-            return $filesByKey;
+    $indexed = [];
+    foreach ($files as $file) {
+        $name = trim((string) ($file['name'] ?? ''));
+        if ($name === '') {
+            continue;
         }
+        $indexed[googleDriveNormalizeSheetTitle($name)] = [
+            'id'   => (string) ($file['id'] ?? ''),
+            'name' => $name,
+        ];
     }
 
-    return [];
+    return $indexed;
 }
 
 /**
@@ -1678,7 +1602,8 @@ function linkExistingGoogleSheetsFromDriveFolder(PDO $pdo): array
         return $stats;
     }
 
-    $filesInFolder = googleDriveListSpreadsheetsInFolder($serviceAccount, $folderId);
+    $fileList      = googleDriveListSpreadsheetsInFolder($serviceAccount, $folderId, 100);
+    $filesInFolder = googleDriveIndexSpreadsheetsByTitle($fileList);
     if ($filesInFolder === []) {
         $stats['errors'][] = 'No spreadsheets found in your Drive folder (or API cannot read the folder). Check folder ID and sharing.';
 
