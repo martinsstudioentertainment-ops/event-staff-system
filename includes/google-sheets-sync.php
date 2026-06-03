@@ -447,6 +447,159 @@ function googleSheetsSyncColumnLetter(int $zeroBasedIndex): string
     return $letter !== '' ? $letter : 'A';
 }
 
+/**
+ * Resolve numeric sheetId for batchUpdate formatting (defaults to first tab).
+ */
+function googleSheetsResolveSheetId(
+    string $token,
+    ?string $project,
+    string $spreadsheetId,
+    string $tabName
+): ?int {
+    $tabName = trim($tabName) !== '' ? trim($tabName) : 'Registrations';
+    $url     = 'https://sheets.googleapis.com/v4/spreadsheets/'
+        . rawurlencode($spreadsheetId)
+        . '?fields=sheets.properties';
+
+    $response = googleSheetsHttpRequest(
+        'GET',
+        $url,
+        googleSheetsAuthHeaders($token, $project, false)
+    );
+
+    if ($response['code'] !== 200) {
+        return 0;
+    }
+
+    $data = json_decode($response['body'], true);
+    if (!is_array($data['sheets'] ?? null)) {
+        return 0;
+    }
+
+    foreach ($data['sheets'] as $sheet) {
+        if (!is_array($sheet['properties'] ?? null)) {
+            continue;
+        }
+        $title = trim((string) ($sheet['properties']['title'] ?? ''));
+        if (strcasecmp($title, $tabName) === 0) {
+            return (int) ($sheet['properties']['sheetId'] ?? 0);
+        }
+    }
+
+    $first = $data['sheets'][0]['properties'] ?? null;
+
+    return is_array($first) ? (int) ($first['sheetId'] ?? 0) : 0;
+}
+
+/**
+ * @param list<array<string, mixed>> $requests
+ */
+function googleSheetsSpreadsheetBatchUpdate(
+    string $token,
+    ?string $project,
+    string $spreadsheetId,
+    array $requests
+): bool {
+    if ($requests === []) {
+        return true;
+    }
+
+    $payload = json_encode(['requests' => $requests], JSON_UNESCAPED_UNICODE);
+    if ($payload === false) {
+        return false;
+    }
+
+    $url      = 'https://sheets.googleapis.com/v4/spreadsheets/' . rawurlencode($spreadsheetId) . ':batchUpdate';
+    $response = googleSheetsHttpRequest(
+        'POST',
+        $url,
+        googleSheetsAuthHeaders($token, $project),
+        $payload
+    );
+
+    return $response['code'] >= 200 && $response['code'] < 300;
+}
+
+/**
+ * Black text on white — fixes template cells (e.g. column A) with white/invisible font.
+ */
+function googleSheetsFormatSyncDataRow(
+    string $token,
+    ?string $project,
+    string $spreadsheetId,
+    string $tabName,
+    int $rowOneBased
+): bool {
+    if ($rowOneBased < 2) {
+        return true;
+    }
+
+    $sheetId = googleSheetsResolveSheetId($token, $project, $spreadsheetId, $tabName);
+    if ($sheetId === null) {
+        return false;
+    }
+
+    $colCount = count(getGoogleSheetsSyncHeaders());
+
+    return googleSheetsSpreadsheetBatchUpdate($token, $project, $spreadsheetId, [[
+        'repeatCell' => [
+            'range' => [
+                'sheetId'          => $sheetId,
+                'startRowIndex'    => $rowOneBased - 1,
+                'endRowIndex'      => $rowOneBased,
+                'startColumnIndex' => 0,
+                'endColumnIndex'   => $colCount,
+            ],
+            'cell' => [
+                'userEnteredFormat' => [
+                    'textFormat' => [
+                        'foregroundColor' => ['red' => 0, 'green' => 0, 'blue' => 0],
+                    ],
+                    'backgroundColor' => ['red' => 1, 'green' => 1, 'blue' => 1],
+                ],
+            ],
+            'fields' => 'userEnteredFormat(textFormat,backgroundColor)',
+        ],
+    ]]);
+}
+
+/** Header row: grey background, bold black text (readable in Google Sheets). */
+function googleSheetsFormatSyncHeaderRow(
+    string $token,
+    ?string $project,
+    string $spreadsheetId,
+    string $tabName
+): bool {
+    $sheetId = googleSheetsResolveSheetId($token, $project, $spreadsheetId, $tabName);
+    if ($sheetId === null) {
+        return false;
+    }
+
+    $colCount = count(getGoogleSheetsSyncHeaders());
+
+    return googleSheetsSpreadsheetBatchUpdate($token, $project, $spreadsheetId, [[
+        'repeatCell' => [
+            'range' => [
+                'sheetId'          => $sheetId,
+                'startRowIndex'    => 0,
+                'endRowIndex'      => 1,
+                'startColumnIndex' => 0,
+                'endColumnIndex'   => $colCount,
+            ],
+            'cell' => [
+                'userEnteredFormat' => [
+                    'textFormat' => [
+                        'foregroundColor' => ['red' => 0, 'green' => 0, 'blue' => 0],
+                        'bold'            => true,
+                    ],
+                    'backgroundColor' => ['red' => 0.85, 'green' => 0.85, 'blue' => 0.85],
+                ],
+            ],
+            'fields' => 'userEnteredFormat(textFormat,backgroundColor)',
+        ],
+    ]]);
+}
+
 function googleSheetsSheetHasSyncHeaders(string $token, ?string $project, string $spreadsheetId, string $tabName): bool
 {
     $range  = escapeGoogleSheetRangeTab($tabName) . '!A1:A1';
@@ -501,6 +654,10 @@ function googleSheetsEnsureSyncHeaders(string $token, ?string $project, string $
             googleSheetsRepairMisalignedRegistrationRows($token, $project, $spreadsheetId, $tabName);
         }
 
+        if ($ok) {
+            googleSheetsFormatSyncHeaderRow($token, $project, $spreadsheetId, $tabName);
+        }
+
         return $ok;
     }
 
@@ -509,6 +666,7 @@ function googleSheetsEnsureSyncHeaders(string $token, ?string $project, string $
 
     if ($ok) {
         googleSheetsLog("Set sync header row on {$spreadsheetId} tab {$tabName}");
+        googleSheetsFormatSyncHeaderRow($token, $project, $spreadsheetId, $tabName);
     }
 
     return $ok;
@@ -553,6 +711,7 @@ function googleSheetsRepairMisalignedRegistrationRows(
         $sheetRow = $index + 2;
         $rowRange = escapeGoogleSheetRangeTab($tabName) . '!A' . $sheetRow . ':' . $colEnd . $sheetRow;
         if (googleSheetsWriteRangeValues($token, $project, $spreadsheetId, $rowRange, [buildGoogleSheetsSyncRow($row)])) {
+            googleSheetsFormatSyncDataRow($token, $project, $spreadsheetId, $tabName, $sheetRow);
             $repaired++;
         }
     }
@@ -628,18 +787,29 @@ function googleSheetsUpsertRegistrationRow(
         return false;
     }
 
-    $rowsToWrite = [];
     $existingRow = googleSheetsFindRegistrationRowNumber($token, $project, $spreadsheetId, $tabName, $registrationId);
     if ($existingRow !== null) {
         $range = escapeGoogleSheetRangeTab($tabName) . '!A' . $existingRow . ':' . $colEnd . $existingRow;
+        if (!googleSheetsWriteRangeValues($token, $project, $spreadsheetId, $range, [$rowValues])) {
+            return false;
+        }
 
-        return googleSheetsWriteRangeValues($token, $project, $spreadsheetId, $range, [$rowValues]);
+        googleSheetsFormatSyncDataRow($token, $project, $spreadsheetId, $tabName, $existingRow);
+
+        return true;
     }
 
-    $rowsToWrite[] = $rowValues;
-    $range         = escapeGoogleSheetRangeTab($tabName) . '!A:' . $colEnd;
+    $range = escapeGoogleSheetRangeTab($tabName) . '!A:' . $colEnd;
+    if (!googleSheetsAppendRangeValues($token, $project, $spreadsheetId, $range, [$rowValues])) {
+        return false;
+    }
 
-    return googleSheetsAppendRangeValues($token, $project, $spreadsheetId, $range, $rowsToWrite);
+    $newRow = googleSheetsFindRegistrationRowNumber($token, $project, $spreadsheetId, $tabName, $registrationId);
+    if ($newRow !== null) {
+        googleSheetsFormatSyncDataRow($token, $project, $spreadsheetId, $tabName, $newRow);
+    }
+
+    return true;
 }
 
 function googleSheetsLog(string $message): void
