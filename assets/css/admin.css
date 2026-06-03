@@ -1792,6 +1792,27 @@
     width: 42px;
 }
 
+.events-sheet-cell {
+    min-width: 12rem;
+    vertical-align: top;
+}
+
+.events-sheet-picker {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.35rem;
+}
+
+.events-sheet-picker__select {
+    flex: 1 1 10rem;
+    min-width: 8rem;
+    max-width: 14rem;
+    font-size: 0.8125rem;
+    padding: 0.35rem 0.5rem;
+}
+
 .attendance-live__stamp {
     color: var(--erp-text-muted, #94a3b8);
     font-size: 0.875rem;

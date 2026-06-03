@@ -19,6 +19,9 @@ $canAutoSheet  = $hasSa && $hasDriveFolder;
 $syncEnabled   = isGoogleSheetsSyncEnabled($pdo);
 $linkedSheets  = (int) ($sheetStatus['total'] - $sheetStatus['missing']);
 $missingSheets = (int) $sheetStatus['missing'];
+$driveSheets    = $canAutoSheet ? listGoogleDriveSpreadsheetsForAdmin($pdo) : [];
+$showSheetBulk  = $events !== [] && ($canAutoSheet || $linkedSheets > 0);
+$tableColCount  = $showSheetBulk ? 12 : 11;
 
 $masterContractor     = '';
 $eventsMissingCompany = 0;
@@ -91,6 +94,13 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                     <span class="btn btn--secondary" style="opacity:0.55;cursor:not-allowed" title="Create Google Sheet(s) for events first">Sync registrations to sheets</span>
                 <?php endif; ?>
             <?php endif; ?>
+            <?php if ($linkedSheets > 0): ?>
+                <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Unlink all <?= (int) $linkedSheets ?> event(s) from Google Sheets? Files in Drive are not deleted.');">
+                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                    <input type="hidden" name="action" value="unlink_all">
+                    <button type="submit" class="btn btn--secondary">Unlink all sheets</button>
+                </form>
+            <?php endif; ?>
         </div>
     </div>
     <div class="alert alert--info alert--visible" style="margin-bottom:1rem">
@@ -122,10 +132,30 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         </div>
     <?php endif; ?>
 
+    <?php if ($showSheetBulk): ?>
+        <form method="post" action="events-sheets-action.php" class="bulk-toolbar" id="events-sheets-bulk-form">
+            <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+            <span class="bulk-toolbar__label"><span id="events-sheet-selected-count">0</span> selected</span>
+            <?php if ($canAutoSheet && $driveSheets !== []): ?>
+                <button type="submit" name="action" value="link_selected" class="btn btn--small btn--primary">Link selected from folder</button>
+            <?php endif; ?>
+            <button type="submit" name="action" value="unlink_selected" class="btn btn--small btn--secondary">Unlink selected</button>
+        </form>
+        <p class="form-hint" style="margin:-0.5rem 0 1rem">
+            Tick events below, then link by file name or unlink in bulk.
+            <?php if ($canAutoSheet && $driveSheets !== []): ?>
+                Or use <strong>Pick Google Sheet</strong> on each row to choose a file from your Drive folder.
+            <?php endif; ?>
+        </p>
+    <?php endif; ?>
+
     <div class="table-wrap">
         <table class="data-table">
             <thead>
                 <tr>
+                    <?php if ($showSheetBulk): ?>
+                        <th class="data-table__check"><input type="checkbox" id="events-sheet-select-all" aria-label="Select all events"></th>
+                    <?php endif; ?>
                     <th>Event Name</th>
                     <th>Listed contractor</th>
                     <th>Date</th>
@@ -142,11 +172,27 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <tbody>
                 <?php if ($events === []): ?>
                     <tr>
-                        <td colspan="11" class="data-table__empty">No events yet. Add your first event.</td>
+                        <td colspan="<?= (int) $tableColCount ?>" class="data-table__empty">No events yet. Add your first event.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($events as $event): ?>
+                        <?php
+                        $sheetUrl = trim((string) ($event['google_sheet_url'] ?? ''));
+                        $linkedSheetId = $sheetUrl !== '' ? (parseGoogleSpreadsheetId($sheetUrl) ?? '') : '';
+                        ?>
                         <tr>
+                            <?php if ($showSheetBulk): ?>
+                                <td class="data-table__check">
+                                    <input
+                                        type="checkbox"
+                                        form="events-sheets-bulk-form"
+                                        name="event_ids[]"
+                                        value="<?= (int) $event['id'] ?>"
+                                        class="events-sheet-row-check"
+                                        aria-label="Select <?= h($event['name']) ?>"
+                                    >
+                                </td>
+                            <?php endif; ?>
                             <td><?= h($event['name']) ?></td>
                             <td><?= h(formatEventMainSecurityLabel($event) !== '' ? formatEventMainSecurityLabel($event) : '—') ?></td>
                             <td><?= h(formatEventDateLabel($event['event_date'])) ?></td>
@@ -154,11 +200,28 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                             <td><?= h(formatWorkTypeLabel((string) ($event['work_type'] ?? 'special_event'))) ?></td>
                             <td><?= h(formatEventLocationLabel($event)) ?></td>
                             <td><?= isset($event['staff_needed']) && $event['staff_needed'] !== null && $event['staff_needed'] !== '' ? (int) $event['staff_needed'] : '—' ?></td>
-                            <td>
-                                <?php if (trim((string) ($event['google_sheet_url'] ?? '')) !== ''): ?>
-                                    <a href="<?= h((string) $event['google_sheet_url']) ?>" target="_blank" rel="noopener" class="badge badge--approved" title="Open Google Sheet">Linked ↗</a>
+                            <td class="events-sheet-cell">
+                                <?php if ($sheetUrl !== ''): ?>
+                                    <a href="<?= h($sheetUrl) ?>" target="_blank" rel="noopener" class="badge badge--approved" title="Open Google Sheet">Linked ↗</a>
                                 <?php else: ?>
-                                    <span class="form-hint">—</span>
+                                    <span class="form-hint">Not linked</span>
+                                <?php endif; ?>
+                                <?php if ($canAutoSheet && $driveSheets !== []): ?>
+                                    <form method="post" action="events-sheets-action.php" class="events-sheet-picker">
+                                        <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                                        <input type="hidden" name="action" value="link_pick">
+                                        <input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>">
+                                        <select name="spreadsheet_id" class="form-input events-sheet-picker__select" aria-label="Pick Google Sheet for <?= h($event['name']) ?>">
+                                            <option value="">Pick Google Sheet…</option>
+                                            <?php foreach ($driveSheets as $driveFile): ?>
+                                                <option
+                                                    value="<?= h($driveFile['id']) ?>"
+                                                    <?= $linkedSheetId === $driveFile['id'] ? ' selected' : '' ?>
+                                                ><?= h($driveFile['name']) ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <button type="submit" class="btn btn--small btn--secondary">Link</button>
+                                    </form>
                                 <?php endif; ?>
                             </td>
                             <td>
@@ -173,7 +236,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                                 <div class="action-group">
                                     <a href="event-sign-qr.php?id=<?= (int) $event['id'] ?>" class="btn btn--small btn--primary">Sign-in</a>
                                     <a href="event-form.php?id=<?= (int) $event['id'] ?>" class="btn btn--small btn--secondary">Edit</a>
-                                    <?php if (trim((string) ($event['google_sheet_url'] ?? '')) !== ''): ?>
+                                    <?php if ($sheetUrl !== ''): ?>
                                         <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Unlink this event from its Google Sheet? The file in Drive is not deleted.');">
                                             <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                                             <input type="hidden" name="action" value="unlink_one">

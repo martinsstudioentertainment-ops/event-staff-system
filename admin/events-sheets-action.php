@@ -62,6 +62,99 @@ if ($action === 'unlink_one') {
     exit;
 }
 
+if ($action === 'unlink_all') {
+    $unlinked = unlinkAllEventGoogleSheets($pdo);
+    logAdminAudit($pdo, 'bulk_sheet_unlink', 'system', null, "unlinked all ({$unlinked})");
+    setAdminFlash(
+        'success',
+        $unlinked > 0
+            ? "Unlinked {$unlinked} event(s) from Google Sheets. Files in Drive are unchanged — use Link sheets or pick a sheet below to connect again."
+            : 'No linked events to unlink.'
+    );
+    header('Location: events.php');
+    exit;
+}
+
+if ($action === 'unlink_selected') {
+    $eventIds = normalizeBulkEventIds($_POST['event_ids'] ?? []);
+    if ($eventIds === []) {
+        setAdminFlash('error', 'Select at least one event to unlink.');
+        header('Location: events.php');
+        exit;
+    }
+
+    $unlinked = unlinkEventGoogleSheetsByIds($pdo, $eventIds);
+    logAdminAudit($pdo, 'bulk_sheet_unlink', 'system', null, "unlinked {$unlinked} selected");
+    setAdminFlash(
+        'success',
+        "Unlinked {$unlinked} selected event(s). Spreadsheet files in Drive were not deleted."
+    );
+    header('Location: events.php');
+    exit;
+}
+
+if ($action === 'link_selected') {
+    @set_time_limit(120);
+
+    $eventIds = normalizeBulkEventIds($_POST['event_ids'] ?? []);
+    if ($eventIds === []) {
+        setAdminFlash('error', 'Select at least one event to link.');
+        header('Location: events.php');
+        exit;
+    }
+
+    $stats = linkExistingGoogleSheetsFromDriveFolder($pdo, $eventIds);
+    logAdminAudit(
+        $pdo,
+        'bulk_sheet_link',
+        'system',
+        null,
+        "selected link: {$stats['linked']}, skipped {$stats['skipped']}, unmatched {$stats['unmatched']}"
+    );
+
+    if ($stats['linked'] > 0) {
+        $msg = "Linked {$stats['linked']} selected event(s) by matching file names in your Drive folder.";
+        if ($stats['skipped'] > 0) {
+            $msg .= " {$stats['skipped']} already had a sheet URL.";
+        }
+        if ($stats['unmatched'] > 0) {
+            $msg .= " {$stats['unmatched']} had no matching file — use the Pick Google Sheet dropdown on those rows.";
+        }
+        setAdminFlash('success', $msg);
+    } elseif ($stats['errors'] !== []) {
+        setAdminFlash('error', implode(' ', $stats['errors']));
+    } else {
+        setAdminFlash(
+            'warning',
+            'No selected events were linked. Use the Pick Google Sheet dropdown, or name files: date — event name — Staff.'
+        );
+    }
+
+    header('Location: events.php');
+    exit;
+}
+
+if ($action === 'link_pick') {
+    $eventId        = (int) ($_POST['event_id'] ?? 0);
+    $spreadsheetId  = trim((string) ($_POST['spreadsheet_id'] ?? ''));
+
+    if ($eventId < 1 || $spreadsheetId === '') {
+        setAdminFlash('error', 'Choose an event and a Google Sheet from the list.');
+        header('Location: events.php');
+        exit;
+    }
+
+    if (linkEventToGoogleSpreadsheetById($pdo, $eventId, $spreadsheetId)) {
+        logAdminAudit($pdo, 'event_sheet_link', 'event', $eventId, 'Linked via sheet picker');
+        setAdminFlash('success', 'Google Sheet linked for this event.');
+    } else {
+        setAdminFlash('error', 'Could not link — check the sheet is in your shared Drive folder and Settings are configured.');
+    }
+
+    header('Location: events.php');
+    exit;
+}
+
 if ($action === 'link_from_folder') {
     @set_time_limit(120);
 

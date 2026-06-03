@@ -1787,11 +1787,66 @@ function googleDriveMatchSpreadsheetForEvent(array $filesByKey, array $event): ?
 }
 
 /**
+ * Spreadsheets in the shared Drive folder for admin pickers (excludes template).
+ *
+ * @return list<array{id: string, name: string}>
+ */
+function listGoogleDriveSpreadsheetsForAdmin(PDO $pdo, int $maxResults = 100): array
+{
+    $folderId = getGoogleSheetsDriveParentFolderId($pdo);
+    if ($folderId === '') {
+        return [];
+    }
+
+    $serviceAccount = loadGoogleServiceAccount();
+    if ($serviceAccount === null) {
+        return [];
+    }
+
+    $files = googleDriveListSpreadsheetsInFolder($serviceAccount, $folderId, $maxResults);
+    $out   = [];
+    foreach ($files as $file) {
+        $name = trim((string) ($file['name'] ?? ''));
+        $id   = trim((string) ($file['id'] ?? ''));
+        if ($id === '' || $name === '') {
+            continue;
+        }
+        $lower = mb_strtolower($name);
+        if ($lower === 'event staff template' || str_contains($lower, 'event staff template')) {
+            continue;
+        }
+        $out[] = ['id' => $id, 'name' => $name];
+    }
+
+    usort($out, static fn (array $a, array $b): int => strcasecmp($a['name'], $b['name']));
+
+    return $out;
+}
+
+/**
+ * @param list<int|string> $rawIds
+ * @return list<int>
+ */
+function normalizeBulkEventIds(array $rawIds): array
+{
+    $ids = [];
+    foreach ($rawIds as $rawId) {
+        $id = (int) $rawId;
+        if ($id > 0) {
+            $ids[$id] = true;
+        }
+    }
+
+    return array_keys($ids);
+}
+
+/**
  * Link spreadsheets already in the shared Drive folder to events (by file name).
  *
+ * @param list<int>|null $eventIdsOnly When set, only these event IDs are considered.
  * @return array{linked: int, skipped: int, unmatched: int, errors: list<string>}
  */
-function linkExistingGoogleSheetsFromDriveFolder(PDO $pdo): array
+function linkExistingGoogleSheetsFromDriveFolder(PDO $pdo, ?array $eventIdsOnly = null): array
 {
     ensureGoogleSheetsSchema($pdo);
 
@@ -1828,10 +1883,22 @@ function linkExistingGoogleSheetsFromDriveFolder(PDO $pdo): array
         'UPDATE events SET google_sheet_url = :url, google_sheet_tab = :tab WHERE id = :id'
     );
 
+    $onlySet = $eventIdsOnly !== null ? array_fill_keys(normalizeBulkEventIds($eventIdsOnly), true) : null;
+
+    if ($onlySet !== null && $onlySet === []) {
+        $stats['errors'][] = 'Select at least one event.';
+
+        return $stats;
+    }
+
     $ids = $pdo->query('SELECT id FROM events ORDER BY event_date ASC, name ASC')->fetchAll(PDO::FETCH_COLUMN);
     foreach ($ids as $rawId) {
         $eventId = (int) $rawId;
         if ($eventId < 1) {
+            continue;
+        }
+
+        if ($onlySet !== null && !isset($onlySet[$eventId])) {
             continue;
         }
 
@@ -1861,6 +1928,52 @@ function linkExistingGoogleSheetsFromDriveFolder(PDO $pdo): array
 }
 
 /**
+ * Link one event to a specific spreadsheet from the Drive folder picker.
+ */
+function linkEventToGoogleSpreadsheetById(PDO $pdo, int $eventId, string $spreadsheetId): bool
+{
+    ensureGoogleSheetsSchema($pdo);
+
+    $eventId = (int) $eventId;
+    if ($eventId < 1) {
+        return false;
+    }
+
+    $parsed = parseGoogleSpreadsheetId(trim($spreadsheetId));
+    if ($parsed === null) {
+        return false;
+    }
+
+    $event = getEventById($pdo, $eventId);
+    if ($event === null) {
+        return false;
+    }
+
+    $allowed = [];
+    foreach (listGoogleDriveSpreadsheetsForAdmin($pdo) as $file) {
+        $allowed[$file['id']] = true;
+    }
+    if ($allowed !== [] && !isset($allowed[$parsed])) {
+        return false;
+    }
+
+    $tabName = trim((string) getSetting($pdo, 'google_sheets_default_tab', 'Registrations'));
+    if ($tabName === '') {
+        $tabName = 'Registrations';
+    }
+
+    $url = buildGoogleSheetsSpreadsheetUrl($parsed);
+    $stmt = $pdo->prepare(
+        'UPDATE events SET google_sheet_url = :url, google_sheet_tab = :tab WHERE id = :id'
+    );
+    $stmt->execute(['url' => $url, 'tab' => $tabName, 'id' => $eventId]);
+
+    googleSheetsLog("Manually linked event {$eventId} → sheet {$parsed} ({$url})");
+
+    return $stmt->rowCount() > 0;
+}
+
+/**
  * Remove the linked Google Sheet URL from an event (does not delete the file in Drive).
  */
 function unlinkEventGoogleSheet(PDO $pdo, int $eventId): bool
@@ -1884,6 +1997,32 @@ function unlinkEventGoogleSheet(PDO $pdo, int $eventId): bool
     googleSheetsLog('Unlinked event ' . $eventId . ' from Google Sheet (file unchanged in Drive)');
 
     return $stmt->rowCount() > 0;
+}
+
+/**
+ * @param list<int|string> $eventIds
+ */
+function unlinkEventGoogleSheetsByIds(PDO $pdo, array $eventIds): int
+{
+    $count = 0;
+    foreach (normalizeBulkEventIds($eventIds) as $eventId) {
+        if (unlinkEventGoogleSheet($pdo, $eventId)) {
+            $count++;
+        }
+    }
+
+    return $count;
+}
+
+function unlinkAllEventGoogleSheets(PDO $pdo): int
+{
+    ensureGoogleSheetsSchema($pdo);
+
+    $ids = $pdo->query(
+        "SELECT id FROM events WHERE google_sheet_url IS NOT NULL AND TRIM(google_sheet_url) <> ''"
+    )->fetchAll(PDO::FETCH_COLUMN);
+
+    return unlinkEventGoogleSheetsByIds($pdo, is_array($ids) ? $ids : []);
 }
 
 /**

@@ -155,6 +155,7 @@
         initCopyButtons();
         initSensitiveReveal();
         initStaffBulkSelect();
+        initEventsSheetBulkSelect();
     });
 
     function initStaffBulkSelect() {
@@ -196,6 +197,54 @@
             var submitter = event.submitter;
             var action = submitter && submitter.value ? submitter.value : 'update';
             if (!window.confirm('Apply "' + action + '" to ' + selected + ' registration(s)?')) {
+                event.preventDefault();
+            }
+        });
+    }
+
+    function initEventsSheetBulkSelect() {
+        var selectAll = document.getElementById('events-sheet-select-all');
+        var checks = document.querySelectorAll('.events-sheet-row-check');
+        var countEl = document.getElementById('events-sheet-selected-count');
+        var form = document.getElementById('events-sheets-bulk-form');
+        if (!selectAll || !checks.length || !form) {
+            return;
+        }
+
+        function updateCount() {
+            var selected = document.querySelectorAll('.events-sheet-row-check:checked').length;
+            if (countEl) {
+                countEl.textContent = String(selected);
+            }
+            selectAll.checked = selected > 0 && selected === checks.length;
+            selectAll.indeterminate = selected > 0 && selected < checks.length;
+        }
+
+        selectAll.addEventListener('change', function () {
+            checks.forEach(function (check) {
+                check.checked = selectAll.checked;
+            });
+            updateCount();
+        });
+
+        checks.forEach(function (check) {
+            check.addEventListener('change', updateCount);
+        });
+
+        form.addEventListener('submit', function (event) {
+            var selected = document.querySelectorAll('.events-sheet-row-check:checked').length;
+            if (selected === 0) {
+                event.preventDefault();
+                alert('Select at least one event.');
+                return;
+            }
+
+            var submitter = event.submitter;
+            var action = submitter && submitter.value ? submitter.value : '';
+            var message = action === 'unlink_selected'
+                ? 'Unlink ' + selected + ' selected event(s) from Google Sheets? Files in Drive are not deleted.'
+                : 'Link ' + selected + ' selected event(s) by matching file names in your Drive folder?';
+            if (!window.confirm(message)) {
                 event.preventDefault();
             }
         });
