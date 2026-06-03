@@ -6,12 +6,19 @@
 require_once __DIR__ . '/settings-repository.php';
 require_once __DIR__ . '/site-urls.php';
 
+function isGoogleOAuthClientSecretConfigured(?PDO $pdo = null): bool
+{
+    $pdo = $pdo ?? getDB();
+
+    return trim(getSetting($pdo, 'google_oauth_client_secret', '')) !== '';
+}
+
 function googleDriveOAuthConfigured(?PDO $pdo = null): bool
 {
     $pdo = $pdo ?? getDB();
 
     if (trim(getSetting($pdo, 'google_oauth_client_id', '')) === ''
-        || trim(getSetting($pdo, 'google_oauth_client_secret', '')) === '') {
+        || !isGoogleOAuthClientSecretConfigured($pdo)) {
         return false;
     }
 

@@ -59,13 +59,22 @@ if ($keyOk && is_array($sa)) {
 }
 $rows[] = ['OAuth access token', ($token ?? '') !== '' ? 'pass' : 'fail', ($token ?? '') !== '' ? 'Received' : h(getLastGoogleSheetsApiError() ?: 'Token request failed — see log')];
 
+$oauthSecretOk = function_exists('isGoogleOAuthClientSecretConfigured') && isGoogleOAuthClientSecretConfigured($pdo);
+$rows[] = [
+    'OAuth client secret in database',
+    $oauthSecretOk ? 'pass' : 'fail',
+    $oauthSecretOk
+        ? 'Stored (Settings hides the value after save — that is normal)'
+        : 'Missing — paste GOCSPX-… in Settings → Google Sheets → Save (not Connect)',
+];
+
 $oauthOk = googleDriveOAuthConfigured($pdo);
 $rows[] = [
     'Gmail connected (OAuth)',
     $oauthOk ? 'pass' : 'fail',
     $oauthOk
         ? 'Your Gmail token is saved — sheet copies use your Drive storage'
-        : 'Required for auto-create — Settings → Google Sheets → Connect Google account',
+        : 'Save Client ID + secret first, then Settings → Connect Google account',
 ];
 
 $userQuota = $oauthOk ? googleDriveUserStorageQuota($pdo) : null;

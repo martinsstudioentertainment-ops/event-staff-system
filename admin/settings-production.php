@@ -252,7 +252,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 $sa = loadGoogleServiceAccount();
 $saEmail = $sa ? (string) ($sa['client_email'] ?? '') : '';
 $googleOauthConnected = googleDriveOAuthConfigured($pdo);
-$googleOauthSecretSaved = trim($settings['google_oauth_client_secret'] ?? '') !== '';
+$googleOauthSecretSaved = isGoogleOAuthClientSecretConfigured($pdo);
 $googleOauthFlash = '';
 $googleOauthFlashType = 'info';
 if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
@@ -317,11 +317,23 @@ if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
             </div>
             <div class="form-group">
                 <label class="form-label" for="google_oauth_client_secret">OAuth Client secret</label>
-                <input class="form-input" type="password" id="google_oauth_client_secret" name="google_oauth_client_secret" value="" autocomplete="new-password" placeholder="<?= $googleOauthSecretSaved ? 'Secret saved — paste new value only to replace' : 'GOCSPX-… from Web client' ?>">
                 <?php if ($googleOauthSecretSaved): ?>
-                    <p class="form-hint">A secret is stored. Leave this box empty when saving other fields; paste a new secret only after rotating it in Google Cloud.</p>
-                <?php else: ?>
-                    <p class="form-hint">Google Cloud → Credentials → <strong>Web application</strong> OAuth client → Client secret (not the service account JSON).</p>
+                    <p class="form-hint" style="margin:0 0 0.5rem">
+                        <span class="badge badge--approved">Secret saved in database</span>
+                        — this page never shows it again (security). Leave the box empty unless you are replacing it.
+                    </p>
+                <?php endif; ?>
+                <input
+                    class="form-input"
+                    type="password"
+                    id="google_oauth_client_secret"
+                    name="google_oauth_client_secret"
+                    value=""
+                    autocomplete="off"
+                    placeholder="<?= $googleOauthSecretSaved ? 'Leave empty to keep current secret' : 'Paste GOCSPX-… from Web client 1, then Save below' ?>"
+                >
+                <?php if (!$googleOauthSecretSaved): ?>
+                    <p class="form-hint">Google Cloud → Credentials → <strong>Web client 1</strong> → copy Client secret → paste here → click <strong>Save Google Sheets settings</strong> (not Connect yet).</p>
                 <?php endif; ?>
             </div>
             <div class="form-group">
@@ -337,10 +349,16 @@ if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
             </ul>
             <p class="form-hint">OAuth consent screen → add your Gmail as a <strong>Test user</strong> if the app is in Testing mode.</p>
             <p class="form-hint">After a code update, click <strong>Connect Google account</strong> again so Google grants Drive access to copy your template.</p>
-            <?php if ($googleOauthConnected): ?>
-                <p class="form-hint"><strong>Status:</strong> Gmail connected.</p>
-            <?php else: ?>
-                <p class="form-hint"><strong>Status:</strong> Not connected — save Client ID/secret below, then connect.</p>
+            <p class="form-hint">
+                <strong>Status:</strong>
+                Client ID <?= trim($settings['google_oauth_client_id'] ?? '') !== '' ? 'saved' : 'missing' ?> ·
+                Client secret <?= $googleOauthSecretSaved ? 'saved' : 'missing' ?> ·
+                Gmail <?= $googleOauthConnected ? 'connected' : 'not connected' ?>
+            </p>
+            <?php if ($googleOauthSecretSaved && !$googleOauthConnected): ?>
+                <p class="form-hint">Secret is saved — click <strong>Connect Google account</strong> below (no need to re-paste the secret).</p>
+            <?php elseif (!$googleOauthSecretSaved): ?>
+                <p class="form-hint">Paste the secret and <strong>Save Google Sheets settings</strong> before Connect — Connect does not store the secret.</p>
             <?php endif; ?>
         </div>
 
@@ -400,7 +418,7 @@ if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
 
         <div class="form-actions form-actions--end" style="flex-wrap:wrap;gap:0.5rem">
             <button type="submit" class="btn btn--primary">Save Google Sheets settings</button>
-            <?php if (trim($settings['google_oauth_client_id'] ?? '') !== '' && trim($settings['google_oauth_client_secret'] ?? '') !== ''): ?>
+            <?php if (trim($settings['google_oauth_client_id'] ?? '') !== '' && $googleOauthSecretSaved): ?>
                 <a href="<?= h(googleDriveOAuthAuthorizeUrl($pdo)) ?>" class="btn btn--secondary">Connect Google account</a>
             <?php endif; ?>
             <a href="google-sheets-diagnostic.php" class="btn btn--secondary">Diagnostic</a>

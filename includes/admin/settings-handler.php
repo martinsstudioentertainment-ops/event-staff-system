@@ -239,8 +239,9 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
         $templateRaw = trim((string) ($_POST['google_sheets_template_id'] ?? ''));
         $templateId  = parseGoogleSpreadsheetId($templateRaw) ?? $templateRaw;
 
-        $oauthClientId     = trim((string) ($_POST['google_oauth_client_id'] ?? ''));
-        $oauthClientSecret = trim((string) ($_POST['google_oauth_client_secret'] ?? ''));
+        $oauthClientId        = trim((string) ($_POST['google_oauth_client_id'] ?? ''));
+        $oauthSecretFromPost  = trim((string) ($_POST['google_oauth_client_secret'] ?? ''));
+        $oauthClientSecret    = $oauthSecretFromPost;
         if ($oauthClientSecret === '') {
             $oauthClientSecret = trim(getSetting($pdo, 'google_oauth_client_secret', ''));
         }
@@ -279,6 +280,11 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
         }
 
         $success = 'Google Sheets settings saved.';
+        if ($oauthSecretFromPost !== '') {
+            $success .= ' OAuth client secret is stored (the password box stays empty on purpose).';
+        } elseif (isGoogleOAuthClientSecretConfigured($pdo)) {
+            $success .= ' OAuth client secret unchanged (still stored).';
+        }
         if ($savedFolder !== '') {
             $success .= ' Drive folder ID saved (' . $savedFolder . ').';
         } elseif ($folderRaw !== '') {
