@@ -2,7 +2,8 @@
 
 /**
  * Employee payroll spreadsheet columns (Google Sheets + admin CSV).
- * Data still comes from registration fields; Postcode column uses eircode.
+ * Matches Staff Template.ods row 1 (A–J). Sync adds K–O: Registration ID, Status, Event date, Event name, Role.
+ * Postcode column uses eircode from registration.
  */
 
 require_once __DIR__ . '/staff-labels.php';

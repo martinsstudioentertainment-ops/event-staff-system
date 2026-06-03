@@ -479,23 +479,36 @@ function googleSheetsSheetUsesLegacyPayrollHeaders(string $token, ?string $proje
  */
 function googleSheetsEnsureSyncHeaders(string $token, ?string $project, string $spreadsheetId, string $tabName): bool
 {
-    $needsRepair = googleSheetsSheetUsesLegacyPayrollHeaders($token, $project, $spreadsheetId, $tabName)
-        && !googleSheetsSheetHasSyncHeaders($token, $project, $spreadsheetId, $tabName);
-
     if (googleSheetsSheetHasSyncHeaders($token, $project, $spreadsheetId, $tabName)) {
         return true;
     }
 
-    $headers = getGoogleSheetsSyncHeaders();
-    $colEnd  = googleSheetsSyncColumnLetter(count($headers) - 1);
-    $range   = escapeGoogleSheetRangeTab($tabName) . '!A1:' . $colEnd . '1';
-    $ok      = googleSheetsWriteRangeValues($token, $project, $spreadsheetId, $range, [$headers]);
+    $headers     = getGoogleSheetsSyncHeaders();
+    $colEnd      = googleSheetsSyncColumnLetter(count($headers) - 1);
+    $needsRepair = false;
+
+    if (googleSheetsSheetUsesLegacyPayrollHeaders($token, $project, $spreadsheetId, $tabName)) {
+        $idCol        = googleSheetsSyncColumnLetter(googleSheetsRegistrationIdColumnIndex());
+        $adminHeaders = array_slice($headers, googleSheetsRegistrationIdColumnIndex());
+        $range        = escapeGoogleSheetRangeTab($tabName) . '!' . $idCol . '1:' . $colEnd . '1';
+        $ok           = googleSheetsWriteRangeValues($token, $project, $spreadsheetId, $range, [$adminHeaders]);
+        if ($ok) {
+            googleSheetsLog("Extended template headers (K–O) on {$spreadsheetId} tab {$tabName}");
+            $needsRepair = true;
+        }
+
+        if ($ok && $needsRepair) {
+            googleSheetsRepairMisalignedRegistrationRows($token, $project, $spreadsheetId, $tabName);
+        }
+
+        return $ok;
+    }
+
+    $range = escapeGoogleSheetRangeTab($tabName) . '!A1:' . $colEnd . '1';
+    $ok    = googleSheetsWriteRangeValues($token, $project, $spreadsheetId, $range, [$headers]);
 
     if ($ok) {
         googleSheetsLog("Set sync header row on {$spreadsheetId} tab {$tabName}");
-        if ($needsRepair) {
-            googleSheetsRepairMisalignedRegistrationRows($token, $project, $spreadsheetId, $tabName);
-        }
     }
 
     return $ok;
@@ -1632,9 +1645,14 @@ function googleSheetsCreateSpreadsheet(
 
     $viaDrive = googleDriveCreateSpreadsheet($serviceAccount, $title, $tabName, $parentFolderId);
     if ($viaDrive !== null) {
-        $headerRows = [getGoogleSheetsSyncHeaders()];
-        if (!googleSheetsAppendRows($serviceAccount, $viaDrive['spreadsheetId'], $viaDrive['tabName'], $headerRows)) {
-            googleSheetsLog('Drive-created sheet ' . $viaDrive['spreadsheetId'] . ' but header row failed');
+        $token = googleSheetsGetAccessToken($serviceAccount);
+        if ($token === '') {
+            googleSheetsLog('Drive-created sheet ' . $viaDrive['spreadsheetId'] . ' but no token for headers');
+        } else {
+            $project = (string) ($serviceAccount['project_id'] ?? '');
+            if (!googleSheetsEnsureSyncHeaders($token, $project, $viaDrive['spreadsheetId'], $viaDrive['tabName'])) {
+                googleSheetsLog('Drive-created sheet ' . $viaDrive['spreadsheetId'] . ' but header row failed');
+            }
         }
 
         return $viaDrive;
