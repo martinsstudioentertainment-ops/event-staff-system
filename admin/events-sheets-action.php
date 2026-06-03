@@ -35,6 +35,33 @@ if ($action === 'create_one') {
     exit;
 }
 
+if ($action === 'unlink_one') {
+    $eventId  = (int) ($_POST['event_id'] ?? 0);
+    $redirect = trim((string) ($_POST['redirect'] ?? 'events.php'));
+    if ($redirect === '' || str_contains($redirect, '://') || !preg_match('/^(events\.php|event-form\.php\?id=\d+)$/', $redirect)) {
+        $redirect = 'events.php';
+    }
+
+    if ($eventId < 1) {
+        setAdminFlash('error', 'Invalid event.');
+        header('Location: ' . $redirect);
+        exit;
+    }
+
+    if (unlinkEventGoogleSheet($pdo, $eventId)) {
+        logAdminAudit($pdo, 'event_sheet_unlink', 'event', $eventId, 'Google Sheet unlinked in admin');
+        setAdminFlash(
+            'success',
+            'Google Sheet unlinked for this event. The spreadsheet file in Drive is not deleted — use Link sheets from Drive folder to connect again.'
+        );
+    } else {
+        setAdminFlash('error', 'Could not unlink — event not found or already unlinked.');
+    }
+
+    header('Location: ' . $redirect);
+    exit;
+}
+
 if ($action === 'link_from_folder') {
     @set_time_limit(120);
 

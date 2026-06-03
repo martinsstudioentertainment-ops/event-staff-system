@@ -156,7 +156,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                             <td><?= isset($event['staff_needed']) && $event['staff_needed'] !== null && $event['staff_needed'] !== '' ? (int) $event['staff_needed'] : '—' ?></td>
                             <td>
                                 <?php if (trim((string) ($event['google_sheet_url'] ?? '')) !== ''): ?>
-                                    <span class="badge badge--approved" title="Syncs on registration">Linked</span>
+                                    <a href="<?= h((string) $event['google_sheet_url']) ?>" target="_blank" rel="noopener" class="badge badge--approved" title="Open Google Sheet">Linked ↗</a>
                                 <?php else: ?>
                                     <span class="form-hint">—</span>
                                 <?php endif; ?>
@@ -173,6 +173,15 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                                 <div class="action-group">
                                     <a href="event-sign-qr.php?id=<?= (int) $event['id'] ?>" class="btn btn--small btn--primary">Sign-in</a>
                                     <a href="event-form.php?id=<?= (int) $event['id'] ?>" class="btn btn--small btn--secondary">Edit</a>
+                                    <?php if (trim((string) ($event['google_sheet_url'] ?? '')) !== ''): ?>
+                                        <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Unlink this event from its Google Sheet? The file in Drive is not deleted.');">
+                                            <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                                            <input type="hidden" name="action" value="unlink_one">
+                                            <input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>">
+                                            <input type="hidden" name="redirect" value="events.php">
+                                            <button type="submit" class="btn btn--small btn--secondary">Unlink sheet</button>
+                                        </form>
+                                    <?php endif; ?>
                                     <form method="post" action="toggle-event.php">
                                         <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                                         <input type="hidden" name="id" value="<?= (int) $event['id'] ?>">

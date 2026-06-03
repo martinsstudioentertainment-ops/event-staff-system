@@ -1723,6 +1723,32 @@ function linkExistingGoogleSheetsFromDriveFolder(PDO $pdo): array
 }
 
 /**
+ * Remove the linked Google Sheet URL from an event (does not delete the file in Drive).
+ */
+function unlinkEventGoogleSheet(PDO $pdo, int $eventId): bool
+{
+    ensureGoogleSheetsSchema($pdo);
+
+    $event = getEventById($pdo, $eventId);
+    if ($event === null) {
+        return false;
+    }
+
+    if (trim((string) ($event['google_sheet_url'] ?? '')) === '') {
+        return true;
+    }
+
+    $stmt = $pdo->prepare(
+        'UPDATE events SET google_sheet_url = NULL, google_sheet_tab = NULL WHERE id = :id'
+    );
+    $stmt->execute(['id' => $eventId]);
+
+    googleSheetsLog('Unlinked event ' . $eventId . ' from Google Sheet (file unchanged in Drive)');
+
+    return $stmt->rowCount() > 0;
+}
+
+/**
  * Create a Google Sheet for one event and store URL on the event row.
  *
  * @return array{ok: bool, message: string, url?: string}
