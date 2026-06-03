@@ -11,8 +11,14 @@ requireAdminCapability('events');
 $pdo         = getDB();
 $events      = getAllEvents($pdo);
 $flash       = getAdminFlash();
-$sheetStatus = countEventsGoogleSheetStatus($pdo);
-$canAutoSheet = isGoogleServiceAccountConfigured();
+$sheetStatus   = countEventsGoogleSheetStatus($pdo);
+$hasSa         = isGoogleServiceAccountConfigured();
+$hasOauth      = googleDriveOAuthConfigured($pdo);
+$hasDriveFolder = getGoogleSheetsDriveParentFolderId($pdo) !== '';
+$canAutoSheet  = $hasSa && $hasDriveFolder;
+$syncEnabled   = isGoogleSheetsSyncEnabled($pdo);
+$linkedSheets  = (int) ($sheetStatus['total'] - $sheetStatus['missing']);
+$missingSheets = (int) $sheetStatus['missing'];
 
 $masterContractor     = '';
 $eventsMissingCompany = 0;
@@ -78,11 +84,33 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <?php endif; ?>
         </div>
     </div>
-    <p class="form-hint" style="margin:0 0 1rem;">Your full table is in <code>database/live-events-2026.php</code>. After deploy, open <a href="import-roster.php"><strong>Import master roster</strong></a> (or <code>https://admin.olasentra.com/import-roster.php</code> while logged in). Do not use <code>register.olasentra.com/import-summer-roster.php</code> — that URL often 404s if the register folder is empty.</p>
-    <?php if ($canAutoSheet): ?>
-        <p class="form-hint" style="margin:0 0 1rem;">Google Sheets: <strong><?= (int) ($sheetStatus['total'] - $sheetStatus['missing']) ?></strong> linked, <strong><?= (int) $sheetStatus['missing'] ?></strong> without a sheet. Use <strong>Create … Google Sheet(s)</strong> to auto-generate one spreadsheet per event (no manual copy/paste). Optional: add your Gmail in <a href="settings-production.php#google-sheets">Settings → Google Sheets</a> so new sheets are shared with you.</p>
-    <?php else: ?>
-        <p class="form-hint" style="margin:0 0 1rem;">To auto-create one Google Sheet per event, upload the service account JSON under <a href="settings-production.php#google-sheets">Settings → Google Sheets</a>.</p>
+    <div class="alert alert--info alert--visible" style="margin-bottom:1rem">
+        <p style="margin:0 0 0.5rem"><strong>Summer go-live — do these in order</strong></p>
+        <ol style="margin:0 0 0 1.25rem;padding:0">
+            <li><strong>Import roster</strong> — <a href="import-roster.php">Import master roster</a> → <em>Run import now</em> (loads 32 events + listed contractor from <code>live-events-2026.php</code>). Do not use <code>register.olasentra.com/import-summer-roster.php</code> (often 404).</li>
+            <li><strong>Google Sheets setup</strong> — <a href="settings-production.php#google-sheets">Settings → Google Sheets</a>: service account JSON, Drive folder ID, <em>Connect Google account</em> (Gmail), enable <em>live sync</em>. Optional: <a href="google-sheets-diagnostic.php">Run diagnostic</a>.</li>
+            <li><strong>Create sheets</strong> — Click <strong>Create <?= $missingSheets ?> Google Sheet(s)</strong> above (one file per event in your Drive folder). Status: <strong><?= $linkedSheets ?> linked</strong>, <strong><?= $missingSheets ?> still need a sheet</strong>.</li>
+            <?php if ($syncEnabled && $linkedSheets > 0): ?>
+                <li><strong>Sync staff rows</strong> — After sheets exist, click <strong>Sync registrations to sheets</strong> (or approve staff — each approval updates the sheet).</li>
+            <?php elseif ($syncEnabled): ?>
+                <li><strong>Sync staff rows</strong> — Available after step 3 links sheets to events.</li>
+            <?php else: ?>
+                <li><strong>Sync staff rows</strong> — Turn on <em>Enable live sync</em> in Settings after step 3.</li>
+            <?php endif; ?>
+        </ol>
+        <?php if (!$canAutoSheet): ?>
+            <p style="margin:0.75rem 0 0;font-size:0.9rem">
+                <?php if (!$hasSa): ?>Upload the <strong>service account JSON</strong> in Settings.<?php endif; ?>
+                <?php if ($hasSa && !$hasDriveFolder): ?> Paste your shared <strong>Drive folder ID</strong> in Settings.<?php endif; ?>
+                <?php if ($hasSa && $hasDriveFolder && !$hasOauth): ?> <strong>Connect Google account</strong> in Settings so copies use your Gmail storage (required for auto-create).<?php endif; ?>
+            </p>
+        <?php endif; ?>
+    </div>
+    <?php if ($missingSheets > 0 && $canAutoSheet): ?>
+        <div class="alert alert--warning alert--visible" style="margin-bottom:1rem">
+            <strong><?= $missingSheets ?> event(s)</strong> have no Google Sheet yet. Click
+            <strong>Create <?= $missingSheets ?> Google Sheet(s)</strong> in the toolbar (may take a few minutes).
+        </div>
     <?php endif; ?>
 
     <div class="table-wrap">
