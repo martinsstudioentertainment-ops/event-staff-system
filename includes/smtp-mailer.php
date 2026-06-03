@@ -147,23 +147,10 @@ function sendSmtpMessage(array $config, string $to, string $subject, string $bod
         'X-Mailer: Event-Staff-System',
     ];
 
-    if ($htmlBody !== null && trim($htmlBody) !== '') {
-        $boundary = '=_' . bin2hex(random_bytes(12));
-        $headers[] = 'Content-Type: multipart/alternative; boundary="' . $boundary . '"';
-        $payloadBody = "--{$boundary}\r\n"
-            . "Content-Type: text/plain; charset=UTF-8\r\n"
-            . "Content-Transfer-Encoding: 8bit\r\n\r\n"
-            . smtpNormalizeBody($body) . "\r\n\r\n"
-            . "--{$boundary}\r\n"
-            . "Content-Type: text/html; charset=UTF-8\r\n"
-            . "Content-Transfer-Encoding: 8bit\r\n\r\n"
-            . smtpNormalizeBody($htmlBody) . "\r\n\r\n"
-            . "--{$boundary}--";
-    } else {
-        $headers[] = 'Content-Type: text/plain; charset=UTF-8';
-        $headers[] = 'Content-Transfer-Encoding: 8bit';
-        $payloadBody = smtpNormalizeBody($body);
-    }
+    $mime = buildEmailMimePayload($body, $htmlBody);
+    $headers[] = 'Content-Type: ' . $mime['content_type'];
+    $headers[] = 'Content-Transfer-Encoding: ' . $mime['transfer_encoding'];
+    $payloadBody = $mime['body'];
 
     $payload = implode("\r\n", $headers) . "\r\n\r\n" . $payloadBody;
     $payload = smtpDotStuff($payload);

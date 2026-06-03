@@ -10,6 +10,37 @@
 
 require_once __DIR__ . '/settings-repository.php';
 
+/**
+ * Normalize line endings for email bodies.
+ */
+function normalizeEmailLines(string $body): string
+{
+    return str_replace(["\r\n", "\r"], "\n", $body);
+}
+
+/**
+ * Build a single-part MIME body (HTML when available — avoids raw multipart on mobile).
+ *
+ * @return array{content_type: string, transfer_encoding: string, body: string}
+ */
+function buildEmailMimePayload(string $textBody, ?string $htmlBody): array
+{
+    $html = $htmlBody !== null ? trim($htmlBody) : '';
+    if ($html !== '') {
+        return [
+            'content_type'      => 'text/html; charset=UTF-8',
+            'transfer_encoding' => 'quoted-printable',
+            'body'              => quoted_printable_encode(normalizeEmailLines($html)),
+        ];
+    }
+
+    return [
+        'content_type'      => 'text/plain; charset=UTF-8',
+        'transfer_encoding' => '8bit',
+        'body'              => normalizeEmailLines($textBody),
+    ];
+}
+
 require_once __DIR__ . '/smtp-mailer.php';
 
 
@@ -164,33 +195,16 @@ function sendEmail(PDO $pdo, string $to, string $subject, string $body, ?string 
 
 
     $fromHeader = sprintf('"%s" <%s>', str_replace('"', '', $fromName), $fromEmail);
-
-    if ($htmlBody !== null && trim($htmlBody) !== '') {
-        $boundary = '=_' . bin2hex(random_bytes(12));
-        $headers = [
-            'MIME-Version: 1.0',
-            'From: ' . $fromHeader,
-            'Reply-To: ' . $fromEmail,
-            'X-Mailer: PHP/' . phpversion(),
-            'Content-Type: multipart/alternative; boundary="' . $boundary . '"',
-        ];
-        $message = "--{$boundary}\r\n"
-            . "Content-Type: text/plain; charset=UTF-8\r\n\r\n"
-            . $body . "\r\n\r\n"
-            . "--{$boundary}\r\n"
-            . "Content-Type: text/html; charset=UTF-8\r\n\r\n"
-            . $htmlBody . "\r\n\r\n"
-            . "--{$boundary}--";
-    } else {
-        $headers = [
-            'MIME-Version: 1.0',
-            'Content-type: text/plain; charset=UTF-8',
-            'From: ' . $fromHeader,
-            'Reply-To: ' . $fromEmail,
-            'X-Mailer: PHP/' . phpversion(),
-        ];
-        $message = $body;
-    }
+    $mime       = buildEmailMimePayload($body, $htmlBody);
+    $headers    = [
+        'MIME-Version: 1.0',
+        'From: ' . $fromHeader,
+        'Reply-To: ' . $fromEmail,
+        'X-Mailer: PHP/' . phpversion(),
+        'Content-Type: ' . $mime['content_type'],
+        'Content-Transfer-Encoding: ' . $mime['transfer_encoding'],
+    ];
+    $message = $mime['body'];
 
 
 
