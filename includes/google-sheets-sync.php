@@ -744,7 +744,8 @@ function googleSheetsValidateSheetCreateSetup(?PDO $pdo = null): array
     if ($templateId === null || $templateId === '') {
         return [
             'ok'      => false,
-            'message' => 'Add a Google Sheet named Event Staff Template inside your shared Drive folder (or paste its URL in Settings).',
+            'message' => 'Add a Google Sheet named Event Staff Template inside your shared Drive folder (or paste its URL in Settings).'
+                . googleSheetsTemplateMissingHint($serviceAccount, $pdo, $folderId),
         ];
     }
 
@@ -1555,6 +1556,68 @@ function googleSheetsRenameFirstTab(array $serviceAccount, string $spreadsheetId
 }
 
 /**
+ * @return list<array{id: string, name: string}>
+ */
+function googleDriveListSpreadsheetsInFolderToken(
+    string $token,
+    ?string $quotaProject,
+    string $folderId,
+    int $maxResults = 200
+): array {
+    $folderId = trim($folderId);
+    if ($folderId === '' || $token === '') {
+        return [];
+    }
+
+    $q         = sprintf(
+        "'%s' in parents and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false",
+        str_replace("'", "\\'", $folderId)
+    );
+    $collected = [];
+    $pageToken = null;
+
+    while (count($collected) < $maxResults) {
+        $pageSize = min(100, $maxResults - count($collected));
+        $url      = 'https://www.googleapis.com/drive/v3/files?'
+            . 'q=' . rawurlencode($q)
+            . '&fields=nextPageToken,files(id,name)&pageSize=' . $pageSize
+            . '&supportsAllDrives=true&includeItemsFromAllDrives=true';
+        if ($pageToken !== null && $pageToken !== '') {
+            $url .= '&pageToken=' . rawurlencode($pageToken);
+        }
+
+        $response = googleSheetsHttpRequest(
+            'GET',
+            $url,
+            googleSheetsAuthHeaders($token, $quotaProject, false)
+        );
+
+        if ($response['code'] !== 200) {
+            break;
+        }
+
+        $data = json_decode($response['body'], true);
+        foreach ($data['files'] ?? [] as $file) {
+            if (!is_array($file)) {
+                continue;
+            }
+            $id = (string) ($file['id'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+            $collected[] = ['id' => $id, 'name' => (string) ($file['name'] ?? '')];
+        }
+
+        $pageToken = is_array($data) ? (string) ($data['nextPageToken'] ?? '') : '';
+        if ($pageToken === '') {
+            break;
+        }
+    }
+
+    return $collected;
+}
+
+/**
  * @param array<string, mixed> $serviceAccount
  * @return list<array{id: string, name: string}>
  */
@@ -1574,36 +1637,63 @@ function googleDriveListSpreadsheetsInFolder(array $serviceAccount, string $fold
         return [];
     }
 
-    $q = sprintf("'%s' in parents and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false", str_replace("'", "\\'", $folderId));
-    $url = 'https://www.googleapis.com/drive/v3/files?'
-        . 'q=' . rawurlencode($q)
-        . '&fields=files(id,name)&pageSize=' . min(100, max(1, $maxResults))
-        . '&supportsAllDrives=true&includeItemsFromAllDrives=true';
+    return googleDriveListSpreadsheetsInFolderToken($token, $project, $folderId, $maxResults);
+}
 
-    $response = googleSheetsHttpRequest(
-        'GET',
-        $url,
-        googleSheetsAuthHeaders($token, $project, false)
-    );
+function googleDriveSpreadsheetNameIsTemplate(string $name): bool
+{
+    $lower = mb_strtolower(trim($name));
+    if ($lower === '' || str_ends_with($lower, ' — staff') || str_ends_with($lower, ' - staff')) {
+        return false;
+    }
 
-    if ($response['code'] !== 200) {
+    if ($lower === 'event staff template' || $lower === 'staff template') {
+        return true;
+    }
+
+    return str_contains($lower, 'event staff template')
+        || str_contains($lower, 'staff template');
+}
+
+/**
+ * List spreadsheets in folder using Gmail (if connected) and service account.
+ *
+ * @param array<string, mixed> $serviceAccount
+ * @return list<array{id: string, name: string}>
+ */
+function googleDriveListSpreadsheetsInFolderMerged(
+    array $serviceAccount,
+    string $folderId,
+    ?PDO $pdo = null,
+    int $maxResults = 250
+): array {
+    $pdo      = $pdo ?? getDB();
+    $folderId = trim($folderId);
+    if ($folderId === '') {
         return [];
     }
 
-    $data  = json_decode($response['body'], true);
-    $files = [];
-    foreach ($data['files'] ?? [] as $file) {
-        if (!is_array($file)) {
-            continue;
+    $byId  = [];
+    $merge = static function (array $files) use (&$byId): void {
+        foreach ($files as $file) {
+            $id = (string) ($file['id'] ?? '');
+            if ($id !== '') {
+                $byId[$id] = ['id' => $id, 'name' => (string) ($file['name'] ?? '')];
+            }
         }
-        $id = (string) ($file['id'] ?? '');
-        if ($id === '') {
-            continue;
-        }
-        $files[] = ['id' => $id, 'name' => (string) ($file['name'] ?? '')];
+    };
+
+    $userToken = googleDriveGetUserAccessToken($pdo);
+    if ($userToken !== '') {
+        $merge(googleDriveListSpreadsheetsInFolderToken($userToken, null, $folderId, $maxResults));
     }
 
-    return $files;
+    $merge(googleDriveListSpreadsheetsInFolder($serviceAccount, $folderId, $maxResults));
+
+    $out = array_values($byId);
+    usort($out, static fn (array $a, array $b): int => strcasecmp($a['name'], $b['name']));
+
+    return $out;
 }
 
 /**
@@ -1616,14 +1706,38 @@ function googleDriveResolveTemplateSpreadsheetId(array $serviceAccount, string $
         return $configured;
     }
 
-    foreach (googleDriveListSpreadsheetsInFolder($serviceAccount, $folderId, 50) as $file) {
-        $name = mb_strtolower(trim($file['name']));
-        if ($name === 'event staff template' || str_contains($name, 'event staff template')) {
+    foreach (googleDriveListSpreadsheetsInFolderMerged($serviceAccount, $folderId, $pdo) as $file) {
+        if (googleDriveSpreadsheetNameIsTemplate((string) ($file['name'] ?? ''))) {
             return $file['id'];
         }
     }
 
     return null;
+}
+
+/**
+ * @param array<string, mixed> $serviceAccount
+ */
+function googleSheetsTemplateMissingHint(array $serviceAccount, ?PDO $pdo, string $folderId): string
+{
+    $pdo      = $pdo ?? getDB();
+    $folderId = trim($folderId);
+    $files    = googleDriveListSpreadsheetsInFolderMerged($serviceAccount, $folderId, $pdo, 250);
+
+    if ($files === []) {
+        return ' The API sees no spreadsheets in that folder — create **Event Staff Template** inside the folder,'
+            . ' share the folder with your Gmail and event-staff-sheets@…iam.gserviceaccount.com (Editor), then retry.';
+    }
+
+    $names = array_map(static fn (array $f): string => (string) ($f['name'] ?? ''), $files);
+    $sample = implode(', ', array_slice($names, 0, 6));
+    if (count($names) > 6) {
+        $sample .= '…';
+    }
+
+    return ' Found ' . count($names) . ' spreadsheet(s) in the folder (e.g. ' . $sample
+        . ') but none named **Event Staff Template** or **Staff Template**.'
+        . ' Rename your template or paste its URL in Settings → Template sheet URL.';
 }
 
 /**
@@ -1954,22 +2068,15 @@ function listGoogleDriveSpreadsheetsForAdmin(PDO $pdo, int $maxResults = 100): a
         return [];
     }
 
-    $files = googleDriveListSpreadsheetsInFolder($serviceAccount, $folderId, $maxResults);
-    $out   = [];
-    foreach ($files as $file) {
+    $out = [];
+    foreach (googleDriveListSpreadsheetsInFolderMerged($serviceAccount, $folderId, $pdo, $maxResults) as $file) {
         $name = trim((string) ($file['name'] ?? ''));
         $id   = trim((string) ($file['id'] ?? ''));
-        if ($id === '' || $name === '') {
-            continue;
-        }
-        $lower = mb_strtolower($name);
-        if ($lower === 'event staff template' || str_contains($lower, 'event staff template')) {
+        if ($id === '' || $name === '' || googleDriveSpreadsheetNameIsTemplate($name)) {
             continue;
         }
         $out[] = ['id' => $id, 'name' => $name];
     }
-
-    usort($out, static fn (array $a, array $b): int => strcasecmp($a['name'], $b['name']));
 
     return $out;
 }

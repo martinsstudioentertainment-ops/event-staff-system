@@ -114,13 +114,31 @@ if ($folderId !== '' && ($token ?? '') !== '' && is_array($sa)) {
         $inspect['ok'] ? 'pass' : 'fail',
         h($inspect['summary']),
     ];
+    $folderFiles = googleDriveListSpreadsheetsInFolderMerged($sa, $folderId, $pdo, 250);
+    $rows[] = [
+        'Spreadsheets visible in folder',
+        $folderFiles !== [] ? 'pass' : 'fail',
+        $folderFiles !== []
+            ? (string) count($folderFiles) . ' file(s) listed via Gmail and/or service account'
+            : 'None — share folder with connected Gmail and service account (Editor)',
+    ];
+
     $templateId = googleDriveResolveTemplateSpreadsheetId($sa, $folderId, $pdo);
+    $templateName = '';
+    if ($templateId !== null && $templateId !== '') {
+        foreach ($folderFiles as $file) {
+            if (($file['id'] ?? '') === $templateId) {
+                $templateName = (string) ($file['name'] ?? '');
+                break;
+            }
+        }
+    }
     $rows[] = [
         'Template sheet for copy',
         $templateId !== null && $templateId !== '' ? 'pass' : 'fail',
         $templateId !== null && $templateId !== ''
-            ? 'Using template ID ' . h($templateId) . ' (avoids robot storage quota)'
-            : 'In folder “Event Staff Sheets”, create a blank Google Sheet named **Event Staff Template**',
+            ? 'Using “' . h($templateName !== '' ? $templateName : 'template') . '” (' . h($templateId) . ')'
+            : 'Create **Event Staff Template** or **Staff Template** in the folder, or paste template URL in Settings',
     ];
 }
 
