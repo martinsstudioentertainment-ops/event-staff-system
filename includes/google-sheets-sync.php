@@ -423,6 +423,36 @@ function googleSheetsSheetHasSyncHeaders(string $token, ?string $project, string
     return isset($firstRow[0]) && trim((string) $firstRow[0]) === 'Registration ID';
 }
 
+function googleSheetsSheetUsesLegacyPayrollHeaders(string $token, ?string $project, string $spreadsheetId, string $tabName): bool
+{
+    $range  = escapeGoogleSheetRangeTab($tabName) . '!A1:A1';
+    $values = googleSheetsReadRangeValues($token, $project, $spreadsheetId, $range);
+    $first  = trim((string) (($values[0] ?? [])[0] ?? ''));
+
+    return strcasecmp($first, 'Surname') === 0;
+}
+
+/**
+ * Row 1 must use sync headers (Registration ID, Status, Event, Role, then staff fields).
+ */
+function googleSheetsEnsureSyncHeaders(string $token, ?string $project, string $spreadsheetId, string $tabName): bool
+{
+    if (googleSheetsSheetHasSyncHeaders($token, $project, $spreadsheetId, $tabName)) {
+        return true;
+    }
+
+    $headers = getGoogleSheetsSyncHeaders();
+    $colEnd  = googleSheetsSyncColumnLetter(count($headers) - 1);
+    $range   = escapeGoogleSheetRangeTab($tabName) . '!A1:' . $colEnd . '1';
+    $ok      = googleSheetsWriteRangeValues($token, $project, $spreadsheetId, $range, [$headers]);
+
+    if ($ok) {
+        googleSheetsLog("Set sync header row on {$spreadsheetId} tab {$tabName}");
+    }
+
+    return $ok;
+}
+
 function googleSheetsFindRegistrationRowNumber(
     string $token,
     ?string $project,
@@ -468,14 +498,11 @@ function googleSheetsUpsertRegistrationRow(
     $tabName = trim($tabName) !== '' ? trim($tabName) : 'Registrations';
     $colEnd  = googleSheetsSyncColumnLetter(count($rowValues) - 1);
 
-    $rowsToWrite = [];
-    if (!googleSheetsSheetHasSyncHeaders($token, $project, $spreadsheetId, $tabName)) {
-        $first = googleSheetsReadRangeValues($token, $project, $spreadsheetId, escapeGoogleSheetRangeTab($tabName) . '!A1:A1');
-        if ($first === null || $first === [] || trim((string) ($first[0][0] ?? '')) === '') {
-            $rowsToWrite[] = getGoogleSheetsSyncHeaders();
-        }
+    if (!googleSheetsEnsureSyncHeaders($token, $project, $spreadsheetId, $tabName)) {
+        return false;
     }
 
+    $rowsToWrite = [];
     $existingRow = googleSheetsFindRegistrationRowNumber($token, $project, $spreadsheetId, $tabName, $registrationId);
     if ($existingRow !== null) {
         $range = escapeGoogleSheetRangeTab($tabName) . '!A' . $existingRow . ':' . $colEnd . $existingRow;
@@ -1485,7 +1512,7 @@ function googleSheetsCreateSpreadsheet(
 
     $viaDrive = googleDriveCreateSpreadsheet($serviceAccount, $title, $tabName, $parentFolderId);
     if ($viaDrive !== null) {
-        $headerRows = [getGoogleSheetsExportHeaders()];
+        $headerRows = [getGoogleSheetsSyncHeaders()];
         if (!googleSheetsAppendRows($serviceAccount, $viaDrive['spreadsheetId'], $viaDrive['tabName'], $headerRows)) {
             googleSheetsLog('Drive-created sheet ' . $viaDrive['spreadsheetId'] . ' but header row failed');
         }
