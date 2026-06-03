@@ -85,7 +85,7 @@ if ($action === 'link_from_folder') {
     } else {
         setAdminFlash(
             'warning',
-            'No events were linked. Name each file: Event name — date (e.g. Nick Cave — 10/06/2026). See google-sheets.log.'
+            'No events were linked. Name each file: date — event name — Staff (e.g. 10/06/2026 — Nick Cave — Staff). See google-sheets.log.'
         );
     }
 

@@ -273,19 +273,34 @@ function getGoogleSheetsSyncHeaders(): array
     );
 }
 
+/** Event column in sheets: date first, then name (matches spreadsheet file titles). */
+function formatGoogleSheetEventLabel(array $row): string
+{
+    require_once __DIR__ . '/events-repository.php';
+
+    $name = trim((string) ($row['event_name'] ?? ''));
+    $date = !empty($row['event_date'])
+        ? formatEventDateLabel((string) $row['event_date'])
+        : '';
+
+    if ($date !== '' && $name !== '') {
+        return $date . ' — ' . $name;
+    }
+
+    return $name !== '' ? $name : $date;
+}
+
 /**
  * @param array<string, mixed> $row
  * @return list<string|int>
  */
 function buildGoogleSheetsSyncRow(array $row): array
 {
-    require_once __DIR__ . '/events-repository.php';
-
     return array_merge(
         [
             (string) ($row['id'] ?? ''),
             formatStatusLabel((string) ($row['status'] ?? '')),
-            formatEventLabel($row),
+            formatGoogleSheetEventLabel($row),
             formatRoleLabel((string) ($row['staff_role'] ?? '')),
         ],
         buildEmployeeSpreadsheetRow($row)
@@ -757,7 +772,7 @@ function buildGoogleSheetsTitleForEvent(array $event): string
         $date = formatEventDateLabel((string) $event['event_date']);
     }
 
-    $title = $date !== '' ? $name . ' — ' . $date : $name;
+    $title = $date !== '' ? $date . ' — ' . $name . ' — Staff' : $name . ' — Staff';
     $title = preg_replace('/[\[\]\*\/\\\?\:]/', '', $title) ?? $title;
 
     return mb_substr(trim($title), 0, 100);
@@ -783,9 +798,16 @@ function buildGoogleSheetsTitleVariantsForEvent(array $event): array
     $variants = [buildGoogleSheetsTitleForEvent($event)];
 
     if ($dateLabel !== '') {
-        $variants[] = $name . ' - ' . $dateLabel;
         $variants[] = $dateLabel . ' — ' . $name;
+        $variants[] = $dateLabel . ' - ' . $name;
         $variants[] = $dateLabel . ' — ' . $name . ' — Staff';
+        $compactDate = str_replace('/', '', $dateLabel);
+        if ($compactDate !== $dateLabel) {
+            $variants[] = $compactDate . ' — ' . $name . ' — Staff';
+            $variants[] = $compactDate . ' — ' . $name;
+        }
+        $variants[] = $name . ' — ' . $dateLabel;
+        $variants[] = $name . ' - ' . $dateLabel;
     }
     if ($ymd !== '') {
         $variants[] = $name . ' — ' . $ymd;
