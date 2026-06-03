@@ -672,6 +672,142 @@ function getLastGoogleSheetsApiError(): string
     return (string) ($GLOBALS['_event_staff_google_sheets_last_error'] ?? '');
 }
 
+function getLastGoogleSheetsApiBody(): string
+{
+    return (string) ($GLOBALS['_event_staff_google_sheets_last_api_body'] ?? '');
+}
+
+function googleSheetsRememberApiFailure(string $logMessage, string $apiBody = ''): void
+{
+    if ($apiBody !== '') {
+        $GLOBALS['_event_staff_google_sheets_last_api_body'] = $apiBody;
+    }
+
+    googleSheetsLog($logMessage);
+}
+
+/**
+ * Pre-flight before auto-creating sheets (Gmail OAuth + folder + template).
+ *
+ * @return array{ok: bool, message: string}
+ */
+function googleSheetsValidateSheetCreateSetup(?PDO $pdo = null): array
+{
+    $pdo = $pdo ?? getDB();
+
+    if (!isGoogleServiceAccountConfigured()) {
+        return ['ok' => false, 'message' => 'Upload the service account JSON in Settings → Google Sheets.'];
+    }
+
+    $serviceAccount = loadGoogleServiceAccount();
+    if ($serviceAccount === null) {
+        return ['ok' => false, 'message' => 'Service account credentials missing.'];
+    }
+
+    if (getGoogleSheetsDriveParentFolderId($pdo) === '') {
+        return ['ok' => false, 'message' => 'Set the Drive folder ID in Settings → Google Sheets.'];
+    }
+
+    if (!function_exists('googleDriveOAuthConfigured') || !googleDriveOAuthConfigured($pdo)) {
+        return [
+            'ok'      => false,
+            'message' => 'Connect your Google account in Settings → Google Sheets (required). Service accounts cannot create new spreadsheets.',
+        ];
+    }
+
+    $userToken = googleDriveGetUserAccessToken($pdo);
+    if ($userToken === '') {
+        return [
+            'ok'      => false,
+            'message' => 'Gmail access token expired — open Settings → Google Sheets and click Connect Google account again.',
+        ];
+    }
+
+    $folderId = getGoogleSheetsDriveParentFolderId($pdo);
+    $folderCheck = googleDriveInspectParentFolderWithToken($userToken, null, $folderId);
+    if (!$folderCheck['ok']) {
+        return [
+            'ok'      => false,
+            'message' => 'Your connected Gmail cannot open the Drive folder: ' . $folderCheck['summary']
+                . ' In Drive, share the folder with the same Gmail you used for Connect Google account (Editor), not only the service account.',
+        ];
+    }
+
+    if (($folderCheck['mimeType'] ?? '') === 'application/vnd.google-apps.spreadsheet') {
+        return [
+            'ok'      => false,
+            'message' => 'Drive folder ID in Settings is a spreadsheet file, not a folder — open your Event Staff Sheets folder in Drive and paste the folders/… URL.',
+        ];
+    }
+
+    $templateId = googleDriveResolveTemplateSpreadsheetId($serviceAccount, $folderId, $pdo);
+    if ($templateId === null || $templateId === '') {
+        return [
+            'ok'      => false,
+            'message' => 'Add a Google Sheet named Event Staff Template inside your shared Drive folder (or paste its URL in Settings).',
+        ];
+    }
+
+    $templateCheck = googleDriveInspectParentFolderWithToken($userToken, null, $templateId);
+    if (!$templateCheck['ok']) {
+        return [
+            'ok'      => false,
+            'message' => 'Your Gmail cannot open Event Staff Template: ' . $templateCheck['summary']
+                . ' Open the folder in Drive while signed in as the connected Gmail and confirm the template file is visible.',
+        ];
+    }
+
+    return ['ok' => true, 'message' => ''];
+}
+
+/**
+ * @return array{ok: bool, name: string, mimeType: string, summary: string}
+ */
+function googleDriveInspectParentFolderWithToken(string $token, ?string $quotaProject, string $fileId): array
+{
+    $fileId = trim($fileId);
+    if ($fileId === '') {
+        return ['ok' => false, 'name' => '', 'mimeType' => '', 'summary' => 'ID is empty'];
+    }
+
+    if ($token === '') {
+        return ['ok' => false, 'name' => '', 'mimeType' => '', 'summary' => 'No access token'];
+    }
+
+    $url = 'https://www.googleapis.com/drive/v3/files/' . rawurlencode($fileId)
+        . '?fields=id,name,mimeType,capabilities&supportsAllDrives=true';
+
+    $response = googleSheetsHttpRequest(
+        'GET',
+        $url,
+        googleSheetsAuthHeaders($token, $quotaProject, false)
+    );
+
+    if ($response['code'] === 404) {
+        return [
+            'ok'       => false,
+            'name'     => '',
+            'mimeType' => '',
+            'summary'  => 'Not found or no access (404)',
+        ];
+    }
+
+    if ($response['code'] !== 200) {
+        return [
+            'ok'       => false,
+            'name'     => '',
+            'mimeType' => '',
+            'summary'  => 'HTTP ' . $response['code'] . ': ' . googleSheetsSummarizeApiError($response['body']),
+        ];
+    }
+
+    $data = json_decode($response['body'], true);
+    $name = is_array($data) ? (string) ($data['name'] ?? '') : '';
+    $mime = is_array($data) ? (string) ($data['mimeType'] ?? '') : '';
+
+    return ['ok' => true, 'name' => $name, 'mimeType' => $mime, 'summary' => $name !== '' ? $name : 'OK'];
+}
+
 /**
  * @param array<string, mixed> $serviceAccount
  */
@@ -975,8 +1111,22 @@ function googleSheetsCreatePermissionHint(?string $apiBody, ?string $projectId =
         return 'Reconnect Google account in Settings → Google Sheets (Connect Google account) so the app can copy your template.';
     }
 
+    if (str_contains($body, 'not found') || str_contains($body, '404')) {
+        return 'Folder or template not visible to your connected Gmail — share the Drive folder with that Gmail (Editor) and add Event Staff Template inside it.';
+    }
+
+    if (str_contains($body, 'caller does not have permission') || str_contains($body, 'forbidden')) {
+        return 'Permission denied — share the Drive folder and Event Staff Template with the Gmail you used in Connect Google account (Editor). Reconnect Google account after sharing.';
+    }
+
+    $summary = googleSheetsSummarizeApiError((string) $apiBody);
+    if ($summary !== '' && $summary !== trim((string) $apiBody)) {
+        return $summary
+            . ' — If this persists: Settings → Connect Google account; confirm folder + template are shared with that Gmail; run Google Sheets diagnostic.';
+    }
+
     return 'In Google Cloud project “' . $project
-        . '”: confirm Sheets + Drive APIs are enabled, link billing, IAM → grant this service account “Service Usage Consumer” or Editor, wait 10 min, re-upload JSON key, retry.';
+        . '”: enable Sheets + Drive APIs and billing. For auto-create, Connect Google account in Settings (Gmail copies the template — the service account alone cannot create files).';
 }
 
 /**
@@ -1491,24 +1641,21 @@ function googleDriveCopySpreadsheetFromTemplate(
 ): ?array {
     $project   = (string) ($serviceAccount['project_id'] ?? '');
     $userToken = googleDriveGetUserAccessToken();
-    $saToken   = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/drive']);
     $oauthOn   = function_exists('googleDriveOAuthConfigured') && googleDriveOAuthConfigured();
 
     $tokenPlan = [];
     if ($userToken !== '') {
         $tokenPlan[] = ['token' => $userToken, 'label' => 'Gmail OAuth', 'quotaProject' => null];
     } elseif ($oauthOn) {
-        googleSheetsLog(
+        googleSheetsRememberApiFailure(
             'Drive copy: Gmail is connected but no user access token — open Settings → Google Sheets → Connect Google account again.'
         );
 
         return null;
-    }
-    if (!$oauthOn && $saToken !== '') {
-        $tokenPlan[] = ['token' => $saToken, 'label' => 'service account', 'quotaProject' => $project];
-    }
-    if ($tokenPlan === []) {
-        googleSheetsLog('Drive copy: no access token (connect Google in Settings or check service account JSON).');
+    } else {
+        googleSheetsRememberApiFailure(
+            'Drive copy: Connect your Google account in Settings → Google Sheets. Service accounts cannot create new spreadsheets (no Drive storage).'
+        );
 
         return null;
     }
@@ -1537,19 +1684,20 @@ function googleDriveCopySpreadsheetFromTemplate(
                 break 2;
             }
         }
-        googleSheetsLog(
-            'Drive copy (' . $plan['label'] . ') failed: HTTP ' . $response['code'] . ' — ' . $response['body']
+        googleSheetsRememberApiFailure(
+            'Drive copy (' . $plan['label'] . ') failed: HTTP ' . $response['code'] . ' — '
+            . googleSheetsSummarizeApiError($response['body']),
+            $response['body']
         );
     }
 
     if ($response['code'] < 200 || $response['code'] >= 300) {
         $lastLabel = $tokenPlan[count($tokenPlan) - 1]['label'] ?? 'unknown';
-        googleSheetsLog(
-            'Drive copy template failed (' . $lastLabel . '): HTTP ' . $response['code'] . ' — ' . $response['body']
-            . ' | ' . googleSheetsCreatePermissionHint($response['body'], $project)
-            . ($userToken === '' && !$oauthOn
-                ? ' | Connect your Gmail in Settings → Google Sheets (OAuth) so copies use your 15 GB storage.'
-                : ($oauthOn ? ' | Reconnect Google account if you connected before today (Drive scope was updated).' : ''))
+        googleSheetsRememberApiFailure(
+            'Drive copy template failed (' . $lastLabel . '): HTTP ' . $response['code'] . ' — '
+            . googleSheetsSummarizeApiError($response['body'])
+            . ' | ' . googleSheetsCreatePermissionHint($response['body'], $project),
+            $response['body']
         );
 
         return null;
@@ -1610,7 +1758,7 @@ function googleDriveCreateSpreadsheet(
         );
     }
 
-    googleSheetsLog(
+    googleSheetsRememberApiFailure(
         'No template sheet in folder — add a blank Google Sheet named "Event Staff Template" inside your shared folder.'
     );
 
@@ -1631,14 +1779,17 @@ function googleSheetsCreateSpreadsheet(
     $parentFolderId = $parentFolderId ?? getGoogleSheetsDriveParentFolderId();
 
     if ($parentFolderId === '') {
-        googleSheetsLog('Cannot create sheet: google_sheets_drive_folder_id is not set (share a Drive folder with the service account).');
+        googleSheetsRememberApiFailure(
+            'Cannot create sheet: google_sheets_drive_folder_id is not set (share a Drive folder with your Gmail and the service account).'
+        );
 
         return null;
     }
 
-    $inspect = googleDriveInspectParentFolder($serviceAccount, $parentFolderId);
-    if (!$inspect['ok']) {
-        googleSheetsLog('Drive parent folder check failed: ' . $inspect['summary']);
+    $pdo = getDB();
+    $preflight = googleSheetsValidateSheetCreateSetup($pdo);
+    if (!$preflight['ok']) {
+        googleSheetsRememberApiFailure('Create preflight failed: ' . $preflight['message']);
 
         return null;
     }
@@ -2065,9 +2216,14 @@ function createGoogleSheetForEvent(PDO $pdo, int $eventId): array
 
     if ($created === null) {
         $projectId = is_array($serviceAccount) ? (string) ($serviceAccount['project_id'] ?? '') : '';
-        $hint      = googleSheetsCreatePermissionHint(getLastGoogleSheetsApiError(), $projectId !== '' ? $projectId : null);
+        $apiBody   = getLastGoogleSheetsApiBody();
+        $hint      = googleSheetsCreatePermissionHint($apiBody !== '' ? $apiBody : getLastGoogleSheetsApiError(), $projectId !== '' ? $projectId : null);
+        $detail    = getLastGoogleSheetsApiError();
+        if (str_starts_with($detail, 'Create preflight failed:')) {
+            return ['ok' => false, 'message' => substr($detail, strlen('Create preflight failed: '))];
+        }
 
-        return ['ok' => false, 'message' => 'Google API could not create the spreadsheet. ' . $hint];
+        return ['ok' => false, 'message' => $hint !== '' ? $hint : ('Google API could not create the spreadsheet. ' . $detail)];
     }
 
     $shareEmail = trim((string) getSetting($pdo, 'google_sheets_share_with_email', ''));
@@ -2102,6 +2258,13 @@ function bulkCreateGoogleSheetsForEvents(PDO $pdo, bool $onlyMissing = true, ?ar
     ensureGoogleSheetsSchema($pdo);
 
     $stats = ['created' => 0, 'skipped' => 0, 'failed' => 0, 'errors' => []];
+
+    $preflight = googleSheetsValidateSheetCreateSetup($pdo);
+    if (!$preflight['ok']) {
+        $stats['errors'][] = $preflight['message'];
+
+        return $stats;
+    }
 
     if (!isGoogleServiceAccountConfigured()) {
         $stats['errors'][] = 'Upload the service account JSON in Settings → Google Sheets.';

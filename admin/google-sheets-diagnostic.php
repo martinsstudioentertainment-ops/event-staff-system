@@ -101,7 +101,7 @@ $rows[] = [
 if ($folderId !== '' && ($token ?? '') !== '' && is_array($sa)) {
     $inspect = googleDriveInspectParentFolder($sa, $folderId);
     $rows[] = [
-        'Shared parent folder access',
+        'Shared parent folder (service account)',
         $inspect['ok'] ? 'pass' : 'fail',
         h($inspect['summary']),
     ];
@@ -114,6 +114,33 @@ if ($folderId !== '' && ($token ?? '') !== '' && is_array($sa)) {
             : 'In folder “Event Staff Sheets”, create a blank Google Sheet named **Event Staff Template**',
     ];
 }
+
+$userTokenDiag = $oauthOk ? googleDriveGetUserAccessToken($pdo) : '';
+if ($folderId !== '' && $userTokenDiag !== '') {
+    $gmailFolder = googleDriveInspectParentFolderWithToken($userTokenDiag, null, $folderId);
+    $rows[] = [
+        'Drive folder visible to connected Gmail',
+        $gmailFolder['ok'] ? 'pass' : 'fail',
+        $gmailFolder['ok']
+            ? h($gmailFolder['name'])
+            : h($gmailFolder['summary'] . ' — share the folder with the Gmail you used for Connect Google account'),
+    ];
+    if (isset($templateId) && $templateId !== null && $templateId !== '') {
+        $gmailTemplate = googleDriveInspectParentFolderWithToken($userTokenDiag, null, $templateId);
+        $rows[] = [
+            'Template visible to connected Gmail',
+            $gmailTemplate['ok'] ? 'pass' : 'fail',
+            $gmailTemplate['ok'] ? h($gmailTemplate['name']) : h($gmailTemplate['summary']),
+        ];
+    }
+}
+
+$createPreflight = googleSheetsValidateSheetCreateSetup($pdo);
+$rows[] = [
+    'Ready to auto-create sheets',
+    $createPreflight['ok'] ? 'pass' : 'fail',
+    $createPreflight['ok'] ? 'Gmail, folder, and template checks passed' : h($createPreflight['message']),
+];
 
 $ownedCount = 0;
 if (($token ?? '') !== '' && is_array($sa)) {

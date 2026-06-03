@@ -366,7 +366,7 @@ if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
         <p class="form-hint">
             Service account:
             <?php if ($saEmail !== ''): ?>
-                <strong><?= h($saEmail) ?></strong> — owns auto-created sheets; you only need manual sharing if you paste sheet URLs yourself.
+                <strong><?= h($saEmail) ?></strong> — used for API sync; new sheets are copied with your connected Gmail into the shared folder.
             <?php else: ?>
                 <strong>Not uploaded</strong> — upload JSON from Google Cloud Console below.
             <?php endif; ?>
