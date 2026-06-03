@@ -75,12 +75,16 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                     <button type="submit" class="btn btn--secondary">Create <?= (int) $sheetStatus['missing'] ?> Google Sheet(s)</button>
                 </form>
             <?php endif; ?>
-            <?php if ($sheetStatus['total'] > $sheetStatus['missing'] && isGoogleSheetsSyncEnabled($pdo)): ?>
-                <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Push all registrations to their linked Google Sheets?');">
-                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
-                    <input type="hidden" name="action" value="sync_registrations">
-                    <button type="submit" class="btn btn--secondary">Sync registrations to sheets</button>
-                </form>
+            <?php if ($syncEnabled): ?>
+                <?php if ($linkedSheets > 0): ?>
+                    <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Push all registrations to their linked Google Sheets?');">
+                        <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                        <input type="hidden" name="action" value="sync_registrations">
+                        <button type="submit" class="btn btn--secondary">Sync registrations to sheets</button>
+                    </form>
+                <?php else: ?>
+                    <span class="btn btn--secondary" style="opacity:0.55;cursor:not-allowed" title="Create Google Sheet(s) for events first">Sync registrations to sheets</span>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>
