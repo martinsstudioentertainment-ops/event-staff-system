@@ -6,9 +6,8 @@
  *        php database/sync-live-events.php --dry-run
  */
 return [
-    // Optional: set per event or here only if staff truly work for that contractor on site.
-    // Leave empty so emails and the form do not imply your portal is that company.
-    'main_security_company' => '',
+    // Listed contractor shown on the registration form and emails for all summer events below.
+    'main_security_company' => '1Plus Security',
     'events' => [
     ['date' => '2026-06-10', 'name' => 'Nick Cave', 'location' => 'Malahide', 'staff_needed' => 94, 'times' => 'TBC'],
     ['date' => '2026-06-13', 'name' => 'Kingfishr', 'location' => 'Malahide', 'staff_needed' => 94, 'times' => 'TBC'],
