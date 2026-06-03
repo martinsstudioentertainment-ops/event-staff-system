@@ -263,13 +263,23 @@ function buildGoogleSheetsRegistrationRow(array $row): array
 }
 
 /**
+ * Column index (0-based) where Registration ID is stored — after payroll columns.
+ */
+function googleSheetsRegistrationIdColumnIndex(): int
+{
+    return count(getEmployeeSpreadsheetHeaders());
+}
+
+/**
+ * Staff/payroll columns first (A–J), then admin columns — matches Event Staff Template.
+ *
  * @return list<string>
  */
 function getGoogleSheetsSyncHeaders(): array
 {
     return array_merge(
-        ['Registration ID', 'Status', 'Event', 'Role'],
-        getEmployeeSpreadsheetHeaders()
+        getEmployeeSpreadsheetHeaders(),
+        ['Registration ID', 'Status', 'Event date', 'Event name', 'Role']
     );
 }
 
@@ -296,14 +306,22 @@ function formatGoogleSheetEventLabel(array $row): string
  */
 function buildGoogleSheetsSyncRow(array $row): array
 {
+    require_once __DIR__ . '/events-repository.php';
+
+    $eventDate = !empty($row['event_date'])
+        ? formatEventDateLabel((string) $row['event_date'])
+        : '';
+    $eventName = trim((string) ($row['event_name'] ?? ''));
+
     return array_merge(
+        buildEmployeeSpreadsheetRow($row),
         [
             (string) ($row['id'] ?? ''),
             formatStatusLabel((string) ($row['status'] ?? '')),
-            formatGoogleSheetEventLabel($row),
+            $eventDate,
+            $eventName,
             formatRoleLabel((string) ($row['staff_role'] ?? '')),
-        ],
-        buildEmployeeSpreadsheetRow($row)
+        ]
     );
 }
 
@@ -431,11 +449,20 @@ function googleSheetsSyncColumnLetter(int $zeroBasedIndex): string
 
 function googleSheetsSheetHasSyncHeaders(string $token, ?string $project, string $spreadsheetId, string $tabName): bool
 {
-    $range    = escapeGoogleSheetRangeTab($tabName) . '!A1:D1';
-    $values   = googleSheetsReadRangeValues($token, $project, $spreadsheetId, $range);
-    $firstRow = $values[0] ?? [];
+    $range  = escapeGoogleSheetRangeTab($tabName) . '!A1:A1';
+    $values = googleSheetsReadRangeValues($token, $project, $spreadsheetId, $range);
+    $a1     = trim((string) (($values[0] ?? [])[0] ?? ''));
 
-    return isset($firstRow[0]) && trim((string) $firstRow[0]) === 'Registration ID';
+    if (strcasecmp($a1, 'Surname') !== 0) {
+        return false;
+    }
+
+    $idCol   = googleSheetsSyncColumnLetter(googleSheetsRegistrationIdColumnIndex());
+    $idRange = escapeGoogleSheetRangeTab($tabName) . '!' . $idCol . '1:' . $idCol . '1';
+    $idRow   = googleSheetsReadRangeValues($token, $project, $spreadsheetId, $idRange);
+    $idHeader = trim((string) (($idRow[0] ?? [])[0] ?? ''));
+
+    return strcasecmp($idHeader, 'Registration ID') === 0;
 }
 
 function googleSheetsSheetUsesLegacyPayrollHeaders(string $token, ?string $project, string $spreadsheetId, string $tabName): bool
@@ -448,10 +475,13 @@ function googleSheetsSheetUsesLegacyPayrollHeaders(string $token, ?string $proje
 }
 
 /**
- * Row 1 must use sync headers (Registration ID, Status, Event, Role, then staff fields).
+ * Row 1: payroll columns then Registration ID, Status, Event date, Event name, Role.
  */
 function googleSheetsEnsureSyncHeaders(string $token, ?string $project, string $spreadsheetId, string $tabName): bool
 {
+    $needsRepair = googleSheetsSheetUsesLegacyPayrollHeaders($token, $project, $spreadsheetId, $tabName)
+        && !googleSheetsSheetHasSyncHeaders($token, $project, $spreadsheetId, $tabName);
+
     if (googleSheetsSheetHasSyncHeaders($token, $project, $spreadsheetId, $tabName)) {
         return true;
     }
@@ -463,9 +493,62 @@ function googleSheetsEnsureSyncHeaders(string $token, ?string $project, string $
 
     if ($ok) {
         googleSheetsLog("Set sync header row on {$spreadsheetId} tab {$tabName}");
+        if ($needsRepair) {
+            googleSheetsRepairMisalignedRegistrationRows($token, $project, $spreadsheetId, $tabName);
+        }
     }
 
     return $ok;
+}
+
+/**
+ * Fix rows saved under old headers (ID in column A instead of column K).
+ */
+function googleSheetsRepairMisalignedRegistrationRows(
+    string $token,
+    ?string $project,
+    string $spreadsheetId,
+    string $tabName
+): int {
+    $pdo = getDB();
+    $range  = escapeGoogleSheetRangeTab($tabName) . '!A2:O500';
+    $values = googleSheetsReadRangeValues($token, $project, $spreadsheetId, $range);
+    if ($values === null || $values === []) {
+        return 0;
+    }
+
+    $headers   = getGoogleSheetsSyncHeaders();
+    $colEnd    = googleSheetsSyncColumnLetter(count($headers) - 1);
+    $repaired  = 0;
+
+    foreach ($values as $index => $cells) {
+        $regId = (int) trim((string) ($cells[0] ?? ''));
+        if ($regId < 1) {
+            continue;
+        }
+
+        $statusGuess = strtolower(trim((string) ($cells[1] ?? '')));
+        if (!in_array($statusGuess, ['pending', 'approved', 'rejected'], true)) {
+            continue;
+        }
+
+        $row = getStaffRegistrationById($pdo, $regId);
+        if ($row === null) {
+            continue;
+        }
+
+        $sheetRow = $index + 2;
+        $rowRange = escapeGoogleSheetRangeTab($tabName) . '!A' . $sheetRow . ':' . $colEnd . $sheetRow;
+        if (googleSheetsWriteRangeValues($token, $project, $spreadsheetId, $rowRange, [buildGoogleSheetsSyncRow($row)])) {
+            $repaired++;
+        }
+    }
+
+    if ($repaired > 0) {
+        googleSheetsLog("Repaired {$repaired} misaligned row(s) on {$spreadsheetId}");
+    }
+
+    return $repaired;
 }
 
 function googleSheetsFindRegistrationRowNumber(
@@ -479,7 +562,8 @@ function googleSheetsFindRegistrationRowNumber(
         return null;
     }
 
-    $range  = escapeGoogleSheetRangeTab($tabName) . '!A:A';
+    $idCol  = googleSheetsSyncColumnLetter(googleSheetsRegistrationIdColumnIndex());
+    $range  = escapeGoogleSheetRangeTab($tabName) . '!' . $idCol . ':' . $idCol;
     $values = googleSheetsReadRangeValues($token, $project, $spreadsheetId, $range);
     if ($values === null) {
         return null;
@@ -492,6 +576,20 @@ function googleSheetsFindRegistrationRowNumber(
         }
         if (trim((string) ($row[0] ?? '')) === $needle) {
             return $index + 1;
+        }
+    }
+
+    // Legacy rows: registration ID was written in column A before headers were fixed.
+    $legacy = escapeGoogleSheetRangeTab($tabName) . '!A:A';
+    $legacyValues = googleSheetsReadRangeValues($token, $project, $spreadsheetId, $legacy);
+    if ($legacyValues !== null) {
+        foreach ($legacyValues as $index => $row) {
+            if ($index === 0) {
+                continue;
+            }
+            if (trim((string) ($row[0] ?? '')) === $needle) {
+                return $index + 1;
+            }
         }
     }
 
