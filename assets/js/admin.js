@@ -241,9 +241,14 @@
 
             var submitter = event.submitter;
             var action = submitter && submitter.value ? submitter.value : '';
-            var message = action === 'unlink_selected'
-                ? 'Unlink ' + selected + ' selected event(s) from Google Sheets? Files in Drive are not deleted.'
-                : 'Link ' + selected + ' selected event(s) by matching file names in your Drive folder?';
+            var message;
+            if (action === 'unlink_selected') {
+                message = 'Unlink ' + selected + ' selected event(s) from Google Sheets? Files in Drive are not deleted.';
+            } else if (action === 'create_selected') {
+                message = 'Create new Google Sheet(s) for ' + selected + ' selected event(s)? Events that still have a link are skipped — unlink them first.';
+            } else {
+                message = 'Link ' + selected + ' selected event(s) by matching file names in your Drive folder?';
+            }
             if (!window.confirm(message)) {
                 event.preventDefault();
             }

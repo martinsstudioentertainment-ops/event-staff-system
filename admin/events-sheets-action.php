@@ -221,6 +221,42 @@ if ($action === 'sync_registrations') {
     exit;
 }
 
+if ($action === 'create_selected') {
+    @set_time_limit(600);
+
+    $eventIds = normalizeBulkEventIds($_POST['event_ids'] ?? []);
+    $stats    = bulkCreateGoogleSheetsForEvents($pdo, true, $eventIds);
+
+    logAdminAudit(
+        $pdo,
+        'bulk_event_sheets_create',
+        'system',
+        null,
+        "selected create: {$stats['created']}, skipped {$stats['skipped']}, failed {$stats['failed']}"
+    );
+
+    if ($stats['errors'] !== [] && str_contains($stats['errors'][0], 'Select at least')) {
+        setAdminFlash('error', $stats['errors'][0]);
+    } elseif ($stats['created'] > 0 && $stats['failed'] === 0) {
+        $msg = "Created {$stats['created']} Google Sheet(s) for selected events.";
+        if ($stats['skipped'] > 0) {
+            $msg .= " {$stats['skipped']} already had a sheet — unlink those first if you want new files.";
+        }
+        setAdminFlash('success', $msg);
+    } elseif ($stats['created'] > 0) {
+        $hint = implode('; ', array_slice($stats['errors'], 0, 3));
+        setAdminFlash('warning', "Created {$stats['created']} sheet(s); {$stats['failed']} failed. {$hint}");
+    } elseif ($stats['skipped'] > 0 && $stats['failed'] === 0) {
+        setAdminFlash('warning', 'Selected events already have sheets linked. Unlink them first, then create again.');
+    } else {
+        $hint = $stats['errors'] !== [] ? implode('; ', array_slice($stats['errors'], 0, 3)) : 'Check storage/logs/google-sheets.log';
+        setAdminFlash('error', 'No sheets were created. ' . $hint);
+    }
+
+    header('Location: events.php');
+    exit;
+}
+
 if ($action !== 'create_all') {
     setAdminFlash('error', 'Unknown action.');
     header('Location: events.php');

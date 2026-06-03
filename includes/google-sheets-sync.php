@@ -2094,9 +2094,10 @@ function createGoogleSheetForEvent(PDO $pdo, int $eventId): array
 }
 
 /**
+ * @param list<int>|null $eventIdsOnly When set, only these event IDs are processed.
  * @return array{created: int, skipped: int, failed: int, errors: list<string>}
  */
-function bulkCreateGoogleSheetsForEvents(PDO $pdo, bool $onlyMissing = true): array
+function bulkCreateGoogleSheetsForEvents(PDO $pdo, bool $onlyMissing = true, ?array $eventIdsOnly = null): array
 {
     ensureGoogleSheetsSchema($pdo);
 
@@ -2108,8 +2109,15 @@ function bulkCreateGoogleSheetsForEvents(PDO $pdo, bool $onlyMissing = true): ar
         return $stats;
     }
 
+    $onlySet = $eventIdsOnly !== null ? array_fill_keys(normalizeBulkEventIds($eventIdsOnly), true) : null;
+    if ($onlySet !== null && $onlySet === []) {
+        $stats['errors'][] = 'Select at least one event.';
+
+        return $stats;
+    }
+
     $sql = 'SELECT id FROM events';
-    if ($onlyMissing) {
+    if ($onlyMissing && $onlySet === null) {
         $sql .= " WHERE google_sheet_url IS NULL OR TRIM(google_sheet_url) = ''";
     }
     $sql .= ' ORDER BY event_date ASC, name ASC';
@@ -2122,6 +2130,10 @@ function bulkCreateGoogleSheetsForEvents(PDO $pdo, bool $onlyMissing = true): ar
     foreach ($ids as $rawId) {
         $eventId = (int) $rawId;
         if ($eventId < 1) {
+            continue;
+        }
+
+        if ($onlySet !== null && !isset($onlySet[$eventId])) {
             continue;
         }
 

@@ -108,7 +108,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <ol style="margin:0 0 0 1.25rem;padding:0">
             <li><strong>Import roster</strong> — <a href="import-roster.php">Import master roster</a> → <em>Run import now</em> (loads 32 events + listed contractor from <code>live-events-2026.php</code>). Do not use <code>register.olasentra.com/import-summer-roster.php</code> (often 404).</li>
             <li><strong>Google Sheets setup</strong> — <a href="settings-production.php#google-sheets">Settings → Google Sheets</a>: service account JSON, Drive folder ID, <em>Connect Google account</em> (Gmail), enable <em>live sync</em>. Optional: <a href="google-sheets-diagnostic.php">Run diagnostic</a>.</li>
-            <li><strong>Link sheets</strong> — If files are already in your Drive folder, click <strong>Link sheets from Drive folder</strong>. Otherwise use <strong>Create <?= $missingSheets ?> Google Sheet(s)</strong>. Status: <strong><?= $linkedSheets ?> linked</strong>, <strong><?= $missingSheets ?> not linked in admin</strong>.</li>
+            <li><strong>Link sheets</strong> — Existing files: <strong>Link sheets from Drive folder</strong>. New files: tick events → <strong>Create sheets for selected</strong>, or <strong>Create <?= $missingSheets ?> Google Sheet(s)</strong> for all unlinked. Status: <strong><?= $linkedSheets ?> linked</strong>, <strong><?= $missingSheets ?> not linked</strong>.</li>
             <?php if ($syncEnabled && $linkedSheets > 0): ?>
                 <li><strong>Sync staff rows</strong> — After sheets exist, click <strong>Sync registrations to sheets</strong> (or approve staff — each approval updates the sheet).</li>
             <?php elseif ($syncEnabled): ?>
@@ -132,17 +132,33 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         </div>
     <?php endif; ?>
 
+    <?php if ($canAutoSheet): ?>
+        <div class="alert alert--info alert--visible" style="margin-bottom:1rem">
+            <p style="margin:0 0 0.35rem"><strong>Start fresh (delete old sheets and recreate)</strong></p>
+            <ol style="margin:0 0 0 1.25rem;padding:0;font-size:0.9rem">
+                <li>In Google Drive, delete the old event spreadsheets in your shared folder (or move them to trash).</li>
+                <li>On this page, tick the events you want → <strong>Unlink selected</strong> (or <strong>Unlink all sheets</strong>).</li>
+                <li>Tick the same events → <strong>Create sheets for selected</strong> (you do not need all 32 at once).</li>
+                <li><strong>Sync registrations to sheets</strong> when ready.</li>
+            </ol>
+            <p style="margin:0.5rem 0 0;font-size:0.85rem">Admin unlink does not delete Drive files — delete them in Drive yourself. Sheets created with your Gmail use your storage; <a href="google-sheets-diagnostic.php">Diagnostic</a> can purge sheets owned by the service account only.</p>
+        </div>
+    <?php endif; ?>
+
     <?php if ($showSheetBulk): ?>
         <form method="post" action="events-sheets-action.php" class="bulk-toolbar" id="events-sheets-bulk-form">
             <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
             <span class="bulk-toolbar__label"><span id="events-sheet-selected-count">0</span> selected</span>
+            <?php if ($canAutoSheet): ?>
+                <button type="submit" name="action" value="create_selected" class="btn btn--small btn--primary">Create sheets for selected</button>
+            <?php endif; ?>
             <?php if ($canAutoSheet && $driveSheets !== []): ?>
-                <button type="submit" name="action" value="link_selected" class="btn btn--small btn--primary">Link selected from folder</button>
+                <button type="submit" name="action" value="link_selected" class="btn btn--small btn--secondary">Link selected from folder</button>
             <?php endif; ?>
             <button type="submit" name="action" value="unlink_selected" class="btn btn--small btn--secondary">Unlink selected</button>
         </form>
         <p class="form-hint" style="margin:-0.5rem 0 1rem">
-            Tick events below, then link by file name or unlink in bulk.
+            Tick events below — create new sheets for some events only, link existing files, or unlink.
             <?php if ($canAutoSheet && $driveSheets !== []): ?>
                 Or use <strong>Pick Google Sheet</strong> on each row to choose a file from your Drive folder.
             <?php endif; ?>
