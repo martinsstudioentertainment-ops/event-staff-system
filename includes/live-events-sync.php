@@ -206,6 +206,51 @@ function parseLiveEventTimes(string $times): ?array
 }
 
 /**
+ * Force listed contractor onto every event row in the master roster (by date + name).
+ *
+ * @param list<array<string, mixed>> $rows
+ */
+function applyMasterRosterContractorToEvents(PDO $pdo, array $rows, string $company): int
+{
+    ensureEventMainSecuritySchema($pdo);
+    $company = trim($company);
+    if ($company === '') {
+        return 0;
+    }
+
+    $stmt = $pdo->prepare(
+        'UPDATE events
+         SET main_security_company = :company
+         WHERE event_date = :event_date
+           AND LOWER(TRIM(name)) = LOWER(TRIM(:name))'
+    );
+
+    $filled = 0;
+    foreach ($rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $date = trim((string) ($row['date'] ?? ''));
+        $name = trim((string) ($row['name'] ?? ''));
+        if ($date === '' || $name === '') {
+            continue;
+        }
+        $employer = trim((string) ($row['main_security_company'] ?? $company));
+        if ($employer === '') {
+            $employer = $company;
+        }
+        $stmt->execute([
+            'company'    => $employer,
+            'event_date' => $date,
+            'name'       => $name,
+        ]);
+        $filled += $stmt->rowCount();
+    }
+
+    return $filled;
+}
+
+/**
  * Import master roster: date, event name, location, staff needed, est times, working for.
  *
  * @return array{
@@ -376,17 +421,9 @@ function syncLiveEventsFromMasterFile(PDO $pdo, bool $dryRun = false, ?string $d
         }
 
         if ($mainSecurity !== '') {
-            $fillEmployer = $pdo->prepare(
-                "UPDATE events
-                 SET main_security_company = :company
-                 WHERE is_active = 1
-                   AND event_date >= CURDATE()
-                   AND (main_security_company IS NULL OR TRIM(main_security_company) = '')"
-            );
-            $fillEmployer->execute(['company' => $mainSecurity]);
-            $filled = $fillEmployer->rowCount();
+            $filled = applyMasterRosterContractorToEvents($pdo, $rows, $mainSecurity);
             if ($filled > 0) {
-                $messages[] = "Set on-site security company on {$filled} upcoming event(s): {$mainSecurity}.";
+                $messages[] = "Set listed contractor on {$filled} roster event(s): {$mainSecurity}.";
             }
         }
     }

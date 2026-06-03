@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/venues-repository.php';
 require_once __DIR__ . '/../includes/google-sheets-sync.php';
+require_once __DIR__ . '/../includes/live-events-sync.php';
 
 requireAdminCapability('events');
 
@@ -13,6 +14,21 @@ $flash       = getAdminFlash();
 $sheetStatus = countEventsGoogleSheetStatus($pdo);
 $canAutoSheet = isGoogleServiceAccountConfigured();
 
+$masterContractor     = '';
+$eventsMissingCompany = 0;
+if (is_file(getLiveEventsMasterFilePath())) {
+    try {
+        $masterContractor = trim((string) (loadLiveEventsMasterData()['main_security_company'] ?? ''));
+    } catch (Throwable $e) {
+        $masterContractor = '';
+    }
+}
+foreach ($events as $event) {
+    if (formatEventMainSecurityLabel($event) === '') {
+        $eventsMissingCompany++;
+    }
+}
+
 $pageTitle  = 'Event Management';
 $activePage = 'events';
 
@@ -21,6 +37,15 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
 <?php if ($flash): ?>
     <div class="alert alert--<?= h($flash['type']) ?> alert--visible"><?= h($flash['message']) ?></div>
+<?php endif; ?>
+
+<?php if ($masterContractor !== '' && $eventsMissingCompany > 0): ?>
+    <div class="alert alert--warning alert--visible">
+        <strong><?= (int) $eventsMissingCompany ?> event(s)</strong> still have no listed contractor.
+        The master roster expects <strong><?= h($masterContractor) ?></strong>.
+        Open <a href="import-roster.php"><strong>Import master roster</strong></a> and click <strong>Run import now</strong>
+        (or use <strong>Import (quick)</strong> above) to apply it to all 32 events.
+    </div>
 <?php endif; ?>
 
 <section class="card">
