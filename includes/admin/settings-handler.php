@@ -245,6 +245,17 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
             $oauthClientSecret = trim(getSetting($pdo, 'google_oauth_client_secret', ''));
         }
 
+        if ($oauthClientId !== '' && $oauthClientSecret === '') {
+            return [
+                'error'    => 'OAuth Client secret is empty. In Google Cloud → Credentials → your Web application client, copy Client secret (starts with GOCSPX-), paste it in the box, then Save. Do not upload that value as the service account JSON file.',
+                'success'  => '',
+                'settings' => getAllSettings($pdo),
+            ];
+        }
+
+        $pendingSaUpload = !empty($_FILES['google_service_account']['tmp_name'])
+            && ($_FILES['google_service_account']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK;
+
         saveSettings($pdo, [
             'google_sheets_sync_enabled'      => !empty($_POST['google_sheets_sync_enabled']) ? '1' : '0',
             'google_sheets_drive_folder_id'   => $folderId,
@@ -274,12 +285,14 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
             $success .= ' Warning: folder ID was empty or invalid — use the full Drive URL or ID after /folders/.';
         }
 
-        if (!empty($_FILES['google_service_account']['tmp_name'])) {
+        if ($pendingSaUpload) {
             $upload = saveGoogleServiceAccountUpload($_FILES['google_service_account']);
             if (!$upload['ok']) {
                 return ['error' => $upload['message'], 'success' => '', 'settings' => getAllSettings($pdo)];
             }
             $success .= ' ' . $upload['message'];
+        } elseif (!isGoogleServiceAccountConfigured()) {
+            $success .= ' Warning: service account JSON not uploaded yet — use the file field below (IAM service account key, not OAuth).';
         }
 
         $settings = getAllSettings($pdo);

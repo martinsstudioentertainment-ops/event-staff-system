@@ -2473,8 +2473,29 @@ function saveGoogleServiceAccountUpload(array $file): array
     }
 
     $data = json_decode($json, true);
-    if (!is_array($data) || empty($data['client_email']) || empty($data['private_key'])) {
-        return ['ok' => false, 'message' => 'Invalid service account JSON — need client_email and private_key.'];
+    if (!is_array($data)) {
+        return ['ok' => false, 'message' => 'Invalid JSON file — download a fresh key from Google Cloud.'];
+    }
+
+    if (($data['type'] ?? '') !== 'service_account') {
+        if (isset($data['web']) || isset($data['installed'])) {
+            return [
+                'ok'      => false,
+                'message' => 'Wrong file: this is an OAuth Web client JSON, not a service account key. '
+                    . 'For the file upload use IAM → Service accounts → your robot account → Keys → Add key → JSON. '
+                    . 'Put the Web client secret (GOCSPX-…) in the OAuth Client secret box above, not here.',
+            ];
+        }
+
+        return [
+            'ok'      => false,
+            'message' => 'Invalid service account JSON — file must have type "service_account", client_email, and private_key. '
+                . 'Create it under IAM → Service accounts → Keys → Add key → JSON (not OAuth credentials).',
+        ];
+    }
+
+    if (empty($data['client_email']) || empty($data['private_key'])) {
+        return ['ok' => false, 'message' => 'Invalid service account JSON — need client_email and private_key. Re-download the key from Google Cloud.'];
     }
 
     $dir  = ensureGoogleStorageDirectory();

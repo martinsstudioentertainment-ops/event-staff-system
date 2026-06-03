@@ -285,6 +285,22 @@ if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
         <div class="alert alert--<?= $googleOauthFlashType === 'success' ? 'success' : ($googleOauthFlashType === 'warning' ? 'warning' : 'info') ?> alert--visible" style="margin-bottom:1rem"><?= h($googleOauthFlash) ?></div>
     <?php endif; ?>
 
+    <?php if ($saEmail === '' || !$googleOauthSecretSaved): ?>
+        <div class="alert alert--warning alert--visible" style="margin-bottom:1rem">
+            <p style="margin:0 0 0.5rem"><strong>Two different Google credentials</strong> (do not mix them up):</p>
+            <ol style="margin:0 0 0 1.25rem;padding:0;font-size:0.9rem">
+                <li><strong>Service account JSON file</strong> (bottom of this form) — from IAM → Service accounts → Keys → JSON. Contains <code>client_email</code> ending in <code>.iam.gserviceaccount.com</code>.</li>
+                <li><strong>OAuth Client ID + secret</strong> (boxes above) — from Credentials → <strong>Web application</strong> OAuth client. Secret starts with <code>GOCSPX-</code> — type it in the password box, not in the file upload.</li>
+            </ol>
+            <?php if ($saEmail === ''): ?>
+                <p style="margin:0.5rem 0 0"><strong>Missing:</strong> service account JSON file.</p>
+            <?php endif; ?>
+            <?php if (!$googleOauthSecretSaved): ?>
+                <p style="margin:0.5rem 0 0"><strong>Missing:</strong> OAuth Client secret (paste GOCSPX-… and Save).</p>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+
     <form method="post" class="erp-settings-form" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
         <input type="hidden" name="action" value="google_sheets">
@@ -375,7 +391,10 @@ if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
         <div class="form-group form-group--full">
             <label class="form-label" for="google_service_account">Service account JSON</label>
             <input class="form-input" type="file" id="google_service_account" name="google_service_account" accept=".json,application/json">
-            <p class="form-hint">Google Cloud → IAM → Service accounts → Keys → Add key → JSON. See <code>docs/GOOGLE-SHEETS.md</code>.</p>
+            <p class="form-hint">
+                Google Cloud → <strong>IAM &amp; Admin → Service accounts</strong> → select the robot account → <strong>Keys → Add key → JSON</strong>.
+                Not the OAuth “Download JSON” from Credentials — that file will not work here.
+            </p>
             <p class="form-hint"><a href="google-sheets-diagnostic.php"><strong>Google Sheets diagnostic</strong></a> — if bulk create fails, run this after deploy.</p>
         </div>
 
