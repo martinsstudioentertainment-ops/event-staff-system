@@ -278,7 +278,7 @@ if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
 <section class="card erp-settings-panel" id="google-sheets">
     <div class="card__header">
         <h2 class="card__title">Google Sheets sync</h2>
-        <p class="card__subtitle">Each event can have its own Google Sheet URL — new registrations append a row automatically.</p>
+        <p class="card__subtitle">Each event gets its own spreadsheet named <strong>Event name — date</strong> (e.g. Nick Cave — 10/06/2026). New registrations append a row automatically.</p>
     </div>
 
     <?php if ($googleOauthFlash !== ''): ?>

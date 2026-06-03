@@ -723,17 +723,57 @@ function googleSheetsSheetNeedsHeader(array $serviceAccount, string $spreadsheet
 
 function buildGoogleSheetsTitleForEvent(array $event): string
 {
+    $name = trim((string) ($event['name'] ?? 'Event'));
     $date = '';
     if (!empty($event['event_date'])) {
         require_once __DIR__ . '/events-repository.php';
         $date = formatEventDateLabel((string) $event['event_date']);
     }
 
-    $name  = trim((string) ($event['name'] ?? 'Event'));
-    $title = $date !== '' ? $date . ' — ' . $name . ' — Staff' : $name . ' — Staff';
+    $title = $date !== '' ? $name . ' — ' . $date : $name;
     $title = preg_replace('/[\[\]\*\/\\\?\:]/', '', $title) ?? $title;
 
     return mb_substr(trim($title), 0, 100);
+}
+
+/**
+ * File names to match when linking existing Drive spreadsheets (new + legacy formats).
+ *
+ * @return list<string>
+ */
+function buildGoogleSheetsTitleVariantsForEvent(array $event): array
+{
+    require_once __DIR__ . '/events-repository.php';
+
+    $name      = trim((string) ($event['name'] ?? 'Event'));
+    $dateLabel = !empty($event['event_date'])
+        ? formatEventDateLabel((string) $event['event_date'])
+        : '';
+    $ymd = !empty($event['event_date'])
+        ? normalizeEventDateYmd((string) $event['event_date'])
+        : '';
+
+    $variants = [buildGoogleSheetsTitleForEvent($event)];
+
+    if ($dateLabel !== '') {
+        $variants[] = $name . ' - ' . $dateLabel;
+        $variants[] = $dateLabel . ' — ' . $name;
+        $variants[] = $dateLabel . ' — ' . $name . ' — Staff';
+    }
+    if ($ymd !== '') {
+        $variants[] = $name . ' — ' . $ymd;
+        $variants[] = $name . ' - ' . $ymd;
+    }
+
+    $unique = [];
+    foreach ($variants as $variant) {
+        $variant = trim($variant);
+        if ($variant !== '' && !in_array($variant, $unique, true)) {
+            $unique[] = $variant;
+        }
+    }
+
+    return $unique;
 }
 
 function buildGoogleSheetsSpreadsheetUrl(string $spreadsheetId): string
@@ -1543,9 +1583,11 @@ function googleDriveIndexSpreadsheetsByTitle(array $files): array
  */
 function googleDriveMatchSpreadsheetForEvent(array $filesByKey, array $event): ?array
 {
-    $expected = googleDriveNormalizeSheetTitle(buildGoogleSheetsTitleForEvent($event));
-    if ($expected !== '' && isset($filesByKey[$expected])) {
-        return $filesByKey[$expected];
+    foreach (buildGoogleSheetsTitleVariantsForEvent($event) as $variant) {
+        $norm = googleDriveNormalizeSheetTitle($variant);
+        if ($norm !== '' && isset($filesByKey[$norm])) {
+            return $filesByKey[$norm];
+        }
     }
 
     $nameNorm = googleDriveNormalizeSheetTitle((string) ($event['name'] ?? ''));
@@ -1553,9 +1595,12 @@ function googleDriveMatchSpreadsheetForEvent(array $filesByKey, array $event): ?
     if (!empty($event['event_date'])) {
         require_once __DIR__ . '/events-repository.php';
         $dateNorm = googleDriveNormalizeSheetTitle(formatEventDateLabel((string) $event['event_date']));
+        $ymdNorm  = googleDriveNormalizeSheetTitle(normalizeEventDateYmd((string) $event['event_date']));
+    } else {
+        $ymdNorm = '';
     }
 
-    $best     = null;
+    $best      = null;
     $bestScore = 0;
     foreach ($filesByKey as $fileNorm => $file) {
         $score = 0;
@@ -1564,9 +1609,8 @@ function googleDriveMatchSpreadsheetForEvent(array $filesByKey, array $event): ?
         }
         if ($dateNorm !== '' && str_contains($fileNorm, $dateNorm)) {
             $score += 2;
-        }
-        if (str_contains($fileNorm, 'staff')) {
-            $score += 1;
+        } elseif ($ymdNorm !== '' && str_contains($fileNorm, $ymdNorm)) {
+            $score += 2;
         }
         if ($score > $bestScore) {
             $bestScore = $score;
@@ -1574,7 +1618,7 @@ function googleDriveMatchSpreadsheetForEvent(array $filesByKey, array $event): ?
         }
     }
 
-    return $bestScore >= 3 ? $best : null;
+    return $bestScore >= 4 ? $best : null;
 }
 
 /**
