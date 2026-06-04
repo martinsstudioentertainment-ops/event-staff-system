@@ -86,7 +86,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
             <?php if (adminCan('staff')): ?>
 
-                <a href="staff.php?status=pending" class="btn btn--primary">Review pending</a>
+                <a href="staff.php?status=pending&amp;page=1" class="btn btn--primary">Review pending</a>
 
             <?php endif; ?>
 

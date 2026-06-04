@@ -11,11 +11,14 @@ requireAdminCapability('staff');
 
 $pdo     = getDB();
 $filters = getStaffFiltersFromRequest();
-$page    = adminListPage();
+$total   = countUniqueStaffRegistrants($pdo, $filters);
+$page    = min(adminListPage(), adminListTotalPages($total));
 $perPage = adminListPerPage();
 $offset  = adminListOffset($page);
-$total   = countUniqueStaffRegistrants($pdo, $filters);
 $rows    = getUniqueStaffRegistrants($pdo, $filters, $perPage, $offset);
+$pendingRegCount = $filters['status'] === 'pending'
+    ? countStaffRegistrations($pdo, $filters)
+    : 0;
 $events  = getEventsForFilter($pdo);
 $flash   = getAdminFlash();
 
@@ -40,7 +43,17 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     <div class="card__header card__header--row">
         <div>
             <h2 class="card__title">Staff Registrations</h2>
-            <p class="card__subtitle"><?= (int) $total ?> staff — one row per person. Open a profile to see all shifts.</p>
+            <p class="card__subtitle">
+                <?php if ($filters['status'] === 'pending' && $total > 0): ?>
+                    <?= (int) $total ?> staff with pending shift<?= $total === 1 ? '' : 's' ?>
+                    <?php if ($pendingRegCount > $total): ?>
+                        (<?= (int) $pendingRegCount ?> registration<?= $pendingRegCount === 1 ? '' : 's' ?> to approve)
+                    <?php endif; ?>
+                    — open a profile to approve each shift.
+                <?php else: ?>
+                    <?= (int) $total ?> staff — one row per person. Open a profile to see all shifts.
+                <?php endif; ?>
+            </p>
         </div>
         <a href="export-staff.php<?= $queryString !== '' ? '?' . h($queryString) : '' ?>" class="btn btn--secondary">Export CSV</a>
     </div>

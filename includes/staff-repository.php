@@ -16,13 +16,16 @@ function getDashboardStats(PDO $pdo): array
         $todayCheckins = 0;
     }
 
+    $pendingFilters = ['q' => '', 'status' => 'pending', 'role' => '', 'event_id' => 0, 'email' => ''];
+
     return [
-        'total_staff'    => (int) $pdo->query('SELECT COUNT(*) FROM staff_registrations')->fetchColumn(),
-        'pending'        => (int) $pdo->query("SELECT COUNT(*) FROM staff_registrations WHERE status = 'pending'")->fetchColumn(),
-        'approved'       => (int) $pdo->query("SELECT COUNT(*) FROM staff_registrations WHERE status = 'approved'")->fetchColumn(),
-        'rejected'       => (int) $pdo->query("SELECT COUNT(*) FROM staff_registrations WHERE status = 'rejected'")->fetchColumn(),
-        'events'         => (int) $pdo->query('SELECT COUNT(*) FROM events WHERE is_active = 1')->fetchColumn(),
-        'today_checkins' => $todayCheckins,
+        'total_staff'           => (int) $pdo->query('SELECT COUNT(*) FROM staff_registrations')->fetchColumn(),
+        'pending'               => countUniqueStaffRegistrants($pdo, $pendingFilters),
+        'pending_registrations' => (int) $pdo->query("SELECT COUNT(*) FROM staff_registrations WHERE status = 'pending'")->fetchColumn(),
+        'approved'              => (int) $pdo->query("SELECT COUNT(*) FROM staff_registrations WHERE status = 'approved'")->fetchColumn(),
+        'rejected'              => (int) $pdo->query("SELECT COUNT(*) FROM staff_registrations WHERE status = 'rejected'")->fetchColumn(),
+        'events'                => (int) $pdo->query('SELECT COUNT(*) FROM events WHERE is_active = 1')->fetchColumn(),
+        'today_checkins'        => $todayCheckins,
     ];
 }
 
@@ -33,7 +36,7 @@ function getRecentPendingRegistrations(PDO $pdo, int $limit = 5): array
 {
     $sql = "SELECT sr.*, e.name AS event_name, e.event_date
             FROM staff_registrations sr
-            INNER JOIN events e ON e.id = sr.event_id
+            " . staffRegistrationsEventsJoin() . "
             WHERE sr.status = 'pending'
             ORDER BY sr.created_at DESC
             LIMIT " . max(1, min($limit, 20));
@@ -120,6 +123,39 @@ function buildStaffWhereClause(array $filters): array
     return [implode(' AND ', $where), $params];
 }
 
+function staffRegistrationsEventsJoin(): string
+{
+    return 'LEFT JOIN events e ON e.id = sr.event_id';
+}
+
+/**
+ * Grouped staff list: match people with at least one registration in the status filter,
+ * while still counting all their shifts in the row.
+ *
+ * @param array<string, mixed> $filters
+ * @return array{0: string, 1: array<string, mixed>, 2: string}
+ */
+function buildStaffGroupedListClauses(array $filters): array
+{
+    $status = $filters['status'] ?? '';
+    $statusFilter = in_array($status, ['pending', 'approved', 'rejected'], true) ? $status : '';
+
+    $baseFilters = $filters;
+    if ($statusFilter !== '') {
+        $baseFilters['status'] = '';
+    }
+
+    [$where, $params] = buildStaffWhereClause($baseFilters);
+    $having = '';
+
+    if ($statusFilter !== '') {
+        $having = 'HAVING SUM(CASE WHEN sr.status = :grp_status THEN 1 ELSE 0 END) > 0';
+        $params['grp_status'] = $statusFilter;
+    }
+
+    return [$where, $params, $having];
+}
+
 /**
  * @param array<string, mixed> $filters
  */
@@ -129,7 +165,7 @@ function countStaffRegistrations(PDO $pdo, array $filters): int
 
     $sql = "SELECT COUNT(*)
             FROM staff_registrations sr
-            INNER JOIN events e ON e.id = sr.event_id
+            " . staffRegistrationsEventsJoin() . "
             WHERE {$where}";
 
     $stmt = $pdo->prepare($sql);
@@ -148,7 +184,7 @@ function getStaffRegistrations(PDO $pdo, array $filters, ?int $limit = null, int
 
     $sql = "SELECT sr.*, e.name AS event_name, e.event_date
             FROM staff_registrations sr
-            INNER JOIN events e ON e.id = sr.event_id
+            " . staffRegistrationsEventsJoin() . "
             WHERE {$where}
             ORDER BY sr.created_at DESC";
 
@@ -173,12 +209,16 @@ function getStaffRegistrations(PDO $pdo, array $filters, ?int $limit = null, int
  */
 function countUniqueStaffRegistrants(PDO $pdo, array $filters): int
 {
-    [$where, $params] = buildStaffWhereClause($filters);
+    [$where, $params, $having] = buildStaffGroupedListClauses($filters);
 
-    $sql = "SELECT COUNT(DISTINCT LOWER(sr.email))
-            FROM staff_registrations sr
-            INNER JOIN events e ON e.id = sr.event_id
-            WHERE {$where}";
+    $sql = "SELECT COUNT(*) FROM (
+                SELECT LOWER(sr.email) AS email_key
+                FROM staff_registrations sr
+                " . staffRegistrationsEventsJoin() . "
+                WHERE {$where}
+                GROUP BY LOWER(sr.email)
+                {$having}
+            ) grouped_staff";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
@@ -192,7 +232,7 @@ function countUniqueStaffRegistrants(PDO $pdo, array $filters): int
  */
 function getUniqueStaffRegistrants(PDO $pdo, array $filters, ?int $limit = null, int $offset = 0): array
 {
-    [$where, $params] = buildStaffWhereClause($filters);
+    [$where, $params, $having] = buildStaffGroupedListClauses($filters);
 
     $inner = "SELECT
                 LOWER(sr.email) AS email_key,
@@ -203,9 +243,10 @@ function getUniqueStaffRegistrants(PDO $pdo, array $filters, ?int $limit = null,
                 SUM(CASE WHEN sr.status = 'rejected' THEN 1 ELSE 0 END) AS rejected_count,
                 MAX(sr.created_at) AS last_registered
             FROM staff_registrations sr
-            INNER JOIN events e ON e.id = sr.event_id
+            " . staffRegistrationsEventsJoin() . "
             WHERE {$where}
             GROUP BY LOWER(sr.email)
+            {$having}
             ORDER BY MAX(sr.created_at) DESC";
 
     if ($limit !== null) {
@@ -254,7 +295,7 @@ function getStaffRegistrationIdsForEmail(PDO $pdo, string $email, array $filters
 
     $sql = "SELECT sr.id
             FROM staff_registrations sr
-            INNER JOIN events e ON e.id = sr.event_id
+            " . staffRegistrationsEventsJoin() . "
             WHERE {$where}
             ORDER BY sr.id ASC";
 
@@ -384,7 +425,7 @@ function getExportRows(PDO $pdo, array $filters): array
 
     $sql = "SELECT sr.*, e.name AS event_name, e.event_date
             FROM staff_registrations sr
-            INNER JOIN events e ON e.id = sr.event_id
+            " . staffRegistrationsEventsJoin() . "
             WHERE {$where}
             ORDER BY sr.created_at DESC";
 
@@ -583,7 +624,7 @@ function getStaffRegistrationById(PDO $pdo, int $id): ?array
 {
     $sql = 'SELECT sr.*, e.name AS event_name, e.event_date, e.location AS event_location
             FROM staff_registrations sr
-            INNER JOIN events e ON e.id = sr.event_id
+            ' . staffRegistrationsEventsJoin() . '
             WHERE sr.id = :id
             LIMIT 1';
 
@@ -615,7 +656,7 @@ function getStaffRegistrationsByEmail(PDO $pdo, string $email): array
 {
     $sql = 'SELECT sr.*, e.name AS event_name, e.event_date
             FROM staff_registrations sr
-            INNER JOIN events e ON e.id = sr.event_id
+            ' . staffRegistrationsEventsJoin() . '
             WHERE sr.email = :email
             ORDER BY e.event_date ASC, sr.created_at DESC';
 
@@ -745,7 +786,7 @@ function getRegisteredEventsSummaryByEmail(PDO $pdo, string $email): array
     $stmt = $pdo->prepare(
         'SELECT sr.event_id, e.name AS event_name, e.event_date, sr.status
          FROM staff_registrations sr
-         INNER JOIN events e ON e.id = sr.event_id
+         ' . staffRegistrationsEventsJoin() . '
          WHERE LOWER(sr.email) = :email
          ORDER BY e.event_date ASC, e.name ASC'
     );
