@@ -15,3 +15,12 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host ''
 & (Join-Path $Root 'scripts\upload-to-server.ps1')
+
+Write-Host ''
+Write-Host 'Uploading apply.olasentra.com SSO files ...' -ForegroundColor Green
+try {
+    & (Join-Path $Root 'scripts\upload-apply-sso.ps1')
+} catch {
+    Write-Host 'Apply upload skipped or failed: ' $_.Exception.Message -ForegroundColor Yellow
+    Write-Host 'Fix FtpPassword in deploy.local.ps1, or upload apply/admin/sso.php via cPanel File Manager.' -ForegroundColor Yellow
+}
