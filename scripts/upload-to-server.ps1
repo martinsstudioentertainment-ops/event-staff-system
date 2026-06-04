@@ -10,48 +10,8 @@ $ErrorActionPreference = 'Stop'
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
 
-$localDeploy = Join-Path $ProjectRoot 'deploy.local.ps1'
-if (-not (Test-Path $localDeploy)) {
-    Write-Host 'Missing deploy.local.ps1 - copy deploy.local.ps1.example and add FTP password.' -ForegroundColor Red
-    exit 1
-}
-
-$cfg = & $localDeploy
-if ($env:EVENT_STAFF_FTP_PASSWORD) {
-    $cfg.FtpPassword = $env:EVENT_STAFF_FTP_PASSWORD
-}
-
-foreach ($key in @('FtpServer', 'FtpUser', 'FtpPassword', 'FtpRemoteDir')) {
-    if ([string]::IsNullOrWhiteSpace($cfg[$key])) {
-        throw "deploy.local.ps1: '$key' is empty."
-    }
-}
-if ($cfg.FtpPassword -eq 'YOUR_FTP_PASSWORD') {
-    throw 'Set FtpPassword in deploy.local.ps1 (cPanel FTP Accounts) or env EVENT_STAFF_FTP_PASSWORD.'
-}
-
-function Get-FtpUri {
-    param([string]$Server, [string]$RemoteDir, [string]$RelativePath)
-    $dir = $RemoteDir.TrimEnd('/')
-    $rel = $RelativePath.TrimStart('/')
-    return "ftp://$Server$dir/$rel"
-}
-
-function Send-FtpFile {
-    param([string]$LocalPath, [string]$RemoteRelativePath, [hashtable]$Deploy)
-    if (-not (Test-Path $LocalPath)) {
-        throw "Local file missing: $LocalPath"
-    }
-    $uri = Get-FtpUri -Server $Deploy.FtpServer -RemoteDir $Deploy.FtpRemoteDir -RelativePath $RemoteRelativePath
-    Write-Host "  Upload $RemoteRelativePath" -ForegroundColor Cyan
-    $client = New-Object System.Net.WebClient
-    $client.Credentials = New-Object System.Net.NetworkCredential($Deploy.FtpUser, $Deploy.FtpPassword)
-    try {
-        $client.UploadFile($uri, $LocalPath)
-    } finally {
-        $client.Dispose()
-    }
-}
+. (Join-Path $PSScriptRoot 'ftp-common.ps1')
+$cfg = Get-DeployConfig
 
 # Production bundle (Google Sheets, OAuth, settings). Add paths here when you change other areas.
 $files = @(
@@ -141,12 +101,12 @@ foreach ($path in $extra) {
     }
 }
 
-Write-Host 'Uploading to ' $cfg.FtpServer $cfg.FtpRemoteDir ' ...' -ForegroundColor Green
+Write-Host "Main admin -> $($cfg.FtpServer)$($cfg.FtpRemoteDir)" -ForegroundColor Green
 $seen = @{}
 foreach ($f in $files) {
     if ($seen[$f.Remote]) { continue }
     $seen[$f.Remote] = $true
-    Send-FtpFile -LocalPath (Join-Path $ProjectRoot $f.Local) -RemoteRelativePath $f.Remote -Deploy $cfg
+    Send-FtpFile -LocalPath (Join-Path $ProjectRoot $f.Local) -RemoteRelativePath $f.Remote -RemoteBase $cfg.FtpRemoteDir -Deploy $cfg
 }
 
 Write-Host ''

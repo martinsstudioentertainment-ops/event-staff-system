@@ -1,26 +1,37 @@
-# Deploy app files to Namecheap: git push + FTP upload.
-# Requires deploy.local.ps1 with real FtpPassword.
+# Push to server — git push + FTP upload (main admin + apply site).
 #
 #   powershell -ExecutionPolicy Bypass -File .\deploy.ps1
+#
+# One-time: copy deploy.local.ps1.example → deploy.local.ps1 and set FtpPassword.
 
 $ErrorActionPreference = 'Stop'
 $Root = $PSScriptRoot
 Set-Location $Root
 
-Write-Host 'Pushing to GitHub (main) ...' -ForegroundColor Green
+Write-Host ''
+Write-Host '========================================' -ForegroundColor Green
+Write-Host '  Push to server (GitHub + FTP)' -ForegroundColor Green
+Write-Host '========================================' -ForegroundColor Green
+Write-Host ''
+
+Write-Host '[1/3] Pushing to GitHub (main) ...' -ForegroundColor Green
 git push origin main
 if ($LASTEXITCODE -ne 0) {
     throw 'git push failed'
 }
 
 Write-Host ''
+Write-Host '[2/3] Uploading main admin (admin.olasentra.com) ...' -ForegroundColor Green
 & (Join-Path $Root 'scripts\upload-to-server.ps1')
 
 Write-Host ''
-Write-Host 'Uploading apply.olasentra.com SSO files ...' -ForegroundColor Green
-try {
-    & (Join-Path $Root 'scripts\upload-apply-sso.ps1')
-} catch {
-    Write-Host 'Apply upload skipped or failed: ' $_.Exception.Message -ForegroundColor Yellow
-    Write-Host 'Fix FtpPassword in deploy.local.ps1, or upload apply/admin/sso.php via cPanel File Manager.' -ForegroundColor Yellow
-}
+Write-Host '[3/3] Uploading apply site (apply.olasentra.com) ...' -ForegroundColor Green
+& (Join-Path $Root 'scripts\upload-apply-site.ps1')
+
+Write-Host ''
+Write-Host '========================================' -ForegroundColor Green
+Write-Host '  Done — both sites deployed' -ForegroundColor Green
+Write-Host '========================================' -ForegroundColor Green
+Write-Host '  Main:  https://admin.olasentra.com/dashboard.php' -ForegroundColor Gray
+Write-Host '  Apply: https://apply.olasentra.com/admin/login.php' -ForegroundColor Gray
+Write-Host ''
