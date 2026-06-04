@@ -53,8 +53,10 @@ function validateRegistrationPsa(array $data, ?array $staff, array $files): arra
 {
     $errors = [];
 
-    if (trim((string) ($data['psa_licence'] ?? '')) === '') {
-        $errors['psa_licence'] = 'PSA licence number is required.';
+    require_once __DIR__ . '/financial-field-validation.php';
+    $psaErr = validatePsaLicenceField((string) ($data['psa_licence'] ?? ''), true);
+    if ($psaErr !== null) {
+        $errors['psa_licence'] = $psaErr;
     }
 
     $expiry = trim((string) ($data['psa_expiry_date'] ?? ''));
@@ -170,6 +172,8 @@ function saveStaffPsaFromForm(PDO $pdo, int $staffId, array $data, array $files)
     }
 
     $update = [];
+    require_once __DIR__ . '/financial-field-validation.php';
+    $data    = normalizeFinancialStaffFields($data);
     $licence = trim((string) ($data['psa_licence'] ?? ''));
     $expiry  = trim((string) ($data['psa_expiry_date'] ?? ''));
     if ($licence !== '') {

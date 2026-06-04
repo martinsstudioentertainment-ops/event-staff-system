@@ -34,7 +34,8 @@ $psaErrors = $psaErrors ?? [];
         <div class="form-grid form-grid--compact">
             <div class="form-group">
                 <label class="form-label form-label--required" for="status_psa_licence">PSA licence number</label>
-                <input class="form-input" type="text" id="status_psa_licence" name="psa_licence" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>" required>
+                <input class="form-input" type="text" id="status_psa_licence" name="psa_licence" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>" placeholder="EM12345/67" autocapitalize="characters" pattern="EM[0-9]{5}/[0-9]{2}" required>
+                <p class="form-hint">Format EM00000/00</p>
                 <?php if (!empty($psaErrors['psa_licence'])): ?>
                     <span class="form-error form-error--visible"><?= h($psaErrors['psa_licence']) ?></span>
                 <?php endif; ?>

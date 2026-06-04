@@ -10,6 +10,11 @@
         </footer>
     </div>
 </div>
+<?php
+$finJsPath = dirname(__DIR__, 2) . '/assets/js/financial-field-validation.js';
+$finJsVer  = is_file($finJsPath) ? (string) filemtime($finJsPath) : '1';
+?>
+<script src="<?= h($assetBase) ?>assets/js/financial-field-validation.js?v=<?= h($finJsVer) ?>"></script>
 <script src="<?= h($assetBase) ?>assets/js/mobile.js"></script>
 <script src="<?= h($assetBase) ?>assets/js/admin.js"></script>
 <?php if (!empty($enableRichTextEditor)): ?>

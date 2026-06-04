@@ -262,8 +262,9 @@ if ($pdo) {
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label form-label--required" for="bank_iban">Bank Account / IBAN</label>
-                        <input class="form-input" type="text" id="bank_iban" name="bank_iban" value="<?= old('bank_iban') ?>" placeholder="Enter bank account or IBAN">
+                        <label class="form-label form-label--required" for="bank_iban">Bank IBAN</label>
+                        <input class="form-input" type="text" id="bank_iban" name="bank_iban" value="<?= old('bank_iban') ?>" placeholder="IE29AIBK93115212345678" autocomplete="off" autocapitalize="characters" maxlength="34" pattern="[A-Za-z]{2}[0-9]{2}[A-Za-z0-9]{11,30}" title="IBAN with country code — not a bank name">
+                        <p class="form-hint">Irish example: IE + 2 check digits + account (22 characters). UK: GB + 20 characters.</p>
                         <span class="form-error" id="bank_iban-error"></span>
                     </div>
 
@@ -271,7 +272,8 @@ if ($pdo) {
 
                     <div class="form-group">
                         <label class="form-label form-label--required" for="psa_licence">PSA licence number</label>
-                        <input class="form-input" type="text" id="psa_licence" name="psa_licence" value="<?= old('psa_licence') ?>" placeholder="Enter PSA licence number" autocomplete="off">
+                        <input class="form-input" type="text" id="psa_licence" name="psa_licence" value="<?= old('psa_licence') ?>" placeholder="EM12345/67" autocomplete="off" autocapitalize="characters" pattern="EM[0-9]{5}/[0-9]{2}" title="Format EM12345/67">
+                        <p class="form-hint">Format: EM00000/00 (shown on your PSA card).</p>
                         <span class="form-error" id="psa_licence-error"></span>
                     </div>
 

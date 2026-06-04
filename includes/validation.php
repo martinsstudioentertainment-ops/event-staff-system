@@ -166,6 +166,9 @@ function validateRegistration(array $data): array
         $errors['privacy_consent'] = 'You must agree to the privacy notice before registering.';
     }
 
+    require_once __DIR__ . '/financial-field-validation.php';
+    $errors = array_merge($errors, validateFinancialStaffFields($data, true));
+
     return $errors;
 }
 
@@ -300,9 +303,13 @@ function saveRegistration(PDO $pdo, array $data, int $eventId, ?string $staffRol
         'pps_number' => trim((string) $data['pps_number']),
         'bank_iban' => trim((string) $data['bank_iban']),
         'psa_licence' => trim((string) ($data['psa_licence'] ?? '')),
+    ];
+    require_once __DIR__ . '/financial-field-validation.php';
+    $staffData = normalizeFinancialStaffFields($staffData);
+    $staffData = array_merge($staffData, [
         'psa_expiry_date' => trim((string) ($data['psa_expiry_date'] ?? '')),
         'staff_role' => $staffRole,
-    ];
+    ]);
 
     $staffId = 0;
     try {
@@ -312,6 +319,8 @@ function saveRegistration(PDO $pdo, array $data, int $eventId, ?string $staffRol
         // If staff table operations fail, continue without staff_id (fallback to old structure)
         error_log('[EventStaff] Staff table operation failed: ' . $e->getMessage());
     }
+
+    $data = normalizeFinancialStaffFields($data);
 
     $row = [
         'staff_id'             => $staffId > 0 ? $staffId : null,

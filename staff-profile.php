@@ -236,14 +236,16 @@ $themeColor = getThemeColor($pdo);
 
                 <div class="form-group">
                     <label class="form-label">Bank IBAN</label>
-                    <input type="text" name="bank_iban" class="form-input" value="<?= h((string) $staff['bank_iban']) ?>" required>
+                    <input type="text" name="bank_iban" id="bank_iban" class="form-input" value="<?= h((string) $staff['bank_iban']) ?>" placeholder="IE29AIBK93115212345678" autocomplete="off" autocapitalize="characters" maxlength="34" required>
+                    <p class="form-hint">IBAN with country code only — not a bank name.</p>
                 </div>
 
                 <h3 class="form-section-title form-group--full">PSA licence <span class="staff-profile-badge">Required</span></h3>
 
                 <div class="form-group">
                     <label class="form-label">Licence number</label>
-                    <input type="text" name="psa_licence" class="form-input" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>" required>
+                    <input type="text" name="psa_licence" id="psa_licence" class="form-input" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>" placeholder="EM12345/67" autocomplete="off" autocapitalize="characters" pattern="EM[0-9]{5}/[0-9]{2}" required>
+                    <p class="form-hint">Format EM00000/00 as on your PSA card.</p>
                 </div>
 
                 <div class="form-group">
@@ -275,5 +277,11 @@ $themeColor = getThemeColor($pdo);
             <p class="login-card__hint"><a href="staff-app.php">← Staff app home</a></p>
         </section>
     </main>
+<?php
+$assetBase = '';
+$finJsPath = __DIR__ . '/assets/js/financial-field-validation.js';
+$finJsVer  = is_file($finJsPath) ? (string) filemtime($finJsPath) : '1';
+?>
+<script src="assets/js/financial-field-validation.js?v=<?= h($finJsVer) ?>"></script>
 </body>
 </html>

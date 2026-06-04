@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/admin-capabilities.php';
 require_once __DIR__ . '/../includes/staff-repository.php';
 require_once __DIR__ . '/../includes/staff-onboarding.php';
+require_once __DIR__ . '/../includes/financial-field-validation.php';
 require_once __DIR__ . '/../includes/site-urls.php';
 
 requireAdminCapability('staff');
@@ -35,6 +36,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
     if (!verifyCsrf($csrfToken)) {
         setAdminFlash('error', 'Invalid CSRF token');
     } else {
+        $fieldErrors = validateFinancialStaffFields($_POST, true);
+        if ($fieldErrors !== []) {
+            setAdminFlash('error', implode(' ', $fieldErrors));
+        } else {
         try {
             $stmt = $pdo->prepare(
                 'UPDATE staff SET
@@ -67,13 +72,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
                 'mobile'        => trim((string) ($_POST['mobile'] ?? '')),
                 'gender'        => trim((string) ($_POST['gender'] ?? 'prefer_not_to_say')),
                 'pps_number'    => trim((string) ($_POST['pps_number'] ?? '')),
-                'bank_iban'     => trim((string) ($_POST['bank_iban'] ?? '')),
+                'bank_iban'     => normalizeBankIban((string) ($_POST['bank_iban'] ?? '')),
                 'staff_role'    => trim((string) ($_POST['staff_role'] ?? 'steward')),
             ];
 
             $stmt->execute([
                 ...$syncData,
-                'psa_licence'      => trim((string) ($_POST['psa_licence'] ?? '')),
+                'psa_licence'      => normalizePsaLicence((string) ($_POST['psa_licence'] ?? '')),
                 'psa_expiry_date'  => trim((string) ($_POST['psa_expiry_date'] ?? '')) ?: null,
                 'is_blacklisted'   => isset($_POST['is_blacklisted']) ? 1 : 0,
                 'blacklist_reason' => isset($_POST['is_blacklisted']) ? trim((string) ($_POST['blacklist_reason'] ?? '')) : null,
@@ -98,6 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
             exit;
         } catch (PDOException $e) {
             setAdminFlash('error', 'Failed to update staff: ' . $e->getMessage());
+        }
         }
     }
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -248,7 +254,8 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
         <div class="form-group">
             <label class="form-label">Bank IBAN</label>
-            <input type="text" name="bank_iban" class="form-input" value="<?= h((string) $staff['bank_iban']) ?>" required<?= $readonlyAttr ?>>
+            <input type="text" name="bank_iban" id="bank_iban" class="form-input" value="<?= h((string) $staff['bank_iban']) ?>" placeholder="IE29AIBK93115212345678" maxlength="34" required<?= $readonlyAttr ?>>
+            <p class="form-hint">IBAN with country code — not a bank name.</p>
         </div>
 
         <div class="form-group form-group--full">
@@ -257,7 +264,8 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
         <div class="form-group">
             <label class="form-label">PSA licence number</label>
-            <input type="text" name="psa_licence" class="form-input" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>"<?= $readonlyAttr ?>>
+            <input type="text" name="psa_licence" id="psa_licence" class="form-input" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>" placeholder="EM12345/67" pattern="EM[0-9]{5}/[0-9]{2}"<?= $readonlyAttr ?>>
+            <p class="form-hint">Format EM00000/00</p>
         </div>
 
         <div class="form-group">

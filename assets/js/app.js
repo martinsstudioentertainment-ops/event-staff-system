@@ -292,12 +292,31 @@
             isValid = false;
         }
 
-        if (document.body.dataset.registrationPage === 'true') {
-            const psaLicence = document.getElementById('psa_licence');
-            if (psaLicence && !psaLicence.value.trim()) {
-                showFieldError('psa_licence', 'PSA licence number is required.');
+        const bankIbanEl = document.getElementById('bank_iban') || form.querySelector('input[name="bank_iban"]');
+        if (bankIbanEl && bankIbanEl.offsetParent !== null) {
+            const ibanErr = typeof bankIbanError === 'function'
+                ? bankIbanError(bankIbanEl.value, bankIbanEl.required)
+                : null;
+            if (ibanErr) {
+                showFieldError(bankIbanEl.id || 'bank_iban', ibanErr);
                 isValid = false;
             }
+        }
+
+        const psaField = document.getElementById('psa_licence')
+            || document.getElementById('status_psa_licence')
+            || form.querySelector('input[name="psa_licence"]');
+        if (psaField && psaField.offsetParent !== null) {
+            const psaErr = typeof psaLicenceError === 'function'
+                ? psaLicenceError(psaField.value, psaField.required)
+                : null;
+            if (psaErr) {
+                showFieldError(psaField.id || 'psa_licence', psaErr);
+                isValid = false;
+            }
+        }
+
+        if (document.body.dataset.registrationPage === 'true') {
             const psaExpiry = document.getElementById('psa_expiry_date');
             if (psaExpiry && !psaExpiry.value.trim()) {
                 showFieldError('psa_expiry_date', 'PSA expiry date is required.');

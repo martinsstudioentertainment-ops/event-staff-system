@@ -233,7 +233,8 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             </div>
             <div class="form-group form-group--full">
                 <label class="form-label" for="invoice_bank_iban">Bank IBAN</label>
-                <input class="form-input" type="text" id="invoice_bank_iban" name="invoice_bank_iban" value="<?= h($settings['invoice_bank_iban'] ?? '') ?>" placeholder="IE00 BOFI 9000 0000 0000 00">
+                <input class="form-input" type="text" id="invoice_bank_iban" name="invoice_bank_iban" value="<?= h($settings['invoice_bank_iban'] ?? '') ?>" placeholder="IE29AIBK93115212345678" autocapitalize="characters" maxlength="34">
+                <p class="form-hint">IBAN with country code only — not a bank name.</p>
             </div>
             <div class="form-group">
                 <label class="form-label" for="invoice_bank_bic">BIC / SWIFT</label>

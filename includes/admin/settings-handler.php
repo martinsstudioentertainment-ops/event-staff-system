@@ -219,9 +219,18 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
         if (!adminCan('settings')) {
             return ['error' => 'You do not have permission to change invoice payment details.', 'success' => '', 'settings' => $settings];
         }
+        require_once __DIR__ . '/../financial-field-validation.php';
+        $invoiceIban = trim((string) ($_POST['invoice_bank_iban'] ?? ''));
+        if ($invoiceIban !== '') {
+            $ibanErr = validateBankIbanField($invoiceIban, false);
+            if ($ibanErr !== null) {
+                return ['error' => $ibanErr, 'success' => '', 'settings' => $settings];
+            }
+            $invoiceIban = normalizeBankIban($invoiceIban);
+        }
         saveSettings($pdo, [
             'invoice_bank_name'  => trim((string) ($_POST['invoice_bank_name'] ?? '')),
-            'invoice_bank_iban'  => trim((string) ($_POST['invoice_bank_iban'] ?? '')),
+            'invoice_bank_iban'  => $invoiceIban,
             'invoice_bank_bic'   => trim((string) ($_POST['invoice_bank_bic'] ?? '')),
             'invoice_vat_number' => trim((string) ($_POST['invoice_vat_number'] ?? '')),
         ]);

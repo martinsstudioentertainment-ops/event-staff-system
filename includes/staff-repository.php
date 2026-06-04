@@ -956,6 +956,9 @@ function updateStaffProfile(PDO $pdo, int $staffId, array $data): bool
     $updates = [];
     $params = ['id' => $staffId];
 
+    require_once __DIR__ . '/financial-field-validation.php';
+    $data = normalizeFinancialStaffFields($data);
+
     foreach ($allowedFields as $field) {
         if (isset($data[$field])) {
             $updates[] = "$field = :$field";

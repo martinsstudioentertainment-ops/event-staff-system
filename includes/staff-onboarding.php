@@ -168,9 +168,8 @@ function validateStaffOnboardingPost(array $post, array $staff): array
         $errors['form'] = 'Please complete all required fields: ' . implode(', ', $missing);
     }
 
-    if ($data['bank_iban'] !== '' && strlen(str_replace(' ', '', $data['bank_iban'])) < 8) {
-        $errors['bank_iban'] = 'Enter a valid bank IBAN.';
-    }
+    require_once __DIR__ . '/financial-field-validation.php';
+    $errors = array_merge($errors, validateFinancialStaffFields($data, true));
 
     return $errors;
 }
