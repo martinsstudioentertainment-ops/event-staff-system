@@ -14,9 +14,18 @@ $filters        = getStaffFiltersFromRequest();
 $pendingListMode = ($filters['status'] === 'pending');
 
 if ($pendingListMode) {
-    $total = countStaffRegistrations($pdo, $filters);
-    $page  = min(adminListPage(), adminListTotalPages($total));
-    $rows  = getStaffRegistrations($pdo, $filters, adminListPerPage(), adminListOffset($page));
+    $total  = countStaffRegistrations($pdo, $filters);
+    $page   = min(adminListPage(), adminListTotalPages($total));
+    $limit  = adminListPerPage();
+    $offset = adminListOffset($page);
+    $rows   = getStaffRegistrations($pdo, $filters, $limit, $offset);
+
+    // Fallback: if count says pending rows exist but the filtered list is empty, use the simple query.
+    if ($rows === [] && $total > 0) {
+        $rows  = getRecentPendingRegistrations($pdo, $limit);
+        $total = countStaffRegistrations($pdo, ['q' => '', 'status' => 'pending', 'role' => '', 'event_id' => 0, 'email' => '']);
+        $page  = min(adminListPage(), adminListTotalPages($total));
+    }
 } else {
     $total = countUniqueStaffRegistrants($pdo, $filters);
     $page  = min(adminListPage(), adminListTotalPages($total));
@@ -145,7 +154,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                         ?>
                         <tr>
                             <td class="data-table__check">
-                                <input type="checkbox" form="staff-bulk-form" name="emails[]" value="<?= h((string) $row['email']) ?>" class="staff-row-check" aria-label="Select <?= h($row['first_name'] . ' ' . $row['surname']) ?>">
+                                <input type="checkbox" form="staff-bulk-form" name="<?= $pendingListMode ? 'ids[]' : 'emails[]' ?>" value="<?= $pendingListMode ? (int) $viewId : h((string) $row['email']) ?>" class="staff-row-check" aria-label="Select <?= h($row['first_name'] . ' ' . $row['surname']) ?>">
                             </td>
                             <td>
                                 <?= h($row['first_name'] . ' ' . $row['surname']) ?>

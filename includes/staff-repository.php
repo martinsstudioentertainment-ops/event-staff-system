@@ -220,10 +220,15 @@ function getStaffRegistrations(PDO $pdo, array $filters, ?int $limit = null, int
         $sql .= ' LIMIT 500';
     }
 
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll() ?: [];
+    } catch (PDOException $e) {
+        error_log('[EventStaff] getStaffRegistrations: ' . $e->getMessage());
 
-    $rows = $stmt->fetchAll() ?: [];
+        return [];
+    }
 
     return array_map(static fn(array $row): array => mergeRegistrationWithStaff($pdo, $row), $rows);
 }

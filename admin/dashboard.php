@@ -24,7 +24,10 @@ $pdo            = getDB();
 
 $stats          = getDashboardStats($pdo);
 
-
+$pendingPreview = [];
+if (adminCan('staff') && (int) ($stats['pending'] ?? 0) > 0) {
+    $pendingPreview = getRecentPendingRegistrations($pdo, 10);
+}
 
 $flash          = getAdminFlash();
 
@@ -133,6 +136,42 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
 
 
+
+<?php if ($pendingPreview !== []): ?>
+<section class="card">
+    <div class="card__header card__header--row">
+        <div>
+            <h2 class="card__title">Pending approvals</h2>
+            <p class="card__subtitle"><?= (int) $stats['pending'] ?> registration<?= (int) $stats['pending'] === 1 ? '' : 's' ?> waiting — open a profile to approve each shift.</p>
+        </div>
+        <a href="staff.php?status=pending&amp;page=1" class="btn btn--secondary">View all</a>
+    </div>
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Event</th>
+                    <th>Role</th>
+                    <th>Registered</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($pendingPreview as $pendingRow): ?>
+                    <tr>
+                        <td><?= h(trim(($pendingRow['first_name'] ?? '') . ' ' . ($pendingRow['surname'] ?? ''))) ?></td>
+                        <td><?= h((string) ($pendingRow['event_name'] ?? '—')) ?></td>
+                        <td><?= h(formatRoleLabel((string) ($pendingRow['staff_role'] ?? ''))) ?></td>
+                        <td><?= h(date('d.m.Y H:i', strtotime((string) ($pendingRow['created_at'] ?? 'now')))) ?></td>
+                        <td><a href="view-staff.php?id=<?= (int) ($pendingRow['id'] ?? 0) ?>" class="btn btn--small btn--primary">Review</a></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</section>
+<?php endif; ?>
 
 <section class="card erp-card">
 
