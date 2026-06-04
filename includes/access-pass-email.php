@@ -81,7 +81,6 @@ function buildEventAccessPassEmail(PDO $pdo, array $row): array
         . '<div style="border:2px solid #2563eb;border-radius:12px;padding:20px;background:#f8fafc;">'
         . '<p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">' . $esc($siteName) . '</p>'
         . '<h1 style="margin:0 0 12px;font-size:22px;color:#1e40af;">Registration confirmed</h1>'
-        . '<p style="margin:0 0 8px;font-size:12px;color:#64748b;">' . $esc(getPortalLegalNotice($pdo)) . '</p>'
         . '<p style="margin:0 0 16px;">Dear ' . $esc($firstName) . ', your application for this shift is <strong>approved</strong>. Check-in details are below.</p>'
         . '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:16px;">'
         . '<tr><td style="padding:6px 0;color:#64748b;width:130px;">Pass ID</td><td style="padding:6px 0;font-weight:700;font-family:monospace;">' . $esc($passId) . '</td></tr>'
@@ -115,8 +114,7 @@ function buildEventAccessPassEmail(PDO $pdo, array $row): array
     }
 
     $html .= '<p style="margin:16px 0 0;font-size:13px;color:#475569;">Check-in opens 1 hour before the event starts and closes 1 hour after it ends.</p>'
-        . '<p style="margin:12px 0 0;font-size:12px;color:#64748b;">' . $esc(getEmailSenderDisclaimer($pdo)) . '</p>'
-        . '<p style="margin:8px 0 0;font-size:11px;color:#94a3b8;">Pass ID is for portal check-in only — not a security licence or employer ID.</p>'
+        . '<p style="margin:12px 0 0;font-size:11px;color:#94a3b8;">' . $esc(getEmailShortFooter($pdo)) . '</p>'
         . '</div>'
         . '<p style="font-size:12px;color:#94a3b8;margin-top:16px;">' . $esc($siteName) . '</p>'
         . '</body></html>';
@@ -181,7 +179,7 @@ function buildConsolidatedAccessPassEmail(PDO $pdo, array $rows): ?array
             normalizeCoordinate(isset($row['venue_lng']) ? (string) $row['venue_lng'] : null)
         );
 
-        $textLines[] = '———';
+        $textLines[] = '---';
         $textLines[] = 'Pass ID: ' . $passId;
         $textLines[] = 'Event: ' . formatEventLabel($row);
         $textLines[] = 'Reporting time: ' . $times;
@@ -232,8 +230,8 @@ function buildConsolidatedAccessPassEmail(PDO $pdo, array $rows): ?array
     $textLines[] = $siteName;
 
     $html .= '<p style="margin:0;font-size:13px;color:#475569;">Check-in opens 1 hour before each event and closes 1 hour after it ends.</p>'
-        . '<p style="margin:12px 0 0;font-size:12px;color:#64748b;">' . $esc(getEmailSenderDisclaimer($pdo)) . '</p>'
-        . '<p style="font-size:12px;color:#94a3b8;margin-top:16px;">' . $esc($siteName) . '</p>'
+        . '<p style="margin:12px 0 0;font-size:11px;color:#94a3b8;">' . $esc(getEmailShortFooter($pdo)) . '</p>'
+        . '<p style="font-size:12px;color:#94a3b8;margin-top:12px;">' . $esc($siteName) . '</p>'
         . '</body></html>';
 
     return [

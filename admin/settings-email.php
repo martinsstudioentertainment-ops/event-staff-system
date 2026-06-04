@@ -96,7 +96,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <div class="form-group form-group--full">
             <label class="form-radio">
                 <input type="checkbox" name="notify_on_checkin" value="1"<?= ($settings['notify_on_checkin'] ?? '1') === '1' ? ' checked' : '' ?>>
-                Email staff when they sign in / check in to an event
+                Email staff when they sign in / check in (off by default — reduces email volume)
             </label>
         </div>
 

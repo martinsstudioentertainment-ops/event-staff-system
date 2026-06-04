@@ -72,13 +72,12 @@ function sendEventStaffBroadcast(PDO $pdo, int $eventId, string $subject, string
             $personalLinksText = "\nYour personal check-in link:\n{$checkinUrl}\n";
         }
 
-        $html = $greetingHtml . '<p style="font-size:12px;color:#64748b;">' . htmlspecialchars(getPortalLegalNotice($pdo), ENT_QUOTES, 'UTF-8') . '</p>'
-            . $bodyHtml . $eventBlockHtml . $linksHtml . $personalLinksHtml
-            . '<p style="font-size:12px;color:#64748b;">' . htmlspecialchars(getEmailSenderDisclaimer($pdo), ENT_QUOTES, 'UTF-8') . '</p>'
-            . '<p>— ' . htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8') . ' (registration portal)</p>';
+        $html = $greetingHtml . $bodyHtml . $eventBlockHtml . $linksHtml . $personalLinksHtml
+            . '<p style="font-size:11px;color:#64748b;margin-top:16px;">' . htmlspecialchars(getEmailShortFooter($pdo), ENT_QUOTES, 'UTF-8') . '</p>'
+            . '<p>— ' . htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8') . '</p>';
 
         $text = $greetingText . plainTextFromRich($htmlMessage, 5000) . "\n\n" . $eventBlockText . $linksText . $personalLinksText
-            . "\n\n" . getEmailSenderDisclaimer($pdo) . "\n\n— {$siteName} (registration portal)\n";
+            . "\n\n" . getEmailShortFooter($pdo) . "\n\n— {$siteName}\n";
 
         if (sendEmail($pdo, (string) $row['email'], $subject, $text, $html)) {
             $sent++;

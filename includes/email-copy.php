@@ -8,7 +8,7 @@ require_once __DIR__ . '/settings-repository.php';
 require_once __DIR__ . '/events-repository.php';
 
 /**
- * Full notice for forms and footers (plain text).
+ * Full notice for forms and footers (plain text) — website only, not emails.
  */
 function getPortalLegalNotice(PDO $pdo): string
 {
@@ -23,11 +23,35 @@ function getPortalLegalNotice(PDO $pdo): string
 }
 
 /**
- * Short line after "Dear …" in staff emails.
+ * One short line for staff emails (replaces repeating the full legal block).
+ */
+function getEmailShortIntro(PDO $pdo): string
+{
+    return getSiteName($pdo) . ' is a shift registration portal only — not your employer or payroll provider.';
+}
+
+/**
+ * Short email footer — one line, no duplication.
+ */
+function getEmailShortFooter(PDO $pdo): string
+{
+    return 'Sent by the registration portal only. Pay and duties are agreed with the on-site contractor or event organiser.';
+}
+
+/**
+ * @deprecated Use getEmailShortIntro() in emails.
  */
 function getEmailPortalIntroLine(PDO $pdo): string
 {
-    return getPortalLegalNotice($pdo);
+    return getEmailShortIntro($pdo);
+}
+
+/**
+ * Short disclaimer for email footers (plain + HTML).
+ */
+function getEmailSenderDisclaimer(PDO $pdo): string
+{
+    return getEmailShortFooter($pdo);
 }
 
 /**
@@ -40,19 +64,19 @@ function formatEmailOnSiteSecurityLine(PDO $pdo, array $row): ?string
         return null;
     }
 
-    $site = getSiteName($pdo);
-
-    return 'Third-party information — contractor listed for this shift: ' . $name
-        . ' (' . $site . ' is not this company; confirm pay and duties with them before you work).';
+    return 'Contractor listed for this shift: ' . $name . ' (confirm pay and duties with them).';
 }
 
 /**
- * Email footer — who sent the message.
+ * @param list<string> $bodyLines
+ * @return list<string>
  */
-function getEmailSenderDisclaimer(PDO $pdo): string
+function appendEmailShortFooter(PDO $pdo, array $bodyLines): array
 {
-    return getPortalLegalNotice($pdo)
-        . ' This email was sent by the portal only — not by any contractor or event named in this message.';
+    $bodyLines[] = '';
+    $bodyLines[] = getEmailShortFooter($pdo);
+
+    return $bodyLines;
 }
 
 /**
@@ -61,12 +85,8 @@ function getEmailSenderDisclaimer(PDO $pdo): string
  */
 function appendEmailPortalIntro(PDO $pdo, array $bodyLines): array
 {
-    $insert = 2;
-    if (count($bodyLines) < 2) {
-        $insert = count($bodyLines);
-    }
-
-    array_splice($bodyLines, $insert, 0, ['', getEmailPortalIntroLine($pdo), '']);
+    $insert = min(2, count($bodyLines));
+    array_splice($bodyLines, $insert, 0, ['', getEmailShortIntro($pdo), '']);
 
     return $bodyLines;
 }
@@ -77,21 +97,18 @@ function appendEmailPortalIntro(PDO $pdo, array $bodyLines): array
  */
 function appendEmailSenderDisclaimer(PDO $pdo, array $bodyLines): array
 {
-    $bodyLines[] = '';
-    $bodyLines[] = getEmailSenderDisclaimer($pdo);
-
-    return $bodyLines;
+    return appendEmailShortFooter($pdo, $bodyLines);
 }
 
 /**
- * Intro + footer for transactional staff emails.
+ * Short footer only — avoids repeating legal text in every email.
  *
  * @param list<string> $bodyLines
  * @return list<string>
  */
 function appendEmailPortalContext(PDO $pdo, array $bodyLines): array
 {
-    return appendEmailSenderDisclaimer($pdo, appendEmailPortalIntro($pdo, $bodyLines));
+    return appendEmailShortFooter($pdo, $bodyLines);
 }
 
 /**

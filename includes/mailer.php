@@ -273,23 +273,14 @@ function sendTestEmail(PDO $pdo, string $to): bool|string
     require_once __DIR__ . '/email-copy.php';
 
     $body     = implode("\n", [
-
         'This is a test email from ' . $siteName . '.',
-
         '',
-
-        getPortalLegalNotice($pdo),
-
-        '',
-
         'Transport: ' . getMailTransport($pdo),
-
         'Sent at: ' . date('Y-m-d H:i:s'),
-
         '',
-
         'If you received this, your email settings are working.',
-
+        '',
+        getEmailShortFooter($pdo),
     ]);
 
 

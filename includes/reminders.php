@@ -264,7 +264,7 @@ function sendDailyEventsReminderDigest(PDO $pdo, array $rows): bool
         $times    = formatEventTimeRangeLabel($row);
         $window   = getEventCheckinWindow($row);
 
-        $bodyLines[] = '———';
+        $bodyLines[] = '---';
         $bodyLines[] = 'Event: ' . $event;
         $bodyLines[] = 'Time: ' . $times;
         $bodyLines[] = 'Location: ' . $location;
@@ -393,6 +393,8 @@ function runDailyReminders(PDO $pdo): array
         return $stats;
     }
 
+    $emailedThisRun = [];
+
     if (isReminderDailyEnabled($pdo)) {
         $byEmail = [];
         foreach (getRegistrationsDueDailyReminder($pdo) as $row) {
@@ -411,6 +413,7 @@ function runDailyReminders(PDO $pdo): array
 
             if (sendDailyEventsReminderDigest($pdo, $rows)) {
                 $stats['daily_sent']++;
+                $emailedThisRun[$email] = true;
             } else {
                 $stats['errors']++;
             }
@@ -419,6 +422,12 @@ function runDailyReminders(PDO $pdo): array
 
     if (isReminderSignupNudgeEnabled($pdo)) {
         foreach (getEmailsDueSignupNudge($pdo) as $email) {
+            $email = strtolower(trim($email));
+            if (isset($emailedThisRun[$email])) {
+                $stats['nudge_skipped']++;
+                continue;
+            }
+
             $missing = getMissingUpcomingEventsForEmail($pdo, $email);
             if ($missing === []) {
                 $stats['nudge_skipped']++;
@@ -427,6 +436,7 @@ function runDailyReminders(PDO $pdo): array
 
             if (sendSignupNudgeEmail($pdo, $email, $missing)) {
                 $stats['nudge_sent']++;
+                $emailedThisRun[$email] = true;
             } else {
                 $stats['errors']++;
             }

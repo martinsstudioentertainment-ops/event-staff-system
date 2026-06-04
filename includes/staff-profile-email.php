@@ -35,7 +35,7 @@ function sendStaffProfileUpdateLinkEmail(PDO $pdo, int $staffId): bool
         . "Please update your staff profile (address, bank details, and PSA licence photos) before your shift can be approved.\n\n"
         . "Option 1 — sign in with email and date of birth:\n{$portalUrl}\n\n"
         . "Option 2 — use your personal link:\n{$profileUrl}\n\n"
-        . getEmailSenderDisclaimer($pdo) . "\n\n— {$siteName}\n";
+        . getEmailShortFooter($pdo) . "\n\n— {$siteName}\n";
 
     $esc = static fn (string $v): string => htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
 
@@ -43,7 +43,7 @@ function sendStaffProfileUpdateLinkEmail(PDO $pdo, int $staffId): bool
         . '<p>Please complete your staff profile (address, bank details, and PSA licence photos) before your shift can be approved.</p>'
         . '<p><strong>Sign in with email and date of birth:</strong><br><a href="' . $esc($portalUrl) . '">' . $esc($portalUrl) . '</a></p>'
         . '<p><strong>Or use your personal link:</strong><br><a href="' . $esc($profileUrl) . '">' . $esc($profileUrl) . '</a></p>'
-        . '<p style="font-size:12px;color:#64748b;">' . $esc(getEmailSenderDisclaimer($pdo)) . '</p>'
+        . '<p style="font-size:11px;color:#64748b;">' . $esc(getEmailShortFooter($pdo)) . '</p>'
         . '<p>— ' . $esc($siteName) . '</p>';
 
     return sendEmail($pdo, $email, $subject, $text, $html);

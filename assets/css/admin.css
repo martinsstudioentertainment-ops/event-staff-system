@@ -1633,11 +1633,11 @@
 }
 
 .admin-shell .data-table--staff-dir .col-name { width: 18%; }
-.admin-shell .data-table--staff-dir .col-email { width: 30%; min-width: 11rem; }
+.admin-shell .data-table--staff-dir .col-email { width: 34%; min-width: 14rem; }
+.admin-shell .data-table--staff-dir .col-actions { width: 18%; }
 .admin-shell .data-table--staff-dir .col-profile { width: 10%; }
 .admin-shell .data-table--staff-dir .col-shifts { width: 14%; }
 .admin-shell .data-table--staff-dir .col-account { width: 10%; }
-.admin-shell .data-table--staff-dir .col-actions { width: 22%; }
 
 .admin-shell .data-table--staff-dir th,
 .admin-shell .data-table--staff-dir td {
@@ -1648,17 +1648,36 @@
 
 .admin-shell .data-table--staff-dir .staff-dir-email {
     word-break: break-all;
-    line-height: 1.35;
+    line-height: 1.4;
+    font-size: 13px;
 }
 
-.admin-shell .data-table--staff-dir .staff-dir-email a {
-    color: var(--erp-link, #93c5fd);
+/* High contrast — theme primary (purple) must not win over readable email text */
+.admin-shell .data-table--staff-dir td.staff-dir-email a,
+.admin-shell .data-table--staff-dir td.staff-dir-email a:link,
+.admin-shell .data-table--staff-dir td.staff-dir-email a:visited {
+    color: #f8fafc !important;
+    font-weight: 500;
     text-decoration: underline;
     text-underline-offset: 2px;
+    text-decoration-color: rgba(148, 163, 184, 0.75);
 }
 
-.admin-shell .data-table--staff-dir .staff-dir-email a:hover {
-    color: var(--erp-link-hover, #bfdbfe);
+.admin-shell .data-table--staff-dir td.staff-dir-email a:hover,
+.admin-shell .data-table--staff-dir td.staff-dir-email a:focus {
+    color: #ffffff !important;
+    text-decoration-color: #93c5fd;
+}
+
+.admin-shell .data-table--staff-dir .staff-dir-shifts a {
+    color: #cbd5e1 !important;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.admin-shell .data-table--staff-dir .staff-dir-shifts a:hover {
+    color: #f8fafc !important;
+    text-decoration: underline;
 }
 
 .admin-shell .staff-dir-name strong {
@@ -1732,6 +1751,38 @@
 
 .admin-shell .staff-dir-bulk-form {
     margin: 0;
+}
+
+.admin-shell .staff-dir-email-preview {
+    margin-bottom: 1rem;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.admin-shell .staff-dir-email-preview summary {
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.admin-shell .staff-dir-email-preview__body {
+    margin-top: 0.65rem;
+}
+
+.admin-shell .staff-dir-email-preview__sample {
+    margin: 0.5rem 0;
+    padding: 0.75rem;
+    border-radius: 8px;
+    background: #0a0f1a;
+    border: 1px solid var(--admin-border);
+    color: #f1f5f9;
+    font-size: 12px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 
 .admin-shell .admin-pagination {

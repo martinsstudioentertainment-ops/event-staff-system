@@ -52,7 +52,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         </div>
         <div class="toolbar toolbar--compact">
             <?php if ($bulkCount > 0): ?>
-                <form method="post" action="staff-send-profile-link.php" class="staff-dir-bulk-form" onsubmit="return confirm('Send profile update link to <?= (int) $bulkCount ?> registered staff matching these filters?');">
+                <form method="post" action="staff-send-profile-link.php" class="staff-dir-bulk-form" onsubmit="return confirm('Send profile update link to <?= (int) $bulkCount ?> registered staff? Each person gets one email with sign-in links (not an approval email).');">
                     <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                     <input type="hidden" name="bulk_all" value="1">
                     <input type="hidden" name="redirect" value="<?= h('staff-directory.php' . ($paginationQuery !== [] ? '?' . http_build_query($paginationQuery) : '')) ?>">
@@ -67,6 +67,26 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <a href="staff.php" class="btn btn--secondary">← Registrations</a>
         </div>
     </div>
+
+    <details class="staff-dir-email-preview">
+        <summary>What does the bulk profile-link email say?</summary>
+        <div class="staff-dir-email-preview__body">
+            <p><strong>Subject:</strong> <?= h($siteName) ?> — complete your staff profile</p>
+            <pre class="staff-dir-email-preview__sample">Dear [First name],
+
+Please update your staff profile (address, bank details, and PSA licence photos) before your shift can be approved.
+
+Option 1 — sign in with email and date of birth:
+<?= h($staffPortalUrl) ?>
+
+
+Option 2 — use your personal link:
+[Unique link per person]
+
+This is not an approval email.</pre>
+            <p class="form-hint">Bulk send emails every registered staff member matching your filters (active accounts only). Blacklisted staff are skipped.</p>
+        </div>
+    </details>
 
     <div class="staff-dir-portal-banner">
         <div class="staff-dir-portal-banner__text">
