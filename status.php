@@ -48,10 +48,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['status_psa_update']))
             $staffRecord = $staffId !== null ? getStaffById($pdo, $staffId) : null;
             $psaErrors = validateRegistrationPsa($_POST, $staffRecord, $_FILES);
             if ($psaErrors === [] && $staffId !== null) {
-                saveStaffPsaFromForm($pdo, $staffId, $_POST, $_FILES);
-                $_SESSION['registration_status_message'] = 'PSA details saved.';
-                header('Location: status.php?token=' . urlencode($token));
-                exit;
+                ensureStaffPsaSchema($pdo);
+                $saveErrors = saveStaffPsaFromForm($pdo, $staffId, $_POST, $_FILES);
+                if ($saveErrors !== []) {
+                    $psaErrors = array_merge($psaErrors, $saveErrors);
+                } else {
+                    $_SESSION['registration_status_message'] = 'PSA details saved.';
+                    header('Location: status.php?token=' . urlencode($token));
+                    exit;
+                }
             }
         }
     }

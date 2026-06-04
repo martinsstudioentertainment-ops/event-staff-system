@@ -1031,6 +1031,11 @@ function generateStaffProfileToken(PDO $pdo, int $staffId): string
  */
 function updateStaffProfile(PDO $pdo, int $staffId, array $data): bool
 {
+    if (array_intersect_key($data, array_flip(['psa_licence', 'psa_expiry_date', 'psa_front_image', 'psa_back_image'])) !== []) {
+        require_once __DIR__ . '/staff-psa.php';
+        ensureStaffPsaSchema($pdo);
+    }
+
     $allowedFields = [
         'surname', 'first_name', 'full_address', 'eircode',
         'location_lat', 'location_lng', 'mobile', 'gender',

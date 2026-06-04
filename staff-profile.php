@@ -3,10 +3,12 @@ require_once __DIR__ . '/config.php';
 initSecureSession();
 require_once __DIR__ . '/includes/staff-repository.php';
 require_once __DIR__ . '/includes/staff-onboarding.php';
+require_once __DIR__ . '/includes/staff-psa.php';
 require_once __DIR__ . '/includes/staff-portal-session.php';
 require_once __DIR__ . '/includes/staff-profile-gate.php';
 
 $pdo = getDB();
+ensureStaffPsaSchema($pdo);
 $token = trim((string) ($_GET['token'] ?? ''));
 $staff = null;
 
@@ -31,10 +33,12 @@ if (isset($_GET['logout'])) {
 
 $profileComplete = !staffNeedsProfileForm($pdo, $staff);
 $missingFields   = getStaffOnboardingMissingFields($staff);
-$flash = null;
+$flash           = null;
+$fieldErrors     = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $validationErrors = validateStaffOnboardingPost($_POST, $staff);
+    $validationErrors = validateStaffOnboardingPost($_POST, $staff, $_FILES);
     if ($validationErrors !== []) {
+        $fieldErrors = $validationErrors;
         $flash = [
             'type'    => 'error',
             'message' => $validationErrors['form'] ?? reset($validationErrors),
@@ -65,30 +69,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $updateData['location_lng'] = (float) $_POST['location_lng'];
         }
 
-        // Handle image uploads
-        if (isset($_FILES['psa_front_image']) && $_FILES['psa_front_image']['error'] === UPLOAD_ERR_OK) {
-            $uploadDir = __DIR__ . '/uploads/psa/';
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0755, true);
-            }
-            $ext = pathinfo($_FILES['psa_front_image']['name'], PATHINFO_EXTENSION);
-            $filename = 'psa_front_' . $staff['id'] . '_' . time() . '.' . $ext;
-            if (move_uploaded_file($_FILES['psa_front_image']['tmp_name'], $uploadDir . $filename)) {
-                $updateData['psa_front_image'] = '/uploads/psa/' . $filename;
-            }
+        $psaUpload = processStaffPsaFileUploadsWithErrors((int) $staff['id'], $_FILES);
+        if ($psaUpload['errors'] !== []) {
+            $fieldErrors = $psaUpload['errors'];
+            $flash = [
+                'type'    => 'error',
+                'message' => reset($psaUpload['errors']) ?: 'Could not save PSA photos.',
+            ];
+            throw new RuntimeException('PSA photo upload failed');
         }
-
-        if (isset($_FILES['psa_back_image']) && $_FILES['psa_back_image']['error'] === UPLOAD_ERR_OK) {
-            $uploadDir = __DIR__ . '/uploads/psa/';
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0755, true);
-            }
-            $ext = pathinfo($_FILES['psa_back_image']['name'], PATHINFO_EXTENSION);
-            $filename = 'psa_back_' . $staff['id'] . '_' . time() . '.' . $ext;
-            if (move_uploaded_file($_FILES['psa_back_image']['tmp_name'], $uploadDir . $filename)) {
-                $updateData['psa_back_image'] = '/uploads/psa/' . $filename;
-            }
-        }
+        $updateData = array_merge($updateData, $psaUpload['paths']);
 
         if (updateStaffProfile($pdo, (int) $staff['id'], $updateData)) {
             $staff = getStaffById($pdo, (int) $staff['id']) ?? $staff;
@@ -121,6 +111,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } else {
             $flash = ['type' => 'error', 'message' => 'Failed to update profile. Please try again.'];
+        }
+    } catch (RuntimeException $e) {
+        if ($flash === null) {
+            $flash = ['type' => 'error', 'message' => $e->getMessage()];
         }
     } catch (Exception $e) {
         $flash = ['type' => 'error', 'message' => 'Error: ' . $e->getMessage()];
@@ -244,8 +238,8 @@ $themeColor = getThemeColor($pdo);
 
                 <div class="form-group">
                     <label class="form-label">PSA licence number</label>
-                    <input type="text" name="psa_licence" id="psa_licence" class="form-input" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>" placeholder="EM12345/67" autocomplete="off" autocapitalize="characters" pattern="EM[0-9]{5}/[0-9]{2}" required>
-                    <p class="form-hint">Format EM00000/00 as on your PSA card.</p>
+                    <input type="text" name="psa_licence" id="psa_licence" class="form-input" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>" placeholder="EM123456/00" autocomplete="off" autocapitalize="characters" pattern="EM[0-9]{6}/[0-9]{2}" required>
+                    <p class="form-hint">Format EM123456/00 as on your PSA card.</p>
                 </div>
 
                 <div class="form-group">
@@ -255,17 +249,25 @@ $themeColor = getThemeColor($pdo);
 
                 <div class="form-group">
                     <label class="form-label">PSA card — front photo</label>
-                    <input type="file" name="psa_front_image" class="form-input form-input--file" accept="image/*" <?= empty($staff['psa_front_image']) ? 'required' : '' ?>>
+                    <input type="file" name="psa_front_image" class="form-input form-input--file" accept="<?= h(psaImageFileAcceptAttribute()) ?>" <?= empty($staff['psa_front_image']) ? 'required' : '' ?>>
+                    <p class="form-hint">JPG, PNG, or photo from your phone (max 8 MB).</p>
                     <?php if (!empty($staff['psa_front_image'])): ?>
                         <p class="form-hint"><a href="<?= h($staff['psa_front_image']) ?>" target="_blank" rel="noopener">View current image</a></p>
+                    <?php endif; ?>
+                    <?php if (!empty($fieldErrors['psa_front_image'])): ?>
+                        <span class="form-error form-error--visible"><?= h($fieldErrors['psa_front_image']) ?></span>
                     <?php endif; ?>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">PSA card — back photo</label>
-                    <input type="file" name="psa_back_image" class="form-input form-input--file" accept="image/*" <?= empty($staff['psa_back_image']) ? 'required' : '' ?>>
+                    <input type="file" name="psa_back_image" class="form-input form-input--file" accept="<?= h(psaImageFileAcceptAttribute()) ?>" <?= empty($staff['psa_back_image']) ? 'required' : '' ?>>
+                    <p class="form-hint">JPG, PNG, or photo from your phone (max 8 MB).</p>
                     <?php if (!empty($staff['psa_back_image'])): ?>
                         <p class="form-hint"><a href="<?= h($staff['psa_back_image']) ?>" target="_blank" rel="noopener">View current image</a></p>
+                    <?php endif; ?>
+                    <?php if (!empty($fieldErrors['psa_back_image'])): ?>
+                        <span class="form-error form-error--visible"><?= h($fieldErrors['psa_back_image']) ?></span>
                     <?php endif; ?>
                 </div>
 

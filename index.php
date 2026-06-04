@@ -10,6 +10,7 @@ require_once __DIR__ . '/includes/website-content.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/i18n.php';
 require_once __DIR__ . '/includes/email-copy.php';
+require_once __DIR__ . '/includes/staff-psa.php';
 
 require_once __DIR__ . '/includes/global-public-site.php';
 require_once __DIR__ . '/includes/public/staff-public-shell.php';
@@ -272,8 +273,8 @@ if ($pdo) {
 
                     <div class="form-group">
                         <label class="form-label form-label--required" for="psa_licence">PSA licence number</label>
-                        <input class="form-input" type="text" id="psa_licence" name="psa_licence" value="<?= old('psa_licence') ?>" placeholder="EM12345/67" autocomplete="off" autocapitalize="characters" pattern="EM[0-9]{5}/[0-9]{2}" title="Format EM12345/67">
-                        <p class="form-hint">Format: EM00000/00 (shown on your PSA card).</p>
+                        <input class="form-input" type="text" id="psa_licence" name="psa_licence" value="<?= old('psa_licence') ?>" placeholder="EM123456/00" autocomplete="off" autocapitalize="characters" pattern="EM[0-9]{6}/[0-9]{2}" title="Format EM123456/00">
+                        <p class="form-hint">Format: EM123456/00 (shown on your PSA card).</p>
                         <span class="form-error" id="psa_licence-error"></span>
                     </div>
 
@@ -285,13 +286,13 @@ if ($pdo) {
 
                     <div class="form-group form-group--full">
                         <label class="form-label form-label--required" for="psa_front_image">PSA card — front photo</label>
-                        <input class="form-input form-input--file" type="file" id="psa_front_image" name="psa_front_image" accept="image/*" data-psa-upload="front">
+                        <input class="form-input form-input--file" type="file" id="psa_front_image" name="psa_front_image" accept="<?= h(psaImageFileAcceptAttribute()) ?>" data-psa-upload="front">
                         <span class="form-error" id="psa_front_image-error"></span>
                     </div>
 
                     <div class="form-group form-group--full">
                         <label class="form-label form-label--required" for="psa_back_image">PSA card — back photo</label>
-                        <input class="form-input form-input--file" type="file" id="psa_back_image" name="psa_back_image" accept="image/*" data-psa-upload="back">
+                        <input class="form-input form-input--file" type="file" id="psa_back_image" name="psa_back_image" accept="<?= h(psaImageFileAcceptAttribute()) ?>" data-psa-upload="back">
                         <span class="form-error" id="psa_back_image-error"></span>
                     </div>
 

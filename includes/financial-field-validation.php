@@ -1,7 +1,7 @@
 <?php
 
 /**
- * PSA licence (EM00000/00) and IBAN validation — used on all staff-facing forms.
+ * PSA licence (EM000000/00) and IBAN validation — used on all staff-facing forms.
  */
 
 /** @return array<string, int> ISO country => IBAN length */
@@ -40,7 +40,7 @@ function isValidPsaLicenceFormat(string $value): bool
 {
     $psa = normalizePsaLicence($value);
 
-    return (bool) preg_match('/^EM\d{5}\/\d{2}$/', $psa);
+    return (bool) preg_match('/^EM\d{6}\/\d{2}$/', $psa);
 }
 
 function ibanMod97(string $iban): int
@@ -100,7 +100,7 @@ function validatePsaLicenceField(string $value, bool $required = true): ?string
     }
 
     if (!isValidPsaLicenceFormat($value)) {
-        return 'PSA licence must be format EM12345/67 (EM, 5 digits, /, 2 digits).';
+        return 'PSA licence must be format EM123456/00 (EM, 6 digits, /, 2 digits).';
     }
 
     return null;

@@ -264,8 +264,8 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
         <div class="form-group">
             <label class="form-label">PSA licence number</label>
-            <input type="text" name="psa_licence" id="psa_licence" class="form-input" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>" placeholder="EM12345/67" pattern="EM[0-9]{5}/[0-9]{2}"<?= $readonlyAttr ?>>
-            <p class="form-hint">Format EM00000/00</p>
+            <input type="text" name="psa_licence" id="psa_licence" class="form-input" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>" placeholder="EM123456/00" pattern="EM[0-9]{6}/[0-9]{2}"<?= $readonlyAttr ?>>
+            <p class="form-hint">Format EM123456/00</p>
         </div>
 
         <div class="form-group">

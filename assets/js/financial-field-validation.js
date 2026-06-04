@@ -1,5 +1,5 @@
 /**
- * PSA licence (EM00000/00) and IBAN validation — mirrors includes/financial-field-validation.php
+ * PSA licence (EM000000/00) and IBAN validation — mirrors includes/financial-field-validation.php
  */
 (function (global) {
     'use strict';
@@ -24,7 +24,7 @@
     }
 
     function isValidPsaLicence(value) {
-        return /^EM\d{5}\/\d{2}$/.test(normalizePsaLicence(value));
+        return /^EM\d{6}\/\d{2}$/.test(normalizePsaLicence(value));
     }
 
     function ibanMod97(iban) {
@@ -58,7 +58,7 @@
             return required ? 'PSA licence number is required.' : null;
         }
         if (!isValidPsaLicence(value)) {
-            return 'PSA licence must be format EM12345/67 (EM, 5 digits, /, 2 digits).';
+            return 'PSA licence must be format EM123456/00 (EM, 6 digits, /, 2 digits).';
         }
         return null;
     }

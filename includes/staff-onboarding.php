@@ -134,10 +134,13 @@ function getStaffOnboardingRedirectUrl(PDO $pdo, string $email): ?string
 
 /**
  * @param array<string, mixed> $post POST data from staff-profile form
+ * @param array<string, mixed> $files $_FILES
  * @return array<string, string> field => error
  */
-function validateStaffOnboardingPost(array $post, array $staff): array
+function validateStaffOnboardingPost(array $post, array $staff, array $files = []): array
 {
+    require_once __DIR__ . '/staff-psa.php';
+
     $errors = [];
     $data   = [
         'first_name'      => trim((string) ($post['first_name'] ?? '')),
@@ -156,12 +159,14 @@ function validateStaffOnboardingPost(array $post, array $staff): array
         'psa_back_image'  => trim((string) ($staff['psa_back_image'] ?? '')),
     ];
 
-    if (isset($_FILES['psa_front_image']) && ($_FILES['psa_front_image']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+    if (psaUploadProvided($files, 'psa_front_image')) {
         $data['psa_front_image'] = 'pending-upload';
     }
-    if (isset($_FILES['psa_back_image']) && ($_FILES['psa_back_image']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+    if (psaUploadProvided($files, 'psa_back_image')) {
         $data['psa_back_image'] = 'pending-upload';
     }
+
+    $errors = array_merge($errors, validateRegistrationPsa($data, $staff, $files));
 
     $missing = getStaffOnboardingMissingFields($data);
     if ($missing !== []) {
