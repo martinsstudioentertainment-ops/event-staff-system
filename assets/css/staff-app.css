@@ -419,6 +419,69 @@ a.staff-app__tile:active {
 }
 
 /* Mini header on check-in / status pages */
+.staff-app-gate {
+    margin-bottom: 1.25rem;
+    padding: 1.25rem 1.1rem;
+    border: 2px solid #f59e0b;
+    background: linear-gradient(180deg, #fffbeb 0%, #fff 100%);
+    box-shadow: 0 10px 30px rgba(245, 158, 11, 0.15);
+}
+
+.staff-app-gate__badge {
+    display: inline-block;
+    margin-bottom: 0.5rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    background: #f59e0b;
+    color: #fff;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.staff-app-gate__title {
+    margin: 0 0 0.5rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #92400e;
+}
+
+.staff-app-gate__lead,
+.staff-app-gate__hint {
+    margin: 0 0 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: #78350f;
+}
+
+.staff-app-gate__form {
+    margin-top: 0.5rem;
+}
+
+.staff-app-gate__submit {
+    margin-top: 0.25rem;
+    min-height: 48px;
+}
+
+.staff-app-gate__details {
+    margin-top: 1rem;
+    font-size: 0.8125rem;
+    color: #92400e;
+}
+
+.staff-app-gate__details ul {
+    margin: 0.5rem 0 0;
+    padding-left: 1.1rem;
+}
+
+.staff-app__verified-hint {
+    margin: 0 0 1rem;
+    text-align: center;
+    font-size: 0.8125rem;
+    color: #64748b;
+}
+
 .staff-app-mini-header {
     position: sticky;
     top: 0;

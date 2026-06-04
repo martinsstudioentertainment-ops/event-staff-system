@@ -4,6 +4,7 @@ initSecureSession();
 require_once __DIR__ . '/includes/settings-repository.php';
 require_once __DIR__ . '/includes/staff-portal-session.php';
 require_once __DIR__ . '/includes/staff-onboarding.php';
+require_once __DIR__ . '/includes/staff-profile-gate.php';
 require_once __DIR__ . '/includes/public/staff-public-shell.php';
 
 $pdo      = getDB();
@@ -14,6 +15,11 @@ $success  = '';
 $sessionStaff = getStaffFromPortalSession($pdo);
 if ($sessionStaff !== null) {
     header('Location: staff-profile.php');
+    exit;
+}
+
+if (isStaffProfileUpdateRequired($pdo) && $_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: staff-app.php');
     exit;
 }
 

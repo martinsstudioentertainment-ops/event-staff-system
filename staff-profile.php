@@ -4,6 +4,7 @@ initSecureSession();
 require_once __DIR__ . '/includes/staff-repository.php';
 require_once __DIR__ . '/includes/staff-onboarding.php';
 require_once __DIR__ . '/includes/staff-portal-session.php';
+require_once __DIR__ . '/includes/staff-profile-gate.php';
 
 $pdo = getDB();
 $token = trim((string) ($_GET['token'] ?? ''));
@@ -24,11 +25,11 @@ if ($token !== '') {
 
 if (isset($_GET['logout'])) {
     clearStaffPortalSession();
-    header('Location: staff-portal.php');
+    header('Location: ' . (isStaffProfileUpdateRequired($pdo) ? 'staff-app.php' : 'staff-portal.php'));
     exit;
 }
 
-$profileComplete = isStaffOnboardingComplete($staff);
+$profileComplete = isStaffOnboardingComplete($staff) && !staffMustUpdateProfile($pdo, $staff);
 $missingFields   = getStaffOnboardingMissingFields($staff);
 $flash = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -93,12 +94,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $staff = getStaffById($pdo, (int) $staff['id']) ?? $staff;
             if (isStaffOnboardingComplete($staff)) {
                 markStaffProfileCompleted($pdo, (int) $staff['id']);
+                $staff = getStaffById($pdo, (int) $staff['id']) ?? $staff;
+                $profileComplete = true;
+                $missingFields   = [];
+
+                if (!staffMustUpdateProfile($pdo, $staff)) {
+                    $return = trim((string) ($_SESSION['staff_profile_return'] ?? 'staff-app.php'));
+                    unset($_SESSION['staff_profile_return']);
+                    if ($return === '' || str_contains($return, 'staff-profile.php')) {
+                        $return = 'staff-app.php';
+                    }
+                    header('Location: ' . $return);
+                    exit;
+                }
+
                 $flash = [
                     'type'    => 'success',
                     'message' => 'Your profile is complete. You can register for events, view status, and check in when approved.',
                 ];
-                $profileComplete = true;
-                $missingFields   = [];
             } else {
                 $missingFields = getStaffOnboardingMissingFields($staff);
                 $flash = [

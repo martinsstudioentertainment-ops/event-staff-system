@@ -9,6 +9,8 @@ require_once __DIR__ . '/includes/status-repository.php';
 require_once __DIR__ . '/includes/validation.php';
 require_once __DIR__ . '/includes/public/staff-public-shell.php';
 require_once __DIR__ . '/includes/staff-psa.php';
+require_once __DIR__ . '/includes/staff-profile-gate.php';
+require_once __DIR__ . '/includes/staff-portal-session.php';
 
 $pdo      = getDB();
 require_once __DIR__ . '/includes/staff-registration-schema.php';
@@ -89,8 +91,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['status_psa_update']))
         if ($staffId !== null) {
             $staffRecord = getStaffById($pdo, $staffId);
         }
+
+        if ($staffRecord !== null && staffMustUpdateProfile($pdo, $staffRecord)) {
+            establishStaffPortalSession($staffRecord);
+            $_SESSION['staff_profile_return'] = 'status.php?token=' . urlencode($token);
+            header('Location: staff-profile.php');
+            exit;
+        }
     }
 }
+
+enforceStaffProfileGate($pdo, ['staff-profile.php', 'staff-portal.php', 'status.php']);
 
 $assetBase = '';
 require_once __DIR__ . '/includes/theme.php';

@@ -20,6 +20,8 @@ require_once __DIR__ . '/includes/staff-pass.php';
 
 require_once __DIR__ . '/includes/i18n.php';
 require_once __DIR__ . '/includes/staff-onboarding.php';
+require_once __DIR__ . '/includes/staff-profile-gate.php';
+require_once __DIR__ . '/includes/staff-portal-session.php';
 require_once __DIR__ . '/includes/status-repository.php';
 
 
@@ -78,18 +80,23 @@ if ($token === '') {
 
     } else {
         $checkinEmail = (string) ($row['email'] ?? '');
-        if (!isStaffOnboardingCompleteByEmail($pdo, $checkinEmail)) {
+        $staffId      = ensureStaffRecordForEmail($pdo, $checkinEmail);
+        $staffRow     = $staffId !== null ? getStaffById($pdo, $staffId) : null;
+
+        if ($staffRow !== null && (staffMustUpdateProfile($pdo, $staffRow) || !isStaffOnboardingComplete($staffRow))) {
+            establishStaffPortalSession($staffRow);
             $statusToken = trim((string) ($row['status_token'] ?? ''));
             if ($statusToken === '') {
                 $resolved = resolveStatusTokenByEmail($pdo, $checkinEmail);
                 $statusToken = $resolved ?? '';
             }
-            if ($statusToken !== '') {
-                $_SESSION['registration_status_message'] =
-                    'Please update your PSA licence details at the top of your status page before checking in.';
-                header('Location: status.php?token=' . urlencode($statusToken));
-                exit;
-            }
+            $_SESSION['staff_profile_return'] = $statusToken !== ''
+                ? 'status.php?token=' . urlencode($statusToken)
+                : 'staff-app.php';
+            $_SESSION['registration_status_message'] =
+                'Please complete your staff profile before checking in.';
+            header('Location: staff-profile.php');
+            exit;
         }
 
         $window = getEventCheckinWindow($row);

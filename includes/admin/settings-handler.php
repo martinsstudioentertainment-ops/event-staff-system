@@ -302,6 +302,27 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
         }
 
         $settings = getAllSettings($pdo);
+    } elseif ($action === 'staff_profile_gate') {
+        if (!adminCan('settings')) {
+            return ['error' => 'You do not have permission to change staff profile settings.', 'success' => '', 'settings' => $settings];
+        }
+        require_once __DIR__ . '/../staff-profile-gate.php';
+        if (!empty($_POST['activate_staff_profile_gate'])) {
+            $count = activateStaffProfileUpdateRequired($pdo);
+            $settings = getAllSettings($pdo);
+            $success  = 'Staff must update their profile before using the mobile app. '
+                . $count . ' staff record(s) currently need to complete or re-save their profile.';
+        } elseif (!empty($_POST['deactivate_staff_profile_gate'])) {
+            deactivateStaffProfileUpdateRequired($pdo);
+            $settings = getAllSettings($pdo);
+            $success  = 'Mandatory profile update turned off. Staff can use the app without re-verifying.';
+        } else {
+            saveSettings($pdo, [
+                'staff_profile_update_required' => !empty($_POST['staff_profile_update_required']) ? '1' : '0',
+            ]);
+            $settings = getAllSettings($pdo);
+            $success  = 'Staff profile gate setting saved.';
+        }
     } elseif ($action === 'pwa_settings') {
         if (!adminCan('settings')) {
             return ['error' => 'You do not have permission to change PWA settings.', 'success' => '', 'settings' => $settings];

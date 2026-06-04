@@ -35,6 +35,8 @@ function getDefaultSettings(): array
         'notify_staff_enabled'   => '1',
         'notify_on_registration' => '0',
         'notify_on_checkin'      => '1',
+        'staff_profile_update_required' => '0',
+        'staff_profile_refresh_at'      => '',
         'reminder_daily_enabled' => '1',
         'reminder_signup_nudge_enabled' => '1',
         'reminder_signup_nudge_delay_days' => '2',

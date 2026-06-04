@@ -14,15 +14,18 @@ require_once __DIR__ . '/../includes/pwa-push.php';
 require_once __DIR__ . '/../includes/google-sheets-sync.php';
 require_once __DIR__ . '/../includes/google-drive-oauth.php';
 require_once __DIR__ . '/../includes/registration-forms.php';
+require_once __DIR__ . '/../includes/staff-profile-gate.php';
 
 requireAdminCapability('settings');
 
 $pdo            = getDB();
 $adminUser      = getAdminUser();
 $postAction     = ($_SERVER['REQUEST_METHOD'] === 'POST') ? (string) ($_POST['action'] ?? '') : '';
-$settingsAction = in_array($postAction, ['commission_rates', 'invoice_payment', 'google_sheets', 'pwa_settings'], true)
+$settingsAction = in_array($postAction, ['commission_rates', 'invoice_payment', 'google_sheets', 'pwa_settings', 'staff_profile_gate'], true)
     ? $postAction
     : 'system';
+$staffNeedingProfile = countStaffNeedingProfileUpdate($pdo);
+$profileGateOn       = isStaffProfileUpdateRequired($pdo);
 $result         = processSettingsPost($pdo, $adminUser, $settingsAction);
 $error          = $result['error'];
 $success        = $result['success'];
@@ -423,6 +426,43 @@ if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
             <?php endif; ?>
             <a href="google-sheets-diagnostic.php" class="btn btn--secondary">Diagnostic</a>
         </div>
+    </form>
+</section>
+
+<section class="card erp-settings-panel" id="staff-profile-gate">
+    <div class="card__header">
+        <h2 class="card__title">Staff profile update (mobile app)</h2>
+        <p class="card__subtitle">Force existing staff to verify email + date of birth and complete PSA, bank, and address details before they can use the staff app, check in, or view status.</p>
+    </div>
+
+    <?php if ($profileGateOn): ?>
+        <div class="alert alert--warning alert--visible">
+            <strong>Active.</strong> <?= (int) $staffNeedingProfile ?> staff member(s) still need to update their profile on
+            <a href="../staff-app.php" target="_blank" rel="noopener">staff-app.php</a>.
+        </div>
+    <?php else: ?>
+        <div class="alert alert--visible" style="background:#f1f5f9;border-color:#cbd5e1;color:#334155;">
+            Off — staff can use the app without being prompted to update their profile.
+        </div>
+    <?php endif; ?>
+
+    <form method="post" class="erp-settings-form">
+        <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+        <input type="hidden" name="action" value="staff_profile_gate">
+
+        <label class="form-checkbox" style="margin-bottom:1rem;">
+            <input type="checkbox" name="staff_profile_update_required" value="1"<?= $profileGateOn ? ' checked' : '' ?>>
+            <span>Require staff profile update on mobile app</span>
+        </label>
+
+        <div class="form-actions form-actions--end" style="flex-wrap:wrap;gap:0.5rem">
+            <button type="submit" class="btn btn--primary">Save</button>
+            <button type="submit" name="activate_staff_profile_gate" value="1" class="btn btn--secondary">Activate now — reset all staff &amp; require update</button>
+            <?php if ($profileGateOn): ?>
+                <button type="submit" name="deactivate_staff_profile_gate" value="1" class="btn btn--secondary">Turn off</button>
+            <?php endif; ?>
+        </div>
+        <p class="form-hint" style="margin-top:0.75rem;">Use <strong>Activate now</strong> to turn this on immediately and mark every staff record as needing a fresh profile save (recommended for PSA photo rollout).</p>
     </form>
 </section>
 

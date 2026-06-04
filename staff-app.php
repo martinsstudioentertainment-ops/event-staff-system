@@ -12,6 +12,8 @@ require_once __DIR__ . '/includes/i18n.php';
 
 require_once __DIR__ . '/includes/theme.php';
 require_once __DIR__ . '/includes/public/staff-public-shell.php';
+require_once __DIR__ . '/includes/staff-profile-gate.php';
+require_once __DIR__ . '/includes/staff-portal-session.php';
 
 
 
@@ -25,7 +27,17 @@ $themeColor = getThemeColor($pdo);
 
 $assetBase  = '';
 
+$gateState           = handleStaffPortalVerifyPost($pdo);
+$portalStaff         = getStaffFromPortalSession($pdo);
+$profileUpdateForced = isStaffProfileUpdateRequired($pdo);
 
+if ($portalStaff !== null && staffMustUpdateProfile($pdo, $portalStaff)) {
+    $_SESSION['staff_profile_return'] = 'staff-app.php';
+    header('Location: staff-profile.php');
+    exit;
+}
+
+$showProfileGate = $profileUpdateForced && $portalStaff === null;
 
 $hour = (int) date('H');
 
@@ -86,11 +98,15 @@ if ($hour < 12) {
 
             <h1 class="staff-app__title"><?= h($siteName) ?></h1>
 
-            <p class="staff-app__tagline">Your pocket companion for event shifts — register, track status, and check in on the day.</p>
+            <p class="staff-app__tagline"><?= $showProfileGate
+                ? 'Please verify your identity and update your staff details to continue.'
+                : 'Your pocket companion for event shifts — register, track status, and check in on the day.' ?></p>
 
         </header>
 
-
+        <?php if ($showProfileGate): ?>
+            <?php renderStaffProfileVerifyForm($pdo, is_array($gateState) ? $gateState : []); ?>
+        <?php else: ?>
 
         <nav class="staff-app__nav" aria-label="Staff actions">
 
@@ -169,7 +185,9 @@ if ($hour < 12) {
 
         </nav>
 
-
+        <?php if ($profileUpdateForced && $portalStaff !== null): ?>
+            <p class="staff-app__verified-hint">Signed in as <?= h((string) $portalStaff['email']) ?> · <a href="staff-profile.php">My profile</a></p>
+        <?php endif; ?>
 
         <section class="staff-app__how" aria-labelledby="how-it-works">
 
@@ -187,7 +205,7 @@ if ($hour < 12) {
 
         </section>
 
-
+        <?php endif; ?>
 
         <footer class="staff-app__footer">
 
