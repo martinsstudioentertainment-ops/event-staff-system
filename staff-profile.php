@@ -89,165 +89,59 @@ $siteName = getSiteName($pdo);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Staff Profile | <?= h($siteName) ?></title>
     <link rel="stylesheet" href="assets/css/admin.css">
-    <style>
-        body {
-            background: #f5f5f5;
-            padding: 20px;
-        }
-        .profile-container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            padding: 30px;
-        }
-        .profile-header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #eee;
-        }
-        .profile-header h1 {
-            margin: 0 0 10px 0;
-            color: #333;
-        }
-        .alert {
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 20px;
-        }
-        .alert--success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        .alert--error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        .form__section {
-            margin-bottom: 30px;
-        }
-        .form__section-title {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 15px;
-            color: #555;
-        }
-        .form__group {
-            margin-bottom: 20px;
-        }
-        .form__label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-            color: #333;
-        }
-        .form__input, .form__select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-            box-sizing: border-box;
-        }
-        .form__input:focus, .form__select:focus {
-            outline: none;
-            border-color: #007bff;
-        }
-        .form__input:disabled {
-            background: #f5f5f5;
-            cursor: not-allowed;
-        }
-        .form__hint {
-            font-size: 12px;
-            color: #666;
-            margin-top: 5px;
-        }
-        .form__actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 30px;
-        }
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            text-decoration: none;
-            display: inline-block;
-        }
-        .btn--primary {
-            background: #007bff;
-            color: white;
-        }
-        .btn--primary:hover {
-            background: #0056b3;
-        }
-        .btn--secondary {
-            background: #6c757d;
-            color: white;
-        }
-        .btn--secondary:hover {
-            background: #545b62;
-        }
-    </style>
 </head>
 <body>
-    <div class="profile-container">
-        <div class="profile-header">
-            <h1>Staff Profile</h1>
-            <p>Update your personal information</p>
-        </div>
-
-        <?php if (!$profileComplete): ?>
-            <div class="alert alert--error">
-                <strong>⚠️ Profile Incomplete</strong><br>
-                Please complete your PSA licence information to continue registering for events.
+    <div class="container">
+        <div class="card">
+            <div class="card__header">
+                <h2 class="card__title">Staff Profile</h2>
+                <p class="card__subtitle">Update your personal information</p>
             </div>
-        <?php endif; ?>
 
-        <?php if ($flash): ?>
-            <div class="alert alert--<?= h($flash['type']) ?>">
-                <?= h($flash['message']) ?>
-            </div>
-        <?php endif; ?>
+            <?php if (!$profileComplete): ?>
+                <div class="alert alert--error alert--visible">
+                    <strong>⚠️ Profile Incomplete</strong><br>
+                    Please complete your PSA licence information to continue registering for events.
+                </div>
+            <?php endif; ?>
 
-        <form method="post">
+            <?php if ($flash): ?>
+                <div class="alert alert--<?= h($flash['type']) ?> alert--visible">
+                    <?= h($flash['message']) ?>
+                </div>
+            <?php endif; ?>
+
+        <form method="post" enctype="multipart/form-data">
             <div class="form__section">
                 <h3 class="form__section-title">Personal Information</h3>
-                
+
                 <div class="form__group">
                     <label class="form__label">First Name</label>
                     <input type="text" name="first_name" class="form__input" value="<?= h((string) $staff['first_name']) ?>" required>
                 </div>
-                
+
                 <div class="form__group">
                     <label class="form__label">Surname</label>
                     <input type="text" name="surname" class="form__input" value="<?= h((string) $staff['surname']) ?>" required>
                 </div>
-                
+
                 <div class="form__group">
                     <label class="form__label">Email (cannot be changed)</label>
                     <input type="email" class="form__input" value="<?= h((string) $staff['email']) ?>" disabled>
-                    <p class="form__hint">Email is used for identification and cannot be changed.</p>
+                    <p class="form-hint">Email is used for identification and cannot be changed.</p>
                 </div>
-                
+
                 <div class="form__group">
                     <label class="form__label">Mobile</label>
                     <input type="tel" name="mobile" class="form__input" value="<?= h((string) $staff['mobile']) ?>" required>
                 </div>
-                
+
                 <div class="form__group">
                     <label class="form__label">Date of Birth (cannot be changed)</label>
                     <input type="date" class="form__input" value="<?= h((string) $staff['date_of_birth']) ?>" disabled>
-                    <p class="form__hint">Date of birth cannot be changed.</p>
+                    <p class="form-hint">Date of birth cannot be changed.</p>
                 </div>
-                
+
                 <div class="form__group">
                     <label class="form__label">Gender</label>
                     <select name="gender" class="form__select" required>
@@ -323,6 +217,7 @@ $siteName = getSiteName($pdo);
                 <button type="submit" class="btn btn--primary">Save Changes</button>
             </div>
         </form>
+        </div>
     </div>
 </body>
 </html>
