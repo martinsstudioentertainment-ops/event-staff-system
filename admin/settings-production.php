@@ -462,7 +462,7 @@ if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
                 <button type="submit" name="deactivate_staff_profile_gate" value="1" class="btn btn--secondary">Turn off</button>
             <?php endif; ?>
         </div>
-        <p class="form-hint" style="margin-top:0.75rem;">Use <strong>Activate now</strong> to turn this on immediately and mark every staff record as needing a fresh profile save (recommended for PSA photo rollout).</p>
+        <p class="form-hint" style="margin-top:0.75rem;">Use <strong>Activate now</strong> for a one-time rollout. After each person saves their profile they are not asked again — they only sign in with email + date of birth to view shifts. Turn this <strong>off</strong> when everyone has updated.</p>
     </form>
 </section>
 

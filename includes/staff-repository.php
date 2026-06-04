@@ -1016,7 +1016,7 @@ function isStaffProfileComplete(PDO $pdo, int $staffId): bool
 function markStaffProfileCompleted(PDO $pdo, int $staffId): bool
 {
     try {
-        $stmt = $pdo->prepare('UPDATE staff SET profile_completed = 1 WHERE id = :id');
+        $stmt = $pdo->prepare('UPDATE staff SET profile_completed = 1, updated_at = CURRENT_TIMESTAMP WHERE id = :id');
         $stmt->execute(['id' => $staffId]);
         return $stmt->rowCount() > 0;
     } catch (PDOException $e) {

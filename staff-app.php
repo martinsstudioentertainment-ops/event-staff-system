@@ -27,17 +27,24 @@ $themeColor = getThemeColor($pdo);
 
 $assetBase  = '';
 
+if (isset($_GET['signout'])) {
+    clearStaffPortalSession();
+    header('Location: staff-app.php');
+    exit;
+}
+
 $gateState           = handleStaffPortalVerifyPost($pdo);
 $portalStaff         = getStaffFromPortalSession($pdo);
 $profileUpdateForced = isStaffProfileUpdateRequired($pdo);
 
-if ($portalStaff !== null && staffMustUpdateProfile($pdo, $portalStaff)) {
+if ($portalStaff !== null && staffNeedsProfileForm($pdo, $portalStaff)) {
     $_SESSION['staff_profile_return'] = 'staff-app.php';
     header('Location: staff-profile.php');
     exit;
 }
 
-$showProfileGate = $profileUpdateForced && $portalStaff === null;
+$showSignInGate = $portalStaff === null;
+$signInMode     = $profileUpdateForced ? 'update' : 'signin';
 
 $hour = (int) date('H');
 
@@ -98,14 +105,14 @@ if ($hour < 12) {
 
             <h1 class="staff-app__title"><?= h($siteName) ?></h1>
 
-            <p class="staff-app__tagline"><?= $showProfileGate
-                ? 'Please verify your identity and update your staff details to continue.'
+            <p class="staff-app__tagline"><?= $showSignInGate
+                ? 'Sign in with your registration email and date of birth to view your shifts.'
                 : 'Your pocket companion for event shifts — register, track status, and check in on the day.' ?></p>
 
         </header>
 
-        <?php if ($showProfileGate): ?>
-            <?php renderStaffProfileVerifyForm($pdo, is_array($gateState) ? $gateState : []); ?>
+        <?php if ($showSignInGate): ?>
+            <?php renderStaffProfileVerifyForm($pdo, is_array($gateState) ? $gateState : [], $signInMode); ?>
         <?php else: ?>
 
         <nav class="staff-app__nav" aria-label="Staff actions">
@@ -185,8 +192,12 @@ if ($hour < 12) {
 
         </nav>
 
-        <?php if ($profileUpdateForced && $portalStaff !== null): ?>
-            <p class="staff-app__verified-hint">Signed in as <?= h((string) $portalStaff['email']) ?> · <a href="staff-profile.php">My profile</a></p>
+        <?php if ($portalStaff !== null): ?>
+            <p class="staff-app__verified-hint">
+                Signed in as <?= h((string) $portalStaff['email']) ?>
+                · <a href="staff-profile.php">My profile</a>
+                · <a href="staff-app.php?signout=1">Sign out</a>
+            </p>
         <?php endif; ?>
 
         <section class="staff-app__how" aria-labelledby="how-it-works">

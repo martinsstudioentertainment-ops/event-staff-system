@@ -92,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['status_psa_update']))
             $staffRecord = getStaffById($pdo, $staffId);
         }
 
-        if ($staffRecord !== null && staffMustUpdateProfile($pdo, $staffRecord)) {
+        if ($staffRecord !== null && staffNeedsProfileForm($pdo, $staffRecord)) {
             establishStaffPortalSession($staffRecord);
             $_SESSION['staff_profile_return'] = 'status.php?token=' . urlencode($token);
             header('Location: staff-profile.php');

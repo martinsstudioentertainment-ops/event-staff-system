@@ -83,7 +83,7 @@ if ($token === '') {
         $staffId      = ensureStaffRecordForEmail($pdo, $checkinEmail);
         $staffRow     = $staffId !== null ? getStaffById($pdo, $staffId) : null;
 
-        if ($staffRow !== null && (staffMustUpdateProfile($pdo, $staffRow) || !isStaffOnboardingComplete($staffRow))) {
+        if ($staffRow !== null && staffNeedsProfileForm($pdo, $staffRow)) {
             establishStaffPortalSession($staffRow);
             $statusToken = trim((string) ($row['status_token'] ?? ''));
             if ($statusToken === '') {

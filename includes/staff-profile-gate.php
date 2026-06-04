@@ -152,7 +152,7 @@ function handleStaffPortalVerifyPost(PDO $pdo): ?array
     establishStaffPortalSession($staff);
     $_SESSION['staff_profile_return'] = 'staff-app.php';
 
-    if (staffMustUpdateProfile($pdo, $staff)) {
+    if (!isStaffOnboardingComplete($staff) || staffMustUpdateProfile($pdo, $staff)) {
         header('Location: staff-profile.php');
         exit;
     }
@@ -161,22 +161,39 @@ function handleStaffPortalVerifyPost(PDO $pdo): ?array
     exit;
 }
 
+function staffNeedsProfileForm(PDO $pdo, ?array $staff): bool
+{
+    if ($staff === null) {
+        return false;
+    }
+
+    return !isStaffOnboardingComplete($staff) || staffMustUpdateProfile($pdo, $staff);
+}
+
 /**
  * @param array{error?: string, email?: string, date_of_birth?: string} $state
+ * @param 'signin'|'update' $mode signin = returning staff; update = rollout still in progress
  */
-function renderStaffProfileVerifyForm(PDO $pdo, array $state = []): void
+function renderStaffProfileVerifyForm(PDO $pdo, array $state = [], string $mode = 'signin'): void
 {
     require_once __DIR__ . '/auth.php';
     $siteName = getSiteName($pdo);
     $missing  = getStaffOnboardingRequiredFields();
+    $isUpdate = $mode === 'update';
     ?>
-    <section class="staff-app-gate card staff-public-card" aria-labelledby="staff-app-gate-title">
-        <div class="staff-app-gate__badge">Action required</div>
-        <h2 id="staff-app-gate-title" class="staff-app-gate__title">Update your staff details</h2>
+    <section class="staff-app-gate card staff-public-card<?= $isUpdate ? ' staff-app-gate--update' : ' staff-app-gate--signin' ?>" aria-labelledby="staff-app-gate-title">
+        <div class="staff-app-gate__badge"><?= $isUpdate ? 'Profile update required' : 'Staff sign-in' ?></div>
+        <h2 id="staff-app-gate-title" class="staff-app-gate__title"><?= $isUpdate ? 'Update your staff details' : 'Sign in to your shifts' ?></h2>
         <p class="staff-app-gate__lead">
-            <?= h($siteName) ?> needs every staff member to confirm address, bank details, and PSA licence photos before shifts can be approved or you can check in.
+            <?php if ($isUpdate): ?>
+                <?= h($siteName) ?> needs every staff member to confirm address, bank details, and PSA licence photos once before shifts can be approved.
+            <?php else: ?>
+                Enter the <strong>same email and date of birth</strong> you used when registering to view your shifts, status, and check-in links.
+            <?php endif; ?>
         </p>
-        <p class="staff-app-gate__hint">Sign in with your <strong>registration email</strong> and <strong>date of birth</strong> to continue.</p>
+        <?php if ($isUpdate): ?>
+            <p class="staff-app-gate__hint">Already updated? Sign in below — you will go straight to your shifts.</p>
+        <?php endif; ?>
 
         <?php if (!empty($state['error'])): ?>
             <div class="alert alert--error alert--visible"><?= h((string) $state['error']) ?></div>
@@ -195,17 +212,19 @@ function renderStaffProfileVerifyForm(PDO $pdo, array $state = []): void
                 <input type="date" id="gate-dob" name="date_of_birth" class="form-input" required
                     value="<?= h((string) ($state['date_of_birth'] ?? '')) ?>">
             </div>
-            <button type="submit" class="btn btn--primary btn--block staff-app-gate__submit">Continue to update my profile</button>
+            <button type="submit" class="btn btn--primary btn--block staff-app-gate__submit"><?= $isUpdate ? 'Continue' : 'View my shifts' ?></button>
         </form>
 
+        <?php if ($isUpdate): ?>
         <details class="staff-app-gate__details">
-            <summary>What you will need</summary>
+            <summary>What you will need (first time only)</summary>
             <ul>
                 <?php foreach ($missing as $label): ?>
                     <li><?= h($label) ?></li>
                 <?php endforeach; ?>
             </ul>
         </details>
+        <?php endif; ?>
     </section>
     <?php
 }

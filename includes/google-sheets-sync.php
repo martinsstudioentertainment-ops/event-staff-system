@@ -321,6 +321,8 @@ function buildGoogleSheetsSyncRow(array $row): array
             $eventDate,
             $eventName,
             formatRoleLabel((string) ($row['staff_role'] ?? '')),
+            (string) ($row['psa_licence'] ?? ''),
+            (string) ($row['psa_expiry_date'] ?? ''),
         ]
     );
 }

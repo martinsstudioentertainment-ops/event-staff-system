@@ -29,7 +29,7 @@ if (isset($_GET['logout'])) {
     exit;
 }
 
-$profileComplete = isStaffOnboardingComplete($staff) && !staffMustUpdateProfile($pdo, $staff);
+$profileComplete = !staffNeedsProfileForm($pdo, $staff);
 $missingFields   = getStaffOnboardingMissingFields($staff);
 $flash = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -98,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $profileComplete = true;
                 $missingFields   = [];
 
-                if (!staffMustUpdateProfile($pdo, $staff)) {
+                if (!staffNeedsProfileForm($pdo, $staff)) {
                     $return = trim((string) ($_SESSION['staff_profile_return'] ?? 'staff-app.php'));
                     unset($_SESSION['staff_profile_return']);
                     if ($return === '' || str_contains($return, 'staff-profile.php')) {

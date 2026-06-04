@@ -427,6 +427,25 @@ a.staff-app__tile:active {
     box-shadow: 0 10px 30px rgba(245, 158, 11, 0.15);
 }
 
+.staff-app-gate--signin {
+    border-color: #6366f1;
+    background: linear-gradient(180deg, #eef2ff 0%, #fff 100%);
+    box-shadow: 0 10px 30px rgba(99, 102, 241, 0.12);
+}
+
+.staff-app-gate--signin .staff-app-gate__badge {
+    background: #6366f1;
+}
+
+.staff-app-gate--signin .staff-app-gate__title {
+    color: #312e81;
+}
+
+.staff-app-gate--signin .staff-app-gate__lead,
+.staff-app-gate--signin .staff-app-gate__hint {
+    color: #4338ca;
+}
+
 .staff-app-gate__badge {
     display: inline-block;
     margin-bottom: 0.5rem;

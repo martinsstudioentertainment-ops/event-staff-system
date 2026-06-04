@@ -2,7 +2,8 @@
 
 /**
  * Employee payroll spreadsheet columns (Google Sheets + admin CSV).
- * Matches Staff Template.ods row 1 (A–J). Sync adds K–O: Registration ID, Status, Event date, Event name, Role.
+ * Matches Staff Template.ods row 1 (A–J). Sync adds K–Q: Registration ID, Status, Event date, Event name, Role, PSA licence, PSA expiry.
+ * PSA photos stay in the database only (not written to Google Sheets).
  * Postcode column uses eircode from registration.
  */
 
