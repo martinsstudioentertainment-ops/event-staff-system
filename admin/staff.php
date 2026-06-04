@@ -3,6 +3,8 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/staff-repository.php';
 require_once __DIR__ . '/../includes/registration-forms.php';
+require_once __DIR__ . '/../includes/staff-onboarding.php';
+require_once __DIR__ . '/../includes/admin-capabilities.php';
 
 requireAdminCapability('staff');
 
@@ -107,12 +109,23 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                     </tr>
                 <?php else: ?>
                     <?php foreach ($rows as $row): ?>
+                        <?php
+                        $profileOk       = isStaffOnboardingComplete($row);
+                        $canForceApprove = isAdminSuperUser();
+                        ?>
                         <tr>
                             <td class="data-table__check">
                                 <input type="checkbox" form="staff-bulk-form" name="ids[]" value="<?= (int) $row['id'] ?>" class="staff-row-check" aria-label="Select registration">
                             </td>
-                            <td><?= h($row['first_name'] . ' ' . $row['surname']) ?></td>
-                            <td><?= h($row['email']) ?></td>
+                            <td>
+                                <?= h($row['first_name'] . ' ' . $row['surname']) ?>
+                                <?php if (!$profileOk): ?>
+                                    <br><span class="badge badge--pending" title="Staff must complete profile before approval">Profile incomplete</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <a href="<?= h(buildStaffRegistrationsAdminUrl((string) $row['email'])) ?>"><?= h($row['email']) ?></a>
+                            </td>
                             <td><?= h(formatRoleLabel($row['staff_role'])) ?></td>
                             <td><?= h(formatEventLabel($row)) ?></td>
                             <td><span class="badge badge--<?= h($row['status']) ?>"><?= h(formatStatusLabel($row['status'])) ?></span></td>
@@ -120,14 +133,16 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                             <td>
                                 <div class="action-group">
                                     <a href="view-staff.php?id=<?= (int) $row['id'] ?>" class="btn btn--small btn--secondary">View</a>
-                                    <?php if ($row['status'] !== 'approved'): ?>
+                                    <?php if ($row['status'] !== 'approved' && ($profileOk || $canForceApprove)): ?>
                                         <form method="post" action="update-status.php">
                                             <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                                             <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
                                             <input type="hidden" name="status" value="approved">
                                             <input type="hidden" name="redirect_query" value="<?= h($queryString) ?>">
-                                            <button type="submit" class="btn btn--small btn--success">Approve</button>
+                                            <button type="submit" class="btn btn--small btn--success"><?= $profileOk ? 'Approve' : 'Approve (admin override)' ?></button>
                                         </form>
+                                    <?php elseif ($row['status'] !== 'approved' && !$profileOk): ?>
+                                        <span class="form-hint">Complete profile first</span>
                                     <?php endif; ?>
                                     <?php if ($row['status'] !== 'rejected'): ?>
                                         <form method="post" action="update-status.php">

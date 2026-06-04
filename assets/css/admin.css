@@ -969,11 +969,23 @@
     padding-left: 2.5rem;
 }
 
-.form-actions--end {
+.staff-edit-token-row {
     display: flex;
-    justify-content: flex-end;
-    margin-top: 1.5rem;
-    padding-top: 0.25rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: stretch;
+}
+
+.staff-edit-token-row .form-input {
+    flex: 1 1 12rem;
+    min-width: 0;
+}
+
+.staff-edit-form.is-readonly .form-input:disabled,
+.staff-edit-form.is-readonly .form-select:disabled,
+.staff-edit-form.is-readonly textarea:disabled {
+    opacity: 0.85;
+    cursor: not-allowed;
 }
 
 .btn--gradient-save {
@@ -1510,8 +1522,236 @@
     margin-top: 0.35rem;
 }
 
-.admin-shell .form-grid {
+/* Admin forms (style.css is not loaded in the ERP shell) */
+.admin-shell .form-grid,
+.admin-shell .erp-settings-form__grid {
+    display: grid;
     gap: 0.875rem 1rem;
+    grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+    .admin-shell .form-grid,
+    .admin-shell .erp-settings-form__grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.admin-shell .form-grid .form-group--full,
+.admin-shell .form-grid .form-section-title,
+.admin-shell .form-grid .form-actions,
+.admin-shell .erp-settings-form__grid .form-group--full {
+    grid-column: 1 / -1;
+}
+
+.admin-shell .settings-form,
+.admin-shell .erp-settings-form,
+.admin-shell .admin-form-compact {
+    max-width: 42rem;
+    width: 100%;
+}
+
+.admin-shell .form-actions,
+.admin-shell .form-actions--end {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+.admin-shell .form-actions .btn,
+.admin-shell .form-actions--end .btn,
+.admin-shell .staff-edit-actions-bar .btn {
+    width: auto;
+    max-width: none;
+    flex: 0 0 auto;
+}
+
+.admin-shell a.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+
+.admin-shell .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.admin-shell .copy-field {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: stretch;
+}
+
+.admin-shell .copy-field__input {
+    flex: 1 1 12rem;
+    min-width: 0;
+    font-size: 0.75rem;
+    word-break: break-all;
+}
+
+.admin-shell .copy-field__btn {
+    flex: 0 0 auto;
+}
+
+.admin-shell .staff-edit-layout .card__header--row {
+    align-items: flex-start;
+}
+
+.admin-shell .staff-edit-layout .card__header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.admin-shell .staff-edit-actions-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--admin-border, rgba(148, 163, 184, 0.25));
+    max-width: 42rem;
+}
+
+/* — Staff directory: fit viewport, no sideways scroll — */
+.admin-shell .table-wrap--fit {
+    overflow-x: auto;
+    max-width: 100%;
+}
+
+.admin-shell .data-table--staff-dir {
+    table-layout: fixed;
+    width: 100%;
+    min-width: 0;
+}
+
+.admin-shell .data-table--staff-dir .col-name { width: 18%; }
+.admin-shell .data-table--staff-dir .col-email { width: 26%; }
+.admin-shell .data-table--staff-dir .col-profile { width: 10%; }
+.admin-shell .data-table--staff-dir .col-shifts { width: 14%; }
+.admin-shell .data-table--staff-dir .col-account { width: 10%; }
+.admin-shell .data-table--staff-dir .col-actions { width: 22%; }
+
+.admin-shell .data-table--staff-dir th,
+.admin-shell .data-table--staff-dir td {
+    padding: 0.5rem 0.5rem;
+    font-size: 12px;
+    vertical-align: top;
+}
+
+.admin-shell .data-table--staff-dir .cell-ellipsis {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.admin-shell .data-table--staff-dir .cell-ellipsis a {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.admin-shell .staff-dir-name strong {
+    display: block;
+    font-size: 13px;
+}
+
+.admin-shell .staff-dir-meta {
+    display: block;
+    font-size: 11px;
+    color: var(--erp-text-muted);
+    margin-top: 0.15rem;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.admin-shell .staff-dir-shifts {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.admin-shell .staff-dir-shifts__sep {
+    color: var(--erp-text-muted);
+    margin: 0 0.1rem;
+}
+
+.admin-shell .staff-dir-shifts__hint {
+    display: block;
+    font-size: 9px;
+    color: var(--erp-text-muted);
+    margin-top: 0.15rem;
+    letter-spacing: 0.02em;
+}
+
+.admin-shell .data-table--staff-dir .col-actions {
+    position: sticky;
+    right: 0;
+    z-index: 2;
+    background: var(--erp-card, var(--admin-surface));
+    box-shadow: -6px 0 10px rgba(0, 0, 0, 0.12);
+}
+
+.admin-shell .table-actions--stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    align-items: stretch;
+}
+
+.admin-shell .table-actions--stack .btn {
+    width: 100%;
+    padding: 0.35rem 0.5rem;
+    font-size: 11px;
+}
+
+.admin-shell .table-actions--stack form {
+    margin: 0;
+}
+
+.admin-shell .staff-dir-portal-banner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: var(--admin-radius);
+    border: 1px solid var(--admin-border);
+    background: rgba(59, 130, 246, 0.06);
+}
+
+.admin-shell .staff-dir-portal-banner__text {
+    flex: 1 1 12rem;
+    min-width: 0;
+}
+
+.admin-shell .staff-dir-portal-banner__text strong {
+    display: block;
+    font-size: 13px;
+}
+
+.admin-shell .staff-dir-portal-banner__copy {
+    flex: 2 1 16rem;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.admin-shell .filter-bar--compact {
+    margin-bottom: 0.75rem;
+}
+
+@media (max-width: 900px) {
+    .admin-shell .data-table--staff-dir .col-name { width: 22%; }
+    .admin-shell .data-table--staff-dir .col-email { width: 28%; }
+    .admin-shell .data-table--staff-dir .col-actions { width: 24%; }
 }
 
 /* — Toolbar & filters — */

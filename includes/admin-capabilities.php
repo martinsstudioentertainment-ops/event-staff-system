@@ -34,6 +34,12 @@ function getCapabilitiesForRole(string $role): array
     };
 }
 
+/** Full administrator (can override incomplete profiles and edit staff records). */
+function isAdminSuperUser(): bool
+{
+    return getAdminRole() === 'admin';
+}
+
 function adminCan(string $capability): bool
 {
     if (!isAdminLoggedIn()) {

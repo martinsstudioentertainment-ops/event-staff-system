@@ -24,6 +24,7 @@ require_once __DIR__ . '/includes/staff-blacklist.php';
 require_once __DIR__ . '/includes/google-sheets-sync.php';
 require_once __DIR__ . '/includes/staff-registration-schema.php';
 require_once __DIR__ . '/includes/status-repository.php';
+require_once __DIR__ . '/includes/staff-onboarding.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -193,8 +194,15 @@ if (empty($errors)) {
 
 
 
-                $statusUrl = getRegistrationStatusUrlAfterSave($pdo, $ids, $email);
-                $_SESSION['registration_status_message'] = $message;
+                $profileUrl = getStaffOnboardingRedirectUrl($pdo, $email);
+                if ($profileUrl !== null) {
+                    $_SESSION['registration_status_message'] =
+                        'Registration saved. Please complete your staff profile (PSA licence and bank details) before you can continue.';
+                    $redirectUrl = $profileUrl;
+                } else {
+                    $_SESSION['registration_status_message'] = $message;
+                    $redirectUrl = getRegistrationStatusUrlAfterSave($pdo, $ids, $email);
+                }
 
                 if (isAjaxRequest()) {
 
@@ -202,17 +210,17 @@ if (empty($errors)) {
 
                         'success'    => true,
 
-                        'message'    => $message,
+                        'message'    => (string) $_SESSION['registration_status_message'],
 
                         'count'      => $count,
 
-                        'status_url' => $statusUrl,
+                        'status_url' => $redirectUrl,
 
                     ]);
 
                 }
 
-                header('Location: ' . $statusUrl);
+                header('Location: ' . $redirectUrl);
 
                 exit;
 

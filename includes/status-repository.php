@@ -151,5 +151,9 @@ function getStaffStatusRows(PDO $pdo, string $token): array
     $stmt = $pdo->prepare($sql);
     $stmt->execute(['email' => $row['email']]);
 
-    return $stmt->fetchAll();
+    $rows = $stmt->fetchAll() ?: [];
+
+    require_once __DIR__ . '/staff-repository.php';
+
+    return array_map(static fn(array $r): array => mergeRegistrationWithStaff($pdo, $r), $rows);
 }

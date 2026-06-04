@@ -1,12 +1,16 @@
 <?php
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/admin-capabilities.php';
 require_once __DIR__ . '/../includes/staff-repository.php';
+require_once __DIR__ . '/../includes/staff-onboarding.php';
+require_once __DIR__ . '/../includes/site-urls.php';
 
 requireAdminCapability('staff');
 
 $pdo = getDB();
 $staffId = (int) ($_GET['id'] ?? 0);
+$canEdit = isAdminSuperUser();
 
 if ($staffId < 1) {
     setAdminFlash('error', 'Invalid staff ID');
@@ -21,8 +25,12 @@ if (!$staff) {
     exit;
 }
 
-// Handle form submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+$profileUrl = getStaffProfileUrl($pdo, $staffId);
+$portalUrl  = getStaffPortalUrl($pdo);
+$profileComplete = isStaffOnboardingComplete($staff);
+$missingFields   = getStaffOnboardingMissingFields($staff);
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
     $csrfToken = $_POST['csrf_token'] ?? '';
     if (!verifyCsrf($csrfToken)) {
         setAdminFlash('error', 'Invalid CSRF token');
@@ -48,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = :id'
             );
-            
+
             $syncData = [
                 'surname'       => trim((string) ($_POST['surname'] ?? '')),
                 'first_name'    => trim((string) ($_POST['first_name'] ?? '')),
@@ -74,6 +82,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             syncStaffPersonalDataToRegistrations($pdo, $staffId, $syncData);
 
+            if (isStaffOnboardingComplete(getStaffById($pdo, $staffId) ?? [])) {
+                markStaffProfileCompleted($pdo, $staffId);
+            }
+
             setAdminFlash('success', 'Staff information updated successfully');
             header('Location: staff-directory.php');
             exit;
@@ -81,17 +93,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             setAdminFlash('error', 'Failed to update staff: ' . $e->getMessage());
         }
     }
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    setAdminFlash('error', 'Only administrators can edit staff records. Managers can send the profile update link below.');
 }
 
 $flash = getAdminFlash();
 $pageTitle = 'Edit Staff';
 $activePage = 'staff-directory';
+$readonlyAttr = $canEdit ? '' : ' disabled';
+$readonlyClass = $canEdit ? '' : ' is-readonly';
 
 include __DIR__ . '/../includes/admin/layout-top.php';
 ?>
 
+<div class="admin-form-compact staff-edit-layout">
 <?php if ($flash): ?>
     <div class="alert alert--<?= h($flash['type']) ?> alert--visible"><?= h($flash['message']) ?></div>
+<?php endif; ?>
+
+<?php if (!$canEdit): ?>
+    <div class="alert alert--warning alert--visible">
+        View only — only <strong>administrators</strong> can change staff data here. Use the button below to email the staff member a profile update link.
+    </div>
 <?php endif; ?>
 
 <section class="card">
@@ -99,174 +122,231 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <div>
             <h2 class="card__title">Edit Staff</h2>
             <p class="card__subtitle">
-                Update staff information. Changes will apply to all future registrations.
+                <?= h(trim((string) $staff['first_name'] . ' ' . (string) $staff['surname'])) ?>
+                · <?= h((string) $staff['email']) ?>
             </p>
         </div>
-        <a href="staff-directory.php" class="btn btn--secondary">← Staff Directory</a>
+        <div class="card__header-actions" style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+            <a href="<?= h(buildStaffRegistrationsAdminUrl((string) $staff['email'])) ?>" class="btn btn--secondary">All registrations</a>
+            <a href="<?= h(buildStaffRegistrationsAdminUrl((string) $staff['email'], 'pending')) ?>" class="btn btn--secondary">Pending shifts</a>
+            <a href="<?= h(buildStaffRegistrationsAdminUrl((string) $staff['email'], 'approved')) ?>" class="btn btn--secondary">Approved shifts</a>
+            <a href="staff-directory.php" class="btn btn--secondary">← Directory</a>
+        </div>
     </div>
 
-    <form method="post" class="form-grid">
+    <div class="detail-list" style="margin-bottom:1rem;">
+        <div class="detail-list__row">
+            <dt>Profile status</dt>
+            <dd>
+                <?php if ($profileComplete): ?>
+                    <span class="badge badge--approved">Complete</span>
+                <?php else: ?>
+                    <span class="badge badge--pending">Incomplete</span>
+                    <?php if ($missingFields !== []): ?>
+                        <span class="form-hint">Missing: <?= h(implode(', ', $missingFields)) ?></span>
+                    <?php endif; ?>
+                <?php endif; ?>
+            </dd>
+        </div>
+    </div>
+
+    <form method="post" class="form-grid settings-form staff-edit-form<?= h($readonlyClass) ?>">
         <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
 
         <div class="form-group form-group--full">
             <h3 class="form-section-title">Personal information</h3>
         </div>
 
-            <div class="form-group">
-                <label class="form-label">First name</label>
-                <input type="text" name="first_name" class="form-input" value="<?= h((string) $staff['first_name']) ?>" required>
-            </div>
+        <div class="form-group">
+            <label class="form-label">First name</label>
+            <input type="text" name="first_name" class="form-input" value="<?= h((string) $staff['first_name']) ?>" required<?= $readonlyAttr ?>>
+        </div>
 
-            <div class="form-group">
-                <label class="form-label">Surname</label>
-                <input type="text" name="surname" class="form-input" value="<?= h((string) $staff['surname']) ?>" required>
-            </div>
+        <div class="form-group">
+            <label class="form-label">Last name</label>
+            <input type="text" name="surname" class="form-input" value="<?= h((string) $staff['surname']) ?>" required<?= $readonlyAttr ?>>
+        </div>
 
-            <div class="form-group form-group--full">
-                <label class="form-label">Email (cannot be changed)</label>
-                <input type="email" class="form-input" value="<?= h((string) $staff['email']) ?>" disabled>
-                <p class="form-hint">Email is used for login and cannot be changed.</p>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Mobile</label>
-                <input type="tel" name="mobile" class="form-input" value="<?= h((string) $staff['mobile']) ?>" required>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Date of Birth (cannot be changed)</label>
-                <input type="date" class="form-input" value="<?= h((string) $staff['date_of_birth']) ?>" disabled>
-                <p class="form-hint">Date of birth cannot be changed.</p>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Gender</label>
-                <select name="gender" class="form-select" required>
-                    <option value="male" <?= $staff['gender'] === 'male' ? 'selected' : '' ?>>Male</option>
-                    <option value="female" <?= $staff['gender'] === 'female' ? 'selected' : '' ?>>Female</option>
-                    <option value="other" <?= $staff['gender'] === 'other' ? 'selected' : '' ?>>Other</option>
-                    <option value="prefer_not_to_say" <?= $staff['gender'] === 'prefer_not_to_say' ? 'selected' : '' ?>>Prefer not to say</option>
-                </select>
-            </div>
+        <div class="form-group form-group--full">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-input" value="<?= h((string) $staff['email']) ?>" disabled>
+            <p class="form-hint">Email cannot be changed. Staff sign in to the portal with this email and their date of birth.</p>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Mobile</label>
+            <input type="tel" name="mobile" class="form-input" value="<?= h((string) $staff['mobile']) ?>" required<?= $readonlyAttr ?>>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Date of birth</label>
+            <input type="date" class="form-input" value="<?= h((string) $staff['date_of_birth']) ?>" disabled>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Gender</label>
+            <select name="gender" class="form-select" required<?= $readonlyAttr ?>>
+                <option value="male" <?= $staff['gender'] === 'male' ? 'selected' : '' ?>>Male</option>
+                <option value="female" <?= $staff['gender'] === 'female' ? 'selected' : '' ?>>Female</option>
+                <option value="other" <?= $staff['gender'] === 'other' ? 'selected' : '' ?>>Other</option>
+                <option value="prefer_not_to_say" <?= $staff['gender'] === 'prefer_not_to_say' ? 'selected' : '' ?>>Prefer not to say</option>
+            </select>
+        </div>
+
         <div class="form-group form-group--full">
             <h3 class="form-section-title">Address</h3>
         </div>
-            
-            <div class="form-group">
-                <label class="form-label">Full Address</label>
-                <textarea name="full_address" class="form-input" rows="3" required><?= h((string) $staff['full_address']) ?></textarea>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Eircode</label>
-                <input type="text" name="eircode" class="form-input" value="<?= h((string) $staff['eircode']) ?>" required>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Latitude (optional)</label>
-                <input type="number" step="any" name="location_lat" class="form-input" value="<?= h((string) ($staff['location_lat'] ?? '')) ?>">
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Longitude (optional)</label>
-                <input type="number" step="any" name="location_lng" class="form-input" value="<?= h((string) ($staff['location_lng'] ?? '')) ?>">
-            </div>
+
+        <div class="form-group form-group--full">
+            <label class="form-label">Full address</label>
+            <textarea name="full_address" class="form-input" rows="3" required<?= $readonlyAttr ?>><?= h((string) $staff['full_address']) ?></textarea>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Eircode</label>
+            <input type="text" name="eircode" class="form-input" value="<?= h((string) $staff['eircode']) ?>" required<?= $readonlyAttr ?>>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Latitude (optional)</label>
+            <input type="number" step="any" name="location_lat" class="form-input" value="<?= h((string) ($staff['location_lat'] ?? '')) ?>"<?= $readonlyAttr ?>>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Longitude (optional)</label>
+            <input type="number" step="any" name="location_lng" class="form-input" value="<?= h((string) ($staff['location_lng'] ?? '')) ?>"<?= $readonlyAttr ?>>
+        </div>
+
         <div class="form-group form-group--full">
             <h3 class="form-section-title">Work information</h3>
         </div>
-            
-            <div class="form-group">
-                <label class="form-label">Staff Role</label>
-                <select name="staff_role" class="form-select" required>
-                    <option value="dsp" <?= $staff['staff_role'] === 'dsp' ? 'selected' : '' ?>>DSP</option>
-                    <option value="static" <?= $staff['staff_role'] === 'static' ? 'selected' : '' ?>>Static</option>
-                    <option value="steward" <?= $staff['staff_role'] === 'steward' ? 'selected' : '' ?>>Steward</option>
-                </select>
-            </div>
+
+        <div class="form-group">
+            <label class="form-label">Staff role</label>
+            <select name="staff_role" class="form-select" required<?= $readonlyAttr ?>>
+                <option value="dsp" <?= $staff['staff_role'] === 'dsp' ? 'selected' : '' ?>>DSP</option>
+                <option value="static" <?= $staff['staff_role'] === 'static' ? 'selected' : '' ?>>Static</option>
+                <option value="steward" <?= $staff['staff_role'] === 'steward' ? 'selected' : '' ?>>Steward</option>
+            </select>
+        </div>
+
         <div class="form-group form-group--full">
             <h3 class="form-section-title">Financial information</h3>
         </div>
 
-            <div class="form-group">
-                <label class="form-label">PPS Number</label>
-                <input type="text" name="pps_number" class="form-input" value="<?= h((string) $staff['pps_number']) ?>" required>
-            </div>
+        <div class="form-group">
+            <label class="form-label">PPS number</label>
+            <input type="text" name="pps_number" class="form-input" value="<?= h((string) $staff['pps_number']) ?>" required<?= $readonlyAttr ?>>
+        </div>
 
-            <div class="form-group">
-                <label class="form-label">Bank IBAN</label>
-                <input type="text" name="bank_iban" class="form-input" value="<?= h((string) $staff['bank_iban']) ?>" required>
-            </div>
+        <div class="form-group">
+            <label class="form-label">Bank IBAN</label>
+            <input type="text" name="bank_iban" class="form-input" value="<?= h((string) $staff['bank_iban']) ?>" required<?= $readonlyAttr ?>>
         </div>
 
         <div class="form-group form-group--full">
             <h3 class="form-section-title">PSA licence</h3>
         </div>
 
-            <div class="form-group">
-                <label class="form-label">PSA Licence Number</label>
-                <input type="text" name="psa_licence" class="form-input" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>">
-            </div>
+        <div class="form-group">
+            <label class="form-label">PSA licence number</label>
+            <input type="text" name="psa_licence" class="form-input" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>"<?= $readonlyAttr ?>>
+        </div>
 
-            <div class="form-group">
-                <label class="form-label">PSA Expiry Date</label>
-                <input type="date" name="psa_expiry_date" class="form-input" value="<?= h((string) ($staff['psa_expiry_date'] ?? '')) ?>">
-            </div>
+        <div class="form-group">
+            <label class="form-label">PSA expiry date</label>
+            <input type="date" name="psa_expiry_date" class="form-input" value="<?= h((string) ($staff['psa_expiry_date'] ?? '')) ?>"<?= $readonlyAttr ?>>
         </div>
 
         <div class="form-group form-group--full">
             <h3 class="form-section-title">Status</h3>
         </div>
-            
-            <div class="form-group">
-                <label class="form-checkbox">
-                    <input type="checkbox" name="is_blacklisted" value="1" <?= (int) ($staff['is_blacklisted'] ?? 0) === 1 ? 'checked' : '' ?>>
-                    Blacklisted
-                </label>
-                <p class="form-hint">Blacklisted staff cannot register for events.</p>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Blacklist Reason</label>
-                <textarea name="blacklist_reason" class="form-input" rows="2"><?= h((string) ($staff['blacklist_reason'] ?? '')) ?></textarea>
-            </div>
+
+        <div class="form-group">
+            <label class="form-checkbox">
+                <input type="checkbox" name="is_blacklisted" value="1" <?= (int) ($staff['is_blacklisted'] ?? 0) === 1 ? 'checked' : '' ?><?= $readonlyAttr ?>>
+                Blacklisted
+            </label>
         </div>
-        
+
         <div class="form-group form-group--full">
-            <h3 class="form-section-title">Public profile link</h3>
+            <label class="form-label">Blacklist reason</label>
+            <textarea name="blacklist_reason" class="form-input" rows="2"<?= $readonlyAttr ?>><?= h((string) ($staff['blacklist_reason'] ?? '')) ?></textarea>
         </div>
-            
+
+        <div class="form-group form-group--full">
+            <h3 class="form-section-title">Staff profile portal</h3>
+            <p class="form-hint">Staff use email + date of birth at the portal, or the personal link. Sending the link does not approve their shift and is not a verification email.</p>
+        </div>
+
+        <div class="form-group form-group--full">
+            <label class="form-label">Portal sign-in URL</label>
+            <div class="copy-field">
+                <input type="text" id="staff-portal-url" class="form-input copy-field__input" value="<?= h($portalUrl) ?>" readonly>
+                <button type="button" class="btn btn--small btn--secondary copy-field__btn" data-copy-target="staff-portal-url">Copy</button>
+            </div>
+        </div>
+
+        <div class="form-group form-group--full">
+            <label class="form-label">Personal profile link</label>
+            <div class="copy-field">
+                <input type="text" id="staff-profile-url" class="form-input copy-field__input" value="<?= h($profileUrl) ?>" readonly>
+                <button type="button" class="btn btn--small btn--secondary copy-field__btn" data-copy-target="staff-profile-url">Copy</button>
+            </div>
+        </div>
+
+        <?php if ($canEdit): ?>
             <div class="form-group">
-                <label class="form-label">Profile Token</label>
-                <div class="form-inline-group" style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                <label class="form-label">Profile token</label>
+                <div class="form-inline-group staff-edit-token-row">
                     <input type="text" class="form-input" value="<?= h((string) ($staff['profile_token'] ?? 'Not generated')) ?>" readonly>
                     <button type="button" class="btn btn--small btn--secondary" onclick="regenerateToken()">Regenerate</button>
                 </div>
-                <p class="form-hint">Share this link with staff so they can update their information.</p>
             </div>
-            
-            <div class="form-group">
-                <label class="form-label">Profile Link</label>
-                <?php if ($staff['profile_token']): ?>
-                    <input type="text" class="form-input" value="<?= h(getRegistrationFormUrl($pdo) . '/staff-profile.php?token=' . $staff['profile_token']) ?>" readonly>
-                <?php else: ?>
-                    <p class="form-hint">Generate a profile token first to create a public link.</p>
-                <?php endif; ?>
+        <?php endif; ?>
+
+        <?php if ($canEdit): ?>
+            <div class="form-group form-group--full form-actions form-actions--end">
+                <button type="submit" class="btn btn--primary">Save changes</button>
+                <a href="staff-directory.php" class="btn btn--secondary">Cancel</a>
             </div>
-        </div>
-        
-        <div class="form-group form-group--full form-actions form-actions--end">
-            <button type="submit" class="btn btn--primary">Save Changes</button>
-            <a href="staff-directory.php" class="btn btn--secondary">Cancel</a>
-        </div>
+        <?php endif; ?>
     </form>
+
+    <div class="staff-edit-actions-bar">
+        <form method="post" action="staff-send-profile-link.php">
+            <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+            <input type="hidden" name="staff_id" value="<?= (int) $staffId ?>">
+            <button type="submit" class="btn btn--secondary">Email profile update link</button>
+        </form>
+        <?php if (!$canEdit): ?>
+            <a href="staff-directory.php" class="btn btn--secondary">Back to directory</a>
+        <?php endif; ?>
+    </div>
 </section>
+</div>
 
 <script>
 function regenerateToken() {
-    if (confirm('Are you sure you want to regenerate the profile token? The old link will no longer work.')) {
+    if (confirm('Regenerate the profile token? The old personal link will stop working.')) {
         window.location.href = 'staff-regenerate-token.php?id=<?= (int) $staff['id'] ?>';
     }
 }
+
+document.querySelectorAll('[data-copy-target]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-copy-target');
+        var el = id ? document.getElementById(id) : null;
+        if (!el) {
+            return;
+        }
+        el.select();
+        el.setSelectionRange(0, 99999);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(el.value).catch(function () {});
+        }
+    });
+});
 </script>
 
 <?php include __DIR__ . '/../includes/admin/layout-bottom.php'; ?>

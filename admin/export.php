@@ -21,13 +21,13 @@ header('Expires: 0');
 $output = fopen('php://output', 'w');
 fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
 
-fputcsv($output, getEmployeeSpreadsheetHeaders());
+fputcsv($output, getFullStaffExportHeaders());
 
 $exportedIds = [];
 
 foreach ($rows as $row) {
     $exportedIds[] = (int) $row['id'];
-    fputcsv($output, buildEmployeeSpreadsheetRow($row));
+    fputcsv($output, buildFullStaffExportRow($row));
 }
 
 fclose($output);

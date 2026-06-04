@@ -116,6 +116,17 @@ if ($hour < 12) {
 
 
 
+            <a href="staff-portal.php" class="staff-app__tile staff-app__tile--profile">
+                <span class="staff-app__tile-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </span>
+                <span class="staff-app__tile-body">
+                    <span class="staff-app__tile-title">My profile</span>
+                    <span class="staff-app__tile-desc">Email + date of birth — update PSA &amp; bank details</span>
+                </span>
+                <span class="staff-app__tile-arrow" aria-hidden="true">›</span>
+            </a>
+
             <a href="status.php" class="staff-app__tile staff-app__tile--status">
 
                 <span class="staff-app__tile-icon" aria-hidden="true">

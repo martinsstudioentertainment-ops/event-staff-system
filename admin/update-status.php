@@ -8,6 +8,8 @@ require_once __DIR__ . '/../includes/audit-log.php';
 require_once __DIR__ . '/../includes/staff-registration-schema.php';
 require_once __DIR__ . '/../includes/event-reporting-schema.php';
 require_once __DIR__ . '/../includes/google-sheets-sync.php';
+require_once __DIR__ . '/../includes/admin-capabilities.php';
+require_once __DIR__ . '/../includes/staff-onboarding.php';
 
 requireAdminCapability('staff');
 
@@ -35,7 +37,9 @@ $pdo = getDB();
 ensureStaffRegistrationCheckinSchema($pdo);
 ensureEventReportingSchema($pdo);
 
-if (updateStaffStatus($pdo, $id, $status)) {
+$allowIncomplete = isAdminSuperUser();
+
+if (updateStaffStatus($pdo, $id, $status, $allowIncomplete)) {
     try {
         if ($status === 'approved') {
             ensureCheckinToken($pdo, $id);
@@ -57,7 +61,16 @@ if (updateStaffStatus($pdo, $id, $status)) {
     logAdminAudit($pdo, 'status_change', 'registration', $id, 'Status set to ' . $status);
     setAdminFlash('success', 'Registration status updated to ' . formatStatusLabel($status) . '.' . $sheetNote);
 } else {
-    setAdminFlash('error', 'Registration not found.');
+    $row = getStaffRegistrationById($pdo, $id);
+    if ($status === 'approved' && $row !== null && !isStaffOnboardingComplete($row)) {
+        setAdminFlash(
+            'error',
+            'Cannot approve — staff profile is incomplete (PSA, bank, address, etc.). Email a profile update link from Staff Directory.'
+            . ($allowIncomplete ? '' : ' Only administrators can approve incomplete profiles.')
+        );
+    } else {
+        setAdminFlash('error', 'Registration not found or status unchanged.');
+    }
 }
 
 $redirect = 'staff.php';

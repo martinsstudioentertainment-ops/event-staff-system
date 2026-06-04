@@ -35,7 +35,17 @@ $lockFormType = $linkedForm !== null;
 
 $old          = $_SESSION['registration_old'] ?? [];
 $serverErrors = $_SESSION['registration_errors'] ?? [];
+$returnEmail  = trim((string) ($old['email'] ?? ''));
 unset($_SESSION['registration_old'], $_SESSION['registration_errors']);
+
+if ($pdo !== null && $returnEmail !== '') {
+    require_once __DIR__ . '/includes/staff-onboarding.php';
+    $profileUrl = getStaffOnboardingRedirectUrl($pdo, $returnEmail);
+    if ($profileUrl !== null) {
+        header('Location: ' . $profileUrl);
+        exit;
+    }
+}
 
 if ($formSlug !== '' && $linkedForm === null) {
     $serverErrors['form_slug'] = 'This registration link is no longer available. Please choose a role below.';

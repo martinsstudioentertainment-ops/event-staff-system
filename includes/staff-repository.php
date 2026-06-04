@@ -139,16 +139,44 @@ function getEventsForFilter(PDO $pdo): array
     return $pdo->query('SELECT id, name, event_date FROM events WHERE is_active = 1 ORDER BY event_date ASC')->fetchAll();
 }
 
-function updateStaffStatus(PDO $pdo, int $id, string $status): bool
+function updateStaffStatus(PDO $pdo, int $id, string $status, bool $allowIncompleteApproval = false): bool
 {
     if (!in_array($status, ['pending', 'approved', 'rejected'], true)) {
         return false;
+    }
+
+    if ($status === 'approved' && !$allowIncompleteApproval) {
+        require_once __DIR__ . '/staff-onboarding.php';
+        $row = getStaffRegistrationById($pdo, $id);
+        if ($row !== null) {
+            $email = strtolower(trim((string) ($row['email'] ?? '')));
+            if ($email !== '') {
+                ensureStaffRecordForEmail($pdo, $email);
+                $row = getStaffRegistrationById($pdo, $id) ?? $row;
+            }
+            if (!isStaffOnboardingComplete($row)) {
+                return false;
+            }
+        }
     }
 
     $stmt = $pdo->prepare('UPDATE staff_registrations SET status = :status WHERE id = :id');
     $stmt->execute(['status' => $status, 'id' => $id]);
 
     return $stmt->rowCount() > 0;
+}
+
+/**
+ * Admin staff list URL filtered by registrant email (and optional status).
+ */
+function buildStaffRegistrationsAdminUrl(string $email, ?string $status = null): string
+{
+    $params = ['q' => trim($email)];
+    if ($status !== null && $status !== '') {
+        $params['status'] = $status;
+    }
+
+    return 'staff.php?' . http_build_query($params);
 }
 
 /**
@@ -788,9 +816,10 @@ function getAllStaff(PDO $pdo): array
 {
     try {
         $stmt = $pdo->query(
-            'SELECT s.*, 
-                    (SELECT COUNT(*) FROM staff_registrations sr WHERE sr.staff_id = s.id) as registration_count,
-                    (SELECT COUNT(*) FROM staff_registrations sr WHERE sr.staff_id = s.id AND sr.status = "approved") as approved_count
+            'SELECT s.*,
+                    (SELECT COUNT(*) FROM staff_registrations sr WHERE LOWER(sr.email) = LOWER(s.email)) AS registration_count,
+                    (SELECT COUNT(*) FROM staff_registrations sr WHERE LOWER(sr.email) = LOWER(s.email) AND sr.status = "approved") AS approved_count,
+                    (SELECT COUNT(*) FROM staff_registrations sr WHERE LOWER(sr.email) = LOWER(s.email) AND sr.status = "pending") AS pending_count
              FROM staff s
              ORDER BY s.surname ASC, s.first_name ASC'
         );
@@ -832,9 +861,10 @@ function getStaffWithFilters(PDO $pdo, array $filters): array
             $params['blacklisted'] = $filters['blacklisted'] ? 1 : 0;
         }
 
-        $sql = 'SELECT s.*, 
-                       (SELECT COUNT(*) FROM staff_registrations sr WHERE sr.staff_id = s.id) as registration_count,
-                       (SELECT COUNT(*) FROM staff_registrations sr WHERE sr.staff_id = s.id AND sr.status = "approved") as approved_count
+        $sql = 'SELECT s.*,
+                       (SELECT COUNT(*) FROM staff_registrations sr WHERE LOWER(sr.email) = LOWER(s.email)) AS registration_count,
+                       (SELECT COUNT(*) FROM staff_registrations sr WHERE LOWER(sr.email) = LOWER(s.email) AND sr.status = "approved") AS approved_count,
+                       (SELECT COUNT(*) FROM staff_registrations sr WHERE LOWER(sr.email) = LOWER(s.email) AND sr.status = "pending") AS pending_count
                 FROM staff s
                 WHERE ' . implode(' AND ', $where) . '
                 ORDER BY s.surname ASC, s.first_name ASC';

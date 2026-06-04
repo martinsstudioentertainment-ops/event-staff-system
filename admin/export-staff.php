@@ -28,7 +28,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 <section class="card">
     <div class="card__header">
         <h2 class="card__title">Staff registrations CSV</h2>
-        <p class="card__subtitle">10 employee columns (name, address, postcode, contact, DOB, gender, full PPS, full IBAN). Exported rows are marked in the database.</p>
+        <p class="card__subtitle">Full download: payroll fields, PSA licence, images, and event/status columns. Data is merged from the staff profile when linked. Exported rows are marked in the database.</p>
     </div>
 
     <form method="get" action="export.php" class="filter-bar">

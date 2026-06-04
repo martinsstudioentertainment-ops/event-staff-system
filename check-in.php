@@ -19,6 +19,7 @@ require_once __DIR__ . '/includes/public/staff-public-shell.php';
 require_once __DIR__ . '/includes/staff-pass.php';
 
 require_once __DIR__ . '/includes/i18n.php';
+require_once __DIR__ . '/includes/staff-onboarding.php';
 
 
 
@@ -75,6 +76,11 @@ if ($token === '') {
         $type    = 'error';
 
     } else {
+        $profileUrl = getStaffOnboardingRedirectUrl($pdo, (string) ($row['email'] ?? ''));
+        if ($profileUrl !== null) {
+            header('Location: ' . $profileUrl);
+            exit;
+        }
 
         $window = getEventCheckinWindow($row);
 

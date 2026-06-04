@@ -377,6 +377,20 @@ body {
     }
 
     .admin-shell .card__header--row .btn {
+        width: auto;
+    }
+
+    .admin-shell .staff-edit-layout .card__header-actions {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+    }
+
+    .admin-shell .staff-edit-layout .card__header-actions .btn {
+        width: 100%;
+    }
+
+    .admin-shell .form-actions--end .btn {
         width: 100%;
     }
 

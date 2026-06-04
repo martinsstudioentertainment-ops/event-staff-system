@@ -1,18 +1,31 @@
 <?php
 require_once __DIR__ . '/config.php';
+initSecureSession();
 require_once __DIR__ . '/includes/staff-repository.php';
 require_once __DIR__ . '/includes/staff-onboarding.php';
+require_once __DIR__ . '/includes/staff-portal-session.php';
 
 $pdo = getDB();
 $token = trim((string) ($_GET['token'] ?? ''));
+$staff = null;
 
-if ($token === '') {
-    die('Invalid or missing profile token. Please contact admin.');
+if ($token !== '') {
+    $staff = getStaffByProfileToken($pdo, $token);
+    if ($staff === null) {
+        die('Invalid profile link. Ask your coordinator to send a new profile update link.');
+    }
+} else {
+    $staff = getStaffFromPortalSession($pdo);
+    if ($staff === null) {
+        header('Location: staff-portal.php');
+        exit;
+    }
 }
 
-$staff = getStaffByProfileToken($pdo, $token);
-if (!$staff) {
-    die('Invalid profile token. Please contact admin.');
+if (isset($_GET['logout'])) {
+    clearStaffPortalSession();
+    header('Location: staff-portal.php');
+    exit;
 }
 
 $profileComplete = isStaffOnboardingComplete($staff);
@@ -77,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (updateStaffProfile($pdo, (int) $staff['id'], $updateData)) {
-            $staff = getStaffByProfileToken($pdo, $token);
+            $staff = getStaffById($pdo, (int) $staff['id']) ?? $staff;
             if (isStaffOnboardingComplete($staff)) {
                 markStaffProfileCompleted($pdo, (int) $staff['id']);
                 $flash = [
@@ -116,9 +129,12 @@ $siteName = getSiteName($pdo);
 <body class="staff-profile-page">
     <div class="staff-profile-page__wrap">
         <div class="card">
-            <div class="card__header">
-                <h2 class="card__title">Staff Profile</h2>
-                <p class="card__subtitle">Update your personal information</p>
+            <div class="card__header card__header--row">
+                <div>
+                    <h2 class="card__title">Staff Profile</h2>
+                    <p class="card__subtitle"><?= h((string) $staff['email']) ?> — update your personal information</p>
+                </div>
+                <a href="staff-profile.php?logout=1" class="btn btn--small btn--secondary">Sign out</a>
             </div>
 
             <?php if (!$profileComplete): ?>

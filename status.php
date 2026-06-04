@@ -8,6 +8,7 @@ require_once __DIR__ . '/includes/attendance-repository.php';
 require_once __DIR__ . '/includes/status-repository.php';
 require_once __DIR__ . '/includes/validation.php';
 require_once __DIR__ . '/includes/public/staff-public-shell.php';
+require_once __DIR__ . '/includes/staff-onboarding.php';
 
 $pdo      = getDB();
 require_once __DIR__ . '/includes/staff-registration-schema.php';
@@ -55,6 +56,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['status_lookup'])) {
         $error = 'Status link not found or expired. Try your email below or use a fresh link from email.';
         $showLookup = true;
         $token = '';
+    } else {
+        $profileUrl = getStaffOnboardingRedirectUrl($pdo, (string) ($rows[0]['email'] ?? ''));
+        if ($profileUrl !== null) {
+            $_SESSION['registration_status_message'] =
+                'Please complete your staff profile before viewing registrations or checking in.';
+            header('Location: ' . $profileUrl);
+            exit;
+        }
     }
 }
 
