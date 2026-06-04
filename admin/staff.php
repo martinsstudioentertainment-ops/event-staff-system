@@ -9,16 +9,21 @@ require_once __DIR__ . '/../includes/admin-pagination.php';
 
 requireAdminCapability('staff');
 
-$pdo     = getDB();
-$filters = getStaffFiltersFromRequest();
-$total   = countUniqueStaffRegistrants($pdo, $filters);
-$page    = min(adminListPage(), adminListTotalPages($total));
-$perPage = adminListPerPage();
-$offset  = adminListOffset($page);
-$rows    = getUniqueStaffRegistrants($pdo, $filters, $perPage, $offset);
-$pendingRegCount = $filters['status'] === 'pending'
-    ? countStaffRegistrations($pdo, $filters)
-    : 0;
+$pdo            = getDB();
+$filters        = getStaffFiltersFromRequest();
+$pendingListMode = ($filters['status'] === 'pending');
+
+if ($pendingListMode) {
+    $total = countStaffRegistrations($pdo, $filters);
+    $page  = min(adminListPage(), adminListTotalPages($total));
+    $rows  = getStaffRegistrations($pdo, $filters, adminListPerPage(), adminListOffset($page));
+} else {
+    $total = countUniqueStaffRegistrants($pdo, $filters);
+    $page  = min(adminListPage(), adminListTotalPages($total));
+    $rows  = getUniqueStaffRegistrants($pdo, $filters, adminListPerPage(), adminListOffset($page));
+}
+
+$pendingRegCount = $pendingListMode ? $total : 0;
 $events  = getEventsForFilter($pdo);
 $flash   = getAdminFlash();
 
@@ -44,12 +49,10 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <div>
             <h2 class="card__title">Staff Registrations</h2>
             <p class="card__subtitle">
-                <?php if ($filters['status'] === 'pending' && $total > 0): ?>
-                    <?= (int) $total ?> staff with pending shift<?= $total === 1 ? '' : 's' ?>
-                    <?php if ($pendingRegCount > $total): ?>
-                        (<?= (int) $pendingRegCount ?> registration<?= $pendingRegCount === 1 ? '' : 's' ?> to approve)
-                    <?php endif; ?>
-                    — open a profile to approve each shift.
+                <?php if ($pendingListMode && $total > 0): ?>
+                    <?= (int) $total ?> pending registration<?= $total === 1 ? '' : 's' ?> — open a profile to approve each shift.
+                <?php elseif ($pendingListMode): ?>
+                    No pending registrations. Try <a href="staff.php">All statuses</a>.
                 <?php else: ?>
                     <?= (int) $total ?> staff — one row per person. Open a profile to see all shifts.
                 <?php endif; ?>
@@ -114,7 +117,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                     <th>Name</th>
                     <th>Email</th>
                     <th>Role</th>
-                    <th>Shifts</th>
+                    <th><?= $pendingListMode ? 'Event' : 'Shifts' ?></th>
                     <th>Status</th>
                     <th>Last registered</th>
                     <th>Actions</th>
@@ -129,10 +132,16 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                     <?php foreach ($rows as $row): ?>
                         <?php
                         $profileOk    = isStaffOnboardingComplete($row);
-                        $viewId         = (int) ($row['latest_reg_id'] ?? $row['id'] ?? 0);
-                        $shiftCount     = (int) ($row['registration_count'] ?? 1);
-                        $statusSummary  = formatRegistrantStatusSummary($row);
-                        $primaryStatus  = registrantPrimaryStatus($row);
+                        $viewId         = (int) ($row['id'] ?? 0);
+                        $shiftCount     = $pendingListMode
+                            ? 1
+                            : (int) ($row['registration_count'] ?? 1);
+                        $statusSummary  = $pendingListMode
+                            ? formatStatusLabel((string) ($row['status'] ?? 'pending'))
+                            : formatRegistrantStatusSummary($row);
+                        $primaryStatus  = $pendingListMode
+                            ? (string) ($row['status'] ?? 'pending')
+                            : registrantPrimaryStatus($row);
                         ?>
                         <tr>
                             <td class="data-table__check">
@@ -148,7 +157,13 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                                 <a class="staff-dir-email" href="<?= h(buildStaffRegistrationsAdminUrl((string) $row['email'])) ?>"><?= h($row['email']) ?></a>
                             </td>
                             <td><?= h(formatRoleLabel($row['staff_role'])) ?></td>
-                            <td><?= $shiftCount === 1 ? '1 shift' : $shiftCount . ' shifts' ?></td>
+                            <td>
+                                <?php if ($pendingListMode): ?>
+                                    <?= h((string) ($row['event_name'] ?? '—')) ?>
+                                <?php else: ?>
+                                    <?= $shiftCount === 1 ? '1 shift' : $shiftCount . ' shifts' ?>
+                                <?php endif; ?>
+                            </td>
                             <td>
                                 <span class="badge badge--<?= h($primaryStatus) ?>" title="<?= h($statusSummary) ?>"><?= h($statusSummary) ?></span>
                             </td>
