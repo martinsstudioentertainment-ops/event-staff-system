@@ -44,30 +44,29 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     </div>
 
     <!-- Filters -->
-    <form method="get" class="form form--inline">
-        <div class="form__group">
-            <label class="form__label">Search</label>
-            <input type="text" name="q" class="form__input" placeholder="Name, email, or mobile" value="<?= h($filters['q']) ?>">
+    <form method="get" class="filter-bar">
+        <div class="filter-bar__group">
+            <input type="search" name="q" class="form-input" placeholder="Name, email, or mobile" value="<?= h($filters['q']) ?>">
         </div>
-        <div class="form__group">
-            <label class="form__label">Role</label>
-            <select name="role" class="form__select">
-                <option value="">All Roles</option>
-                <option value="dsp" <?= $filters['role'] === 'dsp' ? 'selected' : '' ?>>DSP</option>
-                <option value="static" <?= $filters['role'] === 'static' ? 'selected' : '' ?>>Static</option>
-                <option value="steward" <?= $filters['role'] === 'steward' ? 'selected' : '' ?>>Steward</option>
+        <div class="filter-bar__group">
+            <select name="role" class="form-select">
+                <option value="">All roles</option>
+                <option value="dsp" <?= $filters['role'] === 'dsp' ? ' selected' : '' ?>>DSP</option>
+                <option value="static" <?= $filters['role'] === 'static' ? ' selected' : '' ?>>Static</option>
+                <option value="steward" <?= $filters['role'] === 'steward' ? ' selected' : '' ?>>Steward</option>
             </select>
         </div>
-        <div class="form__group">
-            <label class="form__label">Status</label>
-            <select name="blacklisted" class="form__select">
-                <option value="">All</option>
-                <option value="0" <?= $filters['blacklisted'] === false ? 'selected' : '' ?>>Active</option>
-                <option value="1" <?= $filters['blacklisted'] === true ? 'selected' : '' ?>>Blacklisted</option>
+        <div class="filter-bar__group">
+            <select name="blacklisted" class="form-select">
+                <option value="">All statuses</option>
+                <option value="0" <?= $filters['blacklisted'] === false ? ' selected' : '' ?>>Active</option>
+                <option value="1" <?= $filters['blacklisted'] === true ? ' selected' : '' ?>>Blacklisted</option>
             </select>
         </div>
-        <button type="submit" class="btn btn--primary">Filter</button>
-        <a href="staff-directory.php" class="btn btn--secondary">Clear</a>
+        <div class="filter-bar__actions">
+            <button type="submit" class="btn btn--primary">Filter</button>
+            <a href="staff-directory.php" class="btn btn--secondary">Clear</a>
+        </div>
     </form>
 
     <?php if ($staffList === []): ?>

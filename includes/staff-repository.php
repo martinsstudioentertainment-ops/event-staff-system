@@ -122,7 +122,9 @@ function getStaffRegistrations(PDO $pdo, array $filters): array
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
 
-    return $stmt->fetchAll();
+    $rows = $stmt->fetchAll() ?: [];
+
+    return array_map(static fn(array $row): array => mergeRegistrationWithStaff($pdo, $row), $rows);
 }
 
 /**
@@ -380,7 +382,58 @@ function getStaffRegistrationsByEmail(PDO $pdo, string $email): array
     $stmt = $pdo->prepare($sql);
     $stmt->execute(['email' => $email]);
 
-    return $stmt->fetchAll();
+    $rows = $stmt->fetchAll() ?: [];
+
+    return array_map(static fn(array $row): array => mergeRegistrationWithStaff($pdo, $row), $rows);
+}
+
+/**
+ * Keep staff_registrations rows in sync when admin edits the staff table.
+ *
+ * @param array<string, mixed> $data
+ */
+function syncStaffPersonalDataToRegistrations(PDO $pdo, int $staffId, array $data): void
+{
+    if ($staffId < 1) {
+        return;
+    }
+
+    $map = [
+        'surname'      => 'surname',
+        'first_name'   => 'first_name',
+        'full_address' => 'full_address',
+        'eircode'      => 'eircode',
+        'location_lat' => 'location_lat',
+        'location_lng' => 'location_lng',
+        'mobile'       => 'mobile',
+        'gender'       => 'gender',
+        'pps_number'   => 'pps_number',
+        'bank_iban'    => 'bank_iban',
+        'staff_role'   => 'staff_role',
+    ];
+
+    $sets   = [];
+    $params = ['staff_id' => $staffId];
+
+    foreach ($map as $from => $column) {
+        if (!array_key_exists($from, $data)) {
+            continue;
+        }
+        $sets[]           = "{$column} = :{$column}";
+        $params[$column]  = $data[$from];
+    }
+
+    if ($sets === []) {
+        return;
+    }
+
+    try {
+        $sql = 'UPDATE staff_registrations SET ' . implode(', ', $sets) . ' WHERE staff_id = :staff_id';
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+    } catch (PDOException $e) {
+        error_log('[EventStaff] syncStaffPersonalDataToRegistrations: ' . $e->getMessage());
+    }
 }
 
 /**
@@ -744,7 +797,12 @@ function updateStaffProfile(PDO $pdo, int $staffId, array $data): bool
     try {
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
-        return $stmt->rowCount() > 0;
+        $ok = $stmt->rowCount() > 0;
+        if ($ok) {
+            syncStaffPersonalDataToRegistrations($pdo, $staffId, $data);
+        }
+
+        return $ok;
     } catch (PDOException $e) {
         error_log('[EventStaff] updateStaffProfile: ' . $e->getMessage());
         return false;

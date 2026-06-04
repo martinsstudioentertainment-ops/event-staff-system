@@ -2246,3 +2246,85 @@
 [data-theme="light"] .data-table__foot td {
     background: #f8fafc;
 }
+
+/* — Public staff profile (no admin shell) — */
+.staff-profile-page {
+    background: #f1f5f9;
+    color: #0f172a;
+    min-height: 100vh;
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.staff-profile-page__wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 2.5rem;
+}
+
+.staff-profile-page .card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem 1.5rem;
+    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+}
+
+.staff-profile-page .form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 0.35rem;
+}
+
+.staff-profile-page .form-input,
+.staff-profile-page .form-select,
+.staff-profile-page textarea.form-input {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 14px;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #fff;
+    color: #0f172a;
+}
+
+.staff-profile-page .form-input:disabled {
+    background: #f8fafc;
+    color: #64748b;
+}
+
+.staff-profile-page .form-hint {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 0.35rem;
+}
+
+.staff-profile-page .form-grid {
+    display: grid;
+    gap: 0.875rem 1rem;
+    grid-template-columns: 1fr;
+}
+
+@media (min-width: 560px) {
+    .staff-profile-page .form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .staff-profile-page .form-group--full {
+        grid-column: 1 / -1;
+    }
+}
+
+.staff-profile-page .form-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #64748b;
+    margin: 0 0 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+}

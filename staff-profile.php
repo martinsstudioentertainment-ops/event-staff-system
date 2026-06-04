@@ -88,10 +88,11 @@ $siteName = getSiteName($pdo);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Staff Profile | <?= h($siteName) ?></title>
+    <link rel="stylesheet" href="assets/css/variables.css">
     <link rel="stylesheet" href="assets/css/admin.css">
 </head>
-<body>
-    <div class="container">
+<body class="staff-profile-page">
+    <div class="staff-profile-page__wrap">
         <div class="card">
             <div class="card__header">
                 <h2 class="card__title">Staff Profile</h2>
@@ -111,40 +112,40 @@ $siteName = getSiteName($pdo);
                 </div>
             <?php endif; ?>
 
-        <form method="post" enctype="multipart/form-data">
-            <div class="form__section">
-                <h3 class="form__section-title">Personal Information</h3>
+        <form method="post" enctype="multipart/form-data" class="form-grid">
+            <div class="form-group form-group--full">
+                <h3 class="form-section-title">Personal Information</h3>
 
-                <div class="form__group">
-                    <label class="form__label">First Name</label>
-                    <input type="text" name="first_name" class="form__input" value="<?= h((string) $staff['first_name']) ?>" required>
+                <div class="form-group">
+                    <label class="form-label">First Name</label>
+                    <input type="text" name="first_name" class="form-input" value="<?= h((string) $staff['first_name']) ?>" required>
                 </div>
 
-                <div class="form__group">
-                    <label class="form__label">Surname</label>
-                    <input type="text" name="surname" class="form__input" value="<?= h((string) $staff['surname']) ?>" required>
+                <div class="form-group">
+                    <label class="form-label">Surname</label>
+                    <input type="text" name="surname" class="form-input" value="<?= h((string) $staff['surname']) ?>" required>
                 </div>
 
-                <div class="form__group">
-                    <label class="form__label">Email (cannot be changed)</label>
-                    <input type="email" class="form__input" value="<?= h((string) $staff['email']) ?>" disabled>
+                <div class="form-group">
+                    <label class="form-label">Email (cannot be changed)</label>
+                    <input type="email" class="form-input" value="<?= h((string) $staff['email']) ?>" disabled>
                     <p class="form-hint">Email is used for identification and cannot be changed.</p>
                 </div>
 
-                <div class="form__group">
-                    <label class="form__label">Mobile</label>
-                    <input type="tel" name="mobile" class="form__input" value="<?= h((string) $staff['mobile']) ?>" required>
+                <div class="form-group">
+                    <label class="form-label">Mobile</label>
+                    <input type="tel" name="mobile" class="form-input" value="<?= h((string) $staff['mobile']) ?>" required>
                 </div>
 
-                <div class="form__group">
-                    <label class="form__label">Date of Birth (cannot be changed)</label>
-                    <input type="date" class="form__input" value="<?= h((string) $staff['date_of_birth']) ?>" disabled>
+                <div class="form-group">
+                    <label class="form-label">Date of Birth (cannot be changed)</label>
+                    <input type="date" class="form-input" value="<?= h((string) $staff['date_of_birth']) ?>" disabled>
                     <p class="form-hint">Date of birth cannot be changed.</p>
                 </div>
 
-                <div class="form__group">
-                    <label class="form__label">Gender</label>
-                    <select name="gender" class="form__select" required>
+                <div class="form-group">
+                    <label class="form-label">Gender</label>
+                    <select name="gender" class="form-select" required>
                         <option value="male" <?= $staff['gender'] === 'male' ? 'selected' : '' ?>>Male</option>
                         <option value="female" <?= $staff['gender'] === 'female' ? 'selected' : '' ?>>Female</option>
                         <option value="other" <?= $staff['gender'] === 'other' ? 'selected' : '' ?>>Other</option>
@@ -153,68 +154,68 @@ $siteName = getSiteName($pdo);
                 </div>
             </div>
             
-            <div class="form__section">
-                <h3 class="form__section-title">Address</h3>
+            <div class="form-group form-group--full">
+                <h3 class="form-section-title">Address</h3>
                 
-                <div class="form__group">
-                    <label class="form__label">Full Address</label>
-                    <textarea name="full_address" class="form__input" rows="3" required><?= h((string) $staff['full_address']) ?></textarea>
+                <div class="form-group">
+                    <label class="form-label">Full Address</label>
+                    <textarea name="full_address" class="form-input" rows="3" required><?= h((string) $staff['full_address']) ?></textarea>
                 </div>
                 
-                <div class="form__group">
-                    <label class="form__label">Eircode</label>
-                    <input type="text" name="eircode" class="form__input" value="<?= h((string) $staff['eircode']) ?>" required>
+                <div class="form-group">
+                    <label class="form-label">Eircode</label>
+                    <input type="text" name="eircode" class="form-input" value="<?= h((string) $staff['eircode']) ?>" required>
                 </div>
             </div>
             
-            <div class="form__section">
-                <h3 class="form__section-title">Financial Information</h3>
+            <div class="form-group form-group--full">
+                <h3 class="form-section-title">Financial Information</h3>
 
-                <div class="form__group">
-                    <label class="form__label">PPS Number</label>
-                    <input type="text" name="pps_number" class="form__input" value="<?= h((string) $staff['pps_number']) ?>" required>
+                <div class="form-group">
+                    <label class="form-label">PPS Number</label>
+                    <input type="text" name="pps_number" class="form-input" value="<?= h((string) $staff['pps_number']) ?>" required>
                 </div>
 
-                <div class="form__group">
-                    <label class="form__label">Bank IBAN</label>
-                    <input type="text" name="bank_iban" class="form__input" value="<?= h((string) $staff['bank_iban']) ?>" required>
+                <div class="form-group">
+                    <label class="form-label">Bank IBAN</label>
+                    <input type="text" name="bank_iban" class="form-input" value="<?= h((string) $staff['bank_iban']) ?>" required>
                 </div>
             </div>
 
-            <div class="form__section">
-                <h3 class="form__section-title">PSA Licence Information <span class="badge badge--pending">Required</span></h3>
+            <div class="form-group form-group--full">
+                <h3 class="form-section-title">PSA Licence Information <span class="badge badge--pending">Required</span></h3>
 
-                <div class="form__group">
-                    <label class="form__label">PSA Licence Number</label>
-                    <input type="text" name="psa_licence" class="form__input" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>" required>
-                    <p class="form__hint">Your PSA licence number is required for security work.</p>
+                <div class="form-group">
+                    <label class="form-label">PSA Licence Number</label>
+                    <input type="text" name="psa_licence" class="form-input" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>" required>
+                    <p class="form-hint">Your PSA licence number is required for security work.</p>
                 </div>
 
-                <div class="form__group">
-                    <label class="form__label">PSA Expiry Date</label>
-                    <input type="date" name="psa_expiry_date" class="form__input" value="<?= h((string) ($staff['psa_expiry_date'] ?? '')) ?>" required>
-                    <p class="form__hint">When does your PSA licence expire?</p>
+                <div class="form-group">
+                    <label class="form-label">PSA Expiry Date</label>
+                    <input type="date" name="psa_expiry_date" class="form-input" value="<?= h((string) ($staff['psa_expiry_date'] ?? '')) ?>" required>
+                    <p class="form-hint">When does your PSA licence expire?</p>
                 </div>
 
-                <div class="form__group">
-                    <label class="form__label">PSA Licence Front Image</label>
-                    <input type="file" name="psa_front_image" class="form__input" accept="image/*" <?= empty($staff['psa_front_image']) ? 'required' : '' ?>>
+                <div class="form-group">
+                    <label class="form-label">PSA Licence Front Image</label>
+                    <input type="file" name="psa_front_image" class="form-input" accept="image/*" <?= empty($staff['psa_front_image']) ? 'required' : '' ?>>
                     <?php if (!empty($staff['psa_front_image'])): ?>
-                        <p class="form__hint">Current: <a href="<?= h($staff['psa_front_image']) ?>" target="_blank">View image</a></p>
+                        <p class="form-hint">Current: <a href="<?= h($staff['psa_front_image']) ?>" target="_blank">View image</a></p>
                     <?php endif; ?>
                 </div>
 
-                <div class="form__group">
-                    <label class="form__label">PSA Licence Back Image</label>
-                    <input type="file" name="psa_back_image" class="form__input" accept="image/*" <?= empty($staff['psa_back_image']) ? 'required' : '' ?>>
+                <div class="form-group">
+                    <label class="form-label">PSA Licence Back Image</label>
+                    <input type="file" name="psa_back_image" class="form-input" accept="image/*" <?= empty($staff['psa_back_image']) ? 'required' : '' ?>>
                     <?php if (!empty($staff['psa_back_image'])): ?>
-                        <p class="form__hint">Current: <a href="<?= h($staff['psa_back_image']) ?>" target="_blank">View image</a></p>
+                        <p class="form-hint">Current: <a href="<?= h($staff['psa_back_image']) ?>" target="_blank">View image</a></p>
                     <?php endif; ?>
                 </div>
             </div>
 
-            <div class="form__actions">
-                <button type="submit" class="btn btn--primary">Save Changes</button>
+            <div class="form-group form-group--full form-actions form-actions--end">
+                <button type="submit" class="btn btn--primary">Save changes</button>
             </div>
         </form>
         </div>
