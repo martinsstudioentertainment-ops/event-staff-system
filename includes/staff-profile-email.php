@@ -48,3 +48,29 @@ function sendStaffProfileUpdateLinkEmail(PDO $pdo, int $staffId): bool
 
     return sendEmail($pdo, $email, $subject, $text, $html);
 }
+
+/**
+ * @param array<int, int> $staffIds
+ * @return array{sent: int, failed: int, skipped: int}
+ */
+function sendBulkStaffProfileUpdateLinkEmails(PDO $pdo, array $staffIds): array
+{
+    $sent    = 0;
+    $failed  = 0;
+    $skipped = 0;
+
+    foreach (array_unique(array_map('intval', $staffIds)) as $staffId) {
+        if ($staffId < 1) {
+            $skipped++;
+            continue;
+        }
+
+        if (sendStaffProfileUpdateLinkEmail($pdo, $staffId)) {
+            $sent++;
+        } else {
+            $failed++;
+        }
+    }
+
+    return ['sent' => $sent, 'failed' => $failed, 'skipped' => $skipped];
+}

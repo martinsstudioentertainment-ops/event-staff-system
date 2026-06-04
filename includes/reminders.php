@@ -8,6 +8,7 @@
 require_once __DIR__ . '/mailer.php';
 require_once __DIR__ . '/settings-repository.php';
 require_once __DIR__ . '/staff-repository.php';
+require_once __DIR__ . '/staff-onboarding.php';
 require_once __DIR__ . '/events-repository.php';
 require_once __DIR__ . '/attendance-repository.php';
 require_once __DIR__ . '/status-repository.php';
@@ -184,6 +185,10 @@ function getEmailsDueSignupNudge(PDO $pdo): array
     foreach ($emails as $email) {
         $email = trim((string) $email);
         if ($email === '') {
+            continue;
+        }
+
+        if (isStaffOnboardingCompleteByEmail($pdo, $email)) {
             continue;
         }
 
@@ -398,7 +403,12 @@ function runDailyReminders(PDO $pdo): array
             $byEmail[$email][] = $row;
         }
 
-        foreach ($byEmail as $rows) {
+        foreach ($byEmail as $email => $rows) {
+            if (isStaffOnboardingCompleteByEmail($pdo, $email)) {
+                $stats['daily_skipped'] += count($rows);
+                continue;
+            }
+
             if (sendDailyEventsReminderDigest($pdo, $rows)) {
                 $stats['daily_sent']++;
             } else {

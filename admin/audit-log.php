@@ -2,13 +2,15 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit-log.php';
+require_once __DIR__ . '/../includes/admin-pagination.php';
 
 requireAdminCapability('audit');
 
 $pdo     = getDB();
-$page    = max(1, (int) ($_GET['page'] ?? 1));
-$limit   = 50;
-$offset  = ($page - 1) * $limit;
+$page    = adminListPage();
+$limit   = adminListPerPage();
+$offset  = adminListOffset($page);
+$total   = countAuditLogEntries($pdo);
 $entries = getAuditLogEntries($pdo, $limit, $offset);
 
 $pageTitle  = 'Activity logs';
@@ -60,11 +62,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         </table>
     </div>
 
-    <?php if (count($entries) >= $limit): ?>
-        <div class="toolbar toolbar--compact">
-            <a href="audit-log.php?page=<?= $page + 1 ?>" class="btn btn--secondary">Older entries →</a>
-        </div>
-    <?php endif; ?>
+    <?php renderAdminPagination($page, $total, 'audit-log.php'); ?>
 </section>
 
 <?php include __DIR__ . '/../includes/admin/layout-bottom.php'; ?>

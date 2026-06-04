@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/work-hours-repository.php';
 require_once __DIR__ . '/../includes/commission-invoice-repository.php';
+require_once __DIR__ . '/../includes/admin-pagination.php';
 
 requireAdminCapability('attendance');
 
@@ -11,7 +12,10 @@ $pdo      = getDB();
 $eventId  = (int) ($_GET['event_id'] ?? 0);
 $workDate = trim((string) ($_GET['work_date'] ?? ''));
 $events   = getEventsForFilter($pdo);
-$list     = getWorkHoursList($pdo, $eventId, $workDate);
+$allList  = getWorkHoursList($pdo, $eventId, $workDate);
+$page     = adminListPage();
+$list     = array_slice($allList, adminListOffset($page), adminListPerPage());
+$listTotal = count($allList);
 $totals   = getWorkHoursTotals($pdo, $eventId, $workDate);
 $flash    = getAdminFlash();
 $selectedEvent = $eventId > 0 ? getEventById($pdo, $eventId) : null;
@@ -172,6 +176,12 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             </tbody>
         </table>
     </div>
+    <?php
+    renderAdminPagination($page, $listTotal, 'work-hours.php', array_filter([
+        'event_id'  => $eventId > 0 ? $eventId : null,
+        'work_date' => $workDate !== '' ? $workDate : null,
+    ]));
+    ?>
 </section>
 
 <?php include __DIR__ . '/../includes/admin/layout-bottom.php'; ?>

@@ -35,6 +35,11 @@ function logAdminAudit(
     }
 }
 
+function countAuditLogEntries(PDO $pdo): int
+{
+    return (int) $pdo->query('SELECT COUNT(*) FROM admin_audit_log')->fetchColumn();
+}
+
 /**
  * @return array<int, array<string, mixed>>
  */

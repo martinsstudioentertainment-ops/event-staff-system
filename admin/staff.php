@@ -5,12 +5,17 @@ require_once __DIR__ . '/../includes/staff-repository.php';
 require_once __DIR__ . '/../includes/registration-forms.php';
 require_once __DIR__ . '/../includes/staff-onboarding.php';
 require_once __DIR__ . '/../includes/admin-capabilities.php';
+require_once __DIR__ . '/../includes/admin-pagination.php';
 
 requireAdminCapability('staff');
 
 $pdo     = getDB();
 $filters = getStaffFiltersFromRequest();
-$rows    = getStaffRegistrations($pdo, $filters);
+$page    = adminListPage();
+$perPage = adminListPerPage();
+$offset  = adminListOffset($page);
+$total   = countStaffRegistrations($pdo, $filters);
+$rows    = getStaffRegistrations($pdo, $filters, $perPage, $offset);
 $events  = getEventsForFilter($pdo);
 $flash   = getAdminFlash();
 
@@ -35,7 +40,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     <div class="card__header card__header--row">
         <div>
             <h2 class="card__title">Staff Registrations</h2>
-            <p class="card__subtitle"><?= count($rows) ?> result(s) — one row per event registration.</p>
+            <p class="card__subtitle"><?= (int) $total ?> registration(s) — one row per event registration.</p>
         </div>
         <a href="export-staff.php<?= $queryString !== '' ? '?' . h($queryString) : '' ?>" class="btn btn--secondary">Export CSV</a>
     </div>
@@ -161,6 +166,15 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             </tbody>
         </table>
     </div>
+    <?php
+    $paginationQuery = array_filter([
+        'q'        => $filters['q'] !== '' ? $filters['q'] : null,
+        'status'   => $filters['status'] !== '' ? $filters['status'] : null,
+        'role'     => $filters['role'] !== '' ? $filters['role'] : null,
+        'event_id' => $filters['event_id'] > 0 ? $filters['event_id'] : null,
+    ]);
+    renderAdminPagination($page, $total, 'staff.php', $paginationQuery);
+    ?>
 </section>
 
 <?php include __DIR__ . '/../includes/admin/layout-bottom.php'; ?>

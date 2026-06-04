@@ -4,11 +4,15 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/site-urls.php';
 require_once __DIR__ . '/../includes/registration-forms.php';
 require_once __DIR__ . '/../includes/admin/forms-nav.php';
+require_once __DIR__ . '/../includes/admin-pagination.php';
 
 requireAdminCapability('forms');
 
-$pdo   = getDB();
-$forms = getRegistrationForms($pdo);
+$pdo      = getDB();
+$allForms = getRegistrationForms($pdo);
+$total    = count($allForms);
+$page     = adminListPage();
+$forms    = array_slice($allForms, adminListOffset($page), adminListPerPage());
 
 $pageTitle          = 'Registration Forms';
 $activePage         = 'forms';
@@ -49,6 +53,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <?php endforeach; ?>
     </div>
 
+    <?php renderAdminPagination($page, $total, 'forms.php'); ?>
     <p class="form-hint" style="margin-top: 1rem;">
         Scrolling notice text is edited under <a href="website-global.php#notice_items">Website → Global &amp; brand</a>.
     </p>

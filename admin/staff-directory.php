@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/staff-repository.php';
 require_once __DIR__ . '/../includes/staff-onboarding.php';
 require_once __DIR__ . '/../includes/site-urls.php';
+require_once __DIR__ . '/../includes/admin-pagination.php';
 
 requireAdminCapability('staff');
 
@@ -13,12 +14,23 @@ $staffPortalUrl = getStaffPortalUrl($pdo);
 $filters = [
     'q' => trim((string) ($_GET['q'] ?? '')),
     'role' => trim((string) ($_GET['role'] ?? '')),
-    'blacklisted' => isset($_GET['blacklisted']) ? (bool) $_GET['blacklisted'] : null,
+    'blacklisted' => isset($_GET['blacklisted']) && $_GET['blacklisted'] !== ''
+        ? (bool) (int) $_GET['blacklisted']
+        : null,
 ];
 
-$staffList = $filters['q'] !== '' || $filters['role'] !== '' || $filters['blacklisted'] !== null
-    ? getStaffWithFilters($pdo, $filters)
-    : getAllStaff($pdo);
+$page       = adminListPage();
+$perPage    = adminListPerPage();
+$offset     = adminListOffset($page);
+$totalStaff = countStaffDirectory($pdo, $filters);
+$staffList  = getStaffWithFilters($pdo, $filters, $perPage, $offset);
+$bulkCount  = count(getStaffIdsForProfileLinkBulk($pdo, $filters));
+
+$paginationQuery = array_filter([
+    'q'           => $filters['q'] !== '' ? $filters['q'] : null,
+    'role'        => $filters['role'] !== '' ? $filters['role'] : null,
+    'blacklisted' => $filters['blacklisted'] !== null ? (int) $filters['blacklisted'] : null,
+]);
 
 $flash = getAdminFlash();
 
@@ -38,7 +50,22 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <h2 class="card__title">Staff Directory</h2>
             <p class="card__subtitle">One row per person. Shift counts open that person&apos;s registrations only.</p>
         </div>
-        <a href="staff.php" class="btn btn--secondary">← Registrations</a>
+        <div class="toolbar toolbar--compact">
+            <?php if ($bulkCount > 0): ?>
+                <form method="post" action="staff-send-profile-link.php" class="staff-dir-bulk-form" onsubmit="return confirm('Send profile update link to <?= (int) $bulkCount ?> registered staff matching these filters?');">
+                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                    <input type="hidden" name="bulk_all" value="1">
+                    <input type="hidden" name="redirect" value="<?= h('staff-directory.php' . ($paginationQuery !== [] ? '?' . http_build_query($paginationQuery) : '')) ?>">
+                    <input type="hidden" name="filter_q" value="<?= h($filters['q']) ?>">
+                    <input type="hidden" name="filter_role" value="<?= h($filters['role']) ?>">
+                    <?php if ($filters['blacklisted'] !== null): ?>
+                        <input type="hidden" name="filter_blacklisted" value="<?= (int) $filters['blacklisted'] ?>">
+                    <?php endif; ?>
+                    <button type="submit" class="btn btn--primary">Email profile link to all (<?= (int) $bulkCount ?>)</button>
+                </form>
+            <?php endif; ?>
+            <a href="staff.php" class="btn btn--secondary">← Registrations</a>
+        </div>
     </div>
 
     <div class="staff-dir-portal-banner">
@@ -121,7 +148,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                                 <strong><?= h($name) ?></strong>
                                 <span class="staff-dir-meta"><?= h((string) ($staff['mobile'] ?? '')) ?> · <?= h(formatStaffRoleLabel((string) $staff['staff_role'])) ?></span>
                             </td>
-                            <td class="cell-ellipsis" title="<?= h($email) ?>">
+                            <td class="staff-dir-email">
                                 <a href="<?= h(buildStaffRegistrationsAdminUrl($email)) ?>"><?= h($email) ?></a>
                             </td>
                             <td>
@@ -152,6 +179,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                                     <form method="post" action="staff-send-profile-link.php">
                                         <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                                         <input type="hidden" name="staff_id" value="<?= (int) $staff['id'] ?>">
+                                        <input type="hidden" name="single_redirect" value="staff-directory.php<?= $paginationQuery !== [] ? '?' . h(http_build_query(array_merge($paginationQuery, ['page' => $page > 1 ? $page : null]))) : ($page > 1 ? '?page=' . $page : '') ?>">
                                         <button type="submit" class="btn btn--small btn--secondary">Send link</button>
                                     </form>
                                 </div>
@@ -161,7 +189,8 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 </tbody>
             </table>
         </div>
-        <p class="form-hint">Showing <?= count($staffList) ?> staff · shift columns: all / pending / approved</p>
+        <?php renderAdminPagination($page, $totalStaff, 'staff-directory.php', $paginationQuery); ?>
+        <p class="form-hint">Shift columns: all / pending / approved</p>
     <?php endif; ?>
 </section>
 

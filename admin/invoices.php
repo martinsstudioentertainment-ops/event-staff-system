@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/commission-invoice-repository.php';
 require_once __DIR__ . '/../includes/audit-log.php';
+require_once __DIR__ . '/../includes/admin-pagination.php';
 
 requireAdminCapability('invoices');
 
@@ -16,7 +17,10 @@ if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
 }
 
 $events   = getEventsForFilter($pdo);
-$list     = getCommissionInvoicesList($pdo, $eventId, $status, $month);
+$allList  = getCommissionInvoicesList($pdo, $eventId, $status, $month);
+$page     = adminListPage();
+$list     = array_slice($allList, adminListOffset($page), adminListPerPage());
+$listTotal = count($allList);
 $totals   = getCommissionInvoiceAggregates($pdo, $eventId, $status, $month);
 $flash    = getAdminFlash();
 
@@ -156,6 +160,13 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             </tbody>
         </table>
     </div>
+    <?php
+    renderAdminPagination($page, $listTotal, 'invoices.php', array_filter([
+        'event_id' => $eventId > 0 ? $eventId : null,
+        'status'   => $status !== '' ? $status : null,
+        'month'    => $month !== date('Y-m') ? $month : null,
+    ]));
+    ?>
 </section>
 
 <?php include __DIR__ . '/../includes/admin/layout-bottom.php'; ?>

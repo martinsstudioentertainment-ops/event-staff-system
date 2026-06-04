@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $result = sendEventStaffBroadcast($pdo, $eventId, $subject, $message, $include);
         if ($result['total'] === 0) {
-            $error = 'No approved staff found for this event.';
+            $error = 'No approved staff with a complete profile found for this event.';
         } elseif ($result['sent'] === 0) {
             $error = 'Emails could not be sent. Check email settings or storage/logs/mail.log.';
         } else {
@@ -50,7 +50,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     <div class="card__header card__header--row">
         <div>
             <h2 class="card__title">Email approved staff</h2>
-            <p class="card__subtitle">Send a reminder or update to every approved staff member for an event.</p>
+            <p class="card__subtitle">Send a reminder or update to approved staff with a complete profile only.</p>
         </div>
         <a href="attendance.php<?= $eventId > 0 ? '?event_id=' . (int) $eventId : '' ?>" class="btn btn--secondary">← Attendance</a>
     </div>

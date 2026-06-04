@@ -101,7 +101,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         </div>
 
         <h4 class="form-section-title form-group--full">Automated daily reminders</h4>
-        <p class="form-hint form-group--full">Run once per day via cron or the button below. Event reminders stop automatically after each event ends.</p>
+        <p class="form-hint form-group--full">Run once per day via cron or the button below. Reminders go only to staff with an incomplete profile (not verified). Event reminders stop automatically after each event ends.</p>
 
         <div class="form-group form-group--full">
             <label class="form-radio">

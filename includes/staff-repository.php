@@ -110,9 +110,27 @@ function buildStaffWhereClause(array $filters): array
 
 /**
  * @param array<string, mixed> $filters
+ */
+function countStaffRegistrations(PDO $pdo, array $filters): int
+{
+    [$where, $params] = buildStaffWhereClause($filters);
+
+    $sql = "SELECT COUNT(*)
+            FROM staff_registrations sr
+            INNER JOIN events e ON e.id = sr.event_id
+            WHERE {$where}";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+
+    return (int) $stmt->fetchColumn();
+}
+
+/**
+ * @param array<string, mixed> $filters
  * @return array<int, array<string, mixed>>
  */
-function getStaffRegistrations(PDO $pdo, array $filters): array
+function getStaffRegistrations(PDO $pdo, array $filters, ?int $limit = null, int $offset = 0): array
 {
     [$where, $params] = buildStaffWhereClause($filters);
 
@@ -120,8 +138,13 @@ function getStaffRegistrations(PDO $pdo, array $filters): array
             FROM staff_registrations sr
             INNER JOIN events e ON e.id = sr.event_id
             WHERE {$where}
-            ORDER BY sr.created_at DESC
-            LIMIT 500";
+            ORDER BY sr.created_at DESC";
+
+    if ($limit !== null) {
+        $sql .= ' LIMIT ' . max(1, $limit) . ' OFFSET ' . max(0, $offset);
+    } else {
+        $sql .= ' LIMIT 500';
+    }
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
@@ -222,6 +245,23 @@ function getApprovedStaffForEvent(PDO $pdo, int $eventId): array
     $stmt->execute(['event_id' => $eventId]);
 
     return $stmt->fetchAll();
+}
+
+/**
+ * Approved registrations with a complete staff profile only.
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function getVerifiedApprovedStaffForEvent(PDO $pdo, int $eventId): array
+{
+    require_once __DIR__ . '/staff-onboarding.php';
+
+    return array_values(array_filter(
+        getApprovedStaffForEvent($pdo, $eventId),
+        static function (array $row) use ($pdo): bool {
+            return isStaffOnboardingComplete(mergeRegistrationWithStaff($pdo, $row));
+        }
+    ));
 }
 
 /**
@@ -827,26 +867,61 @@ function ensureStaffProfileTokenAfterSave(PDO $pdo, int $staffId): void
 }
 
 /**
+ * @param array<string, mixed> $filters
+ */
+function buildStaffDirectoryWhereClause(array $filters): array
+{
+    $where  = ['1=1'];
+    $params = [];
+
+    if (!empty($filters['q'])) {
+        $needle = '%' . $filters['q'] . '%';
+        $where[] = '(s.surname LIKE :q_surname OR s.first_name LIKE :q_first OR s.email LIKE :q_email OR s.mobile LIKE :q_mobile)';
+        $params['q_surname'] = $needle;
+        $params['q_first']   = $needle;
+        $params['q_email']   = $needle;
+        $params['q_mobile']  = $needle;
+    }
+
+    if (!empty($filters['role']) && in_array($filters['role'], ['dsp', 'static', 'steward'], true)) {
+        $where[] = 's.staff_role = :role';
+        $params['role'] = $filters['role'];
+    }
+
+    if (isset($filters['blacklisted'])) {
+        $where[] = 's.is_blacklisted = :blacklisted';
+        $params['blacklisted'] = $filters['blacklisted'] ? 1 : 0;
+    }
+
+    return [implode(' AND ', $where), $params];
+}
+
+/**
+ * @param array<string, mixed> $filters
+ */
+function countStaffDirectory(PDO $pdo, array $filters = []): int
+{
+    try {
+        [$where, $params] = buildStaffDirectoryWhereClause($filters);
+        $sql              = 'SELECT COUNT(*) FROM staff s WHERE ' . $where;
+        $stmt             = $pdo->prepare($sql);
+        $stmt->execute($params);
+
+        return (int) $stmt->fetchColumn();
+    } catch (PDOException $e) {
+        error_log('[EventStaff] countStaffDirectory: ' . $e->getMessage());
+
+        return 0;
+    }
+}
+
+/**
  * Get all staff members from the staff table.
  * @return array<int, array<string, mixed>>
  */
-function getAllStaff(PDO $pdo): array
+function getAllStaff(PDO $pdo, ?int $limit = null, int $offset = 0): array
 {
-    try {
-        $stmt = $pdo->query(
-            'SELECT s.*,
-                    (SELECT COUNT(*) FROM staff_registrations sr WHERE LOWER(sr.email) = LOWER(s.email)) AS registration_count,
-                    (SELECT COUNT(*) FROM staff_registrations sr WHERE LOWER(sr.email) = LOWER(s.email) AND sr.status = "approved") AS approved_count,
-                    (SELECT COUNT(*) FROM staff_registrations sr WHERE LOWER(sr.email) = LOWER(s.email) AND sr.status = "pending") AS pending_count
-             FROM staff s
-             ORDER BY s.surname ASC, s.first_name ASC'
-        );
-        return $stmt->fetchAll();
-    } catch (PDOException $e) {
-        // Staff table might not exist yet (migration not run)
-        error_log('[EventStaff] getAllStaff: ' . $e->getMessage());
-        return [];
-    }
+    return getStaffWithFilters($pdo, [], $limit, $offset);
 }
 
 /**
@@ -854,46 +929,56 @@ function getAllStaff(PDO $pdo): array
  * @param array<string, mixed> $filters
  * @return array<int, array<string, mixed>>
  */
-function getStaffWithFilters(PDO $pdo, array $filters): array
+function getStaffWithFilters(PDO $pdo, array $filters, ?int $limit = null, int $offset = 0): array
 {
     try {
-        $where = ['1=1'];
-        $params = [];
-
-        if (!empty($filters['q'])) {
-            $needle = '%' . $filters['q'] . '%';
-            $where[] = '(s.surname LIKE :q_surname OR s.first_name LIKE :q_first OR s.email LIKE :q_email OR s.mobile LIKE :q_mobile)';
-            $params['q_surname'] = $needle;
-            $params['q_first']   = $needle;
-            $params['q_email']   = $needle;
-            $params['q_mobile']  = $needle;
-        }
-
-        if (!empty($filters['role']) && in_array($filters['role'], ['dsp', 'static', 'steward'], true)) {
-            $where[] = 's.staff_role = :role';
-            $params['role'] = $filters['role'];
-        }
-
-        if (isset($filters['blacklisted'])) {
-            $where[] = 's.is_blacklisted = :blacklisted';
-            $params['blacklisted'] = $filters['blacklisted'] ? 1 : 0;
-        }
+        [$where, $params] = buildStaffDirectoryWhereClause($filters);
 
         $sql = 'SELECT s.*,
                        (SELECT COUNT(*) FROM staff_registrations sr WHERE LOWER(sr.email) = LOWER(s.email)) AS registration_count,
                        (SELECT COUNT(*) FROM staff_registrations sr WHERE LOWER(sr.email) = LOWER(s.email) AND sr.status = "approved") AS approved_count,
                        (SELECT COUNT(*) FROM staff_registrations sr WHERE LOWER(sr.email) = LOWER(s.email) AND sr.status = "pending") AS pending_count
                 FROM staff s
-                WHERE ' . implode(' AND ', $where) . '
+                WHERE ' . $where . '
                 ORDER BY s.surname ASC, s.first_name ASC';
+
+        if ($limit !== null) {
+            $sql .= ' LIMIT ' . max(1, $limit) . ' OFFSET ' . max(0, $offset);
+        }
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
+
         return $stmt->fetchAll();
     } catch (PDOException $e) {
         error_log('[EventStaff] getStaffWithFilters: ' . $e->getMessage());
+
         return [];
     }
+}
+
+/**
+ * Staff ids eligible for bulk profile-link email (registered, not blacklisted).
+ *
+ * @param array<string, mixed> $filters
+ * @return array<int, int>
+ */
+function getStaffIdsForProfileLinkBulk(PDO $pdo, array $filters = []): array
+{
+    $list = getStaffWithFilters($pdo, $filters);
+    $ids  = [];
+
+    foreach ($list as $staff) {
+        if ((int) ($staff['is_blacklisted'] ?? 0) === 1) {
+            continue;
+        }
+        if ((int) ($staff['registration_count'] ?? 0) < 1) {
+            continue;
+        }
+        $ids[] = (int) $staff['id'];
+    }
+
+    return $ids;
 }
 
 /**

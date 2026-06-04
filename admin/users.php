@@ -2,13 +2,17 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/admin-users-repository.php';
+require_once __DIR__ . '/../includes/admin-pagination.php';
 
 requireAdminCapability('users');
 
 $pdo       = getDB();
 $adminUser = getAdminUser();
 $flash     = getAdminFlash();
-$users     = listAdminUsers($pdo);
+$allUsers  = listAdminUsers($pdo);
+$total     = count($allUsers);
+$page      = adminListPage();
+$users     = array_slice($allUsers, adminListOffset($page), adminListPerPage());
 $editId    = (int) ($_GET['edit'] ?? 0);
 $editUser  = $editId > 0 ? getAdminUserRecord($pdo, $editId) : null;
 
@@ -145,6 +149,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             </div>
         </aside>
     </div>
+    <?php renderAdminPagination($page, $total, 'users.php', $editId > 0 ? ['edit' => $editId] : []); ?>
 </section>
 
 <?php include __DIR__ . '/../includes/admin/layout-bottom.php'; ?>

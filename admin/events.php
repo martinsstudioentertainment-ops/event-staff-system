@@ -5,11 +5,15 @@ require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/venues-repository.php';
 require_once __DIR__ . '/../includes/google-sheets-sync.php';
 require_once __DIR__ . '/../includes/live-events-sync.php';
+require_once __DIR__ . '/../includes/admin-pagination.php';
 
 requireAdminCapability('events');
 
 $pdo         = getDB();
-$events      = getAllEvents($pdo);
+$allEvents   = getAllEvents($pdo);
+$totalEvents = count($allEvents);
+$page        = adminListPage();
+$events      = array_slice($allEvents, adminListOffset($page), adminListPerPage());
 $flash       = getAdminFlash();
 $sheetStatus   = countEventsGoogleSheetStatus($pdo);
 $hasSa         = isGoogleServiceAccountConfigured();
@@ -32,7 +36,7 @@ if (is_file(getLiveEventsMasterFilePath())) {
         $masterContractor = '';
     }
 }
-foreach ($events as $event) {
+foreach ($allEvents as $event) {
     if (formatEventMainSecurityLabel($event) === '') {
         $eventsMissingCompany++;
     }
@@ -61,7 +65,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     <div class="card__header card__header--row">
         <div>
             <h2 class="card__title">Events</h2>
-            <p class="card__subtitle"><?= count($events) ?> event(s) — active events appear on the registration form.</p>
+            <p class="card__subtitle"><?= (int) $totalEvents ?> event(s) — active events appear on the registration form.</p>
         </div>
         <div class="toolbar">
             <a href="event-form.php" class="btn btn--primary">+ Add Event</a>
@@ -277,6 +281,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             </tbody>
         </table>
     </div>
+    <?php renderAdminPagination($page, $totalEvents, 'events.php'); ?>
 </section>
 
 <?php include __DIR__ . '/../includes/admin/layout-bottom.php'; ?>

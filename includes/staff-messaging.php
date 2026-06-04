@@ -55,7 +55,7 @@ function sendEventStaffBroadcast(PDO $pdo, int $eventId, string $subject, string
 
     $eventBlockText = "Event: {$event['name']}\nDate: {$date}\nTime: {$times}\nLocation: {$location}\n";
 
-    $staffRows = getApprovedStaffForEvent($pdo, $eventId);
+    $staffRows = getVerifiedApprovedStaffForEvent($pdo, $eventId);
     $sent      = 0;
     $failed    = 0;
 

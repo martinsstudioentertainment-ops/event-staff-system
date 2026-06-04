@@ -470,9 +470,9 @@ function recordCheckin(PDO $pdo, int $registrationId, string $method = 'self'): 
 }
 
 /**
- * @return array<int, array<string, mixed>>
+ * @return array{where: string, params: array<string, mixed>}
  */
-function getAttendanceList(PDO $pdo, int $eventId = 0): array
+function buildAttendanceListWhere(int $eventId = 0): array
 {
     $where  = "sr.status = 'approved'";
     $params = [];
@@ -482,17 +482,44 @@ function getAttendanceList(PDO $pdo, int $eventId = 0): array
         $params['event_id'] = $eventId;
     }
 
+    return ['where' => $where, 'params' => $params];
+}
+
+function countAttendanceList(PDO $pdo, int $eventId = 0): int
+{
+    $parts  = buildAttendanceListWhere($eventId);
+    $sql    = "SELECT COUNT(*)
+               FROM staff_registrations sr
+               INNER JOIN events e ON e.id = sr.event_id
+               WHERE {$parts['where']}";
+    $stmt   = $pdo->prepare($sql);
+    $stmt->execute($parts['params']);
+
+    return (int) $stmt->fetchColumn();
+}
+
+/**
+ * @return array<int, array<string, mixed>>
+ */
+function getAttendanceList(PDO $pdo, int $eventId = 0, ?int $limit = null, int $offset = 0): array
+{
+    $parts = buildAttendanceListWhere($eventId);
+
     $sql = "SELECT sr.*, e.name AS event_name, e.event_date,
                    a.checked_in_at, a.checked_in_method,
                    CASE WHEN a.id IS NULL THEN 0 ELSE 1 END AS is_checked_in
             FROM staff_registrations sr
             INNER JOIN events e ON e.id = sr.event_id
             LEFT JOIN attendance a ON a.registration_id = sr.id
-            WHERE {$where}
+            WHERE {$parts['where']}
             ORDER BY e.event_date ASC, sr.surname ASC, sr.first_name ASC";
 
+    if ($limit !== null) {
+        $sql .= ' LIMIT ' . max(1, $limit) . ' OFFSET ' . max(0, $offset);
+    }
+
     $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
+    $stmt->execute($parts['params']);
 
     return $stmt->fetchAll();
 }

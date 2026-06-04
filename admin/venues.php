@@ -2,11 +2,15 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/venues-repository.php';
+require_once __DIR__ . '/../includes/admin-pagination.php';
 
 requireAdminCapability('events');
 
-$pdo   = getDB();
-$venues = getAllVenues($pdo);
+$pdo        = getDB();
+$allVenues  = getAllVenues($pdo);
+$total      = count($allVenues);
+$page       = adminListPage();
+$venues     = array_slice($allVenues, adminListOffset($page), adminListPerPage());
 $flash  = getAdminFlash();
 
 $pageTitle  = 'Venues';
@@ -83,6 +87,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             </tbody>
         </table>
     </div>
+    <?php renderAdminPagination($page, $total, 'venues.php'); ?>
 </section>
 
 <?php include __DIR__ . '/../includes/admin/layout-bottom.php'; ?>

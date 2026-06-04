@@ -83,10 +83,17 @@ function getEventsOpenForRegistration(PDO $pdo): array
     return array_values(array_filter($rows, static fn(array $row): bool => isEventOpenForRegistration($row)));
 }
 
+function countAllEvents(PDO $pdo): int
+{
+    ensureVenuesSchema($pdo);
+
+    return (int) $pdo->query('SELECT COUNT(*) FROM events')->fetchColumn();
+}
+
 /**
  * @return array<int, array<string, mixed>>
  */
-function getAllEvents(PDO $pdo): array
+function getAllEvents(PDO $pdo, ?int $limit = null, int $offset = 0): array
 {
     ensureVenuesSchema($pdo);
     ensureGoogleSheetsSchema($pdo);
@@ -97,6 +104,10 @@ function getAllEvents(PDO $pdo): array
             LEFT JOIN staff_registrations sr ON sr.event_id = e.id
             GROUP BY e.id
             ORDER BY e.event_date ASC, e.name ASC';
+
+    if ($limit !== null) {
+        $sql .= ' LIMIT ' . max(1, $limit) . ' OFFSET ' . max(0, $offset);
+    }
 
     return $pdo->query($sql)->fetchAll();
 }

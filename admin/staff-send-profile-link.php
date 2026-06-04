@@ -18,15 +18,58 @@ if (!verifyCsrf($_POST['csrf_token'] ?? null)) {
     exit;
 }
 
+$pdo      = getDB();
+$redirect = trim((string) ($_POST['redirect'] ?? 'staff-directory.php'));
+if ($redirect === '' || !str_starts_with($redirect, 'staff')) {
+    $redirect = 'staff-directory.php';
+}
+
+if (!empty($_POST['bulk_all'])) {
+    $filters = [
+        'q'           => trim((string) ($_POST['filter_q'] ?? '')),
+        'role'        => trim((string) ($_POST['filter_role'] ?? '')),
+        'blacklisted' => isset($_POST['filter_blacklisted']) && $_POST['filter_blacklisted'] !== ''
+            ? (bool) (int) $_POST['filter_blacklisted']
+            : null,
+    ];
+
+    $staffIds = getStaffIdsForProfileLinkBulk($pdo, $filters);
+    if ($staffIds === []) {
+        setAdminFlash('error', 'No registered staff found to email.');
+        header('Location: ' . $redirect);
+        exit;
+    }
+
+    $result = sendBulkStaffProfileUpdateLinkEmails($pdo, $staffIds);
+    logAdminAudit(
+        $pdo,
+        'staff_profile_link_bulk',
+        'staff',
+        null,
+        'Bulk profile links: sent ' . $result['sent'] . ', failed ' . $result['failed'] . ', skipped ' . $result['skipped']
+    );
+
+    if ($result['sent'] === 0) {
+        setAdminFlash('error', 'Could not send any emails. Check SMTP settings.');
+    } else {
+        $msg = 'Profile update link sent to ' . $result['sent'] . ' staff member(s).';
+        if ($result['failed'] > 0) {
+            $msg .= ' ' . $result['failed'] . ' failed.';
+        }
+        setAdminFlash('success', $msg);
+    }
+
+    header('Location: ' . $redirect);
+    exit;
+}
+
 $staffId = (int) ($_POST['staff_id'] ?? 0);
-$redirect = 'staff-edit.php?id=' . $staffId;
 if ($staffId < 1) {
     setAdminFlash('error', 'Invalid staff member.');
     header('Location: staff-directory.php');
     exit;
 }
 
-$pdo   = getDB();
 $staff = getStaffById($pdo, $staffId);
 if ($staff === null) {
     setAdminFlash('error', 'Staff member not found.');
@@ -47,5 +90,6 @@ if (sendStaffProfileUpdateLinkEmail($pdo, $staffId)) {
     setAdminFlash('error', 'Could not send email. Check SMTP settings and that the staff member has a valid email.');
 }
 
-header('Location: ' . $redirect);
+$singleRedirect = trim((string) ($_POST['single_redirect'] ?? ''));
+header('Location: ' . ($singleRedirect !== '' ? $singleRedirect : 'staff-edit.php?id=' . $staffId));
 exit;

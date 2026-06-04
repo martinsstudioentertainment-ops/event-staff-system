@@ -4,13 +4,16 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/staff-repository.php';
 require_once __DIR__ . '/../includes/attendance-repository.php';
+require_once __DIR__ . '/../includes/admin-pagination.php';
 
 requireAdminCapability('attendance');
 
 $pdo     = getDB();
 $eventId = (int) ($_GET['event_id'] ?? 0);
 $events  = getEventsForFilter($pdo);
-$list    = getAttendanceList($pdo, $eventId);
+$page    = adminListPage();
+$listTotal = countAttendanceList($pdo, $eventId);
+$list    = getAttendanceList($pdo, $eventId, adminListPerPage(), adminListOffset($page));
 $stats   = getAttendanceStats($pdo, $eventId);
 $flash   = getAdminFlash();
 $selectedEvent = $eventId > 0 ? getEventById($pdo, $eventId) : null;
@@ -183,6 +186,9 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             </tbody>
         </table>
     </div>
+    <?php
+    renderAdminPagination($page, $listTotal, 'attendance.php', $eventId > 0 ? ['event_id' => $eventId] : []);
+    ?>
 </section>
 
 <?php

@@ -3,11 +3,15 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/staff-blacklist.php';
 require_once __DIR__ . '/../includes/staff-repository.php';
+require_once __DIR__ . '/../includes/admin-pagination.php';
 
 requireAdminCapability('staff');
 
-$pdo   = getDB();
-$rows  = getActiveBlacklist($pdo);
+$pdo       = getDB();
+$allRows   = getActiveBlacklist($pdo);
+$total     = count($allRows);
+$page      = adminListPage();
+$rows      = array_slice($allRows, adminListOffset($page), adminListPerPage());
 $flash = getAdminFlash();
 
 $pageTitle  = 'Staff Blacklist';
@@ -84,6 +88,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 </tbody>
             </table>
         </div>
+        <?php renderAdminPagination($page, $total, 'blacklist.php'); ?>
     <?php endif; ?>
 </section>
 
