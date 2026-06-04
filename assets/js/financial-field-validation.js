@@ -97,9 +97,11 @@
     function validateFinancialInputs(form) {
         var valid = true;
 
+        var adminOptional = form.dataset.adminStaffEdit === '1';
+
         form.querySelectorAll('input[name="bank_iban"], #bank_iban').forEach(function (el) {
-            if (el.offsetParent === null && !el.required) return;
-            var err = bankIbanError(el.value, el.required);
+            if (el.offsetParent === null && !el.required && !adminOptional) return;
+            var err = bankIbanError(el.value, adminOptional ? false : el.required);
             if (err) {
                 showInputError(el, err);
                 valid = false;
@@ -125,8 +127,8 @@
         });
 
         form.querySelectorAll('input[name="psa_licence"], #psa_licence, #status_psa_licence').forEach(function (el) {
-            if (el.offsetParent === null && !el.required) return;
-            var err = psaLicenceError(el.value, el.required);
+            if (el.offsetParent === null && !el.required && !adminOptional) return;
+            var err = psaLicenceError(el.value, adminOptional ? false : el.required);
             if (err) {
                 showInputError(el, err);
                 valid = false;

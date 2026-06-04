@@ -9,6 +9,7 @@ require_once __DIR__ . '/../includes/financial-field-validation.php';
 require_once __DIR__ . '/../includes/site-urls.php';
 require_once __DIR__ . '/../includes/audit-log.php';
 require_once __DIR__ . '/../includes/staff-profile-email.php';
+require_once __DIR__ . '/../includes/staff-psa.php';
 
 requireAdminCapability('staff');
 
@@ -71,11 +72,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit && !isset($_POST['reset_pr
     if (!verifyCsrf($csrfToken)) {
         setAdminFlash('error', 'Invalid CSRF token');
     } else {
-        $fieldErrors = validateFinancialStaffFields($_POST, true);
+        $fieldErrors = validateFinancialStaffFields($_POST, false);
         if ($fieldErrors !== []) {
             setAdminFlash('error', implode(' ', $fieldErrors));
         } else {
         try {
+            $dob = trim((string) ($_POST['date_of_birth'] ?? ''));
+            if ($dob !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob)) {
+                throw new InvalidArgumentException('Enter a valid date of birth.');
+            }
+
             $stmt = $pdo->prepare(
                 'UPDATE staff SET
                     surname = :surname,
@@ -86,6 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit && !isset($_POST['reset_pr
                     location_lng = :location_lng,
                     mobile = :mobile,
                     gender = :gender,
+                    date_of_birth = :date_of_birth,
                     pps_number = :pps_number,
                     bank_iban = :bank_iban,
                     staff_role = :staff_role,
@@ -102,8 +109,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit && !isset($_POST['reset_pr
                 'first_name'    => trim((string) ($_POST['first_name'] ?? '')),
                 'full_address'  => trim((string) ($_POST['full_address'] ?? '')),
                 'eircode'       => trim((string) ($_POST['eircode'] ?? '')),
-                'location_lat'  => !empty($_POST['location_lat']) ? (float) $_POST['location_lat'] : null,
-                'location_lng'  => !empty($_POST['location_lng']) ? (float) $_POST['location_lng'] : null,
+                'location_lat'  => trim((string) ($_POST['location_lat'] ?? '')) !== '' ? (float) $_POST['location_lat'] : null,
+                'location_lng'  => trim((string) ($_POST['location_lng'] ?? '')) !== '' ? (float) $_POST['location_lng'] : null,
                 'mobile'        => trim((string) ($_POST['mobile'] ?? '')),
                 'gender'        => trim((string) ($_POST['gender'] ?? 'prefer_not_to_say')),
                 'pps_number'    => trim((string) ($_POST['pps_number'] ?? '')),
@@ -113,6 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit && !isset($_POST['reset_pr
 
             $stmt->execute([
                 ...$syncData,
+                'date_of_birth'    => $dob !== '' ? $dob : null,
                 'psa_licence'      => normalizePsaLicence((string) ($_POST['psa_licence'] ?? '')),
                 'psa_expiry_date'  => trim((string) ($_POST['psa_expiry_date'] ?? '')) ?: null,
                 'is_blacklisted'   => isset($_POST['is_blacklisted']) ? 1 : 0,
@@ -120,7 +128,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit && !isset($_POST['reset_pr
                 'id'               => $staffId,
             ]);
 
-            syncStaffPersonalDataToRegistrations($pdo, $staffId, $syncData);
+            $psaUpload = processStaffPsaFileUploadsWithErrors($staffId, $_FILES);
+            if ($psaUpload['errors'] !== []) {
+                setAdminFlash('error', reset($psaUpload['errors']) ?: 'Could not save PSA photos.');
+                header('Location: staff-edit.php?id=' . $staffId);
+                exit;
+            }
+            if ($psaUpload['paths'] !== []) {
+                updateStaffProfile($pdo, $staffId, $psaUpload['paths']);
+            }
+
+            syncStaffPersonalDataToRegistrations($pdo, $staffId, array_merge($syncData, [
+                'date_of_birth' => $dob,
+            ]));
+
+            if (!empty($_POST['mark_profile_verified'])) {
+                markStaffProfileCompleted($pdo, $staffId);
+            } elseif (isStaffOnboardingComplete(getStaffById($pdo, $staffId) ?? [])) {
+                markStaffProfileCompleted($pdo, $staffId);
+            } else {
+                $pdo->prepare('UPDATE staff SET profile_completed = 0 WHERE id = :id')->execute(['id' => $staffId]);
+            }
 
             try {
                 require_once __DIR__ . '/../includes/google-sheets-sync.php';
@@ -129,13 +157,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit && !isset($_POST['reset_pr
                 error_log('[EventStaff] Google Sheets sync after admin staff edit: ' . $e->getMessage());
             }
 
-            if (isStaffOnboardingComplete(getStaffById($pdo, $staffId) ?? [])) {
-                markStaffProfileCompleted($pdo, $staffId);
-            }
-
             setAdminFlash('success', 'Staff information updated successfully');
-            header('Location: staff-directory.php');
+            header('Location: staff-edit.php?id=' . $staffId);
             exit;
+        } catch (InvalidArgumentException $e) {
+            setAdminFlash('error', $e->getMessage());
         } catch (PDOException $e) {
             setAdminFlash('error', 'Failed to update staff: ' . $e->getMessage());
         }
@@ -209,7 +235,11 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         </div>
     </div>
 
-    <form method="post" class="form-grid settings-form staff-edit-form<?= h($readonlyClass) ?>">
+    <?php if ($canEdit): ?>
+        <p class="form-hint form-group--full" style="margin-bottom:1rem;">Administrators can save partial details. Fields left blank are allowed. Staff must still complete their own profile unless you mark it verified below.</p>
+    <?php endif; ?>
+
+    <form method="post" enctype="multipart/form-data" class="form-grid settings-form staff-edit-form<?= h($readonlyClass) ?>" data-admin-staff-edit="1">
         <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
 
         <div class="form-group form-group--full">
@@ -218,12 +248,12 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
         <div class="form-group">
             <label class="form-label">First name</label>
-            <input type="text" name="first_name" class="form-input" value="<?= h((string) $staff['first_name']) ?>" required<?= $readonlyAttr ?>>
+            <input type="text" name="first_name" class="form-input" value="<?= h((string) $staff['first_name']) ?>"<?= $readonlyAttr ?>>
         </div>
 
         <div class="form-group">
             <label class="form-label">Last name</label>
-            <input type="text" name="surname" class="form-input" value="<?= h((string) $staff['surname']) ?>" required<?= $readonlyAttr ?>>
+            <input type="text" name="surname" class="form-input" value="<?= h((string) $staff['surname']) ?>"<?= $readonlyAttr ?>>
         </div>
 
         <div class="form-group form-group--full">
@@ -234,17 +264,17 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
         <div class="form-group">
             <label class="form-label">Mobile</label>
-            <input type="tel" name="mobile" class="form-input" value="<?= h((string) $staff['mobile']) ?>" required<?= $readonlyAttr ?>>
+            <input type="tel" name="mobile" class="form-input" value="<?= h((string) $staff['mobile']) ?>"<?= $readonlyAttr ?>>
         </div>
 
         <div class="form-group">
             <label class="form-label">Date of birth</label>
-            <input type="date" class="form-input" value="<?= h((string) $staff['date_of_birth']) ?>" disabled>
+            <input type="date" name="date_of_birth" class="form-input" value="<?= h((string) $staff['date_of_birth']) ?>"<?= $readonlyAttr ?>>
         </div>
 
         <div class="form-group">
             <label class="form-label">Gender</label>
-            <select name="gender" class="form-select" required<?= $readonlyAttr ?>>
+            <select name="gender" class="form-select"<?= $readonlyAttr ?>>
                 <option value="male" <?= $staff['gender'] === 'male' ? 'selected' : '' ?>>Male</option>
                 <option value="female" <?= $staff['gender'] === 'female' ? 'selected' : '' ?>>Female</option>
                 <option value="other" <?= $staff['gender'] === 'other' ? 'selected' : '' ?>>Other</option>
@@ -258,12 +288,12 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
         <div class="form-group form-group--full">
             <label class="form-label">Full address</label>
-            <textarea name="full_address" class="form-input" rows="3" required<?= $readonlyAttr ?>><?= h((string) $staff['full_address']) ?></textarea>
+            <textarea name="full_address" class="form-input" rows="3"<?= $readonlyAttr ?>><?= h((string) $staff['full_address']) ?></textarea>
         </div>
 
         <div class="form-group">
             <label class="form-label">Eircode</label>
-            <input type="text" name="eircode" class="form-input" value="<?= h((string) $staff['eircode']) ?>" required<?= $readonlyAttr ?>>
+            <input type="text" name="eircode" class="form-input" value="<?= h((string) $staff['eircode']) ?>"<?= $readonlyAttr ?>>
         </div>
 
         <div class="form-group">
@@ -282,7 +312,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
         <div class="form-group">
             <label class="form-label">Staff role</label>
-            <select name="staff_role" class="form-select" required<?= $readonlyAttr ?>>
+            <select name="staff_role" class="form-select"<?= $readonlyAttr ?>>
                 <option value="dsp" <?= $staff['staff_role'] === 'dsp' ? 'selected' : '' ?>>DSP</option>
                 <option value="static" <?= $staff['staff_role'] === 'static' ? 'selected' : '' ?>>Static</option>
                 <option value="steward" <?= $staff['staff_role'] === 'steward' ? 'selected' : '' ?>>Steward</option>
@@ -295,12 +325,12 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
         <div class="form-group">
             <label class="form-label">PPS number</label>
-            <input type="text" name="pps_number" class="form-input" value="<?= h((string) $staff['pps_number']) ?>" required<?= $readonlyAttr ?>>
+            <input type="text" name="pps_number" class="form-input" value="<?= h((string) $staff['pps_number']) ?>"<?= $readonlyAttr ?>>
         </div>
 
         <div class="form-group">
             <label class="form-label">Bank IBAN</label>
-            <input type="text" name="bank_iban" id="bank_iban" class="form-input" value="<?= h((string) $staff['bank_iban']) ?>" placeholder="IE29AIBK93115212345678" maxlength="34" required<?= $readonlyAttr ?>>
+            <input type="text" name="bank_iban" id="bank_iban" class="form-input" value="<?= h((string) $staff['bank_iban']) ?>" placeholder="IE29AIBK93115212345678" maxlength="34"<?= $readonlyAttr ?>>
             <p class="form-hint">IBAN with country code — not a bank name.</p>
         </div>
 
@@ -310,8 +340,8 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
         <div class="form-group">
             <label class="form-label">PSA licence number</label>
-            <input type="text" name="psa_licence" id="psa_licence" class="form-input" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>" placeholder="EM123456/00" pattern="EM[0-9]{6}/[0-9]{2}"<?= $readonlyAttr ?>>
-            <p class="form-hint">Format EM123456/00</p>
+            <input type="text" name="psa_licence" id="psa_licence" class="form-input" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>" placeholder="EM123456/00"<?= $readonlyAttr ?>>
+            <p class="form-hint">Format EM123456/00 (optional until staff completes profile)</p>
         </div>
 
         <div class="form-group">
@@ -319,9 +349,34 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <input type="date" name="psa_expiry_date" class="form-input" value="<?= h((string) ($staff['psa_expiry_date'] ?? '')) ?>"<?= $readonlyAttr ?>>
         </div>
 
+        <div class="form-group">
+            <label class="form-label">PSA card — front photo</label>
+            <input type="file" name="psa_front_image" class="form-input form-input--file" accept="<?= h(psaImageFileAcceptAttribute()) ?>"<?= $readonlyAttr ?>>
+            <?php if (!empty($staff['psa_front_image'])): ?>
+                <p class="form-hint"><a href="<?= h((string) $staff['psa_front_image']) ?>" target="_blank" rel="noopener">View current front photo</a></p>
+            <?php endif; ?>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">PSA card — back photo</label>
+            <input type="file" name="psa_back_image" class="form-input form-input--file" accept="<?= h(psaImageFileAcceptAttribute()) ?>"<?= $readonlyAttr ?>>
+            <?php if (!empty($staff['psa_back_image'])): ?>
+                <p class="form-hint"><a href="<?= h((string) $staff['psa_back_image']) ?>" target="_blank" rel="noopener">View current back photo</a></p>
+            <?php endif; ?>
+        </div>
+
         <div class="form-group form-group--full">
             <h3 class="form-section-title">Status</h3>
         </div>
+
+        <?php if ($canEdit): ?>
+            <div class="form-group form-group--full">
+                <label class="form-checkbox">
+                    <input type="checkbox" name="mark_profile_verified" value="1"<?= $profileComplete ? ' checked' : '' ?>>
+                    Mark profile as verified (admin override — staff not forced to complete missing fields)
+                </label>
+            </div>
+        <?php endif; ?>
 
         <div class="form-group">
             <label class="form-checkbox">

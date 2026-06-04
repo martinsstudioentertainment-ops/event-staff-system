@@ -639,17 +639,18 @@ function syncStaffPersonalDataToRegistrations(PDO $pdo, int $staffId, array $dat
     }
 
     $map = [
-        'surname'      => 'surname',
-        'first_name'   => 'first_name',
-        'full_address' => 'full_address',
-        'eircode'      => 'eircode',
-        'location_lat' => 'location_lat',
-        'location_lng' => 'location_lng',
-        'mobile'       => 'mobile',
-        'gender'       => 'gender',
-        'pps_number'   => 'pps_number',
-        'bank_iban'    => 'bank_iban',
-        'staff_role'   => 'staff_role',
+        'surname'       => 'surname',
+        'first_name'    => 'first_name',
+        'full_address'  => 'full_address',
+        'eircode'       => 'eircode',
+        'location_lat'  => 'location_lat',
+        'location_lng'  => 'location_lng',
+        'mobile'        => 'mobile',
+        'date_of_birth' => 'date_of_birth',
+        'gender'        => 'gender',
+        'pps_number'    => 'pps_number',
+        'bank_iban'     => 'bank_iban',
+        'staff_role'    => 'staff_role',
     ];
 
     $sets   = [];
