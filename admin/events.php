@@ -90,7 +90,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <?php endif; ?>
             <?php if ($syncEnabled): ?>
                 <?php if ($linkedSheets > 0): ?>
-                    <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Push all registrations to their linked Google Sheets?');">
+                    <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Push approved registrations to linked Google Sheets and remove pending/rejected rows?');">
                         <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                         <input type="hidden" name="action" value="sync_registrations">
                         <button type="submit" class="btn btn--secondary">Sync registrations to sheets</button>

@@ -9,6 +9,7 @@ require_once __DIR__ . '/../includes/staff-registration-schema.php';
 require_once __DIR__ . '/../includes/event-reporting-schema.php';
 require_once __DIR__ . '/../includes/admin-capabilities.php';
 require_once __DIR__ . '/../includes/staff-onboarding.php';
+require_once __DIR__ . '/../includes/google-sheets-sync.php';
 
 requireAdminCapability('staff');
 
@@ -84,6 +85,14 @@ foreach ($ids as $rawId) {
         }
     } catch (Throwable $e) {
         error_log('[EventStaff] bulk-status id=' . $id . ': ' . $e->getMessage());
+    }
+
+    try {
+        if (isGoogleSheetsSyncEnabled($pdo)) {
+            syncRegistrationToGoogleSheet($pdo, $id);
+        }
+    } catch (Throwable $e) {
+        error_log('[EventStaff] bulk-status sheet sync id=' . $id . ': ' . $e->getMessage());
     }
 }
 

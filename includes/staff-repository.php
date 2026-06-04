@@ -1306,16 +1306,26 @@ function isStaffProfileComplete(PDO $pdo, int $staffId): bool
  */
 function markStaffProfileCompleted(PDO $pdo, int $staffId): bool
 {
+    $staff = getStaffById($pdo, $staffId);
+    $wasComplete = $staff !== null && (int) ($staff['profile_completed'] ?? 0) === 1;
+
     try {
         $stmt = $pdo->prepare(
             'UPDATE staff SET profile_completed = 1, profile_reverify_required = 0, updated_at = CURRENT_TIMESTAMP WHERE id = :id'
         );
         $stmt->execute(['id' => $staffId]);
-        return $stmt->rowCount() > 0;
+        $ok = $stmt->rowCount() > 0 || $wasComplete;
     } catch (PDOException $e) {
         error_log('[EventStaff] markStaffProfileCompleted: ' . $e->getMessage());
         return false;
     }
+
+    if ($ok && !$wasComplete) {
+        require_once __DIR__ . '/staff-onboarding.php';
+        autoApprovePendingRegistrationsForStaff($pdo, $staffId);
+    }
+
+    return $ok;
 }
 
 /**

@@ -149,7 +149,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <div class="form-group form-group--full">
             <label class="form-label" for="google_sheet_url">Google Sheet URL</label>
             <input class="form-input" type="url" id="google_sheet_url" name="google_sheet_url" value="<?= eventOld($old, $event, 'google_sheet_url') ?>" placeholder="https://docs.google.com/spreadsheets/d/…/edit">
-            <p class="form-hint">When staff register for this event, a row is appended to this sheet (requires Google Sheets sync in Settings). Or use <strong>Events → Create Google Sheet(s)</strong> to auto-generate — no manual sheet needed.</p>
+            <p class="form-hint">Approved staff appear on this sheet when you approve them (requires Google Sheets sync in Settings). Pending registrations stay in admin only. Or use <strong>Events → Create Google Sheet(s)</strong> to auto-generate.</p>
             <?php if ($isEdit && trim((string) ($event['google_sheet_url'] ?? '')) !== ''): ?>
                 <p class="form-hint" style="margin-top:0.5rem">
                     <strong>Linked.</strong>

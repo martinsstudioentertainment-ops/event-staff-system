@@ -196,23 +196,31 @@ if ($action === 'sync_registrations') {
     }
 
     $stats = syncAllRegistrationsToLinkedGoogleSheets($pdo);
+    $removed = (int) ($stats['removed'] ?? 0);
     logAdminAudit(
         $pdo,
         'bulk_sheet_sync',
         'system',
         null,
-        "synced {$stats['synced']}, skipped {$stats['skipped']}, failed {$stats['failed']}"
+        "synced {$stats['synced']}, removed {$removed}, skipped {$stats['skipped']}, failed {$stats['failed']}"
     );
 
-    if ($stats['synced'] > 0 && $stats['failed'] === 0) {
-        setAdminFlash('success', "Synced {$stats['synced']} registration row(s) to linked Google Sheets.");
+    if ($stats['failed'] === 0 && ($stats['synced'] > 0 || $removed > 0)) {
+        $parts = [];
+        if ($stats['synced'] > 0) {
+            $parts[] = "synced {$stats['synced']} approved row(s)";
+        }
+        if ($removed > 0) {
+            $parts[] = "removed {$removed} pending/rejected row(s)";
+        }
+        setAdminFlash('success', ucfirst(implode('; ', $parts)) . ' on linked Google Sheets.');
     } elseif ($stats['synced'] > 0) {
         setAdminFlash(
             'warning',
             "Synced {$stats['synced']} row(s); {$stats['failed']} failed. Check storage/logs/google-sheets.log"
         );
     } elseif ($stats['skipped'] > 0 && $stats['failed'] === 0) {
-        setAdminFlash('error', 'No registrations synced — link sheets to events and enable Google auth in Settings.');
+        setAdminFlash('error', 'No approved registrations to sync — approve staff first, then sync again.');
     } else {
         setAdminFlash('error', 'Sheet sync failed. Check storage/logs/google-sheets.log');
     }

@@ -368,7 +368,7 @@ if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
 
         <label class="form-checkbox" style="margin-bottom:1rem;">
             <input type="checkbox" name="google_sheets_sync_enabled" value="1"<?= ($settings['google_sheets_sync_enabled'] ?? '0') === '1' ? ' checked' : '' ?>>
-            <span>Enable live sync to Google Sheets (on registration and when you approve/reject)</span>
+            <span>Enable live sync to Google Sheets (approved staff only — added on approval, removed if rejected)</span>
         </label>
 
         <div class="form-group form-group--full">

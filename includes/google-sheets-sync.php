@@ -814,6 +814,51 @@ function googleSheetsUpsertRegistrationRow(
     return true;
 }
 
+/**
+ * Only approved registrations belong on event rosters in Google Sheets.
+ */
+function shouldSyncRegistrationToGoogleSheet(array $row): bool
+{
+    return strtolower(trim((string) ($row['status'] ?? ''))) === 'approved';
+}
+
+/**
+ * @param array{token: string, project: ?string, label: string} $auth
+ */
+function googleSheetsDeleteRegistrationRow(
+    array $auth,
+    string $spreadsheetId,
+    string $tabName,
+    int $registrationId
+): bool {
+    $token   = $auth['token'];
+    $project = $auth['project'];
+    $tabName = trim($tabName) !== '' ? trim($tabName) : 'Registrations';
+
+    $existingRow = googleSheetsFindRegistrationRowNumber($token, $project, $spreadsheetId, $tabName, $registrationId);
+    if ($existingRow === null) {
+        return true;
+    }
+
+    $sheetId = googleSheetsResolveSheetId($token, $project, $spreadsheetId, $tabName);
+    $ok = googleSheetsSpreadsheetBatchUpdate($token, $project, $spreadsheetId, [[
+        'deleteDimension' => [
+            'range' => [
+                'sheetId'    => $sheetId,
+                'dimension'  => 'ROWS',
+                'startIndex' => $existingRow - 1,
+                'endIndex'   => $existingRow,
+            ],
+        ],
+    ]]);
+
+    if ($ok) {
+        googleSheetsLog("Removed registration {$registrationId} from sheet {$spreadsheetId} tab {$tabName}");
+    }
+
+    return $ok;
+}
+
 function googleSheetsLog(string $message): void
 {
     $GLOBALS['_event_staff_google_sheets_last_error'] = $message;
@@ -2620,9 +2665,9 @@ function countEventsGoogleSheetStatus(PDO $pdo): array
 }
 
 /**
- * Push one registration row to the event's Google Sheet.
+ * @return 'synced'|'removed'|'skipped'|'failed'
  */
-function syncRegistrationToGoogleSheet(PDO $pdo, int $registrationId): bool
+function syncRegistrationToGoogleSheetWithOutcome(PDO $pdo, int $registrationId): string
 {
     ensureGoogleSheetsSchema($pdo);
 
@@ -2630,24 +2675,24 @@ function syncRegistrationToGoogleSheet(PDO $pdo, int $registrationId): bool
     if ($auth === null) {
         googleSheetsLog("Sync skipped for registration {$registrationId}: live sync off or no Google auth");
 
-        return false;
+        return 'skipped';
     }
 
     $row = getStaffRegistrationById($pdo, $registrationId);
     if (!$row) {
-        return false;
+        return 'failed';
     }
 
     $event = getEventById($pdo, (int) ($row['event_id'] ?? 0));
     if (!$event) {
-        return false;
+        return 'failed';
     }
 
     $sheetUrl = trim((string) ($event['google_sheet_url'] ?? ''));
     if ($sheetUrl === '') {
         googleSheetsLog("Sync skipped for registration {$registrationId}: event has no Google Sheet linked");
 
-        return false;
+        return 'skipped';
     }
 
     $tabName = trim((string) ($event['google_sheet_tab'] ?? ''));
@@ -2659,7 +2704,22 @@ function syncRegistrationToGoogleSheet(PDO $pdo, int $registrationId): bool
     if ($spreadsheetId === null) {
         googleSheetsLog("Invalid sheet URL for registration {$registrationId}");
 
-        return false;
+        return 'failed';
+    }
+
+    if (!shouldSyncRegistrationToGoogleSheet($row)) {
+        $status = strtolower(trim((string) ($row['status'] ?? '')));
+        $existingRow = googleSheetsFindRegistrationRowNumber($auth['token'], $auth['project'], $spreadsheetId, $tabName, $registrationId);
+        if ($existingRow === null) {
+            return 'skipped';
+        }
+        if (googleSheetsDeleteRegistrationRow($auth, $spreadsheetId, $tabName, $registrationId)) {
+            return 'removed';
+        }
+
+        googleSheetsLog("Failed to remove {$status} registration {$registrationId} from sheet {$spreadsheetId}");
+
+        return 'failed';
     }
 
     $rowValues = buildGoogleSheetsSyncRow($row);
@@ -2670,13 +2730,22 @@ function syncRegistrationToGoogleSheet(PDO $pdo, int $registrationId): bool
         googleSheetsLog("Sync failed for registration {$registrationId} ({$auth['label']}): " . getLastGoogleSheetsApiError());
     }
 
-    return $ok;
+    return $ok ? 'synced' : 'failed';
+}
+
+/**
+ * Push one approved registration row to the event's Google Sheet.
+ * Pending/rejected rows are removed from the sheet if they were synced earlier.
+ */
+function syncRegistrationToGoogleSheet(PDO $pdo, int $registrationId): bool
+{
+    return syncRegistrationToGoogleSheetWithOutcome($pdo, $registrationId) !== 'failed';
 }
 
 /**
  * Backfill every registration that belongs to an event with a linked sheet.
  *
- * @return array{synced: int, skipped: int, failed: int}
+ * @return array{synced: int, removed: int, skipped: int, failed: int}
  */
 function syncAllRegistrationsToLinkedGoogleSheets(PDO $pdo): array
 {
@@ -2696,11 +2765,11 @@ function syncAllRegistrationsToLinkedGoogleSheets(PDO $pdo): array
 
 /**
  * @param int[] $registrationIds
- * @return array{synced: int, skipped: int, failed: int}
+ * @return array{synced: int, removed: int, skipped: int, failed: int}
  */
 function syncRegistrationsToGoogleSheets(PDO $pdo, array $registrationIds): array
 {
-    $stats = ['synced' => 0, 'skipped' => 0, 'failed' => 0];
+    $stats = ['synced' => 0, 'removed' => 0, 'skipped' => 0, 'failed' => 0];
 
     if (googleSheetsResolveApiAuth($pdo) === null) {
         $stats['skipped'] = count($registrationIds);
@@ -2714,20 +2783,9 @@ function syncRegistrationsToGoogleSheets(PDO $pdo, array $registrationIds): arra
             continue;
         }
 
-        $row = getStaffRegistrationById($pdo, $registrationId);
-        if (!$row) {
-            $stats['skipped']++;
-            continue;
-        }
-
-        $event = getEventById($pdo, (int) $row['event_id']);
-        if (!$event || trim((string) ($event['google_sheet_url'] ?? '')) === '') {
-            $stats['skipped']++;
-            continue;
-        }
-
-        if (syncRegistrationToGoogleSheet($pdo, $registrationId)) {
-            $stats['synced']++;
+        $outcome = syncRegistrationToGoogleSheetWithOutcome($pdo, $registrationId);
+        if (isset($stats[$outcome])) {
+            $stats[$outcome]++;
         } else {
             $stats['failed']++;
         }
@@ -2739,17 +2797,17 @@ function syncRegistrationsToGoogleSheets(PDO $pdo, array $registrationIds): arra
 /**
  * After staff profile save, push all linked event sheet rows (text fields only; no images).
  *
- * @return array{synced: int, skipped: int, failed: int}
+ * @return array{synced: int, removed: int, skipped: int, failed: int}
  */
 function syncStaffProfileToLinkedGoogleSheets(PDO $pdo, int $staffId): array
 {
     if ($staffId < 1 || !isGoogleSheetsSyncEnabled($pdo)) {
-        return ['synced' => 0, 'skipped' => 0, 'failed' => 0];
+        return ['synced' => 0, 'removed' => 0, 'skipped' => 0, 'failed' => 0];
     }
 
     $staff = getStaffById($pdo, $staffId);
     if ($staff === null) {
-        return ['synced' => 0, 'skipped' => 0, 'failed' => 0];
+        return ['synced' => 0, 'removed' => 0, 'skipped' => 0, 'failed' => 0];
     }
 
     $email = strtolower(trim((string) ($staff['email'] ?? '')));
@@ -2768,11 +2826,11 @@ function syncStaffProfileToLinkedGoogleSheets(PDO $pdo, int $staffId): array
     } catch (PDOException $e) {
         error_log('[EventStaff] syncStaffProfileToLinkedGoogleSheets: ' . $e->getMessage());
 
-        return ['synced' => 0, 'skipped' => 0, 'failed' => 0];
+        return ['synced' => 0, 'removed' => 0, 'skipped' => 0, 'failed' => 0];
     }
 
     if ($ids === []) {
-        return ['synced' => 0, 'skipped' => 0, 'failed' => 0];
+        return ['synced' => 0, 'removed' => 0, 'skipped' => 0, 'failed' => 0];
     }
 
     return syncRegistrationsToGoogleSheets($pdo, $ids);

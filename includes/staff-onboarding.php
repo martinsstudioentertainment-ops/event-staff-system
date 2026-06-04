@@ -178,3 +178,65 @@ function validateStaffOnboardingPost(array $post, array $staff, array $files = [
 
     return $errors;
 }
+
+/**
+ * When a staff profile becomes complete, approve their pending shift registrations.
+ *
+ * @return int Number of registrations auto-approved
+ */
+function autoApprovePendingRegistrationsForStaff(PDO $pdo, int $staffId): int
+{
+    if ($staffId < 1) {
+        return 0;
+    }
+
+    $staff = getStaffById($pdo, $staffId);
+    if ($staff === null || !isStaffOnboardingComplete($staff)) {
+        return 0;
+    }
+
+    $email = strtolower(trim((string) ($staff['email'] ?? '')));
+    if ($email === '') {
+        return 0;
+    }
+
+    require_once __DIR__ . '/staff-registration-schema.php';
+    require_once __DIR__ . '/attendance-repository.php';
+    require_once __DIR__ . '/notifications.php';
+    require_once __DIR__ . '/google-sheets-sync.php';
+
+    ensureStaffRegistrationCheckinSchema($pdo);
+
+    $stmt = $pdo->prepare(
+        "SELECT id FROM staff_registrations
+         WHERE status = 'pending'
+           AND (staff_id = :staff_id OR LOWER(email) = :email)
+         ORDER BY id ASC"
+    );
+    $stmt->execute(['staff_id' => $staffId, 'email' => $email]);
+    $ids = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
+
+    $approved = 0;
+    foreach ($ids as $id) {
+        if ($id < 1 || !updateStaffStatus($pdo, $id, 'approved')) {
+            continue;
+        }
+
+        $approved++;
+        try {
+            ensureCheckinToken($pdo, $id);
+            notifyStaffStatusChange($pdo, $id, 'approved');
+            if (isGoogleSheetsSyncEnabled($pdo)) {
+                syncRegistrationToGoogleSheet($pdo, $id);
+            }
+        } catch (Throwable $e) {
+            error_log('[EventStaff] auto-approve registration id=' . $id . ': ' . $e->getMessage());
+        }
+    }
+
+    if ($approved > 0) {
+        error_log('[EventStaff] Auto-approved ' . $approved . ' pending registration(s) for staff id=' . $staffId);
+    }
+
+    return $approved;
+}
