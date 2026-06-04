@@ -130,7 +130,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <div class="form-group form-group--full">
             <label class="form-label" for="apply_site_url">Apply admin URL</label>
             <input class="form-input" type="url" id="apply_site_url" name="apply_site_url" value="<?= h($settings['apply_site_url'] ?? inferApplySiteUrl($pdo)) ?>" placeholder="https://apply.olasentra.com">
-            <p class="form-hint">Staff apply / profile site. Used by sidebar <strong>Apply admin</strong>. Leave blank to auto-detect from admin host (<code>admin.*</code> → <code>apply.*</code>).</p>
+            <p class="form-hint">Apply site host only — <code>https://apply.olasentra.com</code> (not <code>/admin</code>). SSO opens <code>/sso.php</code> on that host. Leave blank to auto-detect.</p>
         </div>
 
         <div class="form-actions form-group--full">

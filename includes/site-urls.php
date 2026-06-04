@@ -145,6 +145,20 @@ function inferApplySiteUrl(?PDO $pdo = null): string
 }
 
 /**
+ * Apply host document root (on server this is the apply/admin folder).
+ * SSO lives at {root}/sso.php; ERP UI at {root}/admin/dashboard.php.
+ */
+function normalizeApplySiteUrl(string $url): string
+{
+    $url = normalizePublicSiteUrl($url);
+    if (str_ends_with($url, '/admin')) {
+        $url = substr($url, 0, -strlen('/admin'));
+    }
+
+    return $url;
+}
+
+/**
  * Apply / staff-profile site (apply.olasentra.com).
  */
 function getApplySiteUrl(?PDO $pdo = null): string
@@ -158,14 +172,14 @@ function getApplySiteUrl(?PDO $pdo = null): string
     }
 
     if ($pdo !== null) {
-        $fromDb = normalizePublicSiteUrl(getSetting($pdo, 'apply_site_url', ''));
+        $fromDb = normalizeApplySiteUrl(getSetting($pdo, 'apply_site_url', ''));
         if ($fromDb !== '') {
             return $fromDb;
         }
     }
 
     if (defined('APPLY_SITE_URL') && APPLY_SITE_URL !== '') {
-        return normalizePublicSiteUrl((string) APPLY_SITE_URL);
+        return normalizeApplySiteUrl((string) APPLY_SITE_URL);
     }
 
     $inferred = inferApplySiteUrl($pdo);
@@ -174,18 +188,16 @@ function getApplySiteUrl(?PDO $pdo = null): string
     }
 
     if (function_exists('isProductionApp') && !isProductionApp()) {
-        return normalizePublicSiteUrl(getAppBaseUrl()) . '/apply';
+        return normalizePublicSiteUrl(getAppBaseUrl()) . '/apply/admin';
     }
 
     return '';
 }
 
-/** Admin folder on apply host (contains sso.php, index.php, admin/ UI). */
+/** Document root on the apply host (sso.php, index.php, sync/, admin/ UI). */
 function getApplyAdminRootUrl(?PDO $pdo = null): string
 {
-    $site = getApplySiteUrl($pdo);
-
-    return $site !== '' ? $site . '/admin' : '';
+    return getApplySiteUrl($pdo);
 }
 
 function getApplyAdminSsoUrl(?PDO $pdo = null): string
