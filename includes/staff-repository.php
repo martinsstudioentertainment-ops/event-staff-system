@@ -213,7 +213,9 @@ function getExportRows(PDO $pdo, array $filters): array
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
 
-    return $stmt->fetchAll();
+    $rows = $stmt->fetchAll() ?: [];
+
+    return array_map(static fn(array $row): array => mergeRegistrationWithStaff($pdo, $row), $rows);
 }
 
 /**
@@ -309,7 +311,15 @@ function mergeRegistrationWithStaff(PDO $pdo, array $row): array
 {
     $staffId = (int) ($row['staff_id'] ?? 0);
     if ($staffId < 1) {
-        // No staff_id, use registration row data as-is
+        $email = strtolower(trim((string) ($row['email'] ?? '')));
+        if ($email !== '') {
+            $byEmail = getStaffByEmail($pdo, $email);
+            if ($byEmail !== null) {
+                $staffId = (int) $byEmail['id'];
+            }
+        }
+    }
+    if ($staffId < 1) {
         return $row;
     }
 
@@ -324,7 +334,9 @@ function mergeRegistrationWithStaff(PDO $pdo, array $row): array
         $staffFields = [
             'surname', 'first_name', 'full_address', 'eircode',
             'location_lat', 'location_lng', 'email', 'mobile',
-            'date_of_birth', 'gender', 'pps_number', 'bank_iban', 'staff_role'
+            'date_of_birth', 'gender', 'pps_number', 'bank_iban', 'staff_role',
+            'psa_licence', 'psa_expiry_date', 'psa_front_image', 'psa_back_image',
+            'profile_completed',
         ];
 
         foreach ($staffFields as $field) {
@@ -629,6 +641,9 @@ function findOrCreateStaff(PDO $pdo, array $data): int
             'staff_role' => $data['staff_role'] ?? 'steward',
             'id' => $staff['id'],
         ]);
+        ensureStaffProfileTokenAfterSave($pdo, (int) $staff['id']);
+        linkStaffIdToRegistrationsByEmail($pdo, $email, (int) $staff['id']);
+
         return (int) $staff['id'];
     }
 
@@ -658,7 +673,111 @@ function findOrCreateStaff(PDO $pdo, array $data): int
         'staff_role' => $data['staff_role'] ?? 'steward',
     ]);
 
-    return (int) $pdo->lastInsertId();
+    $newId = (int) $pdo->lastInsertId();
+    ensureStaffProfileTokenAfterSave($pdo, $newId);
+    linkStaffIdToRegistrationsByEmail($pdo, $email, $newId);
+
+    return $newId;
+}
+
+/**
+ * Attach staff_id to legacy registrations that only have email.
+ */
+function linkStaffIdToRegistrationsByEmail(PDO $pdo, string $email, int $staffId): void
+{
+    require_once __DIR__ . '/staff-registration-schema.php';
+
+    if ($staffId < 1) {
+        return;
+    }
+
+    $email = strtolower(trim($email));
+    if ($email === '') {
+        return;
+    }
+
+    try {
+        if (!staffRegistrationColumnExists($pdo, 'staff_id')) {
+            return;
+        }
+
+        $stmt = $pdo->prepare(
+            'UPDATE staff_registrations
+             SET staff_id = :staff_id
+             WHERE LOWER(email) = :email AND (staff_id IS NULL OR staff_id = 0)'
+        );
+        $stmt->execute(['staff_id' => $staffId, 'email' => $email]);
+    } catch (PDOException $e) {
+        error_log('[EventStaff] linkStaffIdToRegistrationsByEmail: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Ensure a staff row exists for a registered email (bootstrap from latest registration).
+ */
+function ensureStaffRecordForEmail(PDO $pdo, string $email): ?int
+{
+    $email = strtolower(trim($email));
+    if ($email === '') {
+        return null;
+    }
+
+    $staff = getStaffByEmail($pdo, $email);
+    if ($staff !== null) {
+        $staffId = (int) $staff['id'];
+        linkStaffIdToRegistrationsByEmail($pdo, $email, $staffId);
+
+        return $staffId;
+    }
+
+    $reg = getLatestRegistrationByEmail($pdo, $email);
+    if ($reg === null) {
+        return null;
+    }
+
+    try {
+        $staffId = findOrCreateStaff($pdo, [
+            'surname'       => (string) ($reg['surname'] ?? ''),
+            'first_name'    => (string) ($reg['first_name'] ?? ''),
+            'full_address'  => (string) ($reg['full_address'] ?? ''),
+            'eircode'       => (string) ($reg['eircode'] ?? ''),
+            'location_lat'  => $reg['location_lat'] ?? null,
+            'location_lng'  => $reg['location_lng'] ?? null,
+            'email'         => $email,
+            'mobile'        => (string) ($reg['mobile'] ?? ''),
+            'date_of_birth' => (string) ($reg['date_of_birth'] ?? ''),
+            'gender'        => (string) ($reg['gender'] ?? 'prefer_not_to_say'),
+            'pps_number'    => (string) ($reg['pps_number'] ?? ''),
+            'bank_iban'     => (string) ($reg['bank_iban'] ?? ''),
+            'staff_role'    => (string) ($reg['staff_role'] ?? 'steward'),
+        ]);
+        if ($staffId > 0) {
+            linkStaffIdToRegistrationsByEmail($pdo, $email, $staffId);
+        }
+
+        return $staffId > 0 ? $staffId : null;
+    } catch (Throwable $e) {
+        error_log('[EventStaff] ensureStaffRecordForEmail: ' . $e->getMessage());
+
+        return null;
+    }
+}
+
+/**
+ * @internal
+ */
+function ensureStaffProfileTokenAfterSave(PDO $pdo, int $staffId): void
+{
+    if ($staffId < 1) {
+        return;
+    }
+
+    try {
+        require_once __DIR__ . '/staff-onboarding.php';
+        ensureStaffProfileToken($pdo, $staffId);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] ensureStaffProfileToken: ' . $e->getMessage());
+    }
 }
 
 /**
@@ -796,6 +915,14 @@ function updateStaffProfile(PDO $pdo, int $staffId, array $data): bool
         }
     }
 
+    if (isset($data['date_of_birth']) && trim((string) $data['date_of_birth']) !== '') {
+        $current = getStaffById($pdo, $staffId);
+        if ($current !== null && trim((string) ($current['date_of_birth'] ?? '')) === '') {
+            $updates[] = 'date_of_birth = :date_of_birth';
+            $params['date_of_birth'] = $data['date_of_birth'];
+        }
+    }
+
     if ($updates === []) {
         return false;
     }
@@ -818,31 +945,14 @@ function updateStaffProfile(PDO $pdo, int $staffId, array $data): bool
 }
 
 /**
- * Check if staff profile is complete (has all required PSA fields).
+ * Check if staff has completed required onboarding fields.
  * @return bool
  */
 function isStaffProfileComplete(PDO $pdo, int $staffId): bool
 {
-    try {
-        $stmt = $pdo->prepare(
-            'SELECT psa_licence, psa_expiry_date, psa_front_image, psa_back_image 
-             FROM staff WHERE id = :id LIMIT 1'
-        );
-        $stmt->execute(['id' => $staffId]);
-        $staff = $stmt->fetch();
+    require_once __DIR__ . '/staff-onboarding.php';
 
-        if (!$staff) {
-            return false;
-        }
-
-        return !empty($staff['psa_licence']) 
-            && !empty($staff['psa_expiry_date'])
-            && !empty($staff['psa_front_image'])
-            && !empty($staff['psa_back_image']);
-    } catch (PDOException $e) {
-        error_log('[EventStaff] isStaffProfileComplete: ' . $e->getMessage());
-        return false;
-    }
+    return isStaffOnboardingCompleteById($pdo, $staffId);
 }
 
 /**

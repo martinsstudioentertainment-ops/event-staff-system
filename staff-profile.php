@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/staff-repository.php';
+require_once __DIR__ . '/includes/staff-onboarding.php';
 
 $pdo = getDB();
 $token = trim((string) ($_GET['token'] ?? ''));
@@ -14,9 +15,17 @@ if (!$staff) {
     die('Invalid profile token. Please contact admin.');
 }
 
-$profileComplete = isStaffProfileComplete($pdo, (int) $staff['id']);
+$profileComplete = isStaffOnboardingComplete($staff);
+$missingFields   = getStaffOnboardingMissingFields($staff);
 $flash = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $validationErrors = validateStaffOnboardingPost($_POST, $staff);
+    if ($validationErrors !== []) {
+        $flash = [
+            'type'    => 'error',
+            'message' => $validationErrors['form'] ?? reset($validationErrors),
+        ];
+    } else {
     try {
         $updateData = [
             'surname' => trim((string) ($_POST['surname'] ?? '')),
@@ -30,6 +39,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'psa_licence' => trim((string) ($_POST['psa_licence'] ?? '')),
             'psa_expiry_date' => trim((string) ($_POST['psa_expiry_date'] ?? '')),
         ];
+
+        if (trim((string) ($staff['date_of_birth'] ?? '')) === '' && !empty($_POST['date_of_birth'])) {
+            $updateData['date_of_birth'] = trim((string) $_POST['date_of_birth']);
+        }
 
         if (!empty($_POST['location_lat'])) {
             $updateData['location_lat'] = (float) $_POST['location_lat'];
@@ -64,19 +77,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (updateStaffProfile($pdo, (int) $staff['id'], $updateData)) {
-            // Check if profile is now complete
-            if (isStaffProfileComplete($pdo, (int) $staff['id'])) {
+            $staff = getStaffByProfileToken($pdo, $token);
+            if (isStaffOnboardingComplete($staff)) {
                 markStaffProfileCompleted($pdo, (int) $staff['id']);
-                $flash = ['type' => 'success', 'message' => 'Your profile has been updated successfully and is now complete!'];
+                $flash = [
+                    'type'    => 'success',
+                    'message' => 'Your profile is complete. You can register for events, view status, and check in when approved.',
+                ];
+                $profileComplete = true;
+                $missingFields   = [];
             } else {
-                $flash = ['type' => 'success', 'message' => 'Your profile has been updated successfully.'];
+                $missingFields = getStaffOnboardingMissingFields($staff);
+                $flash = [
+                    'type'    => 'warning',
+                    'message' => 'Saved. Still required: ' . implode(', ', $missingFields),
+                ];
             }
-            $staff = getStaffByProfileToken($pdo, $token); // Refresh data
         } else {
             $flash = ['type' => 'error', 'message' => 'Failed to update profile. Please try again.'];
         }
     } catch (Exception $e) {
         $flash = ['type' => 'error', 'message' => 'Error: ' . $e->getMessage()];
+    }
     }
 }
 
@@ -101,8 +123,11 @@ $siteName = getSiteName($pdo);
 
             <?php if (!$profileComplete): ?>
                 <div class="alert alert--error alert--visible">
-                    <strong>⚠️ Profile Incomplete</strong><br>
-                    Please complete your PSA licence information to continue registering for events.
+                    <strong>Profile incomplete</strong><br>
+                    Complete all fields below before you can view registration status or check in.
+                    <?php if ($missingFields !== []): ?>
+                        <br><br>Still needed: <?= h(implode(', ', $missingFields)) ?>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
 
@@ -122,7 +147,7 @@ $siteName = getSiteName($pdo);
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Surname</label>
+                    <label class="form-label">Last name</label>
                     <input type="text" name="surname" class="form-input" value="<?= h((string) $staff['surname']) ?>" required>
                 </div>
 
@@ -138,9 +163,13 @@ $siteName = getSiteName($pdo);
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Date of Birth (cannot be changed)</label>
-                    <input type="date" class="form-input" value="<?= h((string) $staff['date_of_birth']) ?>" disabled>
-                    <p class="form-hint">Date of birth cannot be changed.</p>
+                    <label class="form-label">Date of birth</label>
+                    <?php if (trim((string) ($staff['date_of_birth'] ?? '')) === ''): ?>
+                        <input type="date" name="date_of_birth" class="form-input" required>
+                    <?php else: ?>
+                        <input type="date" class="form-input" value="<?= h((string) $staff['date_of_birth']) ?>" disabled>
+                        <p class="form-hint">Date of birth cannot be changed after it is saved.</p>
+                    <?php endif; ?>
                 </div>
 
                 <div class="form-group">
