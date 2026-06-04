@@ -16,11 +16,18 @@ function getDashboardStats(PDO $pdo): array
         $todayCheckins = 0;
     }
 
-    $pendingFilters = ['q' => '', 'status' => 'pending', 'role' => '', 'event_id' => 0, 'email' => ''];
+    $pendingPeople = 0;
+    try {
+        $pendingPeople = (int) $pdo->query(
+            "SELECT COUNT(DISTINCT LOWER(email)) FROM staff_registrations WHERE status = 'pending'"
+        )->fetchColumn();
+    } catch (PDOException $e) {
+        $pendingPeople = 0;
+    }
 
     return [
         'total_staff'           => (int) $pdo->query('SELECT COUNT(*) FROM staff_registrations')->fetchColumn(),
-        'pending'               => countUniqueStaffRegistrants($pdo, $pendingFilters),
+        'pending'               => $pendingPeople,
         'pending_registrations' => (int) $pdo->query("SELECT COUNT(*) FROM staff_registrations WHERE status = 'pending'")->fetchColumn(),
         'approved'              => (int) $pdo->query("SELECT COUNT(*) FROM staff_registrations WHERE status = 'approved'")->fetchColumn(),
         'rejected'              => (int) $pdo->query("SELECT COUNT(*) FROM staff_registrations WHERE status = 'rejected'")->fetchColumn(),

@@ -186,17 +186,106 @@ if ($action === 'link_from_folder') {
     exit;
 }
 
-if ($action === 'sync_registrations') {
+if ($action === 'sync_registrations_cancel') {
+    unset($_SESSION['bulk_sheet_sync']);
+    setAdminFlash('warning', 'Google Sheets sync cancelled.');
+    header('Location: events.php');
+    exit;
+}
+
+if ($action === 'sync_registrations' || $action === 'sync_registrations_continue') {
     @ini_set('memory_limit', '512M');
-    @set_time_limit(900);
+    @set_time_limit(120);
 
     if (!isGoogleSheetsSyncEnabled($pdo)) {
+        unset($_SESSION['bulk_sheet_sync']);
         setAdminFlash('error', 'Enable live sync in Settings → Google Sheets first.');
         header('Location: events.php');
         exit;
     }
 
-    $stats = syncAllRegistrationsToLinkedGoogleSheets($pdo);
+    if ($action === 'sync_registrations') {
+        $ids = getLinkedRegistrationIdsForSheetSync($pdo);
+        if ($ids === []) {
+            setAdminFlash('error', 'No registrations to sync — link Google Sheets to events first.');
+            header('Location: events.php');
+            exit;
+        }
+
+        $_SESSION['bulk_sheet_sync'] = [
+            'ids'   => $ids,
+            'pos'   => 0,
+            'stats' => ['synced' => 0, 'removed' => 0, 'skipped' => 0, 'failed' => 0],
+        ];
+    }
+
+    $state = $_SESSION['bulk_sheet_sync'] ?? null;
+    if (!is_array($state) || !isset($state['ids'], $state['pos'], $state['stats'])) {
+        setAdminFlash('error', 'Sheet sync session expired. Click Sync registrations to sheets again.');
+        header('Location: events.php');
+        exit;
+    }
+
+    $allIds    = array_values(array_map('intval', $state['ids']));
+    $pos       = max(0, (int) $state['pos']);
+    $total     = count($allIds);
+    $batchSize = googleSheetsBulkSyncBatchSize();
+    $chunk     = array_slice($allIds, $pos, $batchSize);
+
+    if ($chunk !== []) {
+        $batchStats = syncRegistrationsToGoogleSheets($pdo, $chunk);
+        $state['stats'] = mergeGoogleSheetsSyncStats($state['stats'], $batchStats);
+        $state['pos']   = $pos + count($chunk);
+        $_SESSION['bulk_sheet_sync'] = $state;
+    }
+
+    $done  = (int) $state['pos'];
+    $stats = $state['stats'];
+
+    if ($done < $total) {
+        $pct = $total > 0 ? (int) round(($done / $total) * 100) : 0;
+        header('Content-Type: text/html; charset=utf-8');
+        ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Syncing Google Sheets…</title>
+    <style>
+        body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .box { background: #1e293b; padding: 2rem; border-radius: 12px; max-width: 420px; width: 90%; text-align: center; }
+        .bar { height: 8px; background: #334155; border-radius: 4px; overflow: hidden; margin: 1rem 0; }
+        .bar span { display: block; height: 100%; background: #2563eb; width: <?= (int) $pct ?>%; transition: width 0.3s; }
+        a { color: #93c5fd; }
+        .muted { color: #94a3b8; font-size: 0.9rem; margin-top: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1 style="font-size:1.25rem;margin:0 0 0.5rem">Syncing Google Sheets</h1>
+        <p><?= (int) $done ?> / <?= (int) $total ?> registrations (<?= (int) $pct ?>%)</p>
+        <div class="bar"><span></span></div>
+        <p class="muted">Do not close this tab. The next batch starts automatically.</p>
+        <form method="post" action="events-sheets-action.php" style="margin-top:1rem">
+            <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+            <input type="hidden" name="action" value="sync_registrations_cancel">
+            <button type="submit" style="background:none;border:none;color:#93c5fd;cursor:pointer;font-size:0.9rem">Cancel sync</button>
+        </form>
+        <form id="sheet-sync-continue" method="post" action="events-sheets-action.php">
+            <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+            <input type="hidden" name="action" value="sync_registrations_continue">
+        </form>
+    </div>
+    <script>setTimeout(function () { document.getElementById('sheet-sync-continue').submit(); }, 800);</script>
+</body>
+</html>
+        <?php
+        exit;
+    }
+
+    unset($_SESSION['bulk_sheet_sync']);
+
     $removed = (int) ($stats['removed'] ?? 0);
     logAdminAudit(
         $pdo,
@@ -215,13 +304,13 @@ if ($action === 'sync_registrations') {
             $parts[] = "removed {$removed} pending/rejected row(s)";
         }
         setAdminFlash('success', ucfirst(implode('; ', $parts)) . ' on linked Google Sheets.');
-    } elseif ($stats['synced'] > 0) {
+    } elseif ($stats['synced'] > 0 || $removed > 0) {
         setAdminFlash(
             'warning',
             "Synced {$stats['synced']} row(s); {$stats['failed']} failed. Check storage/logs/google-sheets.log"
         );
     } elseif ($stats['skipped'] > 0 && $stats['failed'] === 0) {
-        setAdminFlash('error', 'No approved registrations to sync — approve staff first, then sync again.');
+        setAdminFlash('success', 'Sync complete. No sheet changes were needed for the remaining registrations.');
     } else {
         setAdminFlash('error', 'Sheet sync failed. Check storage/logs/google-sheets.log');
     }

@@ -2886,7 +2886,10 @@ function syncRegistrationToGoogleSheet(PDO $pdo, int $registrationId): bool
  *
  * @return array{synced: int, removed: int, skipped: int, failed: int}
  */
-function syncAllRegistrationsToLinkedGoogleSheets(PDO $pdo): array
+/**
+ * @return list<int>
+ */
+function getLinkedRegistrationIdsForSheetSync(PDO $pdo): array
 {
     ensureGoogleSheetsSchema($pdo);
 
@@ -2899,7 +2902,32 @@ function syncAllRegistrationsToLinkedGoogleSheets(PDO $pdo): array
     );
     $ids = $stmt ? $stmt->fetchAll(PDO::FETCH_COLUMN) : [];
 
-    return syncRegistrationsToGoogleSheets($pdo, array_map('intval', $ids ?: []));
+    return array_map('intval', $ids ?: []);
+}
+
+function googleSheetsBulkSyncBatchSize(): int
+{
+    return 15;
+}
+
+/**
+ * @param array{synced: int, removed: int, skipped: int, failed: int} $a
+ * @param array{synced: int, removed: int, skipped: int, failed: int} $b
+ * @return array{synced: int, removed: int, skipped: int, failed: int}
+ */
+function mergeGoogleSheetsSyncStats(array $a, array $b): array
+{
+    return [
+        'synced'  => (int) ($a['synced'] ?? 0) + (int) ($b['synced'] ?? 0),
+        'removed' => (int) ($a['removed'] ?? 0) + (int) ($b['removed'] ?? 0),
+        'skipped' => (int) ($a['skipped'] ?? 0) + (int) ($b['skipped'] ?? 0),
+        'failed'  => (int) ($a['failed'] ?? 0) + (int) ($b['failed'] ?? 0),
+    ];
+}
+
+function syncAllRegistrationsToLinkedGoogleSheets(PDO $pdo): array
+{
+    return syncRegistrationsToGoogleSheets($pdo, getLinkedRegistrationIdsForSheetSync($pdo));
 }
 
 /**
