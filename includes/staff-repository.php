@@ -17,28 +17,23 @@ function getDashboardStats(PDO $pdo): array
     }
 
     $pendingFilters = ['q' => '', 'status' => 'pending', 'role' => '', 'event_id' => 0, 'email' => ''];
-    $pendingPeople  = 0;
-    try {
-        $pendingPeople = countUniqueStaffRegistrants($pdo, $pendingFilters);
-    } catch (Throwable $e) {
-        error_log('[EventStaff] getDashboardStats pending count: ' . $e->getMessage());
+    $safeCount      = static function (string $sql) use ($pdo): int {
         try {
-            $pendingPeople = (int) $pdo->query(
-                "SELECT COUNT(DISTINCT LOWER(TRIM(COALESCE(email, ''))))
-                 FROM staff_registrations WHERE status = 'pending'"
-            )->fetchColumn();
-        } catch (PDOException $inner) {
-            $pendingPeople = 0;
+            return (int) $pdo->query($sql)->fetchColumn();
+        } catch (PDOException $e) {
+            error_log('[EventStaff] getDashboardStats: ' . $e->getMessage());
+
+            return 0;
         }
-    }
+    };
 
     return [
-        'total_staff'           => (int) $pdo->query('SELECT COUNT(*) FROM staff_registrations')->fetchColumn(),
-        'pending'               => $pendingPeople,
-        'pending_registrations' => (int) $pdo->query("SELECT COUNT(*) FROM staff_registrations WHERE status = 'pending'")->fetchColumn(),
-        'approved'              => (int) $pdo->query("SELECT COUNT(*) FROM staff_registrations WHERE status = 'approved'")->fetchColumn(),
-        'rejected'              => (int) $pdo->query("SELECT COUNT(*) FROM staff_registrations WHERE status = 'rejected'")->fetchColumn(),
-        'events'                => (int) $pdo->query('SELECT COUNT(*) FROM events WHERE is_active = 1')->fetchColumn(),
+        'total_staff'           => $safeCount('SELECT COUNT(*) FROM staff_registrations'),
+        'pending'               => countPendingStaffRegistrants($pdo, $pendingFilters),
+        'pending_registrations' => $safeCount("SELECT COUNT(*) FROM staff_registrations WHERE status = 'pending'"),
+        'approved'              => $safeCount("SELECT COUNT(*) FROM staff_registrations WHERE status = 'approved'"),
+        'rejected'              => $safeCount("SELECT COUNT(*) FROM staff_registrations WHERE status = 'rejected'"),
+        'events'                => $safeCount('SELECT COUNT(*) FROM events WHERE is_active = 1'),
         'today_checkins'        => $todayCheckins,
     ];
 }
@@ -144,7 +139,9 @@ function staffRegistrationsEventsJoin(): string
 
 function staffRegistrantEmailGroupExpr(string $alias = 'sr'): string
 {
-    return 'LOWER(TRIM(COALESCE(' . $alias . '.email, \'\')))';
+    $prefix = $alias !== '' ? $alias . '.' : '';
+
+    return 'LOWER(TRIM(COALESCE(' . $prefix . 'email, \'\')))';
 }
 
 function staffRegistrationStatusSqlLiteral(string $status): string
@@ -182,6 +179,102 @@ function buildStaffGroupedListClauses(array $filters): array
     }
 
     return [$where, $params, $having, $statusFilter];
+}
+
+/**
+ * Latest pending registration per person (simple path — avoids grouped-list edge cases).
+ *
+ * @param array<string, mixed> $filters
+ */
+function countPendingStaffRegistrants(PDO $pdo, array $filters): int
+{
+    $filters['status'] = 'pending';
+    [$where, $params]  = buildStaffWhereClause($filters);
+
+    $sql = "SELECT COUNT(*) FROM (
+                SELECT sr.id
+                FROM staff_registrations sr
+                INNER JOIN (
+                    SELECT MAX(id) AS id
+                    FROM staff_registrations
+                    WHERE status = 'pending'
+                    GROUP BY " . staffRegistrantEmailGroupExpr('') . "
+                ) pick ON pick.id = sr.id
+                " . staffRegistrationsEventsJoin() . "
+                WHERE {$where}
+            ) pending_people";
+
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+
+        return (int) $stmt->fetchColumn();
+    } catch (PDOException $e) {
+        error_log('[EventStaff] countPendingStaffRegistrants: ' . $e->getMessage());
+
+        return 0;
+    }
+}
+
+/**
+ * @param array<string, mixed> $filters
+ * @return array<int, array<string, mixed>>
+ */
+function getPendingStaffRegistrants(PDO $pdo, array $filters, ?int $limit = null, int $offset = 0): array
+{
+    $filters['status'] = 'pending';
+    [$where, $params]  = buildStaffWhereClause($filters);
+    $emailGroup        = staffRegistrantEmailGroupExpr('sr');
+
+    $sql = "SELECT sr.*, e.name AS event_name, e.event_date,
+                   stats.registration_count, stats.pending_count, stats.approved_count, stats.rejected_count,
+                   sr.created_at AS last_registered, sr.id AS latest_reg_id
+            FROM staff_registrations sr
+            INNER JOIN (
+                SELECT MAX(id) AS id
+                FROM staff_registrations
+                WHERE status = 'pending'
+                GROUP BY " . staffRegistrantEmailGroupExpr('') . "
+            ) pick ON pick.id = sr.id
+            " . staffRegistrationsEventsJoin() . "
+            LEFT JOIN (
+                SELECT " . staffRegistrantEmailGroupExpr('') . " AS email_key,
+                       COUNT(*) AS registration_count,
+                       SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending_count,
+                       SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) AS approved_count,
+                       SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) AS rejected_count
+                FROM staff_registrations
+                GROUP BY " . staffRegistrantEmailGroupExpr('') . "
+            ) stats ON stats.email_key = {$emailGroup}
+            WHERE {$where}
+            ORDER BY sr.created_at DESC";
+
+    if ($limit !== null) {
+        $sql .= ' LIMIT ' . max(1, $limit) . ' OFFSET ' . max(0, $offset);
+    }
+
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll() ?: [];
+    } catch (PDOException $e) {
+        error_log('[EventStaff] getPendingStaffRegistrants: ' . $e->getMessage());
+
+        return [];
+    }
+
+    return array_map(static function (array $row) use ($pdo): array {
+        $merged = mergeRegistrationWithStaff($pdo, $row);
+
+        return array_merge($merged, [
+            'registration_count' => (int) ($row['registration_count'] ?? 1),
+            'pending_count'      => (int) ($row['pending_count'] ?? 0),
+            'approved_count'     => (int) ($row['approved_count'] ?? 0),
+            'rejected_count'     => (int) ($row['rejected_count'] ?? 0),
+            'last_registered'    => (string) ($row['last_registered'] ?? $row['created_at'] ?? ''),
+            'latest_reg_id'      => (int) ($row['latest_reg_id'] ?? $row['id'] ?? 0),
+        ]);
+    }, $rows);
 }
 
 /**
@@ -237,6 +330,10 @@ function getStaffRegistrations(PDO $pdo, array $filters, ?int $limit = null, int
  */
 function countUniqueStaffRegistrants(PDO $pdo, array $filters): int
 {
+    if (($filters['status'] ?? '') === 'pending') {
+        return countPendingStaffRegistrants($pdo, $filters);
+    }
+
     [$where, $params, $having, $statusFilter] = buildStaffGroupedListClauses($filters);
     $emailGroup = staffRegistrantEmailGroupExpr('sr');
     $statusReg  = '';
@@ -272,6 +369,10 @@ function countUniqueStaffRegistrants(PDO $pdo, array $filters): int
  */
 function getUniqueStaffRegistrants(PDO $pdo, array $filters, ?int $limit = null, int $offset = 0): array
 {
+    if (($filters['status'] ?? '') === 'pending') {
+        return getPendingStaffRegistrants($pdo, $filters, $limit, $offset);
+    }
+
     [$where, $params, $having, $statusFilter] = buildStaffGroupedListClauses($filters);
     $emailGroup = staffRegistrantEmailGroupExpr('sr');
     $statusReg  = '';
