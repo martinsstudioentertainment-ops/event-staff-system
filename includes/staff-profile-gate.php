@@ -7,6 +7,7 @@
 require_once __DIR__ . '/settings-repository.php';
 require_once __DIR__ . '/staff-onboarding.php';
 require_once __DIR__ . '/staff-portal-session.php';
+require_once __DIR__ . '/staff-psa.php';
 
 function isStaffProfileUpdateRequired(PDO $pdo): bool
 {
@@ -95,17 +96,13 @@ function countStaffNeedingProfileUpdate(PDO $pdo): int
  */
 function enforceStaffProfileGate(PDO $pdo, array $allowedWithoutProfile = ['staff-profile.php', 'staff-portal.php']): void
 {
-    if (!isStaffProfileUpdateRequired($pdo)) {
-        return;
-    }
-
     $script = basename((string) ($_SERVER['SCRIPT_NAME'] ?? ''));
     if (in_array($script, $allowedWithoutProfile, true)) {
         return;
     }
 
     $staff = getStaffFromPortalSession($pdo);
-    if ($staff !== null && staffMustUpdateProfile($pdo, $staff)) {
+    if ($staff !== null && staffNeedsProfileForm($pdo, $staff)) {
         $_SESSION['staff_profile_return'] = staffProfileReturnUrl();
         header('Location: staff-profile.php');
         exit;
@@ -152,7 +149,7 @@ function handleStaffPortalVerifyPost(PDO $pdo): ?array
     establishStaffPortalSession($staff);
     $_SESSION['staff_profile_return'] = 'staff-app.php';
 
-    if (!isStaffOnboardingComplete($staff) || staffMustUpdateProfile($pdo, $staff)) {
+    if (staffNeedsProfileForm($pdo, $staff)) {
         header('Location: staff-profile.php');
         exit;
     }
@@ -161,10 +158,47 @@ function handleStaffPortalVerifyPost(PDO $pdo): ?array
     exit;
 }
 
+/**
+ * @param array<string, mixed>|null $staff
+ */
+function staffRequiresProfileReverify(?array $staff): bool
+{
+    return $staff !== null && (int) ($staff['profile_reverify_required'] ?? 0) === 1;
+}
+
+/**
+ * Admin action — staff must complete the profile form again on next sign-in.
+ */
+function resetStaffProfileVerification(PDO $pdo, int $staffId): bool
+{
+    if ($staffId < 1) {
+        return false;
+    }
+
+    ensureStaffPsaSchema($pdo);
+
+    try {
+        $stmt = $pdo->prepare(
+            'UPDATE staff SET profile_completed = 0, profile_reverify_required = 1, updated_at = CURRENT_TIMESTAMP WHERE id = :id'
+        );
+        $stmt->execute(['id' => $staffId]);
+
+        return $stmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        error_log('[EventStaff] resetStaffProfileVerification: ' . $e->getMessage());
+
+        return false;
+    }
+}
+
 function staffNeedsProfileForm(PDO $pdo, ?array $staff): bool
 {
     if ($staff === null) {
         return false;
+    }
+
+    if (staffRequiresProfileReverify($staff)) {
+        return true;
     }
 
     return !isStaffOnboardingComplete($staff) || staffMustUpdateProfile($pdo, $staff);

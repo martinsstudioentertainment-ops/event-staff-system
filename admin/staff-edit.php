@@ -4,8 +4,10 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/admin-capabilities.php';
 require_once __DIR__ . '/../includes/staff-repository.php';
 require_once __DIR__ . '/../includes/staff-onboarding.php';
+require_once __DIR__ . '/../includes/staff-profile-gate.php';
 require_once __DIR__ . '/../includes/financial-field-validation.php';
 require_once __DIR__ . '/../includes/site-urls.php';
+require_once __DIR__ . '/../includes/audit-log.php';
 
 requireAdminCapability('staff');
 
@@ -28,10 +30,32 @@ if (!$staff) {
 
 $profileUrl = getStaffProfileUrl($pdo, $staffId);
 $portalUrl  = getStaffPortalUrl($pdo);
-$profileComplete = isStaffOnboardingComplete($staff);
-$missingFields   = getStaffOnboardingMissingFields($staff);
+ensureStaffPsaSchema($pdo);
+$staff = getStaffById($pdo, $staffId) ?? $staff;
+$reverifyRequired = staffRequiresProfileReverify($staff);
+$profileComplete  = isStaffOnboardingComplete($staff) && !$reverifyRequired;
+$missingFields    = getStaffOnboardingMissingFields($staff);
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_profile_verification']) && $canEdit) {
+    if (!verifyCsrf($_POST['csrf_token'] ?? null)) {
+        setAdminFlash('error', 'Invalid CSRF token');
+    } elseif (resetStaffProfileVerification($pdo, $staffId)) {
+        logAdminAudit(
+            $pdo,
+            'staff_profile_reverify_reset',
+            'staff',
+            $staffId,
+            'Admin required staff to redo profile verification: ' . (string) ($staff['email'] ?? '')
+        );
+        setAdminFlash('success', 'Profile verification cancelled. Staff must update their profile again on next sign-in.');
+    } else {
+        setAdminFlash('error', 'Could not reset profile verification.');
+    }
+    header('Location: staff-edit.php?id=' . $staffId);
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit && !isset($_POST['reset_profile_verification'])) {
     $csrfToken = $_POST['csrf_token'] ?? '';
     if (!verifyCsrf($csrfToken)) {
         setAdminFlash('error', 'Invalid CSRF token');
@@ -147,17 +171,28 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         </div>
     </div>
 
-    <div class="detail-list" style="margin-bottom:1rem;">
+    <div class="detail-list staff-edit-profile-status" style="margin-bottom:1rem;">
         <div class="detail-list__row">
             <dt>Profile status</dt>
             <dd>
-                <?php if ($profileComplete): ?>
+                <?php if ($reverifyRequired): ?>
+                    <span class="badge badge--pending">Re-verification required</span>
+                    <p class="form-hint">Waiting for staff to confirm their details and PSA photos again.</p>
+                <?php elseif ($profileComplete): ?>
                     <span class="badge badge--approved">Complete</span>
                 <?php else: ?>
                     <span class="badge badge--pending">Incomplete</span>
                     <?php if ($missingFields !== []): ?>
                         <span class="form-hint">Missing: <?= h(implode(', ', $missingFields)) ?></span>
                     <?php endif; ?>
+                <?php endif; ?>
+                <?php if ($canEdit && !$reverifyRequired && $profileComplete): ?>
+                    <form method="post" class="staff-edit-reverify-form" style="margin-top:0.75rem;"
+                          onsubmit="return confirm('Require this staff member to update their profile again? They will need to confirm details and PSA photos on next sign-in.');">
+                        <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                        <input type="hidden" name="reset_profile_verification" value="1">
+                        <button type="submit" class="btn btn--small btn--secondary">Cancel verification — require update</button>
+                    </form>
                 <?php endif; ?>
             </dd>
         </div>

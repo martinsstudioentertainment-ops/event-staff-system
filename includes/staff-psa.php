@@ -55,6 +55,9 @@ function ensureStaffPsaSchema(PDO $pdo): void
     if (empty($columns['profile_completed'])) {
         $alters[] = 'ADD COLUMN profile_completed TINYINT(1) NOT NULL DEFAULT 0 AFTER psa_back_image';
     }
+    if (empty($columns['profile_reverify_required'])) {
+        $alters[] = 'ADD COLUMN profile_reverify_required TINYINT(1) NOT NULL DEFAULT 0 AFTER profile_completed';
+    }
 
     foreach ($alters as $fragment) {
         try {
