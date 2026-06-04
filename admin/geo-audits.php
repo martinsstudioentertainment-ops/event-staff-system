@@ -25,9 +25,12 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 ?>
 
 <section class="card erp-card">
-    <div class="card__header">
-        <h2 class="card__title">Login geo audits</h2>
-        <p class="card__subtitle">Admin login IP addresses and staff check-in activity. Venue GPS is verified at sign-in time (100 m radius) but coordinates are not stored.</p>
+    <div class="card__header card__header--row">
+        <div>
+            <h2 class="card__title">Login geo audits</h2>
+            <p class="card__subtitle">Admin login IP addresses and staff check-in activity. Venue GPS is verified at sign-in time (100 m radius) but coordinates are not stored.</p>
+        </div>
+        <a href="visitor-locations.php" class="btn btn--secondary">Website visitor locations</a>
     </div>
 
     <h3 class="erp-panel__title">Admin logins</h3>

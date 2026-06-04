@@ -66,6 +66,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <?php endif; ?>
         <a href="settings-account.php" class="btn btn--secondary">Change my password</a>
         <?php if (adminCan('audit')): ?>
+            <a href="visitor-locations.php" class="btn btn--secondary">Visitor locations</a>
             <a href="geo-audits.php" class="btn btn--secondary">Login geo audits</a>
         <?php endif; ?>
     </div>

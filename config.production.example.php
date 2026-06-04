@@ -66,3 +66,5 @@ try {
     applySystemRuntimeSettings(null);
     bootstrapAppLocale(null);
 }
+
+require_once __DIR__ . '/includes/website-visitor-bootstrap.php';
