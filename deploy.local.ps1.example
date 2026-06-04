@@ -8,6 +8,7 @@
     FtpUser          = 'olastofx'            # FTP username
     FtpPassword      = 'YOUR_FTP_PASSWORD'   # or: $env:EVENT_STAFF_FTP_PASSWORD in upload-to-server.ps1
     FtpRemoteDir     = '/public_html'        # must start with / ; no trailing slash
+    FtpApplyRemoteDir = '/apply/admin'       # apply.olasentra.com document root (sso.php here)
 
     DbHost           = 'localhost'
     DbName           = 'olastofx_eventstaff'
