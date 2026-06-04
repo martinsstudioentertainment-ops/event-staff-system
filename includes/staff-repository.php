@@ -16,18 +16,11 @@ function getDashboardStats(PDO $pdo): array
         $todayCheckins = 0;
     }
 
-    $pendingPeople = 0;
-    try {
-        $pendingPeople = (int) $pdo->query(
-            "SELECT COUNT(DISTINCT LOWER(email)) FROM staff_registrations WHERE status = 'pending'"
-        )->fetchColumn();
-    } catch (PDOException $e) {
-        $pendingPeople = 0;
-    }
+    $pendingFilters = ['q' => '', 'status' => 'pending', 'role' => '', 'event_id' => 0, 'email' => ''];
 
     return [
         'total_staff'           => (int) $pdo->query('SELECT COUNT(*) FROM staff_registrations')->fetchColumn(),
-        'pending'               => $pendingPeople,
+        'pending'               => countUniqueStaffRegistrants($pdo, $pendingFilters),
         'pending_registrations' => (int) $pdo->query("SELECT COUNT(*) FROM staff_registrations WHERE status = 'pending'")->fetchColumn(),
         'approved'              => (int) $pdo->query("SELECT COUNT(*) FROM staff_registrations WHERE status = 'approved'")->fetchColumn(),
         'rejected'              => (int) $pdo->query("SELECT COUNT(*) FROM staff_registrations WHERE status = 'rejected'")->fetchColumn(),
@@ -135,12 +128,17 @@ function staffRegistrationsEventsJoin(): string
     return 'LEFT JOIN events e ON e.id = sr.event_id';
 }
 
+function staffRegistrantEmailGroupExpr(string $alias = 'sr'): string
+{
+    return 'LOWER(TRIM(COALESCE(' . $alias . '.email, \'\')))';
+}
+
 /**
  * Grouped staff list: match people with at least one registration in the status filter,
  * while still counting all their shifts in the row.
  *
  * @param array<string, mixed> $filters
- * @return array{0: string, 1: array<string, mixed>, 2: string}
+ * @return array{0: string, 1: array<string, mixed>, 2: string, 3: string}
  */
 function buildStaffGroupedListClauses(array $filters): array
 {
@@ -160,7 +158,7 @@ function buildStaffGroupedListClauses(array $filters): array
         $params['grp_status'] = $statusFilter;
     }
 
-    return [$where, $params, $having];
+    return [$where, $params, $having, $statusFilter];
 }
 
 /**
@@ -216,14 +214,18 @@ function getStaffRegistrations(PDO $pdo, array $filters, ?int $limit = null, int
  */
 function countUniqueStaffRegistrants(PDO $pdo, array $filters): int
 {
-    [$where, $params, $having] = buildStaffGroupedListClauses($filters);
+    [$where, $params, $having, $statusFilter] = buildStaffGroupedListClauses($filters);
+    $emailGroup = staffRegistrantEmailGroupExpr('sr');
+    $statusReg  = $statusFilter !== ''
+        ? ", MAX(CASE WHEN sr.status = :grp_status THEN sr.id END) AS status_reg_id"
+        : '';
 
     $sql = "SELECT COUNT(*) FROM (
-                SELECT LOWER(sr.email) AS email_key
+                SELECT {$emailGroup} AS email_key{$statusReg}
                 FROM staff_registrations sr
                 " . staffRegistrationsEventsJoin() . "
                 WHERE {$where}
-                GROUP BY LOWER(sr.email)
+                GROUP BY {$emailGroup}
                 {$having}
             ) grouped_staff";
 
@@ -239,10 +241,15 @@ function countUniqueStaffRegistrants(PDO $pdo, array $filters): int
  */
 function getUniqueStaffRegistrants(PDO $pdo, array $filters, ?int $limit = null, int $offset = 0): array
 {
-    [$where, $params, $having] = buildStaffGroupedListClauses($filters);
+    [$where, $params, $having, $statusFilter] = buildStaffGroupedListClauses($filters);
+    $emailGroup = staffRegistrantEmailGroupExpr('sr');
+    $statusReg  = $statusFilter !== ''
+        ? "MAX(CASE WHEN sr.status = :grp_status THEN sr.id END) AS status_reg_id,"
+        : '';
 
     $inner = "SELECT
-                LOWER(sr.email) AS email_key,
+                {$emailGroup} AS email_key,
+                {$statusReg}
                 MAX(sr.id) AS latest_reg_id,
                 COUNT(*) AS registration_count,
                 SUM(CASE WHEN sr.status = 'pending' THEN 1 ELSE 0 END) AS pending_count,
@@ -252,7 +259,7 @@ function getUniqueStaffRegistrants(PDO $pdo, array $filters, ?int $limit = null,
             FROM staff_registrations sr
             " . staffRegistrationsEventsJoin() . "
             WHERE {$where}
-            GROUP BY LOWER(sr.email)
+            GROUP BY {$emailGroup}
             {$having}
             ORDER BY MAX(sr.created_at) DESC";
 
@@ -260,9 +267,13 @@ function getUniqueStaffRegistrants(PDO $pdo, array $filters, ?int $limit = null,
         $inner .= ' LIMIT ' . max(1, $limit) . ' OFFSET ' . max(0, $offset);
     }
 
+    $joinOn = $statusFilter !== ''
+        ? 'COALESCE(g.status_reg_id, g.latest_reg_id)'
+        : 'g.latest_reg_id';
+
     $sql = "SELECT g.*, sr.*
             FROM ({$inner}) g
-            INNER JOIN staff_registrations sr ON sr.id = g.latest_reg_id
+            INNER JOIN staff_registrations sr ON sr.id = {$joinOn}
             ORDER BY g.last_registered DESC";
 
     $stmt = $pdo->prepare($sql);
