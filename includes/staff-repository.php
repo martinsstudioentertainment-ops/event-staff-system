@@ -17,10 +17,24 @@ function getDashboardStats(PDO $pdo): array
     }
 
     $pendingFilters = ['q' => '', 'status' => 'pending', 'role' => '', 'event_id' => 0, 'email' => ''];
+    $pendingPeople  = 0;
+    try {
+        $pendingPeople = countUniqueStaffRegistrants($pdo, $pendingFilters);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] getDashboardStats pending count: ' . $e->getMessage());
+        try {
+            $pendingPeople = (int) $pdo->query(
+                "SELECT COUNT(DISTINCT LOWER(TRIM(COALESCE(email, ''))))
+                 FROM staff_registrations WHERE status = 'pending'"
+            )->fetchColumn();
+        } catch (PDOException $inner) {
+            $pendingPeople = 0;
+        }
+    }
 
     return [
         'total_staff'           => (int) $pdo->query('SELECT COUNT(*) FROM staff_registrations')->fetchColumn(),
-        'pending'               => countUniqueStaffRegistrants($pdo, $pendingFilters),
+        'pending'               => $pendingPeople,
         'pending_registrations' => (int) $pdo->query("SELECT COUNT(*) FROM staff_registrations WHERE status = 'pending'")->fetchColumn(),
         'approved'              => (int) $pdo->query("SELECT COUNT(*) FROM staff_registrations WHERE status = 'approved'")->fetchColumn(),
         'rejected'              => (int) $pdo->query("SELECT COUNT(*) FROM staff_registrations WHERE status = 'rejected'")->fetchColumn(),
@@ -133,6 +147,15 @@ function staffRegistrantEmailGroupExpr(string $alias = 'sr'): string
     return 'LOWER(TRIM(COALESCE(' . $alias . '.email, \'\')))';
 }
 
+function staffRegistrationStatusSqlLiteral(string $status): string
+{
+    if (!in_array($status, ['pending', 'approved', 'rejected'], true)) {
+        throw new InvalidArgumentException('Invalid registration status.');
+    }
+
+    return $status;
+}
+
 /**
  * Grouped staff list: match people with at least one registration in the status filter,
  * while still counting all their shifts in the row.
@@ -154,8 +177,8 @@ function buildStaffGroupedListClauses(array $filters): array
     $having = '';
 
     if ($statusFilter !== '') {
-        $having = 'HAVING SUM(CASE WHEN sr.status = :grp_status THEN 1 ELSE 0 END) > 0';
-        $params['grp_status'] = $statusFilter;
+        $statusLit = staffRegistrationStatusSqlLiteral($statusFilter);
+        $having    = "HAVING SUM(CASE WHEN sr.status = '{$statusLit}' THEN 1 ELSE 0 END) > 0";
     }
 
     return [$where, $params, $having, $statusFilter];
@@ -216,9 +239,11 @@ function countUniqueStaffRegistrants(PDO $pdo, array $filters): int
 {
     [$where, $params, $having, $statusFilter] = buildStaffGroupedListClauses($filters);
     $emailGroup = staffRegistrantEmailGroupExpr('sr');
-    $statusReg  = $statusFilter !== ''
-        ? ", MAX(CASE WHEN sr.status = :grp_status THEN sr.id END) AS status_reg_id"
-        : '';
+    $statusReg  = '';
+    if ($statusFilter !== '') {
+        $statusLit = staffRegistrationStatusSqlLiteral($statusFilter);
+        $statusReg = ", MAX(CASE WHEN sr.status = '{$statusLit}' THEN sr.id END) AS status_reg_id";
+    }
 
     $sql = "SELECT COUNT(*) FROM (
                 SELECT {$emailGroup} AS email_key{$statusReg}
@@ -229,10 +254,16 @@ function countUniqueStaffRegistrants(PDO $pdo, array $filters): int
                 {$having}
             ) grouped_staff";
 
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
 
-    return (int) $stmt->fetchColumn();
+        return (int) $stmt->fetchColumn();
+    } catch (PDOException $e) {
+        error_log('[EventStaff] countUniqueStaffRegistrants: ' . $e->getMessage());
+
+        return 0;
+    }
 }
 
 /**
@@ -243,9 +274,11 @@ function getUniqueStaffRegistrants(PDO $pdo, array $filters, ?int $limit = null,
 {
     [$where, $params, $having, $statusFilter] = buildStaffGroupedListClauses($filters);
     $emailGroup = staffRegistrantEmailGroupExpr('sr');
-    $statusReg  = $statusFilter !== ''
-        ? "MAX(CASE WHEN sr.status = :grp_status THEN sr.id END) AS status_reg_id,"
-        : '';
+    $statusReg  = '';
+    if ($statusFilter !== '') {
+        $statusLit = staffRegistrationStatusSqlLiteral($statusFilter);
+        $statusReg = "MAX(CASE WHEN sr.status = '{$statusLit}' THEN sr.id END) AS status_reg_id,";
+    }
 
     $inner = "SELECT
                 {$emailGroup} AS email_key,
@@ -276,10 +309,15 @@ function getUniqueStaffRegistrants(PDO $pdo, array $filters, ?int $limit = null,
             INNER JOIN staff_registrations sr ON sr.id = {$joinOn}
             ORDER BY g.last_registered DESC";
 
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll() ?: [];
+    } catch (PDOException $e) {
+        error_log('[EventStaff] getUniqueStaffRegistrants: ' . $e->getMessage());
 
-    $rows = $stmt->fetchAll() ?: [];
+        return [];
+    }
 
     return array_map(static function (array $row) use ($pdo): array {
         $merged = mergeRegistrationWithStaff($pdo, $row);
