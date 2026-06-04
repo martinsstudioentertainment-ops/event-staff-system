@@ -106,6 +106,12 @@ $pageSubtitle = $linkedForm
     ? (string) ($linkedForm['subtitle'] ?? '')
     : t('register_page_subtitle');
 
+$staffPortalUrl = 'staff-portal.php';
+if ($pdo !== null) {
+    require_once __DIR__ . '/includes/staff-onboarding.php';
+    $staffPortalUrl = getStaffPortalUrl($pdo);
+}
+
 $showNotice = $pdo && isWebsiteNoticeEnabled($pdo);
 
 $assetBase     = '';
@@ -164,6 +170,23 @@ if ($pdo) {
             'lead'    => renderRichText($pageSubtitle),
         ]);
         ?>
+
+        <aside class="registration-profile-notice" role="region" aria-labelledby="registration-profile-notice-title">
+            <p class="registration-profile-notice__eyebrow">Step 1 &amp; 2</p>
+            <h2 id="registration-profile-notice-title" class="registration-profile-notice__title"><?= h(t('register_profile_notice_title')) ?></h2>
+            <ol class="registration-profile-notice__steps">
+                <li><?= h(t('register_profile_notice_step1')) ?></li>
+                <li><?= h(t('register_profile_notice_step2')) ?></li>
+            </ol>
+            <p class="registration-profile-notice__actions">
+                <a href="<?= h($staffPortalUrl) ?>" class="btn btn--primary btn--small registration-profile-notice__btn"><?= h(t('register_profile_notice_link')) ?></a>
+            </p>
+            <p class="registration-profile-notice__hint">
+                <?= h(t('register_profile_notice_returning')) ?>
+                <a href="<?= h($staffPortalUrl) ?>"><?= h(t('register_profile_notice_link')) ?></a>
+            </p>
+        </aside>
+
         <section class="card staff-public-card staff-public-card--no-inner-title">
             <p class="registration-mobile-title"><?= h($pageTitle) ?></p>
             <div class="card__header" aria-hidden="true">
