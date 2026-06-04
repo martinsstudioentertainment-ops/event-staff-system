@@ -25,3 +25,5 @@ Thumbs.db
 
 # Cursor (optional)
 /.cursor/
+storage/staff-template-ods/
+storage/tmp-staff-template-content.xml

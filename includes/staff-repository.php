@@ -292,6 +292,49 @@ function mergeRegistrationWithEvent(PDO $pdo, array $row): array
 }
 
 /**
+ * Merge staff data from staff table with registration row (backward compatibility).
+ * If staff_id exists and staff table is available, prefer staff table data.
+ * Falls back to registration row columns if staff table is not available.
+ *
+ * @param array<string, mixed> $row
+ * @return array<string, mixed>
+ */
+function mergeRegistrationWithStaff(PDO $pdo, array $row): array
+{
+    $staffId = (int) ($row['staff_id'] ?? 0);
+    if ($staffId < 1) {
+        // No staff_id, use registration row data as-is
+        return $row;
+    }
+
+    try {
+        $staff = getStaffById($pdo, $staffId);
+        if ($staff === null) {
+            // Staff record not found, use registration row data
+            return $row;
+        }
+
+        // Merge staff table data, preferring it over registration columns
+        $staffFields = [
+            'surname', 'first_name', 'full_address', 'eircode',
+            'location_lat', 'location_lng', 'email', 'mobile',
+            'date_of_birth', 'gender', 'pps_number', 'bank_iban', 'staff_role'
+        ];
+
+        foreach ($staffFields as $field) {
+            if (isset($staff[$field]) && $staff[$field] !== '') {
+                $row[$field] = $staff[$field];
+            }
+        }
+    } catch (Throwable $e) {
+        // If staff table operations fail, use registration row data
+        error_log('[EventStaff] mergeRegistrationWithStaff: ' . $e->getMessage());
+    }
+
+    return $row;
+}
+
+/**
  * @return array<string, mixed>|null
  */
 function getStaffRegistrationById(PDO $pdo, int $id): ?array
@@ -316,7 +359,10 @@ function getStaffRegistrationById(PDO $pdo, int $id): ?array
         return null;
     }
 
-    return mergeRegistrationWithEvent($pdo, $row);
+    $row = mergeRegistrationWithEvent($pdo, $row);
+    $row = mergeRegistrationWithStaff($pdo, $row);
+
+    return $row;
 }
 
 /**
@@ -423,4 +469,137 @@ function updateAdminPassword(PDO $pdo, int $adminId, string $currentPassword, st
     $update->execute(['hash' => $newHash, 'id' => $adminId]);
 
     return true;
+}
+
+/**
+ * Find staff record by email (normalized staff table).
+ * @return array<string, mixed>|null
+ */
+function getStaffByEmail(PDO $pdo, string $email): ?array
+{
+    $email = strtolower(trim($email));
+    if ($email === '') {
+        return null;
+    }
+
+    try {
+        $stmt = $pdo->prepare('SELECT * FROM staff WHERE LOWER(email) = :email LIMIT 1');
+        $stmt->execute(['email' => $email]);
+        $row = $stmt->fetch();
+    } catch (PDOException $e) {
+        // Staff table might not exist yet (migration not run)
+        return null;
+    }
+
+    return $row ?: null;
+}
+
+/**
+ * Get staff record by ID.
+ * @return array<string, mixed>|null
+ */
+function getStaffById(PDO $pdo, int $staffId): ?array
+{
+    if ($staffId <= 0) {
+        return null;
+    }
+
+    try {
+        $stmt = $pdo->prepare('SELECT * FROM staff WHERE id = :id LIMIT 1');
+        $stmt->execute(['id' => $staffId]);
+        $row = $stmt->fetch();
+    } catch (PDOException $e) {
+        // Staff table might not exist yet (migration not run)
+        return null;
+    }
+
+    return $row ?: null;
+}
+
+/**
+ * Create or update staff record from registration data.
+ * Returns the staff ID.
+ * @param array<string, mixed> $data
+ */
+function findOrCreateStaff(PDO $pdo, array $data): int
+{
+    $email = strtolower(trim((string) ($data['email'] ?? '')));
+    if ($email === '') {
+        throw new InvalidArgumentException('Email is required');
+    }
+
+    // Check if staff table exists
+    try {
+        $pdo->query('SELECT 1 FROM staff LIMIT 1');
+    } catch (PDOException $e) {
+        // Staff table doesn't exist yet, return 0 (use old structure)
+        return 0;
+    }
+
+    // Try to find existing staff by email
+    $staff = getStaffByEmail($pdo, $email);
+    if ($staff) {
+        // Update existing staff record
+        $stmt = $pdo->prepare(
+            'UPDATE staff SET 
+                surname = :surname,
+                first_name = :first_name,
+                full_address = :full_address,
+                eircode = :eircode,
+                location_lat = :location_lat,
+                location_lng = :location_lng,
+                mobile = :mobile,
+                date_of_birth = :date_of_birth,
+                gender = :gender,
+                pps_number = :pps_number,
+                bank_iban = :bank_iban,
+                staff_role = :staff_role,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = :id'
+        );
+        $stmt->execute([
+            'surname' => $data['surname'] ?? '',
+            'first_name' => $data['first_name'] ?? '',
+            'full_address' => $data['full_address'] ?? '',
+            'eircode' => $data['eircode'] ?? '',
+            'location_lat' => $data['location_lat'] ?? null,
+            'location_lng' => $data['location_lng'] ?? null,
+            'mobile' => $data['mobile'] ?? '',
+            'date_of_birth' => $data['date_of_birth'] ?? '',
+            'gender' => $data['gender'] ?? 'prefer_not_to_say',
+            'pps_number' => $data['pps_number'] ?? '',
+            'bank_iban' => $data['bank_iban'] ?? '',
+            'staff_role' => $data['staff_role'] ?? 'steward',
+            'id' => $staff['id'],
+        ]);
+        return (int) $staff['id'];
+    }
+
+    // Create new staff record
+    $stmt = $pdo->prepare(
+        'INSERT INTO staff (
+            surname, first_name, full_address, eircode, location_lat, location_lng,
+            email, mobile, date_of_birth, gender, pps_number, bank_iban, staff_role
+        ) VALUES (
+            :surname, :first_name, :full_address, :eircode, :location_lat, :location_lng,
+            :email, :mobile, :date_of_birth, :gender, :pps_number, :bank_iban, :staff_role
+        )'
+    );
+    $stmt->execute([
+        'surname' => $data['surname'] ?? '',
+        'first_name' => $data['first_name'] ?? '',
+        'full_address' => $data['full_address'] ?? '',
+        'eircode' => $data['eircode'] ?? '',
+        'location_lat' => $data['location_lat'] ?? null,
+        'location_lng' => $data['location_lng'] ?? null,
+        'email' => $email,
+        'mobile' => $data['mobile'] ?? '',
+        'date_of_birth' => $data['date_of_birth'] ?? '',
+        'gender' => $data['gender'] ?? 'prefer_not_to_say',
+        'pps_number' => $data['pps_number'] ?? '',
+        'bank_iban' => $data['bank_iban'] ?? '',
+        'staff_role' => $data['staff_role'] ?? 'steward',
+    ]);
+
+    return (int) $pdo->lastInsertId();
 }

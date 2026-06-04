@@ -283,7 +283,34 @@ function saveRegistration(PDO $pdo, array $data, int $eventId, ?string $staffRol
         $staffRoleOverride ?? (string) ($data['staff_role'] ?? 'dsp')
     );
 
+    // Dual-write: Create/update staff record in normalized staff table
+    $staffData = [
+        'surname' => trim((string) $data['surname']),
+        'first_name' => trim((string) $data['first_name']),
+        'full_address' => trim((string) $data['full_address']),
+        'eircode' => normalizeEircode((string) $data['eircode']),
+        'location_lat' => normalizeCoordinate(isset($data['location_lat']) ? (string) $data['location_lat'] : null),
+        'location_lng' => normalizeCoordinate(isset($data['location_lng']) ? (string) $data['location_lng'] : null),
+        'email' => normalizeRegistrationEmail((string) $data['email']),
+        'mobile' => trim((string) $data['mobile']),
+        'date_of_birth' => normalizeDateOfBirthForDb((string) ($data['date_of_birth'] ?? '')),
+        'gender' => trim((string) $data['gender']),
+        'pps_number' => trim((string) $data['pps_number']),
+        'bank_iban' => trim((string) $data['bank_iban']),
+        'staff_role' => $staffRole,
+    ];
+
+    $staffId = 0;
+    try {
+        require_once __DIR__ . '/staff-repository.php';
+        $staffId = findOrCreateStaff($pdo, $staffData);
+    } catch (Throwable $e) {
+        // If staff table operations fail, continue without staff_id (fallback to old structure)
+        error_log('[EventStaff] Staff table operation failed: ' . $e->getMessage());
+    }
+
     $row = [
+        'staff_id'             => $staffId > 0 ? $staffId : null,
         'surname'              => trim((string) $data['surname']),
         'first_name'           => trim((string) $data['first_name']),
         'full_address'         => trim((string) $data['full_address']),
