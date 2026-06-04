@@ -82,8 +82,12 @@ function buildStaffWhereClause(array $filters): array
     $params = [];
 
     if ($filters['q'] !== '') {
-        $where[] = '(LOWER(sr.surname) LIKE LOWER(:q) OR LOWER(sr.first_name) LIKE LOWER(:q) OR LOWER(sr.email) LIKE LOWER(:q) OR sr.mobile LIKE :q)';
-        $params['q'] = '%' . $filters['q'] . '%';
+        $needle = '%' . $filters['q'] . '%';
+        $where[] = '(LOWER(sr.surname) LIKE LOWER(:q_surname) OR LOWER(sr.first_name) LIKE LOWER(:q_first) OR LOWER(sr.email) LIKE LOWER(:q_email) OR sr.mobile LIKE :q_mobile)';
+        $params['q_surname'] = $needle;
+        $params['q_first']   = $needle;
+        $params['q_email']   = $needle;
+        $params['q_mobile']  = $needle;
     }
 
     if (in_array($filters['status'], ['pending', 'approved', 'rejected'], true)) {
@@ -691,8 +695,12 @@ function getStaffWithFilters(PDO $pdo, array $filters): array
         $params = [];
 
         if (!empty($filters['q'])) {
-            $where[] = '(s.surname LIKE :q OR s.first_name LIKE :q OR s.email LIKE :q OR s.mobile LIKE :q)';
-            $params['q'] = '%' . $filters['q'] . '%';
+            $needle = '%' . $filters['q'] . '%';
+            $where[] = '(s.surname LIKE :q_surname OR s.first_name LIKE :q_first OR s.email LIKE :q_email OR s.mobile LIKE :q_mobile)';
+            $params['q_surname'] = $needle;
+            $params['q_first']   = $needle;
+            $params['q_email']   = $needle;
+            $params['q_mobile']  = $needle;
         }
 
         if (!empty($filters['role']) && in_array($filters['role'], ['dsp', 'static', 'steward'], true)) {
