@@ -82,7 +82,7 @@ function buildStaffWhereClause(array $filters): array
     $params = [];
 
     if ($filters['q'] !== '') {
-        $where[] = '(sr.surname LIKE :q OR sr.first_name LIKE :q OR sr.email LIKE :q OR sr.mobile LIKE :q)';
+        $where[] = '(LOWER(sr.surname) LIKE LOWER(:q) OR LOWER(sr.first_name) LIKE LOWER(:q) OR LOWER(sr.email) LIKE LOWER(:q) OR sr.mobile LIKE :q)';
         $params['q'] = '%' . $filters['q'] . '%';
     }
 
@@ -721,7 +721,8 @@ function updateStaffProfile(PDO $pdo, int $staffId, array $data): bool
     $allowedFields = [
         'surname', 'first_name', 'full_address', 'eircode',
         'location_lat', 'location_lng', 'mobile', 'gender',
-        'pps_number', 'bank_iban', 'staff_role'
+        'pps_number', 'bank_iban', 'staff_role',
+        'psa_licence', 'psa_expiry_date', 'psa_front_image', 'psa_back_image'
     ];
 
     $updates = [];
@@ -739,7 +740,7 @@ function updateStaffProfile(PDO $pdo, int $staffId, array $data): bool
     }
 
     $sql = 'UPDATE staff SET ' . implode(', ', $updates) . ', updated_at = CURRENT_TIMESTAMP WHERE id = :id';
-    
+
     try {
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
@@ -747,5 +748,104 @@ function updateStaffProfile(PDO $pdo, int $staffId, array $data): bool
     } catch (PDOException $e) {
         error_log('[EventStaff] updateStaffProfile: ' . $e->getMessage());
         return false;
+    }
+}
+
+/**
+ * Check if staff profile is complete (has all required PSA fields).
+ * @return bool
+ */
+function isStaffProfileComplete(PDO $pdo, int $staffId): bool
+{
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT psa_licence, psa_expiry_date, psa_front_image, psa_back_image 
+             FROM staff WHERE id = :id LIMIT 1'
+        );
+        $stmt->execute(['id' => $staffId]);
+        $staff = $stmt->fetch();
+
+        if (!$staff) {
+            return false;
+        }
+
+        return !empty($staff['psa_licence']) 
+            && !empty($staff['psa_expiry_date'])
+            && !empty($staff['psa_front_image'])
+            && !empty($staff['psa_back_image']);
+    } catch (PDOException $e) {
+        error_log('[EventStaff] isStaffProfileComplete: ' . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Mark staff profile as completed.
+ * @return bool
+ */
+function markStaffProfileCompleted(PDO $pdo, int $staffId): bool
+{
+    try {
+        $stmt = $pdo->prepare('UPDATE staff SET profile_completed = 1 WHERE id = :id');
+        $stmt->execute(['id' => $staffId]);
+        return $stmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        error_log('[EventStaff] markStaffProfileCompleted: ' . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get staff data for Google Sheets export.
+ * @return array<int, array<string, mixed>>
+ */
+function getStaffForGoogleSheets(PDO $pdo): array
+{
+    try {
+        $stmt = $pdo->query(
+            'SELECT id, first_name, surname, email, mobile, full_address, eircode,
+                    date_of_birth, gender, pps_number, bank_iban, staff_role,
+                    psa_licence, psa_expiry_date, profile_completed, created_at, updated_at
+             FROM staff
+             ORDER BY surname ASC, first_name ASC'
+        );
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log('[EventStaff] getStaffForGoogleSheets: ' . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Sync staff data to Google Sheets.
+ * Requires Google Sheets API credentials to be configured.
+ * @return array{success: bool, message: string, synced: int}
+ */
+function syncStaffToGoogleSheets(PDO $pdo): array
+{
+    try {
+        $staffData = getStaffForGoogleSheets($pdo);
+        if (empty($staffData)) {
+            return ['success' => false, 'message' => 'No staff data to sync', 'synced' => 0];
+        }
+
+        // Check if Google Sheets API is configured
+        $googleSheetsId = getSetting($pdo, 'google_sheets_staff_id');
+        if (empty($googleSheetsId)) {
+            return ['success' => false, 'message' => 'Google Sheets ID not configured in settings', 'synced' => 0];
+        }
+
+        // This would require Google Sheets API client library
+        // For now, return a placeholder response
+        error_log('[EventStaff] Google Sheets sync requested for ' . count($staffData) . ' staff members');
+        
+        return [
+            'success' => true,
+            'message' => 'Google Sheets sync functionality requires Google Sheets API setup. ' . count($staffData) . ' staff members ready to sync.',
+            'synced' => 0
+        ];
+    } catch (Exception $e) {
+        error_log('[EventStaff] syncStaffToGoogleSheets: ' . $e->getMessage());
+        return ['success' => false, 'message' => 'Error: ' . $e->getMessage(), 'synced' => 0];
     }
 }

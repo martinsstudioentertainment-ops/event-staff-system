@@ -41,6 +41,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     pps_number = :pps_number,
                     bank_iban = :bank_iban,
                     staff_role = :staff_role,
+                    psa_licence = :psa_licence,
+                    psa_expiry_date = :psa_expiry_date,
                     is_blacklisted = :is_blacklisted,
                     blacklist_reason = :blacklist_reason,
                     updated_at = CURRENT_TIMESTAMP
@@ -59,6 +61,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'pps_number' => trim((string) ($_POST['pps_number'] ?? '')),
                 'bank_iban' => trim((string) ($_POST['bank_iban'] ?? '')),
                 'staff_role' => trim((string) ($_POST['staff_role'] ?? 'steward')),
+                'psa_licence' => trim((string) ($_POST['psa_licence'] ?? '')),
+                'psa_expiry_date' => trim((string) ($_POST['psa_expiry_date'] ?? '')) ?: null,
                 'is_blacklisted' => isset($_POST['is_blacklisted']) ? 1 : 0,
                 'blacklist_reason' => isset($_POST['is_blacklisted']) ? trim((string) ($_POST['blacklist_reason'] ?? '')) : null,
                 'id' => $staffId,
@@ -178,18 +182,32 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         
         <div class="form__section">
             <h3 class="form__section-title">Financial Information</h3>
-            
+
             <div class="form__group">
                 <label class="form__label">PPS Number</label>
                 <input type="text" name="pps_number" class="form__input" value="<?= h((string) $staff['pps_number']) ?>" required>
             </div>
-            
+
             <div class="form__group">
                 <label class="form__label">Bank IBAN</label>
                 <input type="text" name="bank_iban" class="form__input" value="<?= h((string) $staff['bank_iban']) ?>" required>
             </div>
         </div>
-        
+
+        <div class="form__section">
+            <h3 class="form__section-title">PSA Licence Information</h3>
+
+            <div class="form__group">
+                <label class="form__label">PSA Licence Number</label>
+                <input type="text" name="psa_licence" class="form__input" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>">
+            </div>
+
+            <div class="form__group">
+                <label class="form__label">PSA Expiry Date</label>
+                <input type="date" name="psa_expiry_date" class="form__input" value="<?= h((string) ($staff['psa_expiry_date'] ?? '')) ?>">
+            </div>
+        </div>
+
         <div class="form__section">
             <h3 class="form__section-title">Status</h3>
             

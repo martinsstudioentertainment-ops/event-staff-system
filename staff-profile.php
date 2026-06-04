@@ -14,6 +14,7 @@ if (!$staff) {
     die('Invalid profile token. Please contact admin.');
 }
 
+$profileComplete = isStaffProfileComplete($pdo, (int) $staff['id']);
 $flash = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -26,6 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'gender' => trim((string) ($_POST['gender'] ?? 'prefer_not_to_say')),
             'pps_number' => trim((string) ($_POST['pps_number'] ?? '')),
             'bank_iban' => trim((string) ($_POST['bank_iban'] ?? '')),
+            'psa_licence' => trim((string) ($_POST['psa_licence'] ?? '')),
+            'psa_expiry_date' => trim((string) ($_POST['psa_expiry_date'] ?? '')),
         ];
 
         if (!empty($_POST['location_lat'])) {
@@ -35,8 +38,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $updateData['location_lng'] = (float) $_POST['location_lng'];
         }
 
+        // Handle image uploads
+        if (isset($_FILES['psa_front_image']) && $_FILES['psa_front_image']['error'] === UPLOAD_ERR_OK) {
+            $uploadDir = __DIR__ . '/uploads/psa/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+            $ext = pathinfo($_FILES['psa_front_image']['name'], PATHINFO_EXTENSION);
+            $filename = 'psa_front_' . $staff['id'] . '_' . time() . '.' . $ext;
+            if (move_uploaded_file($_FILES['psa_front_image']['tmp_name'], $uploadDir . $filename)) {
+                $updateData['psa_front_image'] = '/uploads/psa/' . $filename;
+            }
+        }
+
+        if (isset($_FILES['psa_back_image']) && $_FILES['psa_back_image']['error'] === UPLOAD_ERR_OK) {
+            $uploadDir = __DIR__ . '/uploads/psa/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+            $ext = pathinfo($_FILES['psa_back_image']['name'], PATHINFO_EXTENSION);
+            $filename = 'psa_back_' . $staff['id'] . '_' . time() . '.' . $ext;
+            if (move_uploaded_file($_FILES['psa_back_image']['tmp_name'], $uploadDir . $filename)) {
+                $updateData['psa_back_image'] = '/uploads/psa/' . $filename;
+            }
+        }
+
         if (updateStaffProfile($pdo, (int) $staff['id'], $updateData)) {
-            $flash = ['type' => 'success', 'message' => 'Your profile has been updated successfully.'];
+            // Check if profile is now complete
+            if (isStaffProfileComplete($pdo, (int) $staff['id'])) {
+                markStaffProfileCompleted($pdo, (int) $staff['id']);
+                $flash = ['type' => 'success', 'message' => 'Your profile has been updated successfully and is now complete!'];
+            } else {
+                $flash = ['type' => 'success', 'message' => 'Your profile has been updated successfully.'];
+            }
             $staff = getStaffByProfileToken($pdo, $token); // Refresh data
         } else {
             $flash = ['type' => 'error', 'message' => 'Failed to update profile. Please try again.'];
@@ -170,6 +204,13 @@ $siteName = getSiteName($pdo);
             <p>Update your personal information</p>
         </div>
 
+        <?php if (!$profileComplete): ?>
+            <div class="alert alert--error">
+                <strong>⚠️ Profile Incomplete</strong><br>
+                Please complete your PSA licence information to continue registering for events.
+            </div>
+        <?php endif; ?>
+
         <?php if ($flash): ?>
             <div class="alert alert--<?= h($flash['type']) ?>">
                 <?= h($flash['message']) ?>
@@ -234,18 +275,50 @@ $siteName = getSiteName($pdo);
             
             <div class="form__section">
                 <h3 class="form__section-title">Financial Information</h3>
-                
+
                 <div class="form__group">
                     <label class="form__label">PPS Number</label>
                     <input type="text" name="pps_number" class="form__input" value="<?= h((string) $staff['pps_number']) ?>" required>
                 </div>
-                
+
                 <div class="form__group">
                     <label class="form__label">Bank IBAN</label>
                     <input type="text" name="bank_iban" class="form__input" value="<?= h((string) $staff['bank_iban']) ?>" required>
                 </div>
             </div>
-            
+
+            <div class="form__section">
+                <h3 class="form__section-title">PSA Licence Information <span class="badge badge--pending">Required</span></h3>
+
+                <div class="form__group">
+                    <label class="form__label">PSA Licence Number</label>
+                    <input type="text" name="psa_licence" class="form__input" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>" required>
+                    <p class="form__hint">Your PSA licence number is required for security work.</p>
+                </div>
+
+                <div class="form__group">
+                    <label class="form__label">PSA Expiry Date</label>
+                    <input type="date" name="psa_expiry_date" class="form__input" value="<?= h((string) ($staff['psa_expiry_date'] ?? '')) ?>" required>
+                    <p class="form__hint">When does your PSA licence expire?</p>
+                </div>
+
+                <div class="form__group">
+                    <label class="form__label">PSA Licence Front Image</label>
+                    <input type="file" name="psa_front_image" class="form__input" accept="image/*" <?= empty($staff['psa_front_image']) ? 'required' : '' ?>>
+                    <?php if (!empty($staff['psa_front_image'])): ?>
+                        <p class="form__hint">Current: <a href="<?= h($staff['psa_front_image']) ?>" target="_blank">View image</a></p>
+                    <?php endif; ?>
+                </div>
+
+                <div class="form__group">
+                    <label class="form__label">PSA Licence Back Image</label>
+                    <input type="file" name="psa_back_image" class="form__input" accept="image/*" <?= empty($staff['psa_back_image']) ? 'required' : '' ?>>
+                    <?php if (!empty($staff['psa_back_image'])): ?>
+                        <p class="form__hint">Current: <a href="<?= h($staff['psa_back_image']) ?>" target="_blank">View image</a></p>
+                    <?php endif; ?>
+                </div>
+            </div>
+
             <div class="form__actions">
                 <button type="submit" class="btn btn--primary">Save Changes</button>
             </div>
