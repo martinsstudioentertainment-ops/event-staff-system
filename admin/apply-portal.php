@@ -7,9 +7,9 @@ require_once __DIR__ . '/../includes/apply-sso.php';
 
 requireAdminCapability('apply');
 
-$ssoUrl = getApplyAdminSsoUrl();
-if ($ssoUrl === '') {
-    setAdminFlash('error', 'Apply admin URL is not configured. Open ERP settings → General and set Apply admin URL (e.g. https://apply.olasentra.com), or set APPLY_SITE_URL in config.php.');
+$dashboardUrl = getApplyAdminDashboardUrl();
+if ($dashboardUrl === '') {
+    setAdminFlash('error', 'Apply admin URL is not configured. Open ERP settings → General and set Apply admin URL (e.g. https://apply.olasentra.com).');
     header('Location: dashboard.php');
     exit;
 }
@@ -20,8 +20,8 @@ if ($admin === null) {
     exit;
 }
 
-$token = createApplySsoToken((int) $admin['id']);
-$target = $ssoUrl . '?' . http_build_query(['token' => $token]);
+// Shared cookie on .olasentra.com — apply reads this (no sso.php upload required).
+setApplySsoCookie((int) $admin['id']);
 
-header('Location: ' . $target);
+header('Location: ' . $dashboardUrl);
 exit;

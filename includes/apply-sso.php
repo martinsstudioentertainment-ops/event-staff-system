@@ -75,3 +75,46 @@ function verifyApplySsoToken(string $token): ?array
         'nonce'    => (string) ($payload['nonce'] ?? ''),
     ];
 }
+
+function getApplySsoCookieName(): string
+{
+    return 'olasentra_apply_admin';
+}
+
+function getApplySsoCookieDomain(): string
+{
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    $host = preg_replace('/:\d+$/', '', $host) ?? $host;
+
+    if ($host === 'olasentra.com' || str_ends_with($host, '.olasentra.com')) {
+        return '.olasentra.com';
+    }
+
+    return '';
+}
+
+/** Set cross-subdomain cookie so apply.olasentra.com can sign in without sso.php. */
+function setApplySsoCookie(int $adminId, int $ttlSeconds = 300): void
+{
+    if (headers_sent()) {
+        return;
+    }
+
+    $token  = createApplySsoToken($adminId, $ttlSeconds);
+    $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+    $domain = getApplySsoCookieDomain();
+
+    $options = [
+        'expires'  => time() + max(30, $ttlSeconds),
+        'path'     => '/',
+        'secure'   => $secure,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ];
+
+    if ($domain !== '') {
+        $options['domain'] = $domain;
+    }
+
+    setcookie(getApplySsoCookieName(), $token, $options);
+}

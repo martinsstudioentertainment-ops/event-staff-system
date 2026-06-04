@@ -9,6 +9,11 @@ function applyBase64UrlEncode(string $data): string
     return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
 }
 
+function getApplySsoCookieName(): string
+{
+    return 'olasentra_apply_admin';
+}
+
 function getApplySsoSecret(): string
 {
     loadMainEventStaffConfig();

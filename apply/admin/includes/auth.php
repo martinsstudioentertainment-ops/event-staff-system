@@ -8,6 +8,34 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/main-admin-bridge.php';
 
+function tryApplyAdminCookieLogin(): bool
+{
+    if (isApplyAdminLoggedIn()) {
+        return true;
+    }
+
+    require_once __DIR__ . '/apply-sso.php';
+
+    $token = (string) ($_COOKIE[getApplySsoCookieName()] ?? '');
+    if ($token === '') {
+        return false;
+    }
+
+    $payload = verifyApplySsoToken($token);
+    if ($payload === null) {
+        return false;
+    }
+
+    $user = fetchMainAdminUser($payload['admin_id']);
+    if ($user === null || !applyAdminRoleAllowed((string) ($user['role'] ?? ''))) {
+        return false;
+    }
+
+    setApplyAdminSession($user);
+
+    return true;
+}
+
 function isApplyAdminLoggedIn(): bool
 {
     return !empty($_SESSION['admin_id']);
@@ -31,6 +59,7 @@ function refreshApplyAdminSession(): void
 
 function requireApplyAdmin(): void
 {
+    tryApplyAdminCookieLogin();
     refreshApplyAdminSession();
 
     if (!isApplyAdminLoggedIn()) {
