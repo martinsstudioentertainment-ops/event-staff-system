@@ -66,6 +66,10 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                     <th scope="row">Admin panel</th>
                     <td><code>https://admin.olasentra.com</code></td>
                 </tr>
+                <tr class="url-format-guide__row--active">
+                    <th scope="row">Apply / staff profiles</th>
+                    <td><code>https://apply.olasentra.com</code></td>
+                </tr>
             </tbody>
         </table>
     </div>
@@ -122,6 +126,11 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <div class="form-group form-group--full">
             <label class="form-label" for="admin_site_url">Admin panel URL</label>
             <input class="form-input" type="url" id="admin_site_url" name="admin_site_url" value="<?= h($settings['admin_site_url'] ?? '') ?>" placeholder="https://manage.your-events.com/admin">
+        </div>
+        <div class="form-group form-group--full">
+            <label class="form-label" for="apply_site_url">Apply admin URL</label>
+            <input class="form-input" type="url" id="apply_site_url" name="apply_site_url" value="<?= h($settings['apply_site_url'] ?? inferApplySiteUrl($pdo)) ?>" placeholder="https://apply.olasentra.com">
+            <p class="form-hint">Staff apply / profile site. Used by sidebar <strong>Apply admin</strong>. Leave blank to auto-detect from admin host (<code>admin.*</code> → <code>apply.*</code>).</p>
         </div>
 
         <div class="form-actions form-group--full">

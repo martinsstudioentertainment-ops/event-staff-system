@@ -55,6 +55,7 @@ function getDefaultSettings(): array
         'theme_preset'             => 'security-classic-blue',
         'registration_site_url'    => '',
         'admin_site_url'           => '',
+        'apply_site_url'           => '',
         'company_name'             => 'Event Staff Ireland',
         'company_tagline'          => 'Free registration portal — helping people find security and event work (we are not your employer)',
         'company_email'            => 'info@example.com',

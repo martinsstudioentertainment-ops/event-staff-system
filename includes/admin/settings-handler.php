@@ -36,18 +36,20 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
         $siteName = trim((string) ($_POST['site_name'] ?? ''));
         $regUrl   = normalizePublicSiteUrl((string) ($_POST['registration_site_url'] ?? ''));
         $adminUrl = normalizePublicSiteUrl((string) ($_POST['admin_site_url'] ?? ''));
+        $applyUrl = normalizePublicSiteUrl((string) ($_POST['apply_site_url'] ?? ''));
 
         if ($siteName === '' || trim((string) ($_POST['company_name'] ?? '')) === '') {
             $error = 'Registration site name and company name are required.';
         } elseif (trim((string) ($_POST['company_email'] ?? '')) !== '' && !filter_var((string) $_POST['company_email'], FILTER_VALIDATE_EMAIL)) {
             $error = 'Please enter a valid company email address.';
-        } elseif (!isValidPublicSiteUrl($regUrl) || !isValidPublicSiteUrl($adminUrl)) {
+        } elseif (!isValidPublicSiteUrl($regUrl) || !isValidPublicSiteUrl($adminUrl) || !isValidPublicSiteUrl($applyUrl)) {
             $error = 'Please enter valid site URLs starting with http:// or https://, or leave them blank.';
         } else {
             $toSave = syncCompanyBrandingSettings($pdo, [
                 'site_name'              => $siteName,
                 'registration_site_url'  => $regUrl,
                 'admin_site_url'         => $adminUrl,
+                'apply_site_url'         => $applyUrl,
                 'company_name'           => trim((string) ($_POST['company_name'] ?? '')),
                 'company_tagline'        => trim((string) ($_POST['company_tagline'] ?? '')),
                 'company_email'          => trim((string) ($_POST['company_email'] ?? '')),

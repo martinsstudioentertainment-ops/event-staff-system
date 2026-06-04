@@ -9,7 +9,7 @@ requireAdminCapability('apply');
 
 $ssoUrl = getApplyAdminSsoUrl();
 if ($ssoUrl === '') {
-    setAdminFlash('error', 'Apply admin URL is not configured. Set APPLY_SITE_URL in config.php (e.g. https://apply.olasentra.com/admin).');
+    setAdminFlash('error', 'Apply admin URL is not configured. Open ERP settings → General and set Apply admin URL (e.g. https://apply.olasentra.com), or set APPLY_SITE_URL in config.php.');
     header('Location: dashboard.php');
     exit;
 }

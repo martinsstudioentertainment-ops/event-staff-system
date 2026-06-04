@@ -99,6 +99,52 @@ function getRegistrationFormUrl(?PDO $pdo = null, ?string $slug = null): string
  * Base URL for this admin installation (where /admin/ lives).
  */
 /**
+ * Guess apply.* host from admin.* (e.g. admin.olasentra.com → apply.olasentra.com).
+ */
+function inferApplySiteUrl(?PDO $pdo = null): string
+{
+    $adminUrls = [];
+
+    if (defined('ADMIN_SITE_URL') && ADMIN_SITE_URL !== '') {
+        $adminUrls[] = normalizePublicSiteUrl((string) ADMIN_SITE_URL);
+    }
+
+    if ($pdo === null && function_exists('getDB')) {
+        try {
+            $pdo = getDB();
+        } catch (Throwable $e) {
+            $pdo = null;
+        }
+    }
+
+    if ($pdo !== null) {
+        $fromDb = normalizePublicSiteUrl(getSetting($pdo, 'admin_site_url', ''));
+        if ($fromDb !== '') {
+            $adminUrls[] = $fromDb;
+        }
+    }
+
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    $host = preg_replace('/:\d+$/', '', $host) ?? $host;
+    if ($host !== '' && str_starts_with($host, 'admin.')) {
+        $adminUrls[] = 'https://' . $host;
+    }
+
+    foreach (array_values(array_unique($adminUrls)) as $adminUrl) {
+        $adminHost = parse_url($adminUrl, PHP_URL_HOST);
+        if (!is_string($adminHost) || $adminHost === '') {
+            continue;
+        }
+
+        if (str_starts_with($adminHost, 'admin.')) {
+            return normalizePublicSiteUrl('https://apply.' . substr($adminHost, 6));
+        }
+    }
+
+    return '';
+}
+
+/**
  * Apply / staff-profile site (apply.olasentra.com).
  */
 function getApplySiteUrl(?PDO $pdo = null): string
@@ -120,6 +166,11 @@ function getApplySiteUrl(?PDO $pdo = null): string
 
     if (defined('APPLY_SITE_URL') && APPLY_SITE_URL !== '') {
         return normalizePublicSiteUrl((string) APPLY_SITE_URL);
+    }
+
+    $inferred = inferApplySiteUrl($pdo);
+    if ($inferred !== '') {
+        return $inferred;
     }
 
     if (function_exists('isProductionApp') && !isProductionApp()) {
