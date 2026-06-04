@@ -24,7 +24,7 @@ require_once __DIR__ . '/includes/staff-blacklist.php';
 require_once __DIR__ . '/includes/google-sheets-sync.php';
 require_once __DIR__ . '/includes/staff-registration-schema.php';
 require_once __DIR__ . '/includes/status-repository.php';
-require_once __DIR__ . '/includes/staff-onboarding.php';
+require_once __DIR__ . '/includes/staff-psa.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -67,6 +67,15 @@ $data['staff_role']     = normalizeStaffRole((string) ($data['staff_role'] ?? ''
 $data['date_of_birth']  = normalizeDateOfBirthForDb((string) ($data['date_of_birth'] ?? ''));
 $errors                 = validateRegistration($data);
 $eventIds = normalizeEventIds($data);
+
+$existingStaff = null;
+try {
+    $pdoLookup = getDB();
+    $existingStaff = getStaffByEmail($pdoLookup, normalizeRegistrationEmail((string) ($data['email'] ?? '')));
+} catch (Throwable $e) {
+    $existingStaff = null;
+}
+$errors = array_merge($errors, validateRegistrationPsa($data, $existingStaff, $_FILES));
 
 if (empty($errors)) {
     try {
@@ -151,7 +160,7 @@ if (empty($errors)) {
 
             } else {
 
-                $ids = saveRegistrations($pdo, $data, $newEventIds);
+                $ids = saveRegistrations($pdo, $data, $newEventIds, $_FILES);
 
                 try {
                     notifyStaffRegistrationSubmitted($pdo, $data, $newEventIds, $ids);
@@ -194,15 +203,8 @@ if (empty($errors)) {
 
 
 
-                $profileUrl = getStaffOnboardingRedirectUrl($pdo, $email);
-                if ($profileUrl !== null) {
-                    $_SESSION['registration_status_message'] =
-                        'Registration saved. Please complete your staff profile (PSA licence and bank details) before you can continue.';
-                    $redirectUrl = $profileUrl;
-                } else {
-                    $_SESSION['registration_status_message'] = $message;
-                    $redirectUrl = getRegistrationStatusUrlAfterSave($pdo, $ids, $email);
-                }
+                $_SESSION['registration_status_message'] = $message;
+                $redirectUrl = getRegistrationStatusUrlAfterSave($pdo, $ids, $email);
 
                 if (isAjaxRequest()) {
 

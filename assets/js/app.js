@@ -292,6 +292,29 @@
             isValid = false;
         }
 
+        if (document.body.dataset.registrationPage === 'true') {
+            const psaLicence = document.getElementById('psa_licence');
+            if (psaLicence && !psaLicence.value.trim()) {
+                showFieldError('psa_licence', 'PSA licence number is required.');
+                isValid = false;
+            }
+            const psaExpiry = document.getElementById('psa_expiry_date');
+            if (psaExpiry && !psaExpiry.value.trim()) {
+                showFieldError('psa_expiry_date', 'PSA expiry date is required.');
+                isValid = false;
+            }
+            const psaFront = document.getElementById('psa_front_image');
+            if (psaFront && psaFront.required && (!psaFront.files || psaFront.files.length === 0)) {
+                showFieldError('psa_front_image', 'PSA front photo is required.');
+                isValid = false;
+            }
+            const psaBack = document.getElementById('psa_back_image');
+            if (psaBack && psaBack.required && (!psaBack.files || psaBack.files.length === 0)) {
+                showFieldError('psa_back_image', 'PSA back photo is required.');
+                isValid = false;
+            }
+        }
+
         return isValid;
     }
 

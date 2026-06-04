@@ -8,7 +8,7 @@ require_once __DIR__ . '/includes/attendance-repository.php';
 require_once __DIR__ . '/includes/status-repository.php';
 require_once __DIR__ . '/includes/validation.php';
 require_once __DIR__ . '/includes/public/staff-public-shell.php';
-require_once __DIR__ . '/includes/staff-onboarding.php';
+require_once __DIR__ . '/includes/staff-psa.php';
 
 $pdo      = getDB();
 require_once __DIR__ . '/includes/staff-registration-schema.php';
@@ -19,13 +19,41 @@ $rows        = [];
 $error       = '';
 $successMsg  = '';
 $showLookup  = false;
+$staffRecord = null;
+$psaErrors   = [];
 
 if (!empty($_SESSION['registration_status_message'])) {
     $successMsg = (string) $_SESSION['registration_status_message'];
     unset($_SESSION['registration_status_message']);
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['status_lookup'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['status_psa_update'])) {
+    $token = trim((string) ($_POST['status_token'] ?? $_GET['token'] ?? ''));
+    if (!verifyCsrf($_POST['csrf_token'] ?? null)) {
+        $error = 'Your session expired. Please try again.';
+        $showLookup = $token === '';
+    } elseif ($token === '') {
+        $error = 'Invalid status link.';
+        $showLookup = true;
+    } else {
+        $rows = getStaffStatusRows($pdo, $token);
+        if ($rows === []) {
+            $error = 'Status link not found or expired.';
+            $showLookup = true;
+            $token = '';
+        } else {
+            $staffId = ensureStaffRecordForEmail($pdo, (string) ($rows[0]['email'] ?? ''));
+            $staffRecord = $staffId !== null ? getStaffById($pdo, $staffId) : null;
+            $psaErrors = validateRegistrationPsa($_POST, $staffRecord, $_FILES);
+            if ($psaErrors === [] && $staffId !== null) {
+                saveStaffPsaFromForm($pdo, $staffId, $_POST, $_FILES);
+                $_SESSION['registration_status_message'] = 'PSA details saved.';
+                header('Location: status.php?token=' . urlencode($token));
+                exit;
+            }
+        }
+    }
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['status_lookup'])) {
     if (!verifyCsrf($_POST['csrf_token'] ?? null)) {
         $error = 'Your session expired. Please try again.';
         $showLookup = true;
@@ -57,12 +85,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['status_lookup'])) {
         $showLookup = true;
         $token = '';
     } else {
-        $profileUrl = getStaffOnboardingRedirectUrl($pdo, (string) ($rows[0]['email'] ?? ''));
-        if ($profileUrl !== null) {
-            $_SESSION['registration_status_message'] =
-                'Please complete your staff profile before viewing registrations or checking in.';
-            header('Location: ' . $profileUrl);
-            exit;
+        $staffId = ensureStaffRecordForEmail($pdo, (string) ($rows[0]['email'] ?? ''));
+        if ($staffId !== null) {
+            $staffRecord = getStaffById($pdo, $staffId);
         }
     }
 }
@@ -123,6 +148,10 @@ $themeColor = getThemeColor($pdo);
                 <p class="login-card__hint">New here? <a href="index.php">Register for an event</a></p>
             <?php else: ?>
                 <?php $person = $rows[0]; ?>
+                <?php if ($staffRecord !== null): ?>
+                    <?php include __DIR__ . '/includes/status-psa-form.php'; ?>
+                <?php endif; ?>
+
                 <dl class="detail-list detail-list--compact">
                     <div class="detail-list__row"><dt>Name</dt><dd><?= h($person['first_name'] . ' ' . $person['surname']) ?></dd></div>
                     <div class="detail-list__row"><dt>Email</dt><dd><?= h($person['email']) ?></dd></div>

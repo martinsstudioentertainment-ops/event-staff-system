@@ -492,6 +492,28 @@
     padding: 1rem 1.125rem;
 }
 
+.staff-public-shell .status-psa-panel {
+    margin-bottom: 1.25rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--staff-border);
+}
+
+.staff-public-shell .status-psa-panel__intro {
+    margin: 0 0 0.75rem;
+    font-size: 0.875rem;
+    color: var(--staff-muted, #64748b);
+    line-height: 1.5;
+}
+
+.staff-public-shell .status-psa-panel__alert {
+    margin-bottom: 0.75rem;
+}
+
+.staff-public-shell .status-psa-form .form-input--file {
+    padding: 0.35rem 0;
+    font-size: 0.875rem;
+}
+
 /* Staff app home — align with shell */
 .staff-app-shell.staff-public-shell {
     padding:

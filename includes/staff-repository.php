@@ -660,6 +660,8 @@ function findOrCreateStaff(PDO $pdo, array $data): int
                 gender = :gender,
                 pps_number = :pps_number,
                 bank_iban = :bank_iban,
+                psa_licence = :psa_licence,
+                psa_expiry_date = :psa_expiry_date,
                 staff_role = :staff_role,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = :id'
@@ -676,6 +678,8 @@ function findOrCreateStaff(PDO $pdo, array $data): int
             'gender' => $data['gender'] ?? 'prefer_not_to_say',
             'pps_number' => $data['pps_number'] ?? '',
             'bank_iban' => $data['bank_iban'] ?? '',
+            'psa_licence' => trim((string) ($data['psa_licence'] ?? '')),
+            'psa_expiry_date' => trim((string) ($data['psa_expiry_date'] ?? '')) ?: null,
             'staff_role' => $data['staff_role'] ?? 'steward',
             'id' => $staff['id'],
         ]);
@@ -689,10 +693,12 @@ function findOrCreateStaff(PDO $pdo, array $data): int
     $stmt = $pdo->prepare(
         'INSERT INTO staff (
             surname, first_name, full_address, eircode, location_lat, location_lng,
-            email, mobile, date_of_birth, gender, pps_number, bank_iban, staff_role
+            email, mobile, date_of_birth, gender, pps_number, bank_iban,
+            psa_licence, psa_expiry_date, staff_role
         ) VALUES (
             :surname, :first_name, :full_address, :eircode, :location_lat, :location_lng,
-            :email, :mobile, :date_of_birth, :gender, :pps_number, :bank_iban, :staff_role
+            :email, :mobile, :date_of_birth, :gender, :pps_number, :bank_iban,
+            :psa_licence, :psa_expiry_date, :staff_role
         )'
     );
     $stmt->execute([
@@ -708,6 +714,8 @@ function findOrCreateStaff(PDO $pdo, array $data): int
         'gender' => $data['gender'] ?? 'prefer_not_to_say',
         'pps_number' => $data['pps_number'] ?? '',
         'bank_iban' => $data['bank_iban'] ?? '',
+        'psa_licence' => trim((string) ($data['psa_licence'] ?? '')),
+        'psa_expiry_date' => trim((string) ($data['psa_expiry_date'] ?? '')) ?: null,
         'staff_role' => $data['staff_role'] ?? 'steward',
     ]);
 

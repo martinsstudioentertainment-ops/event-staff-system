@@ -20,6 +20,7 @@ require_once __DIR__ . '/includes/staff-pass.php';
 
 require_once __DIR__ . '/includes/i18n.php';
 require_once __DIR__ . '/includes/staff-onboarding.php';
+require_once __DIR__ . '/includes/status-repository.php';
 
 
 
@@ -76,10 +77,19 @@ if ($token === '') {
         $type    = 'error';
 
     } else {
-        $profileUrl = getStaffOnboardingRedirectUrl($pdo, (string) ($row['email'] ?? ''));
-        if ($profileUrl !== null) {
-            header('Location: ' . $profileUrl);
-            exit;
+        $checkinEmail = (string) ($row['email'] ?? '');
+        if (!isStaffOnboardingCompleteByEmail($pdo, $checkinEmail)) {
+            $statusToken = trim((string) ($row['status_token'] ?? ''));
+            if ($statusToken === '') {
+                $resolved = resolveStatusTokenByEmail($pdo, $checkinEmail);
+                $statusToken = $resolved ?? '';
+            }
+            if ($statusToken !== '') {
+                $_SESSION['registration_status_message'] =
+                    'Please update your PSA licence details at the top of your status page before checking in.';
+                header('Location: status.php?token=' . urlencode($statusToken));
+                exit;
+            }
         }
 
         $window = getEventCheckinWindow($row);

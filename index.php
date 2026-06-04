@@ -38,15 +38,6 @@ $serverErrors = $_SESSION['registration_errors'] ?? [];
 $returnEmail  = trim((string) ($old['email'] ?? ''));
 unset($_SESSION['registration_old'], $_SESSION['registration_errors']);
 
-if ($pdo !== null && $returnEmail !== '') {
-    require_once __DIR__ . '/includes/staff-onboarding.php';
-    $profileUrl = getStaffOnboardingRedirectUrl($pdo, $returnEmail);
-    if ($profileUrl !== null) {
-        header('Location: ' . $profileUrl);
-        exit;
-    }
-}
-
 if ($formSlug !== '' && $linkedForm === null) {
     $serverErrors['form_slug'] = 'This registration link is no longer available. Please choose a role below.';
 }
@@ -105,12 +96,6 @@ $pageTitle = $linkedForm
 $pageSubtitle = $linkedForm
     ? (string) ($linkedForm['subtitle'] ?? '')
     : t('register_page_subtitle');
-
-$staffPortalUrl = 'staff-portal.php';
-if ($pdo !== null) {
-    require_once __DIR__ . '/includes/staff-onboarding.php';
-    $staffPortalUrl = getStaffPortalUrl($pdo);
-}
 
 $showNotice = $pdo && isWebsiteNoticeEnabled($pdo);
 
@@ -171,22 +156,6 @@ if ($pdo) {
         ]);
         ?>
 
-        <aside class="registration-profile-notice" role="region" aria-labelledby="registration-profile-notice-title">
-            <p class="registration-profile-notice__eyebrow">Step 1 &amp; 2</p>
-            <h2 id="registration-profile-notice-title" class="registration-profile-notice__title"><?= h(t('register_profile_notice_title')) ?></h2>
-            <ol class="registration-profile-notice__steps">
-                <li><?= h(t('register_profile_notice_step1')) ?></li>
-                <li><?= h(t('register_profile_notice_step2')) ?></li>
-            </ol>
-            <p class="registration-profile-notice__actions">
-                <a href="<?= h($staffPortalUrl) ?>" class="btn btn--primary btn--small registration-profile-notice__btn"><?= h(t('register_profile_notice_link')) ?></a>
-            </p>
-            <p class="registration-profile-notice__hint">
-                <?= h(t('register_profile_notice_returning')) ?>
-                <a href="<?= h($staffPortalUrl) ?>"><?= h(t('register_profile_notice_link')) ?></a>
-            </p>
-        </aside>
-
         <section class="card staff-public-card staff-public-card--no-inner-title">
             <p class="registration-mobile-title"><?= h($pageTitle) ?></p>
             <div class="card__header" aria-hidden="true">
@@ -195,7 +164,7 @@ if ($pdo) {
 
             <div id="form-alert" class="alert" role="alert"></div>
 
-            <form id="registration-form" action="submit.php" method="post" novalidate>
+            <form id="registration-form" action="submit.php" method="post" enctype="multipart/form-data" novalidate>
                 <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                 <div class="form-grid">
 
@@ -296,6 +265,32 @@ if ($pdo) {
                         <label class="form-label form-label--required" for="bank_iban">Bank Account / IBAN</label>
                         <input class="form-input" type="text" id="bank_iban" name="bank_iban" value="<?= old('bank_iban') ?>" placeholder="Enter bank account or IBAN">
                         <span class="form-error" id="bank_iban-error"></span>
+                    </div>
+
+                    <h3 class="form-section-title">PSA licence</h3>
+
+                    <div class="form-group">
+                        <label class="form-label form-label--required" for="psa_licence">PSA licence number</label>
+                        <input class="form-input" type="text" id="psa_licence" name="psa_licence" value="<?= old('psa_licence') ?>" placeholder="Enter PSA licence number" autocomplete="off">
+                        <span class="form-error" id="psa_licence-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label form-label--required" for="psa_expiry_date">PSA expiry date</label>
+                        <input class="form-input" type="date" id="psa_expiry_date" name="psa_expiry_date" value="<?= old('psa_expiry_date') ?>">
+                        <span class="form-error" id="psa_expiry_date-error"></span>
+                    </div>
+
+                    <div class="form-group form-group--full">
+                        <label class="form-label form-label--required" for="psa_front_image">PSA card — front photo</label>
+                        <input class="form-input form-input--file" type="file" id="psa_front_image" name="psa_front_image" accept="image/*" data-psa-upload="front">
+                        <span class="form-error" id="psa_front_image-error"></span>
+                    </div>
+
+                    <div class="form-group form-group--full">
+                        <label class="form-label form-label--required" for="psa_back_image">PSA card — back photo</label>
+                        <input class="form-input form-input--file" type="file" id="psa_back_image" name="psa_back_image" accept="image/*" data-psa-upload="back">
+                        <span class="form-error" id="psa_back_image-error"></span>
                     </div>
 
                     <h3 class="form-section-title">Shift selection</h3>

@@ -80,7 +80,20 @@
         setFieldValue('eircode', profile.eircode);
         setFieldValue('mobile', profile.mobile);
         setFieldValue('date_of_birth', profile.date_of_birth);
+        setFieldValue('pps_number', profile.pps_number);
+        setFieldValue('bank_iban', profile.bank_iban);
+        setFieldValue('psa_licence', profile.psa_licence);
+        setFieldValue('psa_expiry_date', profile.psa_expiry_date);
         setFieldValue('staff_role', profile.staff_role);
+
+        var psaFront = document.getElementById('psa_front_image');
+        var psaBack = document.getElementById('psa_back_image');
+        if (psaFront) {
+            psaFront.required = !profile.has_psa_front;
+        }
+        if (psaBack) {
+            psaBack.required = !profile.has_psa_back;
+        }
         setFormSlug(profile.form_slug);
         setGender(profile.gender);
 

@@ -324,6 +324,32 @@ a.staff-app__tile:active {
     min-height: 48px;
 }
 
+.status-psa-panel {
+    margin-bottom: 1.25rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.status-psa-panel__intro {
+    margin: 0 0 0.75rem;
+    font-size: 0.875rem;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+.status-psa-panel__alert {
+    margin-bottom: 0.75rem;
+}
+
+.status-psa-form .form-input--file {
+    padding: 0.5rem 0;
+    font-size: 0.875rem;
+}
+
+.status-psa-form .form-grid--compact {
+    gap: 0.75rem 1rem;
+}
+
 /* Standalone / installed — hide redundant install pill */
 @media (display-mode: standalone) {
     .staff-app__install-pill {

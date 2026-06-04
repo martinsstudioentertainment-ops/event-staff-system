@@ -35,6 +35,7 @@ try {
     $registeredEvents = getRegisteredEventsSummaryByEmail($pdo, $email);
     $registeredIds    = array_map(static fn(array $item): int => (int) $item['event_id'], $registeredEvents);
     $role             = normalizeStaffRole((string) ($row['staff_role'] ?? ''));
+    $staffRow         = getStaffByEmail($pdo, $email) ?: [];
 
     echo json_encode([
         'found'   => true,
@@ -51,6 +52,12 @@ try {
             'form_slug'     => staffRoleToFormSlug($role),
             'location_lat'  => $row['location_lat'] !== null ? (string) $row['location_lat'] : '',
             'location_lng'  => $row['location_lng'] !== null ? (string) $row['location_lng'] : '',
+            'pps_number'    => (string) ($row['pps_number'] ?? ($staffRow['pps_number'] ?? '')),
+            'bank_iban'     => (string) ($row['bank_iban'] ?? ($staffRow['bank_iban'] ?? '')),
+            'psa_licence'   => (string) ($staffRow['psa_licence'] ?? ''),
+            'psa_expiry_date' => (string) ($staffRow['psa_expiry_date'] ?? ''),
+            'has_psa_front' => !empty($staffRow['psa_front_image']),
+            'has_psa_back'  => !empty($staffRow['psa_back_image']),
         ],
         'registered_event_ids' => $registeredIds,
         'registered_events'    => array_map(static function (array $item): array {

@@ -100,6 +100,8 @@ function validateRegistration(array $data): array
         'gender'        => 'Gender',
         'pps_number'    => 'NI / PPS Number',
         'bank_iban'     => 'Bank Account / IBAN',
+        'psa_licence'   => 'PSA licence number',
+        'psa_expiry_date' => 'PSA expiry date',
         'staff_role'    => 'Role',
     ];
 
@@ -297,6 +299,8 @@ function saveRegistration(PDO $pdo, array $data, int $eventId, ?string $staffRol
         'gender' => trim((string) $data['gender']),
         'pps_number' => trim((string) $data['pps_number']),
         'bank_iban' => trim((string) $data['bank_iban']),
+        'psa_licence' => trim((string) ($data['psa_licence'] ?? '')),
+        'psa_expiry_date' => trim((string) ($data['psa_expiry_date'] ?? '')),
         'staff_role' => $staffRole,
     ];
 
@@ -357,7 +361,7 @@ function saveRegistration(PDO $pdo, array $data, int $eventId, ?string $staffRol
  * @param int[] $eventIds
  * @return int[] inserted registration ids
  */
-function saveRegistrations(PDO $pdo, array $data, array $eventIds): array
+function saveRegistrations(PDO $pdo, array $data, array $eventIds, array $files = []): array
 {
     ensureStaffRegistrationSaveSchema($pdo);
     $pdo->beginTransaction();
@@ -377,6 +381,14 @@ function saveRegistrations(PDO $pdo, array $data, array $eventIds): array
             $ids[] = saveRegistration($pdo, $data, $eventId, $role);
         }
         $pdo->commit();
+
+        require_once __DIR__ . '/staff-repository.php';
+        require_once __DIR__ . '/staff-psa.php';
+        $staffId = ensureStaffRecordForEmail($pdo, $email);
+        if ($staffId !== null) {
+            saveStaffPsaFromForm($pdo, $staffId, $data, $files);
+        }
+
         return $ids;
     } catch (Throwable $e) {
         $pdo->rollBack();
