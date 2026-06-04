@@ -57,7 +57,7 @@ function getRegistrationsDueDailyReminder(PDO $pdo): array
             FROM staff_registrations sr
             INNER JOIN events e ON e.id = sr.event_id
             WHERE sr.status IN ('pending', 'approved')
-              AND DATE(sr.created_at) <= CURDATE()
+              AND DATE(sr.created_at) < CURDATE()
               {$reminderCol}
             ORDER BY sr.id ASC";
 
@@ -217,80 +217,92 @@ function getEmailsDueSignupNudge(PDO $pdo): array
 
 function sendDailyEventReminder(PDO $pdo, array $row): bool
 {
-    if (!isReminderDailyEnabled($pdo)) {
+    return sendDailyEventsReminderDigest($pdo, [$row]);
+}
+
+/**
+ * One daily reminder email per person covering all their upcoming shifts.
+ *
+ * @param list<array<string, mixed>> $rows
+ */
+function sendDailyEventsReminderDigest(PDO $pdo, array $rows): bool
+{
+    if (!isReminderDailyEnabled($pdo) || $rows === []) {
         return false;
     }
 
-    $siteName = getSiteName($pdo);
-    $event    = formatEventLabel($row);
-    $role     = formatRoleLabel($row['staff_role']);
-    $status   = formatStatusLabel($row['status']);
-    $location = formatEventLocationLabel($row);
-    $times    = formatEventTimeRangeLabel($row);
-    $regId    = (int) $row['id'];
+    $email = strtolower(trim((string) ($rows[0]['email'] ?? '')));
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return false;
+    }
 
-    $subject = $siteName . ' — Reminder: ' . (string) ($row['event_name'] ?? 'Your event');
+    $siteName  = getSiteName($pdo);
+    $firstName = (string) ($rows[0]['first_name'] ?? '');
+    $count     = count($rows);
+    $subject   = $siteName . ' — Reminder: ' . ($count === 1 ? (string) ($rows[0]['event_name'] ?? 'Your event') : $count . ' upcoming shifts');
 
     $bodyLines = [
-        'Dear ' . $row['first_name'] . ',',
+        'Dear ' . $firstName . ',',
         '',
-        'This is your daily reminder about your upcoming event registration.',
+        $count === 1
+            ? 'This is your daily reminder about your upcoming event registration.'
+            : 'This is your daily reminder about your upcoming event registrations (' . $count . ' shifts).',
         '',
-        'Event: ' . $event,
-        'Time: ' . $times,
-        'Location: ' . $location,
-        'Role: ' . $role,
-        'Status: ' . $status,
     ];
 
-    $onSite = formatEmailOnSiteSecurityLine($pdo, $row);
-    if ($onSite !== null) {
-        $bodyLines[] = $onSite;
-    }
+    foreach ($rows as $row) {
+        $regId    = (int) $row['id'];
+        $event    = formatEventLabel($row);
+        $role     = formatRoleLabel($row['staff_role']);
+        $status   = formatStatusLabel($row['status']);
+        $location = formatEventLocationLabel($row);
+        $times    = formatEventTimeRangeLabel($row);
+        $window   = getEventCheckinWindow($row);
 
-    if ($row['status'] === 'approved') {
-        $token = ensureCheckinToken($pdo, $regId);
-        if ($token) {
-            $bodyLines[] = '';
-            $bodyLines[] = 'Personal check-in link for event day:';
-            $bodyLines[] = getCheckinUrl($token, $pdo);
+        $bodyLines[] = '———';
+        $bodyLines[] = 'Event: ' . $event;
+        $bodyLines[] = 'Time: ' . $times;
+        $bodyLines[] = 'Location: ' . $location;
+        $bodyLines[] = 'Role: ' . $role;
+        $bodyLines[] = 'Status: ' . $status;
+
+        $onSite = formatEmailOnSiteSecurityLine($pdo, $row);
+        if ($onSite !== null) {
+            $bodyLines[] = $onSite;
         }
 
-        $eventId = (int) ($row['event_id'] ?? 0);
-        if ($eventId > 0) {
-            $signToken = ensureEventSigninToken($pdo, $eventId);
-            if ($signToken) {
-                $bodyLines[] = '';
-                $bodyLines[] = 'Email sign-in (during check-in hours):';
-                $bodyLines[] = getEventEmailSigninUrl($signToken, $pdo);
+        if ($row['status'] === 'approved') {
+            $token = ensureCheckinToken($pdo, $regId);
+            if ($token) {
+                $bodyLines[] = 'Check-in link: ' . getCheckinUrl($token, $pdo);
             }
+        } elseif ($row['status'] === 'pending') {
+            $bodyLines[] = 'Awaiting approval — we will email you when reviewed.';
         }
-    } elseif ($row['status'] === 'pending') {
+
+        $bodyLines[] = 'Check-in window: ' . $window['opens_at']->format('d.m.Y H:i')
+            . ' – ' . $window['closes_at']->format('d.m.Y H:i');
         $bodyLines[] = '';
-        $bodyLines[] = 'Your application is still being reviewed. We will email you when it is approved.';
     }
 
-    $statusToken = ensureStatusToken($pdo, $regId);
+    $statusToken = ensureStatusToken($pdo, (int) $rows[0]['id']);
     if ($statusToken) {
-        $bodyLines[] = '';
-        $bodyLines[] = 'View your registration status:';
+        $bodyLines[] = 'View all registrations:';
         $bodyLines[] = getStatusUrl($statusToken, $pdo);
+        $bodyLines[] = '';
     }
 
-    $window = getEventCheckinWindow($row);
-    $bodyLines[] = '';
-    $bodyLines[] = 'Check-in window: ' . $window['opens_at']->format('d.m.Y H:i')
-        . ' – ' . $window['closes_at']->format('d.m.Y H:i');
-    $bodyLines[] = '';
-    $bodyLines[] = 'Daily reminders stop automatically after this event ends.';
+    $bodyLines[] = 'Daily reminders stop automatically after each event ends.';
     $bodyLines = appendEmailPortalContext($pdo, $bodyLines);
     $bodyLines[] = '';
     $bodyLines[] = 'Regards,';
     $bodyLines[] = $siteName;
 
-    $sent = sendEmail($pdo, (string) $row['email'], $subject, implode("\n", $bodyLines));
+    $sent = sendEmail($pdo, $email, $subject, implode("\n", $bodyLines));
     if ($sent) {
-        markEventReminderSent($pdo, $regId);
+        foreach ($rows as $row) {
+            markEventReminderSent($pdo, (int) $row['id']);
+        }
     }
 
     return $sent;
@@ -377,8 +389,17 @@ function runDailyReminders(PDO $pdo): array
     }
 
     if (isReminderDailyEnabled($pdo)) {
+        $byEmail = [];
         foreach (getRegistrationsDueDailyReminder($pdo) as $row) {
-            if (sendDailyEventReminder($pdo, $row)) {
+            $email = strtolower(trim((string) ($row['email'] ?? '')));
+            if ($email === '') {
+                continue;
+            }
+            $byEmail[$email][] = $row;
+        }
+
+        foreach ($byEmail as $rows) {
+            if (sendDailyEventsReminderDigest($pdo, $rows)) {
                 $stats['daily_sent']++;
             } else {
                 $stats['errors']++;

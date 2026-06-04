@@ -14,7 +14,9 @@ require_once __DIR__ . '/email-copy.php';
 function notifyStaffStatusChange(PDO $pdo, int $registrationId, string $newStatus): bool
 {
     try {
-        return notifyStaffStatusChangeInner($pdo, $registrationId, $newStatus);
+        notifyStaffStatusChanges($pdo, [$registrationId], $newStatus);
+
+        return true;
     } catch (Throwable $e) {
         error_log('[EventStaff] notifyStaffStatusChange: ' . $e->getMessage());
 
@@ -22,48 +24,93 @@ function notifyStaffStatusChange(PDO $pdo, int $registrationId, string $newStatu
     }
 }
 
-function notifyStaffStatusChangeInner(PDO $pdo, int $registrationId, string $newStatus): bool
+/**
+ * Send at most one email per staff member for a batch status change (e.g. bulk approve).
+ *
+ * @param int[] $registrationIds
+ */
+function notifyStaffStatusChanges(PDO $pdo, array $registrationIds, string $newStatus): void
 {
     if (!isNotifyStaffEnabled($pdo)) {
-        return false;
+        return;
     }
 
     if (!in_array($newStatus, ['approved', 'rejected'], true)) {
+        return;
+    }
+
+    $registrationIds = array_values(array_unique(array_filter(
+        array_map('intval', $registrationIds),
+        static fn (int $id): bool => $id > 0
+    )));
+    if ($registrationIds === []) {
+        return;
+    }
+
+    $byEmail = [];
+    foreach ($registrationIds as $id) {
+        $row = getStaffRegistrationById($pdo, $id);
+        if ($row === null) {
+            continue;
+        }
+        if (($row['status'] ?? '') !== $newStatus) {
+            continue;
+        }
+
+        $email = strtolower(trim((string) ($row['email'] ?? '')));
+        if ($email === '') {
+            continue;
+        }
+
+        $byEmail[$email][] = $row;
+    }
+
+    foreach ($byEmail as $rows) {
+        if ($newStatus === 'approved') {
+            sendConsolidatedAccessPassEmail($pdo, $rows);
+        } else {
+            sendConsolidatedRejectionEmail($pdo, $rows);
+        }
+    }
+}
+
+/**
+ * @param list<array<string, mixed>> $rows
+ */
+function sendConsolidatedRejectionEmail(PDO $pdo, array $rows): bool
+{
+    if ($rows === []) {
         return false;
     }
 
-    if ($newStatus === 'approved') {
-        return sendEventAccessPassEmail($pdo, $registrationId);
-    }
-
-    $row = getStaffRegistrationById($pdo, $registrationId);
-    if (!$row) {
+    $email = strtolower(trim((string) ($rows[0]['email'] ?? '')));
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         return false;
     }
 
-    $siteName = getSiteName($pdo);
-    $event    = formatEventLabel($row);
-    $role     = formatRoleLabel($row['staff_role']);
-    $status   = formatStatusLabel($newStatus);
-    $subject  = $siteName . ' — Registration Update';
-    $intro    = 'Thank you for your interest. Your staff registration was not approved at this time.';
+    $siteName  = getSiteName($pdo);
+    $firstName = (string) ($rows[0]['first_name'] ?? '');
+    $count     = count($rows);
+    $subject   = $siteName . ' — Registration update';
 
     $bodyLines = [
-        'Dear ' . $row['first_name'] . ',',
+        'Dear ' . $firstName . ',',
         '',
-        $intro,
+        $count === 1
+            ? 'Thank you for your interest. Your staff registration was not approved at this time.'
+            : 'Thank you for your interest. The following ' . $count . ' registration(s) were not approved at this time.',
         '',
-        'Event: ' . $event,
-        'Role: ' . $role,
-        'Status: ' . $status,
     ];
 
-    $onSite = formatEmailOnSiteSecurityLine($pdo, $row);
-    if ($onSite !== null) {
-        $bodyLines[] = $onSite;
+    foreach ($rows as $row) {
+        $bodyLines[] = '• ' . formatEventLabel($row) . ' — ' . formatRoleLabel($row['staff_role']);
+        $onSite = formatEmailOnSiteSecurityLine($pdo, $row);
+        if ($onSite !== null) {
+            $bodyLines[] = '  ' . $onSite;
+        }
     }
 
-    $statusToken = ensureStatusToken($pdo, $registrationId);
+    $statusToken = ensureStatusToken($pdo, (int) $rows[0]['id']);
     if ($statusToken) {
         $bodyLines[] = '';
         $bodyLines[] = 'View your registration status anytime:';
@@ -77,9 +124,7 @@ function notifyStaffStatusChangeInner(PDO $pdo, int $registrationId, string $new
     $bodyLines[] = 'Regards,';
     $bodyLines[] = $siteName;
 
-    $body = implode("\n", $bodyLines);
-
-    return sendEmail($pdo, $row['email'], $subject, $body);
+    return sendEmail($pdo, $email, $subject, implode("\n", $bodyLines));
 }
 
 function notifyStaffRegistrationSubmitted(PDO $pdo, array $data, array $eventIds, array $registrationIds = []): bool
@@ -129,7 +174,7 @@ function notifyStaffRegistrationSubmitted(PDO $pdo, array $data, array $eventIds
     }
 
     $bodyLines[] = '';
-    $bodyLines[] = 'You will receive another email when your application is reviewed.';
+    $bodyLines[] = 'You will receive one email when your application(s) are reviewed (not one per shift).';
     $bodyLines = appendEmailPortalContext($pdo, $bodyLines);
     $bodyLines[] = '';
     $bodyLines[] = 'Regards,';

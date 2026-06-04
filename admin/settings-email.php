@@ -84,13 +84,13 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <div class="form-group form-group--full">
             <label class="form-radio">
                 <input type="checkbox" name="notify_staff_enabled" value="1"<?= ($settings['notify_staff_enabled'] ?? '1') === '1' ? ' checked' : '' ?>>
-                Email staff when registration is approved or rejected
+                Email staff when registration is approved or rejected (one email per person, all shifts together)
             </label>
         </div>
         <div class="form-group form-group--full">
             <label class="form-radio">
                 <input type="checkbox" name="notify_on_registration" value="1"<?= ($settings['notify_on_registration'] ?? '0') === '1' ? ' checked' : '' ?>>
-                Email staff when registration is received (pending)
+                Email staff when registration is received — one email listing all shifts selected
             </label>
         </div>
         <div class="form-group form-group--full">
@@ -106,7 +106,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <div class="form-group form-group--full">
             <label class="form-radio">
                 <input type="checkbox" name="reminder_daily_enabled" value="1"<?= ($settings['reminder_daily_enabled'] ?? '1') === '1' ? ' checked' : '' ?>>
-                Daily reminder for each event registration (from sign-up day until event ends)
+                Daily reminder digest (one email per person per day; starts the day after sign-up)
             </label>
         </div>
         <div class="form-group form-group--full">

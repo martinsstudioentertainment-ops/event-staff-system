@@ -43,6 +43,7 @@ ensureEventReportingSchema($pdo);
 $updated            = 0;
 $skippedIncomplete  = 0;
 $allowIncomplete    = isAdminSuperUser();
+$notifyIds          = [];
 
 foreach ($ids as $rawId) {
     $id = (int) $rawId;
@@ -61,15 +62,22 @@ foreach ($ids as $rawId) {
     }
 
     $updated++;
+    $notifyIds[] = $id;
 
     try {
         if ($status === 'approved') {
             ensureCheckinToken($pdo, $id);
         }
-
-        notifyStaffStatusChange($pdo, $id, $status);
     } catch (Throwable $e) {
         error_log('[EventStaff] bulk-status id=' . $id . ': ' . $e->getMessage());
+    }
+}
+
+if ($notifyIds !== [] && in_array($status, ['approved', 'rejected'], true)) {
+    try {
+        notifyStaffStatusChanges($pdo, $notifyIds, $status);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] bulk-status notify: ' . $e->getMessage());
     }
 }
 
