@@ -15,6 +15,8 @@ define('MAIN_SITE_URL', 'https://olasentra.com');
 define('REGISTRATION_SITE_URL', 'https://register.olasentra.com');
 /** Admin ERP — admin subdomain (/login.php, /dashboard.php, …). */
 define('ADMIN_SITE_URL', 'https://admin.olasentra.com');
+/** Staff apply / profile admin (apply.olasentra.com). */
+define('APPLY_SITE_URL', 'https://apply.olasentra.com');
 define('APP_ENV', 'production');
 
 /** One-time: import-summer-roster.php?token=… — delete token after roster is imported. */

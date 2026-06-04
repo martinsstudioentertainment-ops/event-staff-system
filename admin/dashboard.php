@@ -93,6 +93,12 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
             <?php endif; ?>
 
+            <?php if (adminCan('apply')): ?>
+
+                <a href="apply-portal.php" class="btn btn--secondary">Apply admin</a>
+
+            <?php endif; ?>
+
             <?php if (adminCan('attendance')): ?>
 
                 <a href="attendance.php" class="btn btn--secondary">Attendance</a>

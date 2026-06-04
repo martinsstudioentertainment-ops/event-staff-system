@@ -98,6 +98,59 @@ function getRegistrationFormUrl(?PDO $pdo = null, ?string $slug = null): string
 /**
  * Base URL for this admin installation (where /admin/ lives).
  */
+/**
+ * Apply / staff-profile site (apply.olasentra.com).
+ */
+function getApplySiteUrl(?PDO $pdo = null): string
+{
+    if ($pdo === null && function_exists('getDB')) {
+        try {
+            $pdo = getDB();
+        } catch (Throwable $e) {
+            $pdo = null;
+        }
+    }
+
+    if ($pdo !== null) {
+        $fromDb = normalizePublicSiteUrl(getSetting($pdo, 'apply_site_url', ''));
+        if ($fromDb !== '') {
+            return $fromDb;
+        }
+    }
+
+    if (defined('APPLY_SITE_URL') && APPLY_SITE_URL !== '') {
+        return normalizePublicSiteUrl((string) APPLY_SITE_URL);
+    }
+
+    if (function_exists('isProductionApp') && !isProductionApp()) {
+        return normalizePublicSiteUrl(getAppBaseUrl()) . '/apply';
+    }
+
+    return '';
+}
+
+/** Admin folder on apply host (contains sso.php, index.php, admin/ UI). */
+function getApplyAdminRootUrl(?PDO $pdo = null): string
+{
+    $site = getApplySiteUrl($pdo);
+
+    return $site !== '' ? $site . '/admin' : '';
+}
+
+function getApplyAdminSsoUrl(?PDO $pdo = null): string
+{
+    $root = getApplyAdminRootUrl($pdo);
+
+    return $root !== '' ? $root . '/sso.php' : '';
+}
+
+function getApplyAdminDashboardUrl(?PDO $pdo = null): string
+{
+    $root = getApplyAdminRootUrl($pdo);
+
+    return $root !== '' ? $root . '/admin/dashboard.php' : '';
+}
+
 function getAdminSiteUrl(?PDO $pdo = null): string
 {
     if ($pdo === null && function_exists('getDB')) {

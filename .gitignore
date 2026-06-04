@@ -3,6 +3,10 @@
 /deploy.local.ps1
 /storage/google/service-account.json
 /storage/google/*.json
+apply/admin/config/database.php
+apply/admin/config/eventstaff-database.php
+apply/admin/config/sso.local.php
+apply/admin/config/google-service-account.json
 
 # Runtime data
 /storage/logs/*

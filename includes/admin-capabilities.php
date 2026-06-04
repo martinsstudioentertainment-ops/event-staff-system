@@ -25,7 +25,7 @@ function getCapabilitiesForRole(string $role): array
     return match ($role) {
         'admin' => ['*'],
         'manager' => [
-            'dashboard', 'staff', 'events', 'attendance', 'invoices', 'export', 'audit',
+            'dashboard', 'staff', 'events', 'attendance', 'invoices', 'export', 'audit', 'apply',
         ],
         'staff' => [
             'dashboard', 'attendance',
@@ -94,6 +94,7 @@ function getAdminSidebarSections(): array
             'section' => 'Site',
             'items'   => [
                 ['key' => 'forms', 'label' => 'Registration forms', 'url' => 'forms.php', 'icon' => 'form', 'cap' => 'forms'],
+                ['key' => 'apply', 'label' => 'Apply admin', 'url' => 'apply-portal.php', 'icon' => 'form', 'cap' => 'apply'],
             ],
         ],
         [
