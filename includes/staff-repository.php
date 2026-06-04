@@ -471,8 +471,18 @@ function syncStaffPersonalDataToRegistrations(PDO $pdo, int $staffId, array $dat
         return;
     }
 
+    $staff = getStaffById($pdo, $staffId);
+    $email = strtolower(trim((string) ($staff['email'] ?? '')));
+    if ($email !== '') {
+        $params['email'] = $email;
+    }
+
     try {
-        $sql = 'UPDATE staff_registrations SET ' . implode(', ', $sets) . ' WHERE staff_id = :staff_id';
+        $where = 'staff_id = :staff_id';
+        if ($email !== '') {
+            $where .= ' OR LOWER(email) = :email';
+        }
+        $sql = 'UPDATE staff_registrations SET ' . implode(', ', $sets) . ' WHERE ' . $where;
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
     } catch (PDOException $e) {
@@ -965,6 +975,12 @@ function updateStaffProfile(PDO $pdo, int $staffId, array $data): bool
         $ok = $stmt->rowCount() > 0;
         if ($ok) {
             syncStaffPersonalDataToRegistrations($pdo, $staffId, $data);
+            try {
+                require_once __DIR__ . '/google-sheets-sync.php';
+                syncStaffProfileToLinkedGoogleSheets($pdo, $staffId);
+            } catch (Throwable $e) {
+                error_log('[EventStaff] Google Sheets sync after profile save: ' . $e->getMessage());
+            }
         }
 
         return $ok;

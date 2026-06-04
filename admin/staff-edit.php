@@ -82,6 +82,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
 
             syncStaffPersonalDataToRegistrations($pdo, $staffId, $syncData);
 
+            try {
+                require_once __DIR__ . '/../includes/google-sheets-sync.php';
+                syncStaffProfileToLinkedGoogleSheets($pdo, $staffId);
+            } catch (Throwable $e) {
+                error_log('[EventStaff] Google Sheets sync after admin staff edit: ' . $e->getMessage());
+            }
+
             if (isStaffOnboardingComplete(getStaffById($pdo, $staffId) ?? [])) {
                 markStaffProfileCompleted($pdo, $staffId);
             }

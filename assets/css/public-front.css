@@ -980,6 +980,91 @@
     font-weight: 600;
 }
 
+/* Mobile — staff profile portal */
+@media (max-width: 768px) {
+    .staff-profile-shell.staff-public-shell--narrow .login-page__wrap,
+    .staff-profile-shell .staff-public-main {
+        padding-left: max(0.75rem, env(safe-area-inset-left));
+        padding-right: max(0.75rem, env(safe-area-inset-right));
+        padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+    }
+
+    .staff-profile-shell .staff-public-card--profile {
+        padding: 1rem 1rem 1.25rem;
+    }
+
+    .staff-profile-card__header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .staff-profile-card__header .btn {
+        width: 100%;
+        min-height: 44px;
+    }
+
+    .staff-profile-form {
+        grid-template-columns: 1fr;
+    }
+
+    .staff-public-shell--event-ops .staff-profile-form .form-input,
+    .staff-public-shell--event-ops .staff-profile-form .form-select,
+    .staff-public-shell--event-ops .staff-profile-form textarea.form-input {
+        font-size: 16px;
+        min-height: 44px;
+    }
+
+    .staff-public-shell--event-ops .staff-profile-form textarea.form-input {
+        min-height: 5rem;
+    }
+
+    .staff-public-shell--event-ops .staff-profile-form .form-input--file {
+        min-height: 48px;
+        padding: 0.65rem;
+    }
+
+    .staff-profile-form .form-actions {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: calc(var(--z-index-header, 100) + 5);
+        margin: 0;
+        padding: 0.65rem max(1rem, env(safe-area-inset-left)) calc(0.65rem + env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-right));
+        background: rgba(15, 23, 42, 0.92);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-top: 1px solid rgba(167, 139, 250, 0.35);
+        box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    .staff-profile-form .form-actions .btn--block {
+        min-height: 48px;
+        font-size: 1rem;
+    }
+
+    .staff-profile-shell .login-card__hint {
+        margin-top: 1rem;
+        font-size: 0.875rem;
+        text-align: center;
+    }
+}
+
+@media (max-width: 380px) {
+    .staff-profile-card__header .card__title {
+        font-size: 1.15rem;
+    }
+
+    .staff-profile-shell .staff-dir-portal-banner__copy,
+    .staff-profile-shell .copy-field {
+        flex-direction: column;
+    }
+
+    .staff-profile-shell .copy-field__btn {
+        width: 100%;
+    }
+}
+
 /* CTA — bold event button */
 .staff-public-shell--event-ops .btn--primary {
     background: linear-gradient(105deg, #7c3aed 0%, #db2777 45%, #ea580c 100%);

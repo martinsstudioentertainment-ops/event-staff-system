@@ -2735,6 +2735,48 @@ function syncRegistrationsToGoogleSheets(PDO $pdo, array $registrationIds): arra
 }
 
 /**
+ * After staff profile save, push all linked event sheet rows (text fields only; no images).
+ *
+ * @return array{synced: int, skipped: int, failed: int}
+ */
+function syncStaffProfileToLinkedGoogleSheets(PDO $pdo, int $staffId): array
+{
+    if ($staffId < 1 || !isGoogleSheetsSyncEnabled($pdo)) {
+        return ['synced' => 0, 'skipped' => 0, 'failed' => 0];
+    }
+
+    $staff = getStaffById($pdo, $staffId);
+    if ($staff === null) {
+        return ['synced' => 0, 'skipped' => 0, 'failed' => 0];
+    }
+
+    $email = strtolower(trim((string) ($staff['email'] ?? '')));
+
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT sr.id
+             FROM staff_registrations sr
+             INNER JOIN events e ON e.id = sr.event_id
+             WHERE (sr.staff_id = :staff_id OR LOWER(sr.email) = :email)
+               AND e.google_sheet_url IS NOT NULL
+               AND TRIM(e.google_sheet_url) <> \'\''
+        );
+        $stmt->execute(['staff_id' => $staffId, 'email' => $email]);
+        $ids = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
+    } catch (PDOException $e) {
+        error_log('[EventStaff] syncStaffProfileToLinkedGoogleSheets: ' . $e->getMessage());
+
+        return ['synced' => 0, 'skipped' => 0, 'failed' => 0];
+    }
+
+    if ($ids === []) {
+        return ['synced' => 0, 'skipped' => 0, 'failed' => 0];
+    }
+
+    return syncRegistrationsToGoogleSheets($pdo, $ids);
+}
+
+/**
  * @return array{ok: bool, message: string}
  */
 function saveGoogleServiceAccountUpload(array $file): array

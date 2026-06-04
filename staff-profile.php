@@ -254,7 +254,7 @@ $themeColor = getThemeColor($pdo);
                     <?php endif; ?>
                 </div>
 
-                <div class="form-group form-group--full form-actions">
+                <div class="form-group form-group--full form-actions staff-profile-form__submit">
                     <button type="submit" class="btn btn--primary btn--block">Save changes</button>
                 </div>
             </form>

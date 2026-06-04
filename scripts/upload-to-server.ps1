@@ -92,6 +92,8 @@ $files = @(
     @{ Local = 'includes\status-repository.php'; Remote = 'includes/status-repository.php' },
     @{ Local = 'assets\css\admin.css'; Remote = 'assets/css/admin.css' },
     @{ Local = 'assets\css\mobile.css'; Remote = 'assets/css/mobile.css' },
+    @{ Local = 'assets\css\public-front.css'; Remote = 'assets/css/public-front.css' },
+    @{ Local = 'includes\google-sheets-sync.php'; Remote = 'includes/google-sheets-sync.php' },
     @{ Local = 'admin\export-staff.php'; Remote = 'admin/export-staff.php' },
     @{ Local = 'index.php'; Remote = 'index.php' },
     @{ Local = 'lang\en.php'; Remote = 'lang/en.php' },
