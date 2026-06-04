@@ -187,7 +187,8 @@ if ($action === 'link_from_folder') {
 }
 
 if ($action === 'sync_registrations') {
-    @set_time_limit(600);
+    @ini_set('memory_limit', '512M');
+    @set_time_limit(900);
 
     if (!isGoogleSheetsSyncEnabled($pdo)) {
         setAdminFlash('error', 'Enable live sync in Settings → Google Sheets first.');

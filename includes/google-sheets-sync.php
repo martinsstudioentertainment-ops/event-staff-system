@@ -725,49 +725,116 @@ function googleSheetsRepairMisalignedRegistrationRows(
     return $repaired;
 }
 
+function googleSheetsSheetIndexKey(string $spreadsheetId, string $tabName): string
+{
+    $tabName = trim($tabName) !== '' ? trim($tabName) : 'Registrations';
+
+    return $spreadsheetId . "\0" . $tabName;
+}
+
+/**
+ * Load registration-id → sheet row map once per spreadsheet (bulk sync).
+ *
+ * @return array{map: array<int, int>, next_row: int}
+ */
+function googleSheetsBuildRegistrationRowIndex(
+    string $token,
+    ?string $project,
+    string $spreadsheetId,
+    string $tabName
+): array {
+    $tabName = trim($tabName) !== '' ? trim($tabName) : 'Registrations';
+    $map     = [];
+    $maxRow  = 1;
+
+    $idCol  = googleSheetsSyncColumnLetter(googleSheetsRegistrationIdColumnIndex());
+    $range  = escapeGoogleSheetRangeTab($tabName) . '!' . $idCol . ':' . $idCol;
+    $values = googleSheetsReadRangeValues($token, $project, $spreadsheetId, $range);
+    if (is_array($values)) {
+        foreach ($values as $index => $row) {
+            $rowNum = $index + 1;
+            if ($rowNum === 1) {
+                continue;
+            }
+            $maxRow = max($maxRow, $rowNum);
+            $id     = (int) trim((string) ($row[0] ?? ''));
+            if ($id > 0) {
+                $map[$id] = $rowNum;
+            }
+        }
+    }
+
+    // Legacy rows: registration ID was written in column A before headers were fixed.
+    $legacyRange  = escapeGoogleSheetRangeTab($tabName) . '!A:A';
+    $legacyValues = googleSheetsReadRangeValues($token, $project, $spreadsheetId, $legacyRange);
+    if (is_array($legacyValues)) {
+        foreach ($legacyValues as $index => $row) {
+            $rowNum = $index + 1;
+            if ($rowNum === 1) {
+                continue;
+            }
+            $maxRow = max($maxRow, $rowNum);
+            $cellA  = trim((string) ($row[0] ?? ''));
+            if ($cellA === '' || !ctype_digit($cellA)) {
+                continue;
+            }
+            $id = (int) $cellA;
+            if ($id > 0 && !isset($map[$id])) {
+                $map[$id] = $rowNum;
+            }
+        }
+    }
+
+    return [
+        'map'      => $map,
+        'next_row' => $maxRow + 1,
+    ];
+}
+
+/**
+ * @param array{map: array<int, int>, next_row: int} $rowIndex
+ */
+function googleSheetsAdjustRowIndexAfterDelete(array &$rowIndex, int $deletedRow, int $registrationId): void
+{
+    unset($rowIndex['map'][$registrationId]);
+
+    foreach ($rowIndex['map'] as $id => $row) {
+        if ($row > $deletedRow) {
+            $rowIndex['map'][$id] = $row - 1;
+        }
+    }
+
+    $rowIndex['next_row'] = max(2, (int) ($rowIndex['next_row'] ?? 2) - 1);
+}
+
+/**
+ * @param array{map: array<int, int>, next_row: int} $rowIndex
+ */
+function googleSheetsAdjustRowIndexAfterAppend(array &$rowIndex, int $registrationId, int $row): void
+{
+    $rowIndex['map'][$registrationId] = $row;
+    $rowIndex['next_row']               = max((int) ($rowIndex['next_row'] ?? ($row + 1)), $row + 1);
+}
+
 function googleSheetsFindRegistrationRowNumber(
     string $token,
     ?string $project,
     string $spreadsheetId,
     string $tabName,
-    int $registrationId
+    int $registrationId,
+    ?array $rowIndex = null
 ): ?int {
     if ($registrationId < 1) {
         return null;
     }
 
-    $idCol  = googleSheetsSyncColumnLetter(googleSheetsRegistrationIdColumnIndex());
-    $range  = escapeGoogleSheetRangeTab($tabName) . '!' . $idCol . ':' . $idCol;
-    $values = googleSheetsReadRangeValues($token, $project, $spreadsheetId, $range);
-    if ($values === null) {
-        return null;
+    if ($rowIndex !== null) {
+        return $rowIndex['map'][$registrationId] ?? null;
     }
 
-    $needle = (string) $registrationId;
-    foreach ($values as $index => $row) {
-        if ($index === 0) {
-            continue;
-        }
-        if (trim((string) ($row[0] ?? '')) === $needle) {
-            return $index + 1;
-        }
-    }
+    $built = googleSheetsBuildRegistrationRowIndex($token, $project, $spreadsheetId, $tabName);
 
-    // Legacy rows: registration ID was written in column A before headers were fixed.
-    $legacy = escapeGoogleSheetRangeTab($tabName) . '!A:A';
-    $legacyValues = googleSheetsReadRangeValues($token, $project, $spreadsheetId, $legacy);
-    if ($legacyValues !== null) {
-        foreach ($legacyValues as $index => $row) {
-            if ($index === 0) {
-                continue;
-            }
-            if (trim((string) ($row[0] ?? '')) === $needle) {
-                return $index + 1;
-            }
-        }
-    }
-
-    return null;
+    return $built['map'][$registrationId] ?? null;
 }
 
 /**
@@ -778,25 +845,37 @@ function googleSheetsUpsertRegistrationRow(
     string $spreadsheetId,
     string $tabName,
     int $registrationId,
-    array $rowValues
+    array $rowValues,
+    ?array &$rowIndex = null,
+    bool $skipHeaderCheck = false,
+    bool $skipRowFormat = false
 ): bool {
     $token   = $auth['token'];
     $project = $auth['project'];
     $tabName = trim($tabName) !== '' ? trim($tabName) : 'Registrations';
     $colEnd  = googleSheetsSyncColumnLetter(count($rowValues) - 1);
 
-    if (!googleSheetsEnsureSyncHeaders($token, $project, $spreadsheetId, $tabName)) {
+    if (!$skipHeaderCheck && !googleSheetsEnsureSyncHeaders($token, $project, $spreadsheetId, $tabName)) {
         return false;
     }
 
-    $existingRow = googleSheetsFindRegistrationRowNumber($token, $project, $spreadsheetId, $tabName, $registrationId);
+    $existingRow = googleSheetsFindRegistrationRowNumber(
+        $token,
+        $project,
+        $spreadsheetId,
+        $tabName,
+        $registrationId,
+        $rowIndex
+    );
     if ($existingRow !== null) {
         $range = escapeGoogleSheetRangeTab($tabName) . '!A' . $existingRow . ':' . $colEnd . $existingRow;
         if (!googleSheetsWriteRangeValues($token, $project, $spreadsheetId, $range, [$rowValues])) {
             return false;
         }
 
-        googleSheetsFormatSyncDataRow($token, $project, $spreadsheetId, $tabName, $existingRow);
+        if (!$skipRowFormat) {
+            googleSheetsFormatSyncDataRow($token, $project, $spreadsheetId, $tabName, $existingRow);
+        }
 
         return true;
     }
@@ -806,9 +885,15 @@ function googleSheetsUpsertRegistrationRow(
         return false;
     }
 
-    $newRow = googleSheetsFindRegistrationRowNumber($token, $project, $spreadsheetId, $tabName, $registrationId);
-    if ($newRow !== null) {
-        googleSheetsFormatSyncDataRow($token, $project, $spreadsheetId, $tabName, $newRow);
+    if ($rowIndex !== null) {
+        $newRow = (int) ($rowIndex['next_row'] ?? 2);
+        googleSheetsAdjustRowIndexAfterAppend($rowIndex, $registrationId, $newRow);
+    } else {
+        $newRow = googleSheetsFindRegistrationRowNumber($token, $project, $spreadsheetId, $tabName, $registrationId);
+    }
+
+    if (!$skipRowFormat && $newRow !== null) {
+        googleSheetsFormatSyncDataRow($token, $project, $spreadsheetId, $tabName, (int) $newRow);
     }
 
     return true;
@@ -829,19 +914,27 @@ function googleSheetsDeleteRegistrationRow(
     array $auth,
     string $spreadsheetId,
     string $tabName,
-    int $registrationId
+    int $registrationId,
+    ?array &$rowIndex = null
 ): bool {
     $token   = $auth['token'];
     $project = $auth['project'];
     $tabName = trim($tabName) !== '' ? trim($tabName) : 'Registrations';
 
-    $existingRow = googleSheetsFindRegistrationRowNumber($token, $project, $spreadsheetId, $tabName, $registrationId);
+    $existingRow = googleSheetsFindRegistrationRowNumber(
+        $token,
+        $project,
+        $spreadsheetId,
+        $tabName,
+        $registrationId,
+        $rowIndex
+    );
     if ($existingRow === null) {
         return true;
     }
 
     $sheetId = googleSheetsResolveSheetId($token, $project, $spreadsheetId, $tabName);
-    $ok = googleSheetsSpreadsheetBatchUpdate($token, $project, $spreadsheetId, [[
+    $ok      = googleSheetsSpreadsheetBatchUpdate($token, $project, $spreadsheetId, [[
         'deleteDimension' => [
             'range' => [
                 'sheetId'    => $sheetId,
@@ -853,6 +946,9 @@ function googleSheetsDeleteRegistrationRow(
     ]]);
 
     if ($ok) {
+        if ($rowIndex !== null) {
+            googleSheetsAdjustRowIndexAfterDelete($rowIndex, $existingRow, $registrationId);
+        }
         googleSheetsLog("Removed registration {$registrationId} from sheet {$spreadsheetId} tab {$tabName}");
     }
 
@@ -2665,13 +2761,22 @@ function countEventsGoogleSheetStatus(PDO $pdo): array
 }
 
 /**
+ * @param array<string, array{map: array<int, int>, next_row: int}>|null $sheetIndexes
  * @return 'synced'|'removed'|'skipped'|'failed'
  */
-function syncRegistrationToGoogleSheetWithOutcome(PDO $pdo, int $registrationId): string
-{
+function syncRegistrationToGoogleSheetWithOutcome(
+    PDO $pdo,
+    int $registrationId,
+    ?array $auth = null,
+    ?array &$sheetIndexes = null,
+    bool $skipHeaderCheck = false,
+    bool $skipRowFormat = false
+): string {
     ensureGoogleSheetsSchema($pdo);
 
-    $auth = googleSheetsResolveApiAuth($pdo);
+    if ($auth === null) {
+        $auth = googleSheetsResolveApiAuth($pdo);
+    }
     if ($auth === null) {
         googleSheetsLog("Sync skipped for registration {$registrationId}: live sync off or no Google auth");
 
@@ -2707,13 +2812,38 @@ function syncRegistrationToGoogleSheetWithOutcome(PDO $pdo, int $registrationId)
         return 'failed';
     }
 
+    $indexKey = googleSheetsSheetIndexKey($spreadsheetId, $tabName);
+    $rowIndex = null;
+    if ($sheetIndexes !== null) {
+        if (!isset($sheetIndexes[$indexKey])) {
+            $sheetIndexes[$indexKey] = googleSheetsBuildRegistrationRowIndex(
+                $auth['token'],
+                $auth['project'],
+                $spreadsheetId,
+                $tabName
+            );
+        }
+        $rowIndex = &$sheetIndexes[$indexKey];
+        if (!$skipHeaderCheck && !googleSheetsEnsureSyncHeaders($auth['token'], $auth['project'], $spreadsheetId, $tabName)) {
+            return 'failed';
+        }
+        $skipHeaderCheck = true;
+    }
+
     if (!shouldSyncRegistrationToGoogleSheet($row)) {
         $status = strtolower(trim((string) ($row['status'] ?? '')));
-        $existingRow = googleSheetsFindRegistrationRowNumber($auth['token'], $auth['project'], $spreadsheetId, $tabName, $registrationId);
+        $existingRow = googleSheetsFindRegistrationRowNumber(
+            $auth['token'],
+            $auth['project'],
+            $spreadsheetId,
+            $tabName,
+            $registrationId,
+            $rowIndex
+        );
         if ($existingRow === null) {
             return 'skipped';
         }
-        if (googleSheetsDeleteRegistrationRow($auth, $spreadsheetId, $tabName, $registrationId)) {
+        if (googleSheetsDeleteRegistrationRow($auth, $spreadsheetId, $tabName, $registrationId, $rowIndex)) {
             return 'removed';
         }
 
@@ -2723,7 +2853,16 @@ function syncRegistrationToGoogleSheetWithOutcome(PDO $pdo, int $registrationId)
     }
 
     $rowValues = buildGoogleSheetsSyncRow($row);
-    $ok        = googleSheetsUpsertRegistrationRow($auth, $spreadsheetId, $tabName, $registrationId, $rowValues);
+    $ok        = googleSheetsUpsertRegistrationRow(
+        $auth,
+        $spreadsheetId,
+        $tabName,
+        $registrationId,
+        $rowValues,
+        $rowIndex,
+        $skipHeaderCheck,
+        $skipRowFormat
+    );
     if ($ok) {
         googleSheetsLog("Synced registration {$registrationId} → sheet {$spreadsheetId} ({$auth['label']})");
     } else {
@@ -2771,23 +2910,110 @@ function syncRegistrationsToGoogleSheets(PDO $pdo, array $registrationIds): arra
 {
     $stats = ['synced' => 0, 'removed' => 0, 'skipped' => 0, 'failed' => 0];
 
-    if (googleSheetsResolveApiAuth($pdo) === null) {
+    $auth = googleSheetsResolveApiAuth($pdo);
+    if ($auth === null) {
         $stats['skipped'] = count($registrationIds);
 
         return $stats;
     }
 
+    ensureGoogleSheetsSchema($pdo);
+
+    /** @var array<string, list<int>> $groups */
+    $groups = [];
     foreach ($registrationIds as $registrationId) {
         $registrationId = (int) $registrationId;
         if ($registrationId < 1) {
             continue;
         }
 
-        $outcome = syncRegistrationToGoogleSheetWithOutcome($pdo, $registrationId);
-        if (isset($stats[$outcome])) {
-            $stats[$outcome]++;
-        } else {
+        $row = getStaffRegistrationById($pdo, $registrationId);
+        if (!$row) {
             $stats['failed']++;
+            continue;
+        }
+
+        $event = getEventById($pdo, (int) ($row['event_id'] ?? 0));
+        $sheetUrl = $event ? trim((string) ($event['google_sheet_url'] ?? '')) : '';
+        if ($sheetUrl === '') {
+            $stats['skipped']++;
+            continue;
+        }
+
+        $spreadsheetId = parseGoogleSpreadsheetId($sheetUrl);
+        if ($spreadsheetId === null) {
+            $stats['failed']++;
+            continue;
+        }
+
+        $tabName = trim((string) ($event['google_sheet_tab'] ?? ''));
+        if ($tabName === '') {
+            $tabName = 'Registrations';
+        }
+
+        $key = googleSheetsSheetIndexKey($spreadsheetId, $tabName);
+        if (!isset($groups[$key])) {
+            $groups[$key] = [
+                'spreadsheetId' => $spreadsheetId,
+                'tabName'       => $tabName,
+                'ids'           => [],
+            ];
+        }
+        $groups[$key]['ids'][] = $registrationId;
+    }
+
+    /** @var array<string, array{map: array<int, int>, next_row: int}> $sheetIndexes */
+    $sheetIndexes  = [];
+    $headersReady  = [];
+
+    foreach ($groups as $key => $group) {
+        if (!isset($sheetIndexes[$key])) {
+            $sheetIndexes[$key] = googleSheetsBuildRegistrationRowIndex(
+                $auth['token'],
+                $auth['project'],
+                $group['spreadsheetId'],
+                $group['tabName']
+            );
+        }
+
+        if (!isset($headersReady[$key])) {
+            if (!googleSheetsEnsureSyncHeaders(
+                $auth['token'],
+                $auth['project'],
+                $group['spreadsheetId'],
+                $group['tabName']
+            )) {
+                foreach ($group['ids'] as $registrationId) {
+                    $stats['failed']++;
+                    googleSheetsLog(
+                        "Bulk sync header setup failed for sheet {$group['spreadsheetId']} tab {$group['tabName']}"
+                    );
+                }
+                unset($sheetIndexes[$key]);
+                continue;
+            }
+            $headersReady[$key] = true;
+        }
+
+        foreach ($group['ids'] as $registrationId) {
+            $outcome = syncRegistrationToGoogleSheetWithOutcome(
+                $pdo,
+                $registrationId,
+                $auth,
+                $sheetIndexes,
+                true,
+                true
+            );
+            if (isset($stats[$outcome])) {
+                $stats[$outcome]++;
+            } else {
+                $stats['failed']++;
+            }
+        }
+
+        unset($sheetIndexes[$key]);
+        if (function_exists('gc_collect_cycles')) {
+            gc_collect_cycles();
         }
     }
 
