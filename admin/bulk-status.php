@@ -25,9 +25,13 @@ if (!verifyCsrf($_POST['csrf_token'] ?? null)) {
 
 $status = trim((string) ($_POST['status'] ?? ''));
 $ids    = $_POST['ids'] ?? [];
+$emails = $_POST['emails'] ?? [];
 
 if (!is_array($ids)) {
     $ids = [];
+}
+if (!is_array($emails)) {
+    $emails = [];
 }
 
 if (!in_array($status, ['approved', 'rejected', 'pending'], true)) {
@@ -39,6 +43,16 @@ if (!in_array($status, ['approved', 'rejected', 'pending'], true)) {
 $pdo = getDB();
 ensureStaffRegistrationCheckinSchema($pdo);
 ensureEventReportingSchema($pdo);
+
+if ($emails !== []) {
+    parse_str(ltrim((string) ($_POST['redirect_query'] ?? ''), '?&'), $redirectParams);
+    $listFilters = getStaffFiltersFromRequest($redirectParams);
+    foreach ($emails as $email) {
+        $ids = array_merge($ids, getStaffRegistrationIdsForEmail($pdo, (string) $email, $listFilters));
+    }
+}
+
+$ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $id): bool => $id > 0)));
 
 $updated            = 0;
 $skippedIncomplete  = 0;

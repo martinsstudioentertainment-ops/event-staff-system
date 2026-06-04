@@ -14,8 +14,8 @@ $filters = getStaffFiltersFromRequest();
 $page    = adminListPage();
 $perPage = adminListPerPage();
 $offset  = adminListOffset($page);
-$total   = countStaffRegistrations($pdo, $filters);
-$rows    = getStaffRegistrations($pdo, $filters, $perPage, $offset);
+$total   = countUniqueStaffRegistrants($pdo, $filters);
+$rows    = getUniqueStaffRegistrants($pdo, $filters, $perPage, $offset);
 $events  = getEventsForFilter($pdo);
 $flash   = getAdminFlash();
 
@@ -40,7 +40,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     <div class="card__header card__header--row">
         <div>
             <h2 class="card__title">Staff Registrations</h2>
-            <p class="card__subtitle"><?= (int) $total ?> registration(s) — one row per event registration.</p>
+            <p class="card__subtitle"><?= (int) $total ?> staff — one row per person. Open a profile to see all shifts.</p>
         </div>
         <a href="export-staff.php<?= $queryString !== '' ? '?' . h($queryString) : '' ?>" class="btn btn--secondary">Export CSV</a>
     </div>
@@ -101,26 +101,29 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                     <th>Name</th>
                     <th>Email</th>
                     <th>Role</th>
-                    <th>Event</th>
+                    <th>Shifts</th>
                     <th>Status</th>
-                    <th>Registered</th>
+                    <th>Last registered</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if ($rows === []): ?>
                     <tr>
-                        <td colspan="8" class="data-table__empty">No registrations found.</td>
+                        <td colspan="8" class="data-table__empty">No staff found.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($rows as $row): ?>
                         <?php
-                        $profileOk       = isStaffOnboardingComplete($row);
-                        $canForceApprove = isAdminSuperUser();
+                        $profileOk    = isStaffOnboardingComplete($row);
+                        $viewId         = (int) ($row['latest_reg_id'] ?? $row['id'] ?? 0);
+                        $shiftCount     = (int) ($row['registration_count'] ?? 1);
+                        $statusSummary  = formatRegistrantStatusSummary($row);
+                        $primaryStatus  = registrantPrimaryStatus($row);
                         ?>
                         <tr>
                             <td class="data-table__check">
-                                <input type="checkbox" form="staff-bulk-form" name="ids[]" value="<?= (int) $row['id'] ?>" class="staff-row-check" aria-label="Select registration">
+                                <input type="checkbox" form="staff-bulk-form" name="emails[]" value="<?= h((string) $row['email']) ?>" class="staff-row-check" aria-label="Select <?= h($row['first_name'] . ' ' . $row['surname']) ?>">
                             </td>
                             <td>
                                 <?= h($row['first_name'] . ' ' . $row['surname']) ?>
@@ -129,36 +132,16 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <a href="<?= h(buildStaffRegistrationsAdminUrl((string) $row['email'])) ?>"><?= h($row['email']) ?></a>
+                                <a class="staff-dir-email" href="<?= h(buildStaffRegistrationsAdminUrl((string) $row['email'])) ?>"><?= h($row['email']) ?></a>
                             </td>
                             <td><?= h(formatRoleLabel($row['staff_role'])) ?></td>
-                            <td><?= h(formatEventLabel($row)) ?></td>
-                            <td><span class="badge badge--<?= h($row['status']) ?>"><?= h(formatStatusLabel($row['status'])) ?></span></td>
-                            <td><?= h(date('d.m.Y H:i', strtotime($row['created_at']))) ?></td>
+                            <td><?= $shiftCount === 1 ? '1 shift' : $shiftCount . ' shifts' ?></td>
                             <td>
-                                <div class="action-group">
-                                    <a href="view-staff.php?id=<?= (int) $row['id'] ?>" class="btn btn--small btn--secondary">View</a>
-                                    <?php if ($row['status'] !== 'approved' && ($profileOk || $canForceApprove)): ?>
-                                        <form method="post" action="update-status.php">
-                                            <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
-                                            <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
-                                            <input type="hidden" name="status" value="approved">
-                                            <input type="hidden" name="redirect_query" value="<?= h($queryString) ?>">
-                                            <button type="submit" class="btn btn--small btn--success"><?= $profileOk ? 'Approve' : 'Approve (admin override)' ?></button>
-                                        </form>
-                                    <?php elseif ($row['status'] !== 'approved' && !$profileOk): ?>
-                                        <span class="form-hint">Complete profile first</span>
-                                    <?php endif; ?>
-                                    <?php if ($row['status'] !== 'rejected'): ?>
-                                        <form method="post" action="update-status.php">
-                                            <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
-                                            <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
-                                            <input type="hidden" name="status" value="rejected">
-                                            <input type="hidden" name="redirect_query" value="<?= h($queryString) ?>">
-                                            <button type="submit" class="btn btn--small btn--danger">Reject</button>
-                                        </form>
-                                    <?php endif; ?>
-                                </div>
+                                <span class="badge badge--<?= h($primaryStatus) ?>" title="<?= h($statusSummary) ?>"><?= h($statusSummary) ?></span>
+                            </td>
+                            <td><?= h(date('d.m.Y H:i', strtotime((string) ($row['last_registered'] ?? $row['created_at'])))) ?></td>
+                            <td>
+                                <a href="view-staff.php?id=<?= $viewId ?>" class="btn btn--small btn--secondary">View profile</a>
                             </td>
                         </tr>
                     <?php endforeach; ?>

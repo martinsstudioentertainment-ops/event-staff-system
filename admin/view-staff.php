@@ -120,7 +120,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         </div>
 
         <div class="detail-group detail-group--full">
-            <h3 class="form-section-title">This Registration</h3>
+            <h3 class="form-section-title">Selected shift</h3>
             <dl class="detail-list">
                 <div class="detail-list__row"><dt>Role</dt><dd><?= h(formatRoleLabel($row['staff_role'])) ?></dd></div>
                 <div class="detail-list__row"><dt>Event</dt><dd><?= h(formatEventLabel($row)) ?></dd></div>
@@ -201,11 +201,11 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     </div>
 </section>
 
-<?php if (count($relatedRows) > 1): ?>
+<?php if ($relatedRows !== []): ?>
 <section class="card">
     <div class="card__header">
-        <h2 class="card__title">All Events for This Person</h2>
-        <p class="card__subtitle"><?= count($relatedRows) ?> registration(s) under <?= h($row['email']) ?></p>
+        <h2 class="card__title">Shifts &amp; events</h2>
+        <p class="card__subtitle"><?= count($relatedRows) ?> shift<?= count($relatedRows) === 1 ? '' : 's' ?> for <?= h($row['email']) ?></p>
     </div>
     <div class="table-wrap">
         <table class="data-table">

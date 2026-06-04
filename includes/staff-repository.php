@@ -63,13 +63,20 @@ function getUpcomingEventsSummary(PDO $pdo, int $limit = 5): array
 /**
  * @return array<string, mixed>
  */
-function getStaffFiltersFromRequest(): array
+/**
+ * @param array<string, mixed>|null $source Defaults to $_GET.
+ * @return array<string, mixed>
+ */
+function getStaffFiltersFromRequest(?array $source = null): array
 {
+    $source ??= $_GET;
+
     return [
-        'q'        => trim((string) ($_GET['q'] ?? '')),
-        'status'   => trim((string) ($_GET['status'] ?? '')),
-        'role'     => trim((string) ($_GET['role'] ?? '')),
-        'event_id' => (int) ($_GET['event_id'] ?? 0),
+        'q'        => trim((string) ($source['q'] ?? '')),
+        'status'   => trim((string) ($source['status'] ?? '')),
+        'role'     => trim((string) ($source['role'] ?? '')),
+        'event_id' => (int) ($source['event_id'] ?? 0),
+        'email'    => trim((string) ($source['email'] ?? '')),
     ];
 }
 
@@ -103,6 +110,11 @@ function buildStaffWhereClause(array $filters): array
     if ($filters['event_id'] > 0) {
         $where[] = 'sr.event_id = :event_id';
         $params['event_id'] = $filters['event_id'];
+    }
+
+    if (trim((string) ($filters['email'] ?? '')) !== '') {
+        $where[] = 'LOWER(sr.email) = LOWER(:filter_email)';
+        $params['filter_email'] = trim((string) $filters['email']);
     }
 
     return [implode(' AND ', $where), $params];
@@ -152,6 +164,104 @@ function getStaffRegistrations(PDO $pdo, array $filters, ?int $limit = null, int
     $rows = $stmt->fetchAll() ?: [];
 
     return array_map(static fn(array $row): array => mergeRegistrationWithStaff($pdo, $row), $rows);
+}
+
+/**
+ * Unique registrants (one row per email) matching filters.
+ *
+ * @param array<string, mixed> $filters
+ */
+function countUniqueStaffRegistrants(PDO $pdo, array $filters): int
+{
+    [$where, $params] = buildStaffWhereClause($filters);
+
+    $sql = "SELECT COUNT(DISTINCT LOWER(sr.email))
+            FROM staff_registrations sr
+            INNER JOIN events e ON e.id = sr.event_id
+            WHERE {$where}";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+
+    return (int) $stmt->fetchColumn();
+}
+
+/**
+ * @param array<string, mixed> $filters
+ * @return array<int, array<string, mixed>>
+ */
+function getUniqueStaffRegistrants(PDO $pdo, array $filters, ?int $limit = null, int $offset = 0): array
+{
+    [$where, $params] = buildStaffWhereClause($filters);
+
+    $inner = "SELECT
+                LOWER(sr.email) AS email_key,
+                MAX(sr.id) AS latest_reg_id,
+                COUNT(*) AS registration_count,
+                SUM(CASE WHEN sr.status = 'pending' THEN 1 ELSE 0 END) AS pending_count,
+                SUM(CASE WHEN sr.status = 'approved' THEN 1 ELSE 0 END) AS approved_count,
+                SUM(CASE WHEN sr.status = 'rejected' THEN 1 ELSE 0 END) AS rejected_count,
+                MAX(sr.created_at) AS last_registered
+            FROM staff_registrations sr
+            INNER JOIN events e ON e.id = sr.event_id
+            WHERE {$where}
+            GROUP BY LOWER(sr.email)
+            ORDER BY MAX(sr.created_at) DESC";
+
+    if ($limit !== null) {
+        $inner .= ' LIMIT ' . max(1, $limit) . ' OFFSET ' . max(0, $offset);
+    }
+
+    $sql = "SELECT g.*, sr.*
+            FROM ({$inner}) g
+            INNER JOIN staff_registrations sr ON sr.id = g.latest_reg_id
+            ORDER BY g.last_registered DESC";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+
+    $rows = $stmt->fetchAll() ?: [];
+
+    return array_map(static function (array $row) use ($pdo): array {
+        $merged = mergeRegistrationWithStaff($pdo, $row);
+
+        return array_merge($merged, [
+            'registration_count' => (int) ($row['registration_count'] ?? 1),
+            'pending_count'      => (int) ($row['pending_count'] ?? 0),
+            'approved_count'     => (int) ($row['approved_count'] ?? 0),
+            'rejected_count'     => (int) ($row['rejected_count'] ?? 0),
+            'last_registered'    => (string) ($row['last_registered'] ?? $row['created_at'] ?? ''),
+            'latest_reg_id'      => (int) ($row['latest_reg_id'] ?? $row['id'] ?? 0),
+        ]);
+    }, $rows);
+}
+
+/**
+ * Registration row IDs for one email, respecting list filters (e.g. event, status).
+ *
+ * @param array<string, mixed> $filters
+ * @return list<int>
+ */
+function getStaffRegistrationIdsForEmail(PDO $pdo, string $email, array $filters): array
+{
+    $email = trim($email);
+    if ($email === '') {
+        return [];
+    }
+
+    $filters['email'] = $email;
+    [$where, $params] = buildStaffWhereClause($filters);
+
+    $sql = "SELECT sr.id
+            FROM staff_registrations sr
+            INNER JOIN events e ON e.id = sr.event_id
+            WHERE {$where}
+            ORDER BY sr.id ASC";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+
+    return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
 }
 
 /**
@@ -308,6 +418,52 @@ function formatRoleLabel(string $role): string
 function formatStatusLabel(string $status): string
 {
     return ucfirst($status);
+}
+
+/**
+ * Summary label for grouped staff list (multiple registrations per person).
+ */
+function formatRegistrantStatusSummary(array $row): string
+{
+    $pending  = (int) ($row['pending_count'] ?? 0);
+    $approved = (int) ($row['approved_count'] ?? 0);
+    $rejected = (int) ($row['rejected_count'] ?? 0);
+    $total    = (int) ($row['registration_count'] ?? ($pending + $approved + $rejected));
+
+    if ($total <= 1) {
+        return formatStatusLabel((string) ($row['status'] ?? 'pending'));
+    }
+
+    $parts = [];
+    if ($approved > 0) {
+        $parts[] = $approved . ' approved';
+    }
+    if ($pending > 0) {
+        $parts[] = $pending . ' pending';
+    }
+    if ($rejected > 0) {
+        $parts[] = $rejected . ' rejected';
+    }
+
+    return $parts !== [] ? implode(', ', $parts) : formatStatusLabel((string) ($row['status'] ?? 'pending'));
+}
+
+/**
+ * Primary badge status for grouped staff row styling.
+ */
+function registrantPrimaryStatus(array $row): string
+{
+    if ((int) ($row['pending_count'] ?? 0) > 0) {
+        return 'pending';
+    }
+    if ((int) ($row['approved_count'] ?? 0) > 0) {
+        return 'approved';
+    }
+    if ((int) ($row['rejected_count'] ?? 0) > 0) {
+        return 'rejected';
+    }
+
+    return (string) ($row['status'] ?? 'pending');
 }
 
 function formatEventLabel(array $row): string
