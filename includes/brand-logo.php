@@ -96,6 +96,27 @@ function deleteCompanyLogoFile(PDO $pdo): void
 }
 
 /**
+ * Company logo on staff portal / app (header, hero, sign-in card). Falls back to theme icon.
+ */
+function renderStaffBrandLogo(?PDO $pdo, string $wrapperClass = 'staff-public-header__logo', string $assetBase = '', string $alt = ''): void
+{
+    $url     = getCompanyLogoUrl($pdo, $assetBase);
+    $altText = $alt !== '' ? $alt : ($pdo ? getSiteName($pdo) : 'Company logo');
+
+    if ($url !== '') {
+        echo '<span class="' . h($wrapperClass) . ' staff-brand-logo--has-image">';
+        echo '<img class="staff-brand-logo__img" src="' . h($url) . '" alt="' . h($altText) . '" decoding="async">';
+        echo '</span>';
+
+        return;
+    }
+
+    echo '<span class="' . h($wrapperClass) . ' brand-icon" aria-hidden="true">';
+    echo $pdo ? renderThemeBrandIcon($pdo) : renderThemeCategoryIcon('events');
+    echo '</span>';
+}
+
+/**
  * @param 'header'|'footer'|'hero' $variant
  */
 function renderSiteBrandLogo(?PDO $pdo, string $variant = 'header', string $assetBase = '', string $alt = ''): void

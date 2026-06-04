@@ -6,6 +6,7 @@ require_once __DIR__ . '/includes/staff-portal-session.php';
 require_once __DIR__ . '/includes/staff-onboarding.php';
 require_once __DIR__ . '/includes/staff-profile-gate.php';
 require_once __DIR__ . '/includes/public/staff-public-shell.php';
+require_once __DIR__ . '/includes/brand-logo.php';
 
 $pdo      = getDB();
 $siteName = getSiteName($pdo);
@@ -55,6 +56,9 @@ $themeColor = getThemeColor($pdo);
 
     <main class="login-page__wrap staff-public-main">
         <section class="card login-card staff-public-card">
+            <div class="staff-portal-card__logo-wrap">
+                <?php renderStaffBrandLogo($pdo, 'staff-portal-card__logo', $assetBase, $siteName); ?>
+            </div>
             <div class="card__header">
                 <h1 class="card__title">Staff profile portal</h1>
                 <p class="card__subtitle">Sign in with the email and date of birth you used when registering. You can update PSA licence photos, bank details, and address here.</p>

@@ -146,6 +146,36 @@
     color: #fff;
 }
 
+.staff-brand-logo--has-image {
+    background: #fff !important;
+    padding: 3px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.staff-brand-logo--has-image .staff-brand-logo__img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.staff-portal-card__logo-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 0.75rem;
+}
+
+.staff-portal-card__logo {
+    width: 64px;
+    height: 64px;
+    border-radius: 14px;
+}
+
+.staff-portal-card__logo.staff-brand-logo--has-image {
+    width: 72px;
+    height: 72px;
+}
+
 .staff-public-header__text {
     display: flex;
     flex-direction: column;

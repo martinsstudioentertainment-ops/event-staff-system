@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../theme.php';
+require_once __DIR__ . '/../brand-logo.php';
 
 /**
  * Animated mesh background for staff-facing pages.
@@ -44,9 +45,7 @@ function renderStaffPublicHeader(?PDO $pdo, string $siteName, array $opts = []):
     ?>
     <header class="staff-public-header">
         <a class="staff-public-header__brand" href="<?= h($homeUrl) ?>">
-            <span class="staff-public-header__logo brand-icon" aria-hidden="true">
-                <?= $pdo ? renderThemeBrandIcon($pdo) : renderThemeCategoryIcon('events') ?>
-            </span>
+            <?php renderStaffBrandLogo($pdo, 'staff-public-header__logo', '', $siteName); ?>
             <span class="staff-public-header__text">
                 <span class="staff-public-header__title"><?= h($siteName) ?></span>
                 <span class="staff-public-header__subtitle"><?= h($subtitle) ?></span>

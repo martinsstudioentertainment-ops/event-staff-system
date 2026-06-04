@@ -12,6 +12,7 @@ require_once __DIR__ . '/includes/i18n.php';
 
 require_once __DIR__ . '/includes/theme.php';
 require_once __DIR__ . '/includes/public/staff-public-shell.php';
+require_once __DIR__ . '/includes/brand-logo.php';
 require_once __DIR__ . '/includes/staff-profile-gate.php';
 require_once __DIR__ . '/includes/staff-portal-session.php';
 
@@ -99,7 +100,7 @@ if ($hour < 12) {
 
         <header class="staff-app__hero">
 
-            <div class="staff-app__logo brand-icon" aria-hidden="true"><?= renderThemeBrandIcon($pdo) ?></div>
+            <?php renderStaffBrandLogo($pdo, 'staff-app__logo', $assetBase, $siteName); ?>
 
             <p class="staff-app__greeting"><?= h($greeting) ?> <?= $emoji ?></p>
 
