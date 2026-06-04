@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/staff-profile-gate.php';
 require_once __DIR__ . '/../includes/financial-field-validation.php';
 require_once __DIR__ . '/../includes/site-urls.php';
 require_once __DIR__ . '/../includes/audit-log.php';
+require_once __DIR__ . '/../includes/staff-profile-email.php';
 
 requireAdminCapability('staff');
 
@@ -40,14 +41,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_profile_verific
     if (!verifyCsrf($_POST['csrf_token'] ?? null)) {
         setAdminFlash('error', 'Invalid CSRF token');
     } elseif (resetStaffProfileVerification($pdo, $staffId)) {
+        $staffEmail = (string) ($staff['email'] ?? '');
+        $emailed    = sendStaffProfileReverifyEmail($pdo, $staffId);
         logAdminAudit(
             $pdo,
             'staff_profile_reverify_reset',
             'staff',
             $staffId,
-            'Admin required staff to redo profile verification: ' . (string) ($staff['email'] ?? '')
+            'Admin required staff to redo profile verification: ' . $staffEmail
+                . ($emailed ? ' (email sent)' : ' (email failed)')
         );
-        setAdminFlash('success', 'Profile verification cancelled. Staff must update their profile again on next sign-in.');
+        if ($emailed) {
+            setAdminFlash('success', 'Verification cancelled. An email was sent to ' . $staffEmail . ' with links to update their profile.');
+        } else {
+            setAdminFlash(
+                'warning',
+                'Verification cancelled, but the email could not be sent. Use “Email profile update link” below or check SMTP settings.'
+            );
+        }
     } else {
         setAdminFlash('error', 'Could not reset profile verification.');
     }
@@ -188,7 +199,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <?php endif; ?>
                 <?php if ($canEdit && !$reverifyRequired && $profileComplete): ?>
                     <form method="post" class="staff-edit-reverify-form" style="margin-top:0.75rem;"
-                          onsubmit="return confirm('Require this staff member to update their profile again? They will need to confirm details and PSA photos on next sign-in.');">
+                          onsubmit="return confirm('Require this staff member to update their profile again? They will receive an email with sign-in links.');">
                         <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                         <input type="hidden" name="reset_profile_verification" value="1">
                         <button type="submit" class="btn btn--small btn--secondary">Cancel verification — require update</button>

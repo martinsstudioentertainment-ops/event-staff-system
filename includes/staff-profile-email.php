@@ -50,6 +50,46 @@ function sendStaffProfileUpdateLinkEmail(PDO $pdo, int $staffId): bool
 }
 
 /**
+ * Email when an admin cancels verification and staff must update their profile again.
+ */
+function sendStaffProfileReverifyEmail(PDO $pdo, int $staffId): bool
+{
+    $staff = getStaffById($pdo, $staffId);
+    if ($staff === null) {
+        return false;
+    }
+
+    $email = trim((string) ($staff['email'] ?? ''));
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return false;
+    }
+
+    $profileUrl = getStaffProfileUrl($pdo, $staffId);
+    $portalUrl  = getStaffPortalUrl($pdo);
+    $siteName   = getSiteName($pdo);
+    $firstName  = trim((string) ($staff['first_name'] ?? ''));
+
+    $subject = $siteName . ' — please update your staff profile again';
+
+    $text = "Dear {$firstName},\n\n"
+        . "Your coordinator has asked you to confirm your staff profile again (address, bank details, and PSA licence photos).\n\n"
+        . "Sign in with your email and date of birth:\n{$portalUrl}\n\n"
+        . "Or use your personal link:\n{$profileUrl}\n\n"
+        . getEmailShortFooter($pdo) . "\n\n— {$siteName}\n";
+
+    $esc = static fn (string $v): string => htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
+
+    $html = '<p>Dear ' . $esc($firstName !== '' ? $firstName : 'staff member') . ',</p>'
+        . '<p>Your coordinator has asked you to <strong>confirm your staff profile again</strong> — address, bank details, and PSA licence photos.</p>'
+        . '<p><strong>Sign in with email and date of birth:</strong><br><a href="' . $esc($portalUrl) . '">' . $esc($portalUrl) . '</a></p>'
+        . '<p><strong>Or use your personal link:</strong><br><a href="' . $esc($profileUrl) . '">' . $esc($profileUrl) . '</a></p>'
+        . '<p style="font-size:11px;color:#64748b;">' . $esc(getEmailShortFooter($pdo)) . '</p>'
+        . '<p>— ' . $esc($siteName) . '</p>';
+
+    return sendEmail($pdo, $email, $subject, $text, $html);
+}
+
+/**
  * @param array<int, int> $staffIds
  * @return array{sent: int, failed: int, skipped: int}
  */
