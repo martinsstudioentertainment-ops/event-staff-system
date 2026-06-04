@@ -862,6 +862,124 @@
     font-weight: 700;
 }
 
+/* — Staff profile form (portal) — */
+.staff-public-shell--event-ops .staff-public-card--profile {
+    background: linear-gradient(165deg, rgba(30, 27, 75, 0.97) 0%, rgba(30, 41, 59, 0.98) 100%);
+    border: 1px solid rgba(167, 139, 250, 0.35);
+    --staff-ink: #f1f5f9;
+    --staff-ink-muted: #cbd5e1;
+}
+
+.staff-profile-card__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.staff-profile-card__header .card__title {
+    margin: 0;
+    font-size: 1.35rem;
+    color: #fff;
+}
+
+.staff-profile-card__header .card__subtitle {
+    margin: 0.25rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--staff-ink-muted);
+    word-break: break-all;
+}
+
+.staff-profile-shell .staff-profile-alert {
+    margin-bottom: 1rem;
+    border-radius: 10px;
+}
+
+.staff-profile-shell .staff-profile-alert__missing {
+    margin: 0.5rem 0 0;
+    font-size: 0.8125rem;
+}
+
+.staff-profile-form {
+    display: grid;
+    gap: 0.75rem 1rem;
+    grid-template-columns: 1fr;
+}
+
+@media (min-width: 520px) {
+    .staff-profile-form {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.staff-profile-form .form-group--full {
+    grid-column: 1 / -1;
+}
+
+.staff-public-shell--event-ops .staff-profile-form .form-input,
+.staff-public-shell--event-ops .staff-profile-form .form-select,
+.staff-public-shell--event-ops .staff-profile-form textarea.form-input {
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    color: #f8fafc;
+}
+
+.staff-public-shell--event-ops .staff-profile-form .form-input:disabled {
+    background: rgba(15, 23, 42, 0.45);
+    color: #94a3b8;
+}
+
+.staff-public-shell--event-ops .staff-profile-form .form-input--file {
+    padding: 0.5rem;
+    font-size: 0.8125rem;
+}
+
+.staff-public-shell--event-ops .staff-profile-form .form-input:focus,
+.staff-public-shell--event-ops .staff-profile-form .form-select:focus,
+.staff-public-shell--event-ops .staff-profile-form textarea.form-input:focus {
+    border-color: var(--event-violet);
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.35);
+    background: rgba(15, 23, 42, 0.95);
+}
+
+.staff-public-shell--event-ops .staff-profile-form .form-label {
+    color: #e2e8f0;
+}
+
+.staff-public-shell--event-ops .staff-profile-form .form-hint {
+    color: #94a3b8;
+}
+
+.staff-public-shell--event-ops .staff-profile-form .form-hint a {
+    color: #a5b4fc;
+}
+
+.staff-profile-badge {
+    display: inline-block;
+    margin-left: 0.35rem;
+    padding: 0.1rem 0.45rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    background: rgba(251, 191, 36, 0.25);
+    color: #fde68a;
+    vertical-align: middle;
+}
+
+.staff-profile-form .form-actions {
+    margin-top: 0.5rem;
+}
+
+.staff-public-shell--event-ops .staff-profile-form .btn--primary {
+    background: linear-gradient(135deg, #7c3aed, #db2777);
+    border: none;
+    font-weight: 600;
+}
+
 /* CTA — bold event button */
 .staff-public-shell--event-ops .btn--primary {
     background: linear-gradient(105deg, #7c3aed 0%, #db2777 45%, #ea580c 100%);

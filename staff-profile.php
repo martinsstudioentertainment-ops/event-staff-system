@@ -116,49 +116,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $siteName = getSiteName($pdo);
+require_once __DIR__ . '/includes/public/staff-public-shell.php';
+require_once __DIR__ . '/includes/theme.php';
+$themeColor = getThemeColor($pdo);
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Staff Profile | <?= h($siteName) ?></title>
-    <link rel="stylesheet" href="assets/css/variables.css">
-    <link rel="stylesheet" href="assets/css/admin.css">
+    <?php include __DIR__ . '/includes/pwa-head.php'; ?>
 </head>
-<body class="staff-profile-page">
-    <div class="staff-profile-page__wrap">
-        <div class="card">
-            <div class="card__header card__header--row">
+<body class="staff-public-shell staff-public-shell--event-ops staff-public-shell--narrow login-page staff-mobile-page staff-profile-shell">
+    <?php renderStaffPublicBackground(true); ?>
+    <?php renderStaffPublicHeader($pdo, $siteName, ['home_url' => 'staff-app.php']); ?>
+
+    <main class="login-page__wrap staff-public-main">
+        <section class="card login-card staff-public-card staff-public-card--profile">
+            <div class="card__header staff-profile-card__header">
                 <div>
-                    <h2 class="card__title">Staff Profile</h2>
-                    <p class="card__subtitle"><?= h((string) $staff['email']) ?> — update your personal information</p>
+                    <h1 class="card__title">Staff profile</h1>
+                    <p class="card__subtitle"><?= h((string) $staff['email']) ?></p>
                 </div>
                 <a href="staff-profile.php?logout=1" class="btn btn--small btn--secondary">Sign out</a>
             </div>
 
             <?php if (!$profileComplete): ?>
-                <div class="alert alert--error alert--visible">
-                    <strong>Profile incomplete</strong><br>
-                    Complete all fields below before you can view registration status or check in.
+                <div class="alert alert--error alert--visible staff-profile-alert">
+                    <strong>Profile incomplete</strong>
+                    <p>Complete all fields before you can view registration status or check in.</p>
                     <?php if ($missingFields !== []): ?>
-                        <br><br>Still needed: <?= h(implode(', ', $missingFields)) ?>
+                        <p class="staff-profile-alert__missing"><strong>Still needed:</strong> <?= h(implode(', ', $missingFields)) ?></p>
                     <?php endif; ?>
                 </div>
             <?php endif; ?>
 
             <?php if ($flash): ?>
-                <div class="alert alert--<?= h($flash['type']) ?> alert--visible">
+                <div class="alert alert--<?= h($flash['type']) ?> alert--visible staff-profile-alert">
                     <?= h($flash['message']) ?>
                 </div>
             <?php endif; ?>
 
-        <form method="post" enctype="multipart/form-data" class="form-grid">
-            <div class="form-group form-group--full">
-                <h3 class="form-section-title">Personal Information</h3>
+            <form method="post" enctype="multipart/form-data" class="form-grid staff-profile-form">
+                <h3 class="form-section-title form-group--full">Personal information</h3>
 
                 <div class="form-group">
-                    <label class="form-label">First Name</label>
+                    <label class="form-label">First name</label>
                     <input type="text" name="first_name" class="form-input" value="<?= h((string) $staff['first_name']) ?>" required>
                 </div>
 
@@ -167,10 +171,10 @@ $siteName = getSiteName($pdo);
                     <input type="text" name="surname" class="form-input" value="<?= h((string) $staff['surname']) ?>" required>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">Email (cannot be changed)</label>
+                <div class="form-group form-group--full">
+                    <label class="form-label">Email</label>
                     <input type="email" class="form-input" value="<?= h((string) $staff['email']) ?>" disabled>
-                    <p class="form-hint">Email is used for identification and cannot be changed.</p>
+                    <p class="form-hint">Cannot be changed — used when you sign in.</p>
                 </div>
 
                 <div class="form-group">
@@ -184,11 +188,11 @@ $siteName = getSiteName($pdo);
                         <input type="date" name="date_of_birth" class="form-input" required>
                     <?php else: ?>
                         <input type="date" class="form-input" value="<?= h((string) $staff['date_of_birth']) ?>" disabled>
-                        <p class="form-hint">Date of birth cannot be changed after it is saved.</p>
+                        <p class="form-hint">Locked after first save.</p>
                     <?php endif; ?>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group form-group--full">
                     <label class="form-label">Gender</label>
                     <select name="gender" class="form-select" required>
                         <option value="male" <?= $staff['gender'] === 'male' ? 'selected' : '' ?>>Male</option>
@@ -197,27 +201,23 @@ $siteName = getSiteName($pdo);
                         <option value="prefer_not_to_say" <?= $staff['gender'] === 'prefer_not_to_say' ? 'selected' : '' ?>>Prefer not to say</option>
                     </select>
                 </div>
-            </div>
-            
-            <div class="form-group form-group--full">
-                <h3 class="form-section-title">Address</h3>
-                
-                <div class="form-group">
-                    <label class="form-label">Full Address</label>
+
+                <h3 class="form-section-title form-group--full">Address</h3>
+
+                <div class="form-group form-group--full">
+                    <label class="form-label">Full address</label>
                     <textarea name="full_address" class="form-input" rows="3" required><?= h((string) $staff['full_address']) ?></textarea>
                 </div>
-                
+
                 <div class="form-group">
                     <label class="form-label">Eircode</label>
                     <input type="text" name="eircode" class="form-input" value="<?= h((string) $staff['eircode']) ?>" required>
                 </div>
-            </div>
-            
-            <div class="form-group form-group--full">
-                <h3 class="form-section-title">Financial Information</h3>
+
+                <h3 class="form-section-title form-group--full">Financial information</h3>
 
                 <div class="form-group">
-                    <label class="form-label">PPS Number</label>
+                    <label class="form-label">PPS number</label>
                     <input type="text" name="pps_number" class="form-input" value="<?= h((string) $staff['pps_number']) ?>" required>
                 </div>
 
@@ -225,45 +225,42 @@ $siteName = getSiteName($pdo);
                     <label class="form-label">Bank IBAN</label>
                     <input type="text" name="bank_iban" class="form-input" value="<?= h((string) $staff['bank_iban']) ?>" required>
                 </div>
-            </div>
 
-            <div class="form-group form-group--full">
-                <h3 class="form-section-title">PSA Licence Information <span class="badge badge--pending">Required</span></h3>
+                <h3 class="form-section-title form-group--full">PSA licence <span class="staff-profile-badge">Required</span></h3>
 
                 <div class="form-group">
-                    <label class="form-label">PSA Licence Number</label>
+                    <label class="form-label">Licence number</label>
                     <input type="text" name="psa_licence" class="form-input" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>" required>
-                    <p class="form-hint">Your PSA licence number is required for security work.</p>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">PSA Expiry Date</label>
+                    <label class="form-label">Expiry date</label>
                     <input type="date" name="psa_expiry_date" class="form-input" value="<?= h((string) ($staff['psa_expiry_date'] ?? '')) ?>" required>
-                    <p class="form-hint">When does your PSA licence expire?</p>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">PSA Licence Front Image</label>
-                    <input type="file" name="psa_front_image" class="form-input" accept="image/*" <?= empty($staff['psa_front_image']) ? 'required' : '' ?>>
+                    <label class="form-label">Front of licence</label>
+                    <input type="file" name="psa_front_image" class="form-input form-input--file" accept="image/*" <?= empty($staff['psa_front_image']) ? 'required' : '' ?>>
                     <?php if (!empty($staff['psa_front_image'])): ?>
-                        <p class="form-hint">Current: <a href="<?= h($staff['psa_front_image']) ?>" target="_blank">View image</a></p>
+                        <p class="form-hint"><a href="<?= h($staff['psa_front_image']) ?>" target="_blank" rel="noopener">View current image</a></p>
                     <?php endif; ?>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">PSA Licence Back Image</label>
-                    <input type="file" name="psa_back_image" class="form-input" accept="image/*" <?= empty($staff['psa_back_image']) ? 'required' : '' ?>>
+                    <label class="form-label">Back of licence</label>
+                    <input type="file" name="psa_back_image" class="form-input form-input--file" accept="image/*" <?= empty($staff['psa_back_image']) ? 'required' : '' ?>>
                     <?php if (!empty($staff['psa_back_image'])): ?>
-                        <p class="form-hint">Current: <a href="<?= h($staff['psa_back_image']) ?>" target="_blank">View image</a></p>
+                        <p class="form-hint"><a href="<?= h($staff['psa_back_image']) ?>" target="_blank" rel="noopener">View current image</a></p>
                     <?php endif; ?>
                 </div>
-            </div>
 
-            <div class="form-group form-group--full form-actions form-actions--end">
-                <button type="submit" class="btn btn--primary">Save changes</button>
-            </div>
-        </form>
-        </div>
-    </div>
+                <div class="form-group form-group--full form-actions">
+                    <button type="submit" class="btn btn--primary btn--block">Save changes</button>
+                </div>
+            </form>
+
+            <p class="login-card__hint"><a href="staff-app.php">← Staff app home</a></p>
+        </section>
+    </main>
 </body>
 </html>
