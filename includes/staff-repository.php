@@ -603,3 +603,67 @@ function findOrCreateStaff(PDO $pdo, array $data): int
 
     return (int) $pdo->lastInsertId();
 }
+
+/**
+ * Get all staff members from the staff table.
+ * @return array<int, array<string, mixed>>
+ */
+function getAllStaff(PDO $pdo): array
+{
+    try {
+        $stmt = $pdo->query(
+            'SELECT s.*, 
+                    (SELECT COUNT(*) FROM staff_registrations sr WHERE sr.staff_id = s.id) as registration_count,
+                    (SELECT COUNT(*) FROM staff_registrations sr WHERE sr.staff_id = s.id AND sr.status = "approved") as approved_count
+             FROM staff s
+             ORDER BY s.surname ASC, s.first_name ASC'
+        );
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        // Staff table might not exist yet (migration not run)
+        error_log('[EventStaff] getAllStaff: ' . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get staff members with filters.
+ * @param array<string, mixed> $filters
+ * @return array<int, array<string, mixed>>
+ */
+function getStaffWithFilters(PDO $pdo, array $filters): array
+{
+    try {
+        $where = ['1=1'];
+        $params = [];
+
+        if (!empty($filters['q'])) {
+            $where[] = '(s.surname LIKE :q OR s.first_name LIKE :q OR s.email LIKE :q OR s.mobile LIKE :q)';
+            $params['q'] = '%' . $filters['q'] . '%';
+        }
+
+        if (!empty($filters['role']) && in_array($filters['role'], ['dsp', 'static', 'steward'], true)) {
+            $where[] = 's.staff_role = :role';
+            $params['role'] = $filters['role'];
+        }
+
+        if (isset($filters['blacklisted'])) {
+            $where[] = 's.is_blacklisted = :blacklisted';
+            $params['blacklisted'] = $filters['blacklisted'] ? 1 : 0;
+        }
+
+        $sql = 'SELECT s.*, 
+                       (SELECT COUNT(*) FROM staff_registrations sr WHERE sr.staff_id = s.id) as registration_count,
+                       (SELECT COUNT(*) FROM staff_registrations sr WHERE sr.staff_id = s.id AND sr.status = "approved") as approved_count
+                FROM staff s
+                WHERE ' . implode(' AND ', $where) . '
+                ORDER BY s.surname ASC, s.first_name ASC';
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log('[EventStaff] getStaffWithFilters: ' . $e->getMessage());
+        return [];
+    }
+}

@@ -72,6 +72,7 @@ function getAdminSidebarSections(): array
             'items'   => [
                 ['key' => 'dashboard', 'label' => 'Dashboard', 'url' => 'dashboard.php', 'icon' => 'dashboard', 'cap' => 'dashboard'],
                 ['key' => 'staff', 'label' => 'Staff', 'url' => 'staff.php', 'icon' => 'staff', 'cap' => 'staff'],
+                ['key' => 'staff-directory', 'label' => 'Staff Directory', 'url' => 'staff-directory.php', 'icon' => 'staff', 'cap' => 'staff'],
                 ['key' => 'blacklist', 'label' => 'Blacklist', 'url' => 'blacklist.php', 'icon' => 'staff', 'cap' => 'staff'],
                 ['key' => 'events', 'label' => 'Events', 'url' => 'events.php', 'icon' => 'events', 'cap' => 'events'],
                 ['key' => 'venues', 'label' => 'Venues', 'url' => 'venues.php', 'icon' => 'events', 'cap' => 'events'],
@@ -110,16 +111,17 @@ function isAdminSidebarLinkActive(string $key, string $activePage): bool
     }
 
     return match ($key) {
-        'export'      => str_starts_with($activePage, 'export'),
-        'settings'    => str_starts_with($activePage, 'settings') || $activePage === 'backups' || $activePage === 'go-live'
+        'export'           => str_starts_with($activePage, 'export'),
+        'settings'         => str_starts_with($activePage, 'settings') || $activePage === 'backups' || $activePage === 'go-live'
             || ($activePage === 'website-global' && (($_GET['panel'] ?? '') !== 'cms')),
-        'go-live'     => $activePage === 'go-live',
-        'website'     => str_starts_with($activePage, 'website') || ($activePage === 'website-global' && (($_GET['panel'] ?? '') === 'cms')),
-        'staff'       => $activePage === 'staff' || $activePage === 'blacklist',
-        'blacklist'   => $activePage === 'blacklist',
-        'venues'      => $activePage === 'venues',
-        'work-hours'  => $activePage === 'work-hours',
-        'invoices'    => $activePage === 'invoices' || str_starts_with($activePage, 'invoice'),
-        default       => false,
+        'go-live'          => $activePage === 'go-live',
+        'website'          => str_starts_with($activePage, 'website') || ($activePage === 'website-global' && (($_GET['panel'] ?? '') === 'cms')),
+        'staff'            => $activePage === 'staff' || $activePage === 'blacklist',
+        'staff-directory'  => $activePage === 'staff-directory',
+        'blacklist'        => $activePage === 'blacklist',
+        'venues'           => $activePage === 'venues',
+        'work-hours'       => $activePage === 'work-hours',
+        'invoices'         => $activePage === 'invoices' || str_starts_with($activePage, 'invoice'),
+        default            => false,
     };
 }
