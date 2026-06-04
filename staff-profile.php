@@ -243,18 +243,18 @@ $themeColor = getThemeColor($pdo);
                 <h3 class="form-section-title form-group--full">PSA licence <span class="staff-profile-badge">Required</span></h3>
 
                 <div class="form-group">
-                    <label class="form-label">Licence number</label>
+                    <label class="form-label">PSA licence number</label>
                     <input type="text" name="psa_licence" id="psa_licence" class="form-input" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>" placeholder="EM12345/67" autocomplete="off" autocapitalize="characters" pattern="EM[0-9]{5}/[0-9]{2}" required>
                     <p class="form-hint">Format EM00000/00 as on your PSA card.</p>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Expiry date</label>
+                    <label class="form-label">PSA expiry date</label>
                     <input type="date" name="psa_expiry_date" class="form-input" value="<?= h((string) ($staff['psa_expiry_date'] ?? '')) ?>" required>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Front of licence</label>
+                    <label class="form-label">PSA card — front photo</label>
                     <input type="file" name="psa_front_image" class="form-input form-input--file" accept="image/*" <?= empty($staff['psa_front_image']) ? 'required' : '' ?>>
                     <?php if (!empty($staff['psa_front_image'])): ?>
                         <p class="form-hint"><a href="<?= h($staff['psa_front_image']) ?>" target="_blank" rel="noopener">View current image</a></p>
@@ -262,7 +262,7 @@ $themeColor = getThemeColor($pdo);
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Back of licence</label>
+                    <label class="form-label">PSA card — back photo</label>
                     <input type="file" name="psa_back_image" class="form-input form-input--file" accept="image/*" <?= empty($staff['psa_back_image']) ? 'required' : '' ?>>
                     <?php if (!empty($staff['psa_back_image'])): ?>
                         <p class="form-hint"><a href="<?= h($staff['psa_back_image']) ?>" target="_blank" rel="noopener">View current image</a></p>

@@ -21,8 +21,8 @@ function getStaffOnboardingRequiredFields(): array
         'bank_iban'        => 'Bank IBAN',
         'psa_licence'      => 'PSA licence number',
         'psa_expiry_date'  => 'PSA expiry date',
-        'psa_front_image'  => 'PSA front image',
-        'psa_back_image'   => 'PSA back image',
+        'psa_front_image'  => 'PSA card front photo',
+        'psa_back_image'   => 'PSA card back photo',
     ];
 }
 
