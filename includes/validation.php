@@ -266,7 +266,8 @@ function getInvalidEventIds(PDO $pdo, array $eventIds): array
 
     foreach ($eventIds as $eventId) {
         $event = getEventById($pdo, $eventId);
-        if ($event === null || !isEventOpenForRegistration($event)) {
+        require_once __DIR__ . '/event-capacity.php';
+        if ($event === null || !isEventAvailableForStaffRegistration($pdo, $event)) {
             $invalid[] = $eventId;
         }
     }

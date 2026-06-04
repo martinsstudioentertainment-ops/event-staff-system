@@ -106,7 +106,7 @@ if (empty($errors)) {
 
         if ($invalidIds !== []) {
 
-            $errors['event_ids'] = 'One or more selected shifts are no longer open for registration (event finished or date passed).';
+            $errors['event_ids'] = 'One or more selected shifts are no longer open (event finished, full, or date passed).';
 
         } else {
 

@@ -11,6 +11,7 @@ require_once __DIR__ . '/work-types-repository.php';
 require_once __DIR__ . '/google-sheets-schema.php';
 require_once __DIR__ . '/event-times-schema.php';
 require_once __DIR__ . '/event-main-security-schema.php';
+require_once __DIR__ . '/event-capacity.php';
 
 /**
  * Normalize event_date from DB (DATE or DATETIME) to Y-m-d.
@@ -80,7 +81,10 @@ function getEventsOpenForRegistration(PDO $pdo): array
     $sql = 'SELECT * FROM events WHERE is_active = 1 AND event_date >= CURDATE() ORDER BY event_date ASC, name ASC';
     $rows = $pdo->query($sql)->fetchAll() ?: [];
 
-    return array_values(array_filter($rows, static fn(array $row): bool => isEventOpenForRegistration($row)));
+    return array_values(array_filter(
+        $rows,
+        static fn(array $row): bool => isEventAvailableForStaffRegistration($pdo, $row)
+    ));
 }
 
 function countAllEvents(PDO $pdo): int
@@ -98,7 +102,10 @@ function getAllEvents(PDO $pdo, ?int $limit = null, int $offset = 0): array
     ensureVenuesSchema($pdo);
     ensureGoogleSheetsSchema($pdo);
 
-    $sql = 'SELECT e.*, v.name AS venue_name, COUNT(sr.id) AS registration_count
+    $sql = 'SELECT e.*, v.name AS venue_name,
+                   COUNT(sr.id) AS registration_count,
+                   SUM(CASE WHEN sr.status = \'approved\' THEN 1 ELSE 0 END) AS approved_count,
+                   SUM(CASE WHEN sr.status IN (\'approved\', \'pending\') THEN 1 ELSE 0 END) AS filled_count
             FROM events e
             LEFT JOIN venues v ON v.id = e.venue_id
             LEFT JOIN staff_registrations sr ON sr.event_id = e.id

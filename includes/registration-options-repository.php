@@ -3,6 +3,7 @@
 require_once __DIR__ . '/venues-repository.php';
 require_once __DIR__ . '/registration-forms.php';
 require_once __DIR__ . '/events-repository.php';
+require_once __DIR__ . '/event-capacity.php';
 
 /**
  * Active events + venues for a registration form (venue-first UI).
@@ -42,7 +43,7 @@ function getRegistrationOptionsForForm(PDO $pdo, string $formSlug): array
     $unassigned      = [];
 
     foreach ($events as $event) {
-        if (!isEventOpenForRegistration($event)) {
+        if (!isEventAvailableForStaffRegistration($pdo, $event)) {
             continue;
         }
 
@@ -138,7 +139,7 @@ function fetchRegistrationEvents(PDO $pdo, array $workTypes, string $staffRole):
     return array_values(array_filter(
         $rows,
         static fn(array $row): bool => eventAcceptsStaffRole($row, $staffRole)
-            && isEventOpenForRegistration($row)
+            && isEventAvailableForStaffRegistration($pdo, $row)
     ));
 }
 
@@ -213,7 +214,7 @@ function getIneligibleEventIdsForForm(PDO $pdo, array $eventIds, array $form): a
             continue;
         }
 
-        if (!isEventOpenForRegistration($event)) {
+        if (!isEventAvailableForStaffRegistration($pdo, $event)) {
             $invalid[] = $eventId;
             continue;
         }

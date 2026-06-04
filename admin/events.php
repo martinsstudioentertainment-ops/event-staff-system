@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/venues-repository.php';
 require_once __DIR__ . '/../includes/google-sheets-sync.php';
 require_once __DIR__ . '/../includes/live-events-sync.php';
 require_once __DIR__ . '/../includes/admin-pagination.php';
+require_once __DIR__ . '/../includes/event-capacity.php';
 
 requireAdminCapability('events');
 
@@ -65,7 +66,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     <div class="card__header card__header--row">
         <div>
             <h2 class="card__title">Events</h2>
-            <p class="card__subtitle"><?= (int) $totalEvents ?> event(s) — active events appear on the registration form.</p>
+            <p class="card__subtitle"><?= (int) $totalEvents ?> event(s) — active events with free slots appear on the registration form. Full events stay active here until you increase staff needed.</p>
         </div>
         <div class="toolbar">
             <a href="event-form.php" class="btn btn--primary">+ Add Event</a>
@@ -219,7 +220,20 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                             <td><?= h((string) ($event['venue_name'] ?? '—')) ?></td>
                             <td><?= h(formatWorkTypeLabel((string) ($event['work_type'] ?? 'special_event'))) ?></td>
                             <td><?= h(formatEventLocationLabel($event)) ?></td>
-                            <td><?= isset($event['staff_needed']) && $event['staff_needed'] !== null && $event['staff_needed'] !== '' ? (int) $event['staff_needed'] : '—' ?></td>
+                            <td>
+                                <?php
+                                $capacity = getEventCapacitySummary($pdo, $event);
+                                if ($capacity['needed'] === null): ?>
+                                    —
+                                <?php else: ?>
+                                    <?= h(formatEventCapacityAdminLabel($pdo, $event)) ?>
+                                    <?php if ($capacity['is_full']): ?>
+                                        <br><span class="badge badge--pending">Full</span>
+                                    <?php elseif ($capacity['remaining'] !== null && $capacity['remaining'] <= 3): ?>
+                                        <br><span class="form-hint"><?= (int) $capacity['remaining'] ?> slot<?= $capacity['remaining'] === 1 ? '' : 's' ?> left</span>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+                            </td>
                             <td class="events-sheet-cell">
                                 <?php if ($sheetUrl !== ''): ?>
                                     <a href="<?= h($sheetUrl) ?>" target="_blank" rel="noopener" class="badge badge--approved" title="Open Google Sheet">Linked ↗</a>
@@ -247,6 +261,9 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                             <td>
                                 <?php if ((int) $event['is_active'] === 1): ?>
                                     <span class="badge badge--approved">Active</span>
+                                    <?php if ($capacity['is_full'] ?? false): ?>
+                                        <br><span class="badge badge--pending" title="Hidden from staff registration until you increase staff needed">Hidden from registration</span>
+                                    <?php endif; ?>
                                 <?php else: ?>
                                     <span class="badge badge--rejected">Inactive</span>
                                 <?php endif; ?>
