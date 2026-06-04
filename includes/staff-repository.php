@@ -667,3 +667,85 @@ function getStaffWithFilters(PDO $pdo, array $filters): array
         return [];
     }
 }
+
+/**
+ * Get staff by profile token.
+ * @return array<string, mixed>|null
+ */
+function getStaffByProfileToken(PDO $pdo, string $token): ?array
+{
+    $token = trim($token);
+    if ($token === '') {
+        return null;
+    }
+
+    try {
+        $stmt = $pdo->prepare('SELECT * FROM staff WHERE profile_token = :token LIMIT 1');
+        $stmt->execute(['token' => $token]);
+        $row = $stmt->fetch();
+    } catch (PDOException $e) {
+        error_log('[EventStaff] getStaffByProfileToken: ' . $e->getMessage());
+        return null;
+    }
+
+    return $row ?: null;
+}
+
+/**
+ * Generate or regenerate profile token for a staff member.
+ * @return string
+ */
+function generateStaffProfileToken(PDO $pdo, int $staffId): string
+{
+    $staff = getStaffById($pdo, $staffId);
+    if (!$staff) {
+        throw new InvalidArgumentException('Staff not found');
+    }
+
+    $token = bin2hex(random_bytes(32));
+    
+    $stmt = $pdo->prepare('UPDATE staff SET profile_token = :token WHERE id = :id');
+    $stmt->execute(['token' => $token, 'id' => $staffId]);
+    
+    return $token;
+}
+
+/**
+ * Update staff information (public profile update).
+ * Does not allow changing email or date_of_birth.
+ * @param array<string, mixed> $data
+ * @return bool
+ */
+function updateStaffProfile(PDO $pdo, int $staffId, array $data): bool
+{
+    $allowedFields = [
+        'surname', 'first_name', 'full_address', 'eircode',
+        'location_lat', 'location_lng', 'mobile', 'gender',
+        'pps_number', 'bank_iban', 'staff_role'
+    ];
+
+    $updates = [];
+    $params = ['id' => $staffId];
+
+    foreach ($allowedFields as $field) {
+        if (isset($data[$field])) {
+            $updates[] = "$field = :$field";
+            $params[$field] = $data[$field];
+        }
+    }
+
+    if ($updates === []) {
+        return false;
+    }
+
+    $sql = 'UPDATE staff SET ' . implode(', ', $updates) . ', updated_at = CURRENT_TIMESTAMP WHERE id = :id';
+    
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        error_log('[EventStaff] updateStaffProfile: ' . $e->getMessage());
+        return false;
+    }
+}

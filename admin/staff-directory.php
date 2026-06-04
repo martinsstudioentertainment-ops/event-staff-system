@@ -86,11 +86,11 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                         <th>Name</th>
                         <th>Email</th>
                         <th>Mobile</th>
+                        <th>Address</th>
                         <th>Role</th>
                         <th>Registrations</th>
                         <th>Approved</th>
                         <th>Status</th>
-                        <th>Created</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -98,10 +98,16 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                     <?php foreach ($staffList as $staff): ?>
                         <tr>
                             <td>
-                                <?= h(trim((string) ($staff['first_name'] ?? '') . ' ' . ($staff['surname'] ?? ''))) ?>
+                                <strong><?= h(trim((string) ($staff['first_name'] ?? '') . ' ' . ($staff['surname'] ?? ''))) ?></strong>
                             </td>
                             <td><?= h((string) $staff['email']) ?></td>
                             <td><?= h((string) ($staff['mobile'] ?? '—')) ?></td>
+                            <td>
+                                <?= h((string) ($staff['full_address'] ?? '')) ?>
+                                <?php if ($staff['eircode']): ?>
+                                    <br><small><?= h((string) $staff['eircode']) ?></small>
+                                <?php endif; ?>
+                            </td>
                             <td>
                                 <span class="badge badge--<?= $staff['staff_role'] === 'dsp' ? 'approved' : ($staff['staff_role'] === 'static' ? 'pending' : 'rejected') ?>">
                                     <?= h(formatStaffRoleLabel((string) $staff['staff_role'])) ?>
@@ -119,9 +125,9 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                                     <span class="badge badge--approved">Active</span>
                                 <?php endif; ?>
                             </td>
-                            <td><?= h(date('d.m.Y', strtotime((string) $staff['created_at']))) ?></td>
                             <td class="table-actions">
-                                <a href="staff.php?q=<?= h((string) $staff['email']) ?>" class="btn btn--small btn--secondary">View Registrations</a>
+                                <a href="staff-edit.php?id=<?= (int) $staff['id'] ?>" class="btn btn--small btn--primary">Edit</a>
+                                <a href="staff.php?q=<?= h((string) $staff['email']) ?>" class="btn btn--small btn--secondary">Registrations</a>
                             </td>
                         </tr>
                     <?php endforeach; ?>
