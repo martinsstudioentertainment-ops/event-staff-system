@@ -140,8 +140,10 @@ function getStaffOnboardingRedirectUrl(PDO $pdo, string $email): ?string
 function validateStaffOnboardingPost(array $post, array $staff, array $files = []): array
 {
     require_once __DIR__ . '/staff-psa.php';
+    require_once __DIR__ . '/phone-numbers.php';
 
     $errors = [];
+    prepareMobileFromRequest($post);
     $data   = [
         'first_name'      => trim((string) ($post['first_name'] ?? '')),
         'surname'         => trim((string) ($post['surname'] ?? '')),
@@ -175,6 +177,11 @@ function validateStaffOnboardingPost(array $post, array $staff, array $files = [
 
     require_once __DIR__ . '/financial-field-validation.php';
     $errors = array_merge($errors, validateFinancialStaffFields($data, true));
+
+    $mobileError = validateMobileNumber((string) ($data['mobile'] ?? ''));
+    if ($mobileError !== null) {
+        $errors['mobile'] = $mobileError;
+    }
 
     return $errors;
 }

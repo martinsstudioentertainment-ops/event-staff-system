@@ -38,6 +38,7 @@ function getDatabaseMigrationFiles(): array
         'migrate-phase32-event-times-confirmed.sql',
         'migrate-phase33-event-main-security.sql',
         'migrate-phase34-work-types.sql',
+        'migrate-phase43-notification-center.sql',
     ];
 }
 

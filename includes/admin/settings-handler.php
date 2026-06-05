@@ -55,8 +55,12 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
                 'company_email'          => trim((string) ($_POST['company_email'] ?? '')),
                 'company_phone'          => trim((string) ($_POST['company_phone'] ?? '')),
                 'company_whatsapp'       => trim((string) ($_POST['company_whatsapp'] ?? '')),
-                'company_whatsapp_group' => trim((string) ($_POST['company_whatsapp_group'] ?? '')),
-                'company_about'          => trim((string) ($_POST['company_about'] ?? '')),
+                'company_whatsapp_group'       => trim((string) ($_POST['company_whatsapp_group'] ?? '')),
+                'company_whatsapp_group_label' => trim((string) ($_POST['company_whatsapp_group_label'] ?? '')),
+                'company_whatsapp_group_hint'  => trim((string) ($_POST['company_whatsapp_group_hint'] ?? '')),
+                'notify_admin_on_registration' => isset($_POST['notify_admin_on_registration']) ? '1' : '0',
+                'notify_admin_email'           => trim((string) ($_POST['notify_admin_email'] ?? '')),
+                'company_about'                => trim((string) ($_POST['company_about'] ?? '')),
             ]);
             saveSettings($pdo, $toSave);
             $settings = getAllSettings($pdo);

@@ -6,3 +6,6 @@
  * or leave unset on both hosts and rely on matching DB_NAME + DB_PASS hash.
  */
 define('APPLY_SSO_SECRET', 'CHANGE_ME_TO_A_LONG_RANDOM_STRING');
+
+// Optional — override auto-generated cron key for /admin/cron/sync-payroll.php
+// return ['cron_key' => 'your-long-random-cron-key'];

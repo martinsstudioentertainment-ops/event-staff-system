@@ -77,6 +77,7 @@ function getAdminSidebarSections(): array
             'section' => 'Operations',
             'items'   => [
                 ['key' => 'dashboard', 'label' => 'Dashboard', 'url' => 'dashboard.php', 'icon' => 'dashboard', 'cap' => 'dashboard'],
+                ['key' => 'notifications', 'label' => 'Notifications', 'url' => 'notifications.php', 'icon' => 'bell', 'cap' => 'dashboard'],
                 ['key' => 'staff', 'label' => 'Staff', 'url' => 'staff.php', 'icon' => 'staff', 'cap' => 'staff'],
                 ['key' => 'staff-directory', 'label' => 'Staff Directory', 'url' => 'staff-directory.php', 'icon' => 'staff', 'cap' => 'staff'],
                 ['key' => 'blacklist', 'label' => 'Blacklist', 'url' => 'blacklist.php', 'icon' => 'staff', 'cap' => 'staff'],

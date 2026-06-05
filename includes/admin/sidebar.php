@@ -4,7 +4,9 @@ require_once __DIR__ . '/nav-icons.php';
 
 require_once __DIR__ . '/../admin-capabilities.php';
 
+require_once __DIR__ . '/../notification-center.php';
 
+$adminNotifUnread = adminCan('dashboard') ? countUnreadAdminNotifications($pdo) : 0;
 
 $adminInitials = getAdminUserInitials($adminUser ?? null);
 
@@ -62,7 +64,17 @@ $adminRole     = formatAdminRoleLabel(getAdminRole());
 
                     <span class="sidebar__link-icon"><?= renderAdminNavIcon($item['icon']) ?></span>
 
-                    <?= h($item['label']) ?>
+                    <span class="sidebar__link-label">
+                        <?= h($item['label']) ?>
+                        <?php if ($item['key'] === 'notifications'): ?>
+                            <span
+                                class="sidebar__link-badge"
+                                data-admin-notif-badge
+                                <?= $adminNotifUnread > 0 ? '' : ' hidden' ?>
+                                aria-label="<?= (int) $adminNotifUnread ?> unread notifications"
+                            ><?= $adminNotifUnread > 99 ? '99+' : (int) $adminNotifUnread ?></span>
+                        <?php endif; ?>
+                    </span>
 
                 </a>
 

@@ -10,10 +10,13 @@ require_once __DIR__ . '/../includes/site-urls.php';
 require_once __DIR__ . '/../includes/audit-log.php';
 require_once __DIR__ . '/../includes/staff-profile-email.php';
 require_once __DIR__ . '/../includes/staff-psa.php';
+require_once __DIR__ . '/../includes/phone-numbers.php';
+require_once __DIR__ . '/../includes/components/phone-input.php';
 
 requireAdminCapability('staff');
 
 $pdo = getDB();
+$defaultPhoneCountry = resolvePhoneCountryIsoFromRequest($pdo);
 $staffId = (int) ($_GET['id'] ?? 0);
 $canEdit = isAdminSuperUser();
 
@@ -77,6 +80,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit && !isset($_POST['reset_pr
             setAdminFlash('error', implode(' ', $fieldErrors));
         } else {
         try {
+            prepareMobileFromRequest($_POST);
+            $mobileNormalized = trim((string) ($_POST['mobile'] ?? ''));
+            if ($mobileNormalized !== '') {
+                $mobileError = validateMobileNumber($mobileNormalized);
+                if ($mobileError !== null) {
+                    throw new InvalidArgumentException($mobileError);
+                }
+            }
+
             $dob = trim((string) ($_POST['date_of_birth'] ?? ''));
             if ($dob !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob)) {
                 throw new InvalidArgumentException('Enter a valid date of birth.');
@@ -111,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit && !isset($_POST['reset_pr
                 'eircode'       => trim((string) ($_POST['eircode'] ?? '')),
                 'location_lat'  => trim((string) ($_POST['location_lat'] ?? '')) !== '' ? (float) $_POST['location_lat'] : null,
                 'location_lng'  => trim((string) ($_POST['location_lng'] ?? '')) !== '' ? (float) $_POST['location_lng'] : null,
-                'mobile'        => trim((string) ($_POST['mobile'] ?? '')),
+                'mobile'        => $mobileNormalized,
                 'gender'        => trim((string) ($_POST['gender'] ?? 'prefer_not_to_say')),
                 'pps_number'    => trim((string) ($_POST['pps_number'] ?? '')),
                 'bank_iban'     => normalizeBankIban((string) ($_POST['bank_iban'] ?? '')),
@@ -263,8 +275,15 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         </div>
 
         <div class="form-group">
-            <label class="form-label">Mobile</label>
-            <input type="tel" name="mobile" class="form-input" value="<?= h((string) $staff['mobile']) ?>"<?= $readonlyAttr ?>>
+            <label class="form-label" for="mobile_national">Mobile</label>
+            <?php renderPhoneInputField([
+                'id'         => 'mobile',
+                'value'      => (string) ($staff['mobile'] ?? ''),
+                'defaultIso' => $defaultPhoneCountry,
+                'required'   => false,
+                'readonly'   => !$canEdit,
+                'hint'       => '',
+            ]); ?>
         </div>
 
         <div class="form-group">
@@ -439,6 +458,28 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <a href="staff-directory.php" class="btn btn--secondary">Back to directory</a>
         <?php endif; ?>
     </div>
+
+    <?php if ($canEdit): ?>
+    <section class="card staff-edit-danger-zone" style="margin-top:1.5rem;border-color:var(--danger, #dc2626);">
+        <div class="card__header">
+            <h2 class="card__title" style="color:var(--danger, #dc2626);">Danger zone</h2>
+            <p class="card__subtitle">Permanently delete this staff profile, all event registrations, attendance, and reminder history. This cannot be undone.</p>
+        </div>
+        <form method="post" action="staff-delete.php" class="form-grid"
+              onsubmit="return confirm('Delete this staff member permanently? All registrations and attendance will be removed.');">
+            <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+            <input type="hidden" name="staff_id" value="<?= (int) $staffId ?>">
+            <div class="form-group form-group--full">
+                <label class="form-label" for="confirm_email">Type <strong><?= h((string) $staff['email']) ?></strong> to confirm</label>
+                <input type="email" id="confirm_email" name="confirm_email" class="form-input" required autocomplete="off"
+                       placeholder="<?= h((string) $staff['email']) ?>">
+            </div>
+            <div class="form-group form-group--full form-actions">
+                <button type="submit" class="btn btn--secondary" style="border-color:#dc2626;color:#dc2626;">Delete staff profile permanently</button>
+            </div>
+        </form>
+    </section>
+    <?php endif; ?>
 </section>
 </div>
 
@@ -464,5 +505,10 @@ document.querySelectorAll('[data-copy-target]').forEach(function (btn) {
     });
 });
 </script>
+<?php
+$phoneJsPath = dirname(__DIR__) . '/assets/js/phone-input.js';
+$phoneJsVer  = is_file($phoneJsPath) ? (string) filemtime($phoneJsPath) : '1';
+?>
+<script src="../assets/js/phone-input.js?v=<?= h($phoneJsVer) ?>"></script>
 
 <?php include __DIR__ . '/../includes/admin/layout-bottom.php'; ?>

@@ -65,6 +65,7 @@ if ($formSlug !== '') {
 
 $data['staff_role']     = normalizeStaffRole((string) ($data['staff_role'] ?? ''));
 $data['date_of_birth']  = normalizeDateOfBirthForDb((string) ($data['date_of_birth'] ?? ''));
+prepareMobileFromRequest($data);
 $errors                 = validateRegistration($data);
 $eventIds = normalizeEventIds($data);
 
@@ -166,6 +167,26 @@ if (empty($errors)) {
                     notifyStaffRegistrationSubmitted($pdo, $data, $newEventIds, $ids);
                 } catch (Throwable $notifyErr) {
                     error_log('[EventStaff] Registration email failed: ' . $notifyErr->getMessage());
+                }
+
+                try {
+                    require_once __DIR__ . '/includes/notification-center.php';
+                    $staffName = trim((string) ($data['first_name'] ?? '') . ' ' . (string) ($data['surname'] ?? ''));
+                    foreach ($ids as $regId) {
+                        $row = getStaffRegistrationById($pdo, (int) $regId);
+                        if ($row === null) {
+                            continue;
+                        }
+                        notifyAdminNewRegistration(
+                            $pdo,
+                            $staffName !== '' ? $staffName : 'New applicant',
+                            $email,
+                            (int) $regId,
+                            formatEventLabel($row)
+                        );
+                    }
+                } catch (Throwable $adminNotifyErr) {
+                    error_log('[EventStaff] Admin notification failed: ' . $adminNotifyErr->getMessage());
                 }
 
                 try {

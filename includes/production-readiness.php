@@ -107,6 +107,68 @@ function getProductionReadinessChecks(PDO $pdo): array
         'fix_url'  => 'settings-site.php',
     ];
 
+    $adminUrl = getAdminSiteUrl($pdo);
+    $checks[] = [
+        'key'      => 'admin_url',
+        'category' => 'core',
+        'label'    => 'Admin panel URL (HTTPS)',
+        'status'   => preg_match('#^https://#i', $adminUrl) ? 'pass' : 'warn',
+        'detail'   => $adminUrl !== '' ? $adminUrl : 'Not set — emails and links may use the wrong domain.',
+        'fix_url'  => 'settings-site.php',
+    ];
+
+    $applyUrl = getApplySiteUrl($pdo);
+    $checks[] = [
+        'key'      => 'apply_url',
+        'category' => 'core',
+        'label'    => 'Apply admin URL (HTTPS)',
+        'status'   => $applyUrl === '' ? 'warn' : (preg_match('#^https://#i', $applyUrl) ? 'pass' : 'warn'),
+        'detail'   => $applyUrl !== '' ? $applyUrl : 'Optional until payroll vault is in use.',
+        'fix_url'  => 'settings-site.php',
+    ];
+
+    require_once __DIR__ . '/notification-center-schema.php';
+    ensureNotificationCenterSchema($pdo);
+    $notifTable = tableExists($pdo, 'app_notifications');
+    $checks[] = [
+        'key'      => 'notification_center',
+        'category' => 'core',
+        'label'    => 'In-app notifications table',
+        'status'   => $notifTable ? 'pass' : 'fail',
+        'detail'   => $notifTable
+            ? 'app_notifications ready for staff and admin alerts.'
+            : 'Run Go live → Fix automated FAIL items to create app_notifications.',
+        'fix_url'  => 'go-live.php',
+    ];
+
+    require_once __DIR__ . '/company.php';
+    $waGroup = getCompanyWhatsappGroup($pdo);
+    $checks[] = [
+        'key'      => 'whatsapp_group',
+        'category' => 'integrations',
+        'label'    => 'WhatsApp group invite link',
+        'status'   => $waGroup !== '' ? 'pass' : 'warn',
+        'detail'   => $waGroup !== ''
+            ? 'Staff can join your WhatsApp group from the app.'
+            : 'Add https://chat.whatsapp.com/… link in Site settings.',
+        'fix_url'  => 'settings-site.php',
+    ];
+
+    $notifyEmail = trim(getSetting($pdo, 'notify_admin_email', ''));
+    $companyMail = trim(getCompanyEmail($pdo));
+    $alertTarget = $notifyEmail !== '' ? $notifyEmail : $companyMail;
+    $notifyOn    = getSetting($pdo, 'notify_admin_on_registration', '1') === '1';
+    $checks[] = [
+        'key'      => 'admin_registration_alerts',
+        'category' => 'email',
+        'label'    => 'Admin registration alerts',
+        'status'   => (!$notifyOn || filter_var($alertTarget, FILTER_VALIDATE_EMAIL)) ? 'pass' : 'warn',
+        'detail'   => $notifyOn
+            ? ('Alerts to ' . ($alertTarget !== '' ? $alertTarget : 'company email (not set)'))
+            : 'Email alerts off — in-app notifications only.',
+        'fix_url'  => 'settings-site.php',
+    ];
+
     $cronKey     = trim(getSetting($pdo, 'reminder_cron_key', ''));
     $remindersOn = getSetting($pdo, 'reminder_daily_enabled', '1') === '1'
         || getSetting($pdo, 'reminder_signup_nudge_enabled', '1') === '1';

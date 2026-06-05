@@ -6,8 +6,11 @@ require_once __DIR__ . '/includes/staff-onboarding.php';
 require_once __DIR__ . '/includes/staff-psa.php';
 require_once __DIR__ . '/includes/staff-portal-session.php';
 require_once __DIR__ . '/includes/staff-profile-gate.php';
+require_once __DIR__ . '/includes/phone-numbers.php';
+require_once __DIR__ . '/includes/components/phone-input.php';
 
 $pdo = getDB();
+$defaultPhoneCountry = resolvePhoneCountryIsoFromRequest($pdo);
 ensureStaffPsaSchema($pdo);
 $token = trim((string) ($_GET['token'] ?? ''));
 $staff = null;
@@ -36,6 +39,7 @@ $missingFields   = getStaffOnboardingMissingFields($staff);
 $flash           = null;
 $fieldErrors     = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    prepareMobileFromRequest($_POST);
     $validationErrors = validateStaffOnboardingPost($_POST, $staff, $_FILES);
     if ($validationErrors !== []) {
         $fieldErrors = $validationErrors;
@@ -185,8 +189,13 @@ $themeColor = getThemeColor($pdo);
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Mobile</label>
-                    <input type="tel" name="mobile" class="form-input" value="<?= h((string) $staff['mobile']) ?>" required>
+                    <label class="form-label" for="mobile_national">Mobile</label>
+                    <?php renderPhoneInputField([
+                        'id'         => 'mobile',
+                        'value'      => (string) ($staff['mobile'] ?? ''),
+                        'defaultIso' => $defaultPhoneCountry,
+                        'required'   => true,
+                    ]); ?>
                 </div>
 
                 <div class="form-group">
@@ -285,5 +294,10 @@ $finJsPath = __DIR__ . '/assets/js/financial-field-validation.js';
 $finJsVer  = is_file($finJsPath) ? (string) filemtime($finJsPath) : '1';
 ?>
 <script src="assets/js/financial-field-validation.js?v=<?= h($finJsVer) ?>"></script>
+<?php
+$phoneJsPath = __DIR__ . '/assets/js/phone-input.js';
+$phoneJsVer  = is_file($phoneJsPath) ? (string) filemtime($phoneJsPath) : '1';
+?>
+<script src="assets/js/phone-input.js?v=<?= h($phoneJsVer) ?>"></script>
 </body>
 </html>

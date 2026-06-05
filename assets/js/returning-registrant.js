@@ -78,7 +78,11 @@
         setFieldValue('first_name', profile.first_name);
         setFieldValue('full_address', profile.full_address);
         setFieldValue('eircode', profile.eircode);
-        setFieldValue('mobile', profile.mobile);
+        if (typeof setPhoneInputValue === 'function') {
+            setPhoneInputValue(profile.mobile);
+        } else {
+            setFieldValue('mobile', profile.mobile);
+        }
         setFieldValue('date_of_birth', profile.date_of_birth);
         setFieldValue('pps_number', profile.pps_number);
         setFieldValue('bank_iban', profile.bank_iban);

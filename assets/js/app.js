@@ -222,11 +222,14 @@
     function validateForm(form) {
         clearErrors(form);
         syncStaffRoleFromFormSlug(form);
+        if (typeof syncPhoneInputMobile === 'function') {
+            syncPhoneInputMobile(form);
+        }
         let isValid = true;
 
         if (typeof REGISTRATION_FIELDS !== 'undefined') {
             REGISTRATION_FIELDS.forEach(function (field) {
-                if (field.name === 'gender' || field.name === 'staff_role') return;
+                if (field.name === 'gender' || field.name === 'staff_role' || field.name === 'mobile') return;
 
                 const el = document.getElementById(field.name);
                 if (!el || !el.value.trim()) {
@@ -234,6 +237,21 @@
                     isValid = false;
                 }
             });
+        }
+
+        const mobileEl = document.getElementById('mobile');
+        const mobileNationalEl = document.getElementById('mobile_national');
+        if (mobileNationalEl && mobileNationalEl.required && !mobileNationalEl.value.trim()) {
+            showFieldError('mobile', 'Mobile Number is required.');
+            isValid = false;
+        } else if (mobileEl && mobileEl.value.trim()) {
+            if (typeof isValidE164Mobile === 'function' && !isValidE164Mobile(mobileEl.value.trim())) {
+                showFieldError('mobile', 'Please enter a valid mobile number with country code.');
+                isValid = false;
+            }
+        } else if (mobileNationalEl && mobileNationalEl.required) {
+            showFieldError('mobile', 'Mobile Number is required.');
+            isValid = false;
         }
 
         const emailEl = document.getElementById('email');

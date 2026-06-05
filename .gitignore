@@ -27,6 +27,11 @@ Thumbs.db
 .env
 .env.*
 
+# Local dumps / archives — never commit
+apply/admin.zip
+apply/*.sql
+*.sql.gz
+
 # Cursor (optional)
 /.cursor/
 storage/staff-template-ods/

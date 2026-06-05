@@ -19,10 +19,7 @@ if ($sessionStaff !== null) {
     exit;
 }
 
-if (isStaffProfileUpdateRequired($pdo) && $_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header('Location: staff-app.php');
-    exit;
-}
+// Portal is optional — do not redirect away; staff can register from index.php without signing in.
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim((string) ($_POST['email'] ?? ''));

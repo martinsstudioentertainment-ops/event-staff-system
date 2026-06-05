@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/audit-log.php';
 require_once __DIR__ . '/../includes/staff-registration-schema.php';
 require_once __DIR__ . '/../includes/event-reporting-schema.php';
 require_once __DIR__ . '/../includes/google-sheets-sync.php';
+require_once __DIR__ . '/../includes/apply-remote-sync.php';
 require_once __DIR__ . '/../includes/admin-capabilities.php';
 require_once __DIR__ . '/../includes/staff-onboarding.php';
 
@@ -56,6 +57,14 @@ if (updateStaffStatus($pdo, $id, $status, $allowIncomplete)) {
         }
     } catch (Throwable $sheetErr) {
         error_log('[EventStaff] Google Sheets sync on status change: ' . $sheetErr->getMessage());
+    }
+
+    if (in_array($status, ['approved', 'rejected'], true)) {
+        try {
+            triggerApplyPortalSyncAsync($pdo, true);
+        } catch (Throwable $applySyncErr) {
+            error_log('[EventStaff] Apply portal sync trigger: ' . $applySyncErr->getMessage());
+        }
     }
 
     logAdminAudit($pdo, 'status_change', 'registration', $id, 'Status set to ' . $status);

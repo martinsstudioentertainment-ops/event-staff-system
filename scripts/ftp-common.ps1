@@ -54,6 +54,17 @@ function Ensure-FtpDirectory {
     }
 }
 
+function Ensure-FtpDirectoryTree {
+    param([string]$Server, [string]$RemoteDir, [hashtable]$Deploy)
+    $normalized = '/' + ($RemoteDir.Trim('/') -replace '\\', '/')
+    $parts = $normalized.Trim('/').Split('/', [System.StringSplitOptions]::RemoveEmptyEntries)
+    $built = ''
+    foreach ($part in $parts) {
+        $built += '/' + $part
+        Ensure-FtpDirectory -Server $Server -RemoteDir $built -Deploy $Deploy
+    }
+}
+
 function Send-FtpFile {
     param(
         [string]$LocalPath,

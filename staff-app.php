@@ -15,6 +15,8 @@ require_once __DIR__ . '/includes/public/staff-public-shell.php';
 require_once __DIR__ . '/includes/brand-logo.php';
 require_once __DIR__ . '/includes/staff-profile-gate.php';
 require_once __DIR__ . '/includes/staff-portal-session.php';
+require_once __DIR__ . '/includes/notification-center.php';
+require_once __DIR__ . '/includes/status-repository.php';
 
 
 
@@ -44,8 +46,18 @@ if ($portalStaff !== null && staffNeedsProfileForm($pdo, $portalStaff)) {
     exit;
 }
 
-$showSignInGate = $portalStaff === null;
-$signInMode     = $profileUpdateForced ? 'update' : 'signin';
+// Only block the app for returning staff when a profile rollout is active — new staff must register first.
+$showSignInGate = $portalStaff === null && $profileUpdateForced;
+$showStaffNav   = $portalStaff !== null || !$profileUpdateForced;
+$signInMode     = 'update';
+
+$staffEmail         = $portalStaff !== null ? strtolower(trim((string) ($portalStaff['email'] ?? ''))) : '';
+$staffNotifUnread   = $staffEmail !== '' ? countUnreadStaffNotifications($pdo, $staffEmail) : 0;
+$staffStatusToken   = $staffEmail !== '' ? (resolveStatusTokenByEmail($pdo, $staffEmail) ?? '') : '';
+$whatsappGroupUrl   = getCompanyWhatsappGroup($pdo);
+$notifPageUrl       = $staffStatusToken !== ''
+    ? 'staff-notifications.php?token=' . urlencode($staffStatusToken)
+    : 'staff-notifications.php';
 
 $hour = (int) date('H');
 
@@ -88,6 +100,7 @@ if ($hour < 12) {
     <?php include __DIR__ . '/includes/pwa-head.php'; ?>
     <link rel="stylesheet" href="assets/css/staff-app.css">
     <link rel="stylesheet" href="assets/css/pwa-install.css">
+    <link rel="stylesheet" href="assets/css/notifications.css">
 
 </head>
 
@@ -107,15 +120,18 @@ if ($hour < 12) {
             <h1 class="staff-app__title"><?= h($siteName) ?></h1>
 
             <p class="staff-app__tagline"><?= $showSignInGate
-                ? 'Sign in with your registration email and date of birth to view your shifts.'
-                : 'Your pocket companion for event shifts — register, track status, and check in on the day.' ?></p>
+                ? 'Returning staff: confirm your email and date of birth. New here? Register below — no sign-in needed.'
+                : ($portalStaff !== null
+                    ? 'Your pocket companion for event shifts — register, track status, and check in on the day.'
+                    : 'Register for events, check your status, or sign in if you already have an account.') ?></p>
 
         </header>
 
         <?php if ($showSignInGate): ?>
             <?php renderStaffProfileVerifyForm($pdo, is_array($gateState) ? $gateState : [], $signInMode); ?>
-        <?php else: ?>
+        <?php endif; ?>
 
+        <?php if ($showStaffNav): ?>
         <nav class="staff-app__nav" aria-label="Staff actions">
 
             <a href="index.php" class="staff-app__tile staff-app__tile--register">
@@ -171,7 +187,34 @@ if ($hour < 12) {
 
             </a>
 
+            <a href="<?= h($notifPageUrl) ?>" class="staff-app__tile staff-app__tile--notifications">
+                <span class="staff-app__tile-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                </span>
+                <span class="staff-app__tile-body">
+                    <span class="staff-app__tile-title">Notifications</span>
+                    <span class="staff-app__tile-desc">Approval updates and shift alerts</span>
+                </span>
+                <?php if ($staffNotifUnread > 0): ?>
+                    <span class="staff-app__tile-badge" data-notif-badge data-status-token="<?= h($staffStatusToken) ?>"><?= $staffNotifUnread > 99 ? '99+' : (int) $staffNotifUnread ?></span>
+                <?php else: ?>
+                    <span class="staff-app__tile-badge" data-notif-badge data-status-token="<?= h($staffStatusToken) ?>" hidden>0</span>
+                <?php endif; ?>
+                <span class="staff-app__tile-arrow" aria-hidden="true">›</span>
+            </a>
 
+            <?php if ($whatsappGroupUrl !== ''): ?>
+            <a href="<?= h($whatsappGroupUrl) ?>" class="staff-app__tile staff-app__tile--whatsapp" target="_blank" rel="noopener noreferrer">
+                <span class="staff-app__tile-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.955 9.955 0 0 0 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2z"/></svg>
+                </span>
+                <span class="staff-app__tile-body">
+                    <span class="staff-app__tile-title">WhatsApp group</span>
+                    <span class="staff-app__tile-desc">Join for shift updates &amp; reminders</span>
+                </span>
+                <span class="staff-app__tile-arrow" aria-hidden="true">›</span>
+            </a>
+            <?php endif; ?>
 
             <div class="staff-app__tile staff-app__tile--checkin staff-app__tile--static">
 
@@ -209,7 +252,7 @@ if ($hour < 12) {
 
                 <li><span class="staff-app__step-num">1</span> Register for an event</li>
 
-                <li><span class="staff-app__step-num">2</span> Wait for approval email</li>
+                <li><span class="staff-app__step-num">2</span> Turn on notifications &amp; join WhatsApp</li>
 
                 <li><span class="staff-app__step-num">3</span> Show up &amp; scan QR to sign in</li>
 
@@ -238,10 +281,15 @@ if ($hour < 12) {
     <?php
 
     $enablePwaInstall = true;
+    $enablePwaPush    = $staffEmail !== '';
 
     include __DIR__ . '/includes/pwa-scripts.php';
 
     ?>
+    <?php if ($showStaffNav): ?>
+        <div id="pwa-push-root"<?= $staffEmail !== '' ? ' data-staff-email="' . h($staffEmail) . '"' : '' ?><?= $staffStatusToken !== '' ? ' data-status-token="' . h($staffStatusToken) . '"' : '' ?>></div>
+        <script src="assets/js/notifications.js" defer></script>
+    <?php endif; ?>
 
 </body>
 

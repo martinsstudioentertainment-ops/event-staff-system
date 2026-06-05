@@ -105,8 +105,30 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <input class="form-input" type="text" id="company_whatsapp" name="company_whatsapp" value="<?= h($settings['company_whatsapp'] ?? '') ?>">
         </div>
         <div class="form-group form-group--full">
-            <label class="form-label" for="company_whatsapp_group">WhatsApp group link</label>
-            <input class="form-input" type="url" id="company_whatsapp_group" name="company_whatsapp_group" value="<?= h($settings['company_whatsapp_group'] ?? '') ?>">
+            <label class="form-label" for="company_whatsapp_group">WhatsApp group invite link</label>
+            <input class="form-input" type="url" id="company_whatsapp_group" name="company_whatsapp_group" value="<?= h($settings['company_whatsapp_group'] ?? '') ?>" placeholder="https://chat.whatsapp.com/…">
+            <p class="form-hint">Staff see a “Join WhatsApp group” button on the staff app and notifications page.</p>
+        </div>
+        <div class="form-group form-group--full">
+            <label class="form-label" for="company_whatsapp_group_label">WhatsApp group card title</label>
+            <input class="form-input" type="text" id="company_whatsapp_group_label" name="company_whatsapp_group_label" value="<?= h($settings['company_whatsapp_group_label'] ?? 'Join our staff WhatsApp group') ?>">
+        </div>
+        <div class="form-group form-group--full">
+            <label class="form-label" for="company_whatsapp_group_hint">WhatsApp group helper text</label>
+            <textarea class="form-textarea" id="company_whatsapp_group_hint" name="company_whatsapp_group_hint" rows="2"><?= h($settings['company_whatsapp_group_hint'] ?? '') ?></textarea>
+        </div>
+
+        <h4 class="form-section-title form-group--full">Admin notifications</h4>
+        <div class="form-group form-group--full">
+            <label class="form-check">
+                <input type="checkbox" name="notify_admin_on_registration" value="1"<?= ($settings['notify_admin_on_registration'] ?? '1') === '1' ? ' checked' : '' ?>>
+                Email admin when someone registers
+            </label>
+        </div>
+        <div class="form-group form-group--full">
+            <label class="form-label" for="notify_admin_email">Admin alert email</label>
+            <input class="form-input" type="email" id="notify_admin_email" name="notify_admin_email" value="<?= h($settings['notify_admin_email'] ?? '') ?>" placeholder="Leave blank to use company email">
+            <p class="form-hint">In-app alerts always appear under Admin → Notifications.</p>
         </div>
         <div class="form-group form-group--full">
             <label class="form-label" for="company_about">About text</label>

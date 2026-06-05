@@ -380,6 +380,23 @@
     line-height: 1.5;
 }
 
+.phone-input {
+    display: flex;
+    gap: 0.5rem;
+    align-items: stretch;
+}
+
+.phone-input__country {
+    flex: 0 0 auto;
+    width: min(42%, 11rem);
+    min-width: 7.5rem;
+}
+
+.phone-input__number {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 .staff-public-shell .form-hint a {
     font-weight: 600;
 }

@@ -72,6 +72,23 @@ function notifyStaffStatusChanges(PDO $pdo, array $registrationIds, string $newS
             sendConsolidatedRejectionEmail($pdo, $rows);
         }
     }
+
+    try {
+        require_once __DIR__ . '/notification-center.php';
+        foreach ($registrationIds as $id) {
+            $row = getStaffRegistrationById($pdo, $id);
+            if ($row === null || ($row['status'] ?? '') !== $newStatus) {
+                continue;
+            }
+            $email = strtolower(trim((string) ($row['email'] ?? '')));
+            if ($email === '') {
+                continue;
+            }
+            notifyStaffStatusInApp($pdo, $email, $newStatus, $id, formatEventLabel($row));
+        }
+    } catch (Throwable $e) {
+        error_log('[EventStaff] notifyStaffStatusChanges in-app: ' . $e->getMessage());
+    }
 }
 
 /**

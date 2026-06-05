@@ -249,6 +249,11 @@ function renderStaffProfileVerifyForm(PDO $pdo, array $state = [], string $mode 
             <button type="submit" class="btn btn--primary btn--block staff-app-gate__submit"><?= $isUpdate ? 'Continue' : 'View my shifts' ?></button>
         </form>
 
+        <p class="staff-app-gate__new" style="margin:1rem 0 0;font-size:0.9rem;text-align:center;">
+            <strong>New staff?</strong>
+            <a href="index.php">Register for an event</a> — you do not need to sign in first.
+        </p>
+
         <?php if ($isUpdate): ?>
         <details class="staff-app-gate__details">
             <summary>What you will need (first time only)</summary>

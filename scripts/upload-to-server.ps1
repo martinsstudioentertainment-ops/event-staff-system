@@ -56,6 +56,23 @@ $files = @(
     @{ Local = 'check-in.php'; Remote = 'check-in.php' },
     @{ Local = 'includes\staff-onboarding.php'; Remote = 'includes/staff-onboarding.php' },
     @{ Local = 'includes\notifications.php'; Remote = 'includes/notifications.php' },
+    @{ Local = 'includes\notification-center.php'; Remote = 'includes/notification-center.php' },
+    @{ Local = 'includes\notification-center-schema.php'; Remote = 'includes/notification-center-schema.php' },
+    @{ Local = 'includes\components\notification-list.php'; Remote = 'includes/components/notification-list.php' },
+    @{ Local = 'includes\components\whatsapp-join.php'; Remote = 'includes/components/whatsapp-join.php' },
+    @{ Local = 'includes\apply-remote-sync.php'; Remote = 'includes/apply-remote-sync.php' },
+    @{ Local = 'includes\settings-repository.php'; Remote = 'includes/settings-repository.php' },
+    @{ Local = 'admin\notifications.php'; Remote = 'admin/notifications.php' },
+    @{ Local = 'admin\staff-delete.php'; Remote = 'admin/staff-delete.php' },
+    @{ Local = 'admin\apply-sync-ping.php'; Remote = 'admin/apply-sync-ping.php' },
+    @{ Local = 'admin\settings-site.php'; Remote = 'admin/settings-site.php' },
+    @{ Local = 'api\notifications.php'; Remote = 'api/notifications.php' },
+    @{ Local = 'api\notifications-mark-read.php'; Remote = 'api/notifications-mark-read.php' },
+    @{ Local = 'staff-notifications.php'; Remote = 'staff-notifications.php' },
+    @{ Local = 'assets\css\notifications.css'; Remote = 'assets/css/notifications.css' },
+    @{ Local = 'assets\js\notifications.js'; Remote = 'assets/js/notifications.js' },
+    @{ Local = 'includes\admin\sidebar.php'; Remote = 'includes/admin/sidebar.php' },
+    @{ Local = 'includes\admin\nav-icons.php'; Remote = 'includes/admin/nav-icons.php' },
     @{ Local = 'includes\access-pass-email.php'; Remote = 'includes/access-pass-email.php' },
     @{ Local = 'includes\reminders.php'; Remote = 'includes/reminders.php' },
     @{ Local = 'includes\staff-psa.php'; Remote = 'includes/staff-psa.php' },
@@ -78,6 +95,9 @@ $files = @(
     @{ Local = 'includes\google-sheets-sync.php'; Remote = 'includes/google-sheets-sync.php' },
     @{ Local = 'admin\export-staff.php'; Remote = 'admin/export-staff.php' },
     @{ Local = 'index.php'; Remote = 'index.php' },
+    @{ Local = 'includes\phone-numbers.php'; Remote = 'includes/phone-numbers.php' },
+    @{ Local = 'includes\components\phone-input.php'; Remote = 'includes/components/phone-input.php' },
+    @{ Local = 'assets\js\phone-input.js'; Remote = 'assets/js/phone-input.js' },
     @{ Local = 'lang\en.php'; Remote = 'lang/en.php' },
     @{ Local = 'lang\es.php'; Remote = 'lang/es.php' },
     @{ Local = 'assets\css\registration-compact.css'; Remote = 'assets/css/registration-compact.css' },
@@ -91,7 +111,7 @@ $files = @(
     @{ Local = 'includes\site-urls.php'; Remote = 'includes/site-urls.php' }
 )
 
-$extra = $args | Where-Object { $_ -match '\.php$' }
+$extra = $args | Where-Object { $_ -match '\.(php|css|js)$' }
 foreach ($path in $extra) {
     $norm = $path -replace '/', '\'
     if (Test-Path (Join-Path $ProjectRoot $norm)) {

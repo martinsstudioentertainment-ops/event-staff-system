@@ -11,6 +11,8 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/i18n.php';
 require_once __DIR__ . '/includes/email-copy.php';
 require_once __DIR__ . '/includes/staff-psa.php';
+require_once __DIR__ . '/includes/phone-numbers.php';
+require_once __DIR__ . '/includes/components/phone-input.php';
 
 require_once __DIR__ . '/includes/global-public-site.php';
 require_once __DIR__ . '/includes/public/staff-public-shell.php';
@@ -36,7 +38,8 @@ $lockFormType = $linkedForm !== null;
 
 $old          = $_SESSION['registration_old'] ?? [];
 $serverErrors = $_SESSION['registration_errors'] ?? [];
-$returnEmail  = trim((string) ($old['email'] ?? ''));
+$returnEmail         = trim((string) ($old['email'] ?? ''));
+$defaultPhoneCountry = $pdo ? resolvePhoneCountryIsoFromRequest($pdo) : defaultPhoneCountryIso();
 unset($_SESSION['registration_old'], $_SESSION['registration_errors']);
 
 if ($formSlug !== '' && $linkedForm === null) {
@@ -249,9 +252,13 @@ if ($pdo) {
                     <h3 class="form-section-title">Contact</h3>
 
                     <div class="form-group">
-                        <label class="form-label form-label--required" for="mobile">Mobile number</label>
-                        <input class="form-input" type="tel" id="mobile" name="mobile" value="<?= old('mobile') ?>" placeholder="+353 00 000 0000" autocomplete="tel" inputmode="tel">
-                        <span class="form-error" id="mobile-error"></span>
+                        <label class="form-label form-label--required" for="mobile_national">Mobile number</label>
+                        <?php renderPhoneInputField([
+                            'id'         => 'mobile',
+                            'value'      => (string) ($old['mobile'] ?? ''),
+                            'defaultIso' => $defaultPhoneCountry,
+                            'required'   => true,
+                        ]); ?>
                     </div>
 
                     <h3 class="form-section-title">Financial &amp; identification</h3>
@@ -344,6 +351,8 @@ if ($pdo) {
 
     <script>window.REGISTRATION_FORM_SLUG = <?= json_encode($formSlug !== '' && $linkedForm ? $formSlug : $selectedFormSlug, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;</script>
     <script src="assets/js/registration-fields.js"></script>
+    <?php $phoneJsVer = is_file(__DIR__ . '/assets/js/phone-input.js') ? (string) filemtime(__DIR__ . '/assets/js/phone-input.js') : '1'; ?>
+    <script src="assets/js/phone-input.js?v=<?= h($phoneJsVer) ?>"></script>
     <?php $eventsJsVer = is_file(__DIR__ . '/assets/js/events.js') ? (string) filemtime(__DIR__ . '/assets/js/events.js') : '1'; ?>
     <script src="assets/js/events.js?v=<?= h($eventsJsVer) ?>"></script>
     <?php

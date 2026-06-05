@@ -54,6 +54,29 @@ function getGoLiveManualChecklistItems(): array
             'hint'  => 'WhatsApp: https://your-domain.com/staff-app.php',
         ],
         [
+            'key'     => 'whatsapp_group_link',
+            'label'   => 'WhatsApp group invite link set in Site settings',
+            'hint'    => 'Staff see “Join WhatsApp group” on staff app, status page, and notifications.',
+            'fix_url' => 'settings-site.php',
+        ],
+        [
+            'key'     => 'admin_registration_alerts',
+            'label'   => 'Admin alert email + registration notifications configured',
+            'hint'    => 'Set admin alert email (or leave blank for company email). Keep “Notify admin on registration” on unless you only want in-app alerts.',
+            'fix_url' => 'settings-site.php',
+        ],
+        [
+            'key'     => 'production_urls',
+            'label'   => 'Registration, admin, and apply URLs confirmed (HTTPS)',
+            'hint'    => 'Site settings → registration, admin, and apply URLs must match production domains.',
+            'fix_url' => 'settings-site.php',
+        ],
+        [
+            'key'     => 'notifications_smoke_test',
+            'label'   => 'Notifications smoke-tested (register → admin alert → approve → staff alert)',
+            'hint'    => 'Test on a real phone: staff-app tiles, notification badge, WhatsApp card.',
+        ],
+        [
             'key'   => 'end_to_end_test',
             'label' => 'End-to-end test on a real phone (register → approve → check-in)',
             'hint'  => 'Use production HTTPS URL, not localhost or PC IP.',
@@ -162,6 +185,10 @@ function runSafeSchemaEnsures(PDO $pdo): array
         'staff_registration_save' => static function (PDO $pdo): void {
             require_once __DIR__ . '/staff-registration-schema.php';
             ensureStaffRegistrationSaveSchema($pdo);
+        },
+        'notification_center' => static function (PDO $pdo): void {
+            require_once __DIR__ . '/notification-center-schema.php';
+            ensureNotificationCenterSchema($pdo);
         },
     ];
 

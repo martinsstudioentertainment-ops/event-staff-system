@@ -1384,6 +1384,15 @@ function markStaffProfileCompleted(PDO $pdo, int $staffId): bool
         autoApprovePendingRegistrationsForStaff($pdo, $staffId);
     }
 
+    if ($ok) {
+        try {
+            require_once __DIR__ . '/apply-remote-sync.php';
+            triggerApplyPortalSyncAsync($pdo, true);
+        } catch (Throwable $e) {
+            error_log('[EventStaff] Apply sync after profile completed: ' . $e->getMessage());
+        }
+    }
+
     return $ok;
 }
 
@@ -1413,6 +1422,84 @@ function getStaffForGoogleSheets(PDO $pdo): array
  * Requires Google Sheets API credentials to be configured.
  * @return array{success: bool, message: string, synced: int}
  */
+/**
+ * Permanently remove a staff profile and all linked registrations (super admin).
+ *
+ * @return array{ok: bool, deleted_registrations: int, error: string}
+ */
+function deleteStaffProfileCompletely(PDO $pdo, int $staffId): array
+{
+    $staff = getStaffById($pdo, $staffId);
+    if ($staff === null) {
+        return ['ok' => false, 'deleted_registrations' => 0, 'error' => 'Staff member not found.'];
+    }
+
+    $email = strtolower(trim((string) ($staff['email'] ?? '')));
+
+    try {
+        $regStmt = $pdo->prepare(
+            'SELECT id FROM staff_registrations
+             WHERE staff_id = :staff_id OR LOWER(TRIM(email)) = :email'
+        );
+        $regStmt->execute(['staff_id' => $staffId, 'email' => $email]);
+        $registrationIds = array_map('intval', $regStmt->fetchAll(PDO::FETCH_COLUMN));
+    } catch (PDOException $e) {
+        error_log('[EventStaff] deleteStaffProfileCompletely lookup: ' . $e->getMessage());
+
+        return ['ok' => false, 'deleted_registrations' => 0, 'error' => 'Could not load registrations.'];
+    }
+
+    try {
+        $pdo->beginTransaction();
+
+        if ($registrationIds !== []) {
+            $placeholders = implode(',', array_fill(0, count($registrationIds), '?'));
+
+            $tablesByRegistration = [
+                'commission_invoice_lines' => 'registration_id',
+                'attendance'               => 'registration_id',
+                'email_reminder_log'       => 'registration_id',
+            ];
+
+            foreach ($tablesByRegistration as $table => $column) {
+                $exists = $pdo->query("SHOW TABLES LIKE " . $pdo->quote($table))->fetchColumn();
+                if (!$exists) {
+                    continue;
+                }
+                $pdo->prepare("DELETE FROM `{$table}` WHERE `{$column}` IN ({$placeholders})")
+                    ->execute($registrationIds);
+            }
+
+            $pdo->prepare("DELETE FROM staff_registrations WHERE id IN ({$placeholders})")
+                ->execute($registrationIds);
+        }
+
+        $pdo->prepare('DELETE FROM staff WHERE id = :id')->execute(['id' => $staffId]);
+
+        $pdo->commit();
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        error_log('[EventStaff] deleteStaffProfileCompletely: ' . $e->getMessage());
+
+        return ['ok' => false, 'deleted_registrations' => 0, 'error' => 'Delete failed: ' . $e->getMessage()];
+    }
+
+    foreach (['psa_front_image', 'psa_back_image'] as $field) {
+        $stored = trim((string) ($staff[$field] ?? ''));
+        if ($stored === '') {
+            continue;
+        }
+        $path = dirname(__DIR__) . '/' . ltrim(str_replace('\\', '/', $stored), '/');
+        if (is_file($path)) {
+            @unlink($path);
+        }
+    }
+
+    return ['ok' => true, 'deleted_registrations' => count($registrationIds), 'error' => ''];
+}
+
 function syncStaffToGoogleSheets(PDO $pdo): array
 {
     try {

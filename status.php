@@ -11,6 +11,8 @@ require_once __DIR__ . '/includes/public/staff-public-shell.php';
 require_once __DIR__ . '/includes/staff-psa.php';
 require_once __DIR__ . '/includes/staff-profile-gate.php';
 require_once __DIR__ . '/includes/staff-portal-session.php';
+require_once __DIR__ . '/includes/notification-center.php';
+require_once __DIR__ . '/includes/components/whatsapp-join.php';
 
 $pdo      = getDB();
 require_once __DIR__ . '/includes/staff-registration-schema.php';
@@ -119,6 +121,7 @@ $themeColor = getThemeColor($pdo);
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>My Registration Status | <?= h($siteName) ?></title>
     <?php include __DIR__ . '/includes/pwa-head.php'; ?>
+    <link rel="stylesheet" href="assets/css/notifications.css">
 </head>
 <body class="staff-public-shell staff-public-shell--event-ops staff-public-shell--narrow login-page staff-mobile-page" data-pwa-install="1">
     <?php renderStaffPublicBackground(true); ?>
@@ -202,6 +205,20 @@ $themeColor = getThemeColor($pdo);
                         </article>
                     <?php endforeach; ?>
                 </div>
+
+                <?php
+                $personEmail = strtolower(trim((string) ($person['email'] ?? '')));
+                $notifUnread = $personEmail !== '' ? countUnreadStaffNotifications($pdo, $personEmail) : 0;
+                ?>
+                <?php if ($notifUnread > 0 || $personEmail !== ''): ?>
+                    <p style="margin-top:1rem">
+                        <a href="staff-notifications.php?token=<?= h($token) ?>" class="btn btn--secondary btn--block">
+                            Notifications<?= $notifUnread > 0 ? ' (' . (int) $notifUnread . ' new)' : '' ?>
+                        </a>
+                    </p>
+                <?php endif; ?>
+
+                <?php renderWhatsappGroupCard($pdo, 'compact'); ?>
             <?php endif; ?>
 
             <p class="login-card__hint"><a href="staff-app.php">← Staff app home</a></p>

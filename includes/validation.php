@@ -4,6 +4,7 @@ require_once __DIR__ . '/maps.php';
 require_once __DIR__ . '/app-environment.php';
 require_once __DIR__ . '/staff-registration-schema.php';
 require_once __DIR__ . '/events-repository.php';
+require_once __DIR__ . '/phone-numbers.php';
 
 /**
  * Field names match index.html / database staff_registrations columns.
@@ -166,6 +167,15 @@ function validateRegistration(array $data): array
         $errors['privacy_consent'] = 'You must agree to the privacy notice before registering.';
     }
 
+    prepareMobileFromRequest($data);
+    $mobile = trim((string) ($data['mobile'] ?? ''));
+    if ($mobile !== '') {
+        $mobileError = validateMobileNumber($mobile);
+        if ($mobileError !== null) {
+            $errors['mobile'] = $mobileError;
+        }
+    }
+
     require_once __DIR__ . '/financial-field-validation.php';
     $errors = array_merge($errors, validateFinancialStaffFields($data, true));
 
@@ -298,7 +308,7 @@ function saveRegistration(PDO $pdo, array $data, int $eventId, ?string $staffRol
         'location_lat' => normalizeCoordinate(isset($data['location_lat']) ? (string) $data['location_lat'] : null),
         'location_lng' => normalizeCoordinate(isset($data['location_lng']) ? (string) $data['location_lng'] : null),
         'email' => normalizeRegistrationEmail((string) $data['email']),
-        'mobile' => trim((string) $data['mobile']),
+        'mobile' => normalizeMobileFromPost($data),
         'date_of_birth' => normalizeDateOfBirthForDb((string) ($data['date_of_birth'] ?? '')),
         'gender' => trim((string) $data['gender']),
         'pps_number' => trim((string) $data['pps_number']),
@@ -332,7 +342,7 @@ function saveRegistration(PDO $pdo, array $data, int $eventId, ?string $staffRol
         'location_lat'         => normalizeCoordinate(isset($data['location_lat']) ? (string) $data['location_lat'] : null),
         'location_lng'         => normalizeCoordinate(isset($data['location_lng']) ? (string) $data['location_lng'] : null),
         'email'                => normalizeRegistrationEmail((string) $data['email']),
-        'mobile'               => trim((string) $data['mobile']),
+        'mobile'               => normalizeMobileFromPost($data),
         'date_of_birth'        => normalizeDateOfBirthForDb((string) ($data['date_of_birth'] ?? '')),
         'gender'               => trim((string) $data['gender']),
         'pps_number'           => trim((string) $data['pps_number']),

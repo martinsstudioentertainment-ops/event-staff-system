@@ -10,6 +10,7 @@ require_once __DIR__ . '/../includes/event-reporting-schema.php';
 require_once __DIR__ . '/../includes/admin-capabilities.php';
 require_once __DIR__ . '/../includes/staff-onboarding.php';
 require_once __DIR__ . '/../includes/google-sheets-sync.php';
+require_once __DIR__ . '/../includes/apply-remote-sync.php';
 
 requireAdminCapability('staff');
 
@@ -101,6 +102,14 @@ if ($notifyIds !== [] && in_array($status, ['approved', 'rejected'], true)) {
         notifyStaffStatusChanges($pdo, $notifyIds, $status);
     } catch (Throwable $e) {
         error_log('[EventStaff] bulk-status notify: ' . $e->getMessage());
+    }
+}
+
+if ($updated > 0 && in_array($status, ['approved', 'rejected'], true)) {
+    try {
+        triggerApplyPortalSyncAsync($pdo, true);
+    } catch (Throwable $applySyncErr) {
+        error_log('[EventStaff] Apply portal bulk sync trigger: ' . $applySyncErr->getMessage());
     }
 }
 
