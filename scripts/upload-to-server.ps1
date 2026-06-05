@@ -106,6 +106,8 @@ $files = @(
     @{ Local = 'includes\system-cleanup.php'; Remote = 'includes/system-cleanup.php' },
     @{ Local = 'admin\system-cleanup.php'; Remote = 'admin/system-cleanup.php' },
     @{ Local = 'admin\go-live.php'; Remote = 'admin/go-live.php' },
+    @{ Local = 'includes\go-live.php'; Remote = 'includes/go-live.php' },
+    @{ Local = 'includes\production-readiness.php'; Remote = 'includes/production-readiness.php' },
     @{ Local = 'admin\apply-portal.php'; Remote = 'admin/apply-portal.php' },
     @{ Local = 'includes\apply-sso.php'; Remote = 'includes/apply-sso.php' },
     @{ Local = 'includes\site-urls.php'; Remote = 'includes/site-urls.php' }

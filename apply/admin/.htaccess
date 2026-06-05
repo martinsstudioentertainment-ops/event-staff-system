@@ -1,0 +1,8 @@
+# Apply portal — block directory listing; PHP handles routing.
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Legacy root → secure admin login
+    RewriteRule ^admin/?$ admin/admin/login.php [L,R=302]
+</IfModule>
