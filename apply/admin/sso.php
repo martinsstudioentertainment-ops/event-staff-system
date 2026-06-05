@@ -27,5 +27,5 @@ if ($user === null || !applyAdminRoleAllowed((string) ($user['role'] ?? ''))) {
 
 setApplyAdminSession($user);
 
-header('Location: admin/dashboard.php');
+header('Location: admin/admin/dashboard.php');
 exit;

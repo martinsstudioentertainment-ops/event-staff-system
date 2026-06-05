@@ -211,7 +211,14 @@ function getApplyAdminDashboardUrl(?PDO $pdo = null): string
 {
     $root = getApplyAdminRootUrl($pdo);
 
-    return $root !== '' ? $root . '/admin/dashboard.php' : '';
+    return $root !== '' ? $root . '/admin/admin/dashboard.php' : '';
+}
+
+function getApplyAdminLoginUrl(?PDO $pdo = null): string
+{
+    $root = getApplyAdminRootUrl($pdo);
+
+    return $root !== '' ? $root . '/admin/admin/login.php' : '';
 }
 
 function getAdminSiteUrl(?PDO $pdo = null): string
