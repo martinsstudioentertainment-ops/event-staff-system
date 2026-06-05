@@ -88,8 +88,7 @@ $files = @(
     @{ Local = 'admin\go-live.php'; Remote = 'admin/go-live.php' },
     @{ Local = 'admin\apply-portal.php'; Remote = 'admin/apply-portal.php' },
     @{ Local = 'includes\apply-sso.php'; Remote = 'includes/apply-sso.php' },
-    @{ Local = 'includes\site-urls.php'; Remote = 'includes/site-urls.php' },
-    @{ Local = 'scripts\cpanel-deploy.sh'; Remote = 'scripts/cpanel-deploy.sh' }
+    @{ Local = 'includes\site-urls.php'; Remote = 'includes/site-urls.php' }
 )
 
 $extra = $args | Where-Object { $_ -match '\.php$' }

@@ -70,6 +70,8 @@ function Send-FtpFile {
     $client.Credentials = New-Object System.Net.NetworkCredential($Deploy.FtpUser, $Deploy.FtpPassword)
     try {
         $client.UploadFile($uri, $LocalPath)
+    } catch {
+        Write-Host "  !! skipped ($($_.Exception.Message))" -ForegroundColor Yellow
     } finally {
         $client.Dispose()
     }
