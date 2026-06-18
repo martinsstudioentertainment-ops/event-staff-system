@@ -19,7 +19,11 @@ if (-not (Test-Path $outDir)) {
 
 $excludeDirs = @(
     '.git', 'vendor', 'node_modules', '.cursor', '.idea', '.vscode',
-    'storage\backups', 'storage\logs', 'storage\tmp-staff-template-content.xml'
+    'storage\backups', 'storage\logs', 'storage\tmp-staff-template-content.xml',
+    '_recovery-staging', '_tmp-restore', '_phase3_recovery_contents',
+    'android\olasentra-fresh\app\build', 'android\olasentra-staff\app\build',
+    'android\olasentra-staff\core\build', 'android\olasentra-staff\feature\build',
+    'play-store-assets\build-aab'
 )
 $excludeFiles = @(
     'config.php', 'deploy.local.ps1',
@@ -43,10 +47,13 @@ function Should-SkipPath([string]$rel) {
     }
     if ($norm -match '(?i)\\config\\(database|eventstaff-database|sso\.local)\.php$') { return $true }
     if ($norm -match '(?i)service-account\.json$') { return $true }
+    if ($norm -match '(?i)^android\\.*\\build\\') { return $true }
+    if ($norm -match '(?i)^android\\.*\\\.gradle\\') { return $true }
+    if ($norm -match '(?i)\\play-store-assets\\build-aab\\') { return $true }
     return $false
 }
 
-Get-ChildItem -Path $ProjectRoot -Recurse -File | ForEach-Object {
+Get-ChildItem -Path $ProjectRoot -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
     $rel = $_.FullName.Substring($ProjectRoot.Length).TrimStart('\')
     if (Should-SkipPath $rel) { return }
     $dest = Join-Path $stage $rel
@@ -54,7 +61,11 @@ Get-ChildItem -Path $ProjectRoot -Recurse -File | ForEach-Object {
     if (-not (Test-Path $parent)) {
         New-Item -ItemType Directory -Path $parent -Force | Out-Null
     }
-    Copy-Item $_.FullName $dest -Force
+    try {
+        Copy-Item $_.FullName $dest -Force -ErrorAction Stop
+    } catch {
+        Write-Host "  skip (path): $rel" -ForegroundColor DarkGray
+    }
 }
 
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
