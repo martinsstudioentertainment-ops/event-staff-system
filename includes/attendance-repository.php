@@ -7,6 +7,7 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/maps.php';
 require_once __DIR__ . '/events-repository.php';
 require_once __DIR__ . '/event-checkin-window-schema.php';
+require_once __DIR__ . '/attendance-gps-phase1.php';
 
 const CHECKIN_WINDOW_HOURS = 1;
 
