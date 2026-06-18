@@ -10,7 +10,7 @@ This certifies that the **Olasentra Web Ecosystem** (repository: `event-staff-sy
 |-------|-------|
 | **Project name** | Olasentra Web Ecosystem |
 | **Closure date** | **18 June 2026** |
-| **Git commit reference** | `dcf832f` (HEAD) — includes archive commit `4279b99` |
+| **Git commit reference** | `9f34e6d` (HEAD) — archive `4279b99`, backup fix `dcf832f` |
 | **Backup reference** | `storage/backups/pre-deploy-20260618-225550.zip` (198.97 MB, 18 Jun 2026 22:55) |
 | **Final production readiness score** | **91 / 100** |
 | **Final maintenance readiness score** | **90 / 100** |
