@@ -1,0 +1,49 @@
+{
+    "generated_at": "2026-06-06T21:14:34+00:00",
+    "all_pass": true,
+    "checks": [
+        {
+            "check": "No \\r\\r\\n corruption after smtpDotStuff",
+            "pass": true,
+            "detail": "0"
+        },
+        {
+            "check": "Legacy smtpDotStuff would corrupt (sanity)",
+            "pass": true,
+            "detail": "42"
+        },
+        {
+            "check": "Multipart boundary lines use single CRLF",
+            "pass": true,
+            "detail": ""
+        },
+        {
+            "check": "Plain part extractable from wire body",
+            "pass": true,
+            "detail": "Dear Verify,\r\n\r\nThank you for your interest. Your staff registration was not app"
+        },
+        {
+            "check": "HTML part decodes without =3D artefacts",
+            "pass": true,
+            "detail": "<div style=\"font-family:Segoe UI,Arial,sans-serif;line-height:1.55;color:#111827"
+        },
+        {
+            "check": "Decoded HTML contains clickable link",
+            "pass": true,
+            "detail": ""
+        },
+        {
+            "check": "Wire body does not start with inner MIME headers",
+            "pass": true,
+            "detail": ""
+        }
+    ],
+    "wire_stats": {
+        "crlf_count": 42,
+        "double_cr_count": 0,
+        "legacy_double_cr": 42,
+        "inner_header_leak": false
+    },
+    "wire_sample_after": "--=_Olasentra_207b737dc6cc70ddec574e3a\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDear Verify,\r\n\r\nThank you for your interest. Your staff registration was not approved at this time.\r\n\r\n* Kings Of Leon - 01/07/2026 - Static Security\r\n\r\nView your registration status anytime:\r\nhttps://register.olasentra.com/status.php?token=wireverify\r\n\r\nRegards,\r\nSecurity Update\r\n--=_Olasentra_207b737dc6cc70ddec574e3a\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encod",
+    "decoded_html_sample": "<div style=\"font-family:Segoe UI,Arial,sans-serif;line-height:1.55;color:#111827;max-width:560px;\"><p style=\"margin:0 0 8px;\">Dear Verify,</p><br><p style=\"margin:0 0 8px;\">Thank you for your interest. Your staff registration was not approved at this time.</p><br><p style=\"margin:0 0 8px;\">* Kings O"
+}

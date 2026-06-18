@@ -257,6 +257,9 @@ function smtpNormalizeBody(string $body): string
 
 function smtpDotStuff(string $payload): string
 {
+    // Normalize to LF first — payload from buildEmailMimePayload() already uses CRLF;
+    // blind \n → \r\n expansion would turn every \r\n into \r\r\n and break multipart.
+    $payload = smtpNormalizeBody($payload);
     $payload = str_replace("\n", "\r\n", $payload);
 
     return preg_replace('/^\./m', '..', $payload) ?? $payload;

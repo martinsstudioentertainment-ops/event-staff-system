@@ -43,7 +43,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <?php else: ?>
                     <?php foreach ($entries as $entry): ?>
                         <tr>
-                            <td><?= h(date('d.m.Y H:i', strtotime($entry['created_at']))) ?></td>
+                            <td><?= h(formatSystemDateTime((string) $entry['created_at'], $pdo)) ?></td>
                             <td><?= h($entry['admin_username'] ?: '—') ?></td>
                             <td><?= h(formatAuditActionLabel($entry['action'])) ?></td>
                             <td>

@@ -18,7 +18,7 @@ try {
     // stats stay zero
 }
 
-secure_layout_start('Command center', 'dashboard', 'Staff profiles, compliance, and payroll — secure operations overview.');
+secure_layout_start('Command center', 'dashboard', 'Staff profiles, compliance, and payroll — Premium UI X operations overview.');
 
 ?>
 

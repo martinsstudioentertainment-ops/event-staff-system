@@ -8,6 +8,7 @@
  */
 
 require_once __DIR__ . '/staff-labels.php';
+require_once __DIR__ . '/date-format.php';
 
 /**
  * @return list<string>
@@ -32,8 +33,16 @@ function getEmployeeSpreadsheetHeaders(): array
  * @param array<string, mixed> $row
  * @return list<string>
  */
-function buildEmployeeSpreadsheetRow(array $row): array
+function buildEmployeeSpreadsheetRow(array $row, ?PDO $pdo = null): array
 {
+    if (!$pdo instanceof PDO && function_exists('getDB')) {
+        try {
+            $pdo = getDB();
+        } catch (Throwable $e) {
+            $pdo = null;
+        }
+    }
+
     return [
         (string) ($row['surname'] ?? ''),
         (string) ($row['first_name'] ?? ''),
@@ -41,7 +50,7 @@ function buildEmployeeSpreadsheetRow(array $row): array
         (string) ($row['eircode'] ?? ''),
         (string) ($row['email'] ?? ''),
         (string) ($row['mobile'] ?? ''),
-        (string) ($row['date_of_birth'] ?? ''),
+        formatSheetDate(isset($row['date_of_birth']) ? (string) $row['date_of_birth'] : null, $pdo),
         formatGenderLabel((string) ($row['gender'] ?? '')),
         (string) ($row['pps_number'] ?? ''),
         (string) ($row['bank_iban'] ?? ''),
@@ -76,20 +85,28 @@ function getFullStaffExportHeaders(): array
  * @param array<string, mixed> $row
  * @return list<string>
  */
-function buildFullStaffExportRow(array $row): array
+function buildFullStaffExportRow(array $row, ?PDO $pdo = null): array
 {
     require_once __DIR__ . '/events-repository.php';
     require_once __DIR__ . '/staff-onboarding.php';
+
+    if (!$pdo instanceof PDO && function_exists('getDB')) {
+        try {
+            $pdo = getDB();
+        } catch (Throwable $e) {
+            $pdo = null;
+        }
+    }
 
     $eventDate = !empty($row['event_date'])
         ? formatEventDateLabel((string) $row['event_date'])
         : '';
 
     return array_merge(
-        buildEmployeeSpreadsheetRow($row),
+        buildEmployeeSpreadsheetRow($row, $pdo),
         [
             (string) ($row['psa_licence'] ?? ''),
-            (string) ($row['psa_expiry_date'] ?? ''),
+            formatSheetDate(isset($row['psa_expiry_date']) ? (string) $row['psa_expiry_date'] : null, $pdo),
             (string) ($row['psa_front_image'] ?? ''),
             (string) ($row['psa_back_image'] ?? ''),
             isStaffOnboardingComplete($row) ? 'Yes' : 'No',

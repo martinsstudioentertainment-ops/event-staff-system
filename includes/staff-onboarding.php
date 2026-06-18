@@ -75,6 +75,36 @@ function isStaffOnboardingCompleteByEmail(PDO $pdo, string $email): bool
 }
 
 /**
+ * SQL condition matching isStaffOnboardingComplete() for staff directory filters.
+ */
+function staffOnboardingCompleteSqlCondition(string $tableAlias = 's'): string
+{
+    $t     = $tableAlias . '.';
+    $parts = [];
+
+    foreach (array_keys(getStaffOnboardingRequiredFields()) as $field) {
+        if ($field === 'email') {
+            $parts[] = "{$t}email IS NOT NULL AND TRIM({$t}email) != '' AND {$t}email LIKE '%@%'";
+            continue;
+        }
+
+        if (in_array($field, ['psa_front_image', 'psa_back_image'], true)) {
+            $parts[] = "{$t}{$field} IS NOT NULL AND TRIM({$t}{$field}) != '' AND TRIM({$t}{$field}) != 'pending-upload'";
+            continue;
+        }
+
+        if (in_array($field, ['psa_expiry_date', 'date_of_birth'], true)) {
+            $parts[] = "{$t}{$field} IS NOT NULL AND TRIM({$t}{$field}) != '' AND {$t}{$field} != '0000-00-00'";
+            continue;
+        }
+
+        $parts[] = "{$t}{$field} IS NOT NULL AND TRIM({$t}{$field}) != ''";
+    }
+
+    return '(' . implode(' AND ', $parts) . ')';
+}
+
+/**
  * Create profile_token if missing.
  */
 function ensureStaffProfileToken(PDO $pdo, int $staffId): string
@@ -223,16 +253,17 @@ function autoApprovePendingRegistrationsForStaff(PDO $pdo, int $staffId): int
     $stmt->execute(['staff_id' => $staffId, 'email' => $email]);
     $ids = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
 
-    $approved = 0;
+    $approved    = 0;
+    $approvedIds = [];
     foreach ($ids as $id) {
         if ($id < 1 || !updateStaffStatus($pdo, $id, 'approved')) {
             continue;
         }
 
-        $approved++;
+        ++$approved;
+        $approvedIds[] = $id;
         try {
             ensureCheckinToken($pdo, $id);
-            notifyStaffStatusChange($pdo, $id, 'approved');
             if (isGoogleSheetsSyncEnabled($pdo)) {
                 syncRegistrationToGoogleSheet($pdo, $id);
             }
@@ -241,7 +272,12 @@ function autoApprovePendingRegistrationsForStaff(PDO $pdo, int $staffId): int
         }
     }
 
-    if ($approved > 0) {
+    if ($approvedIds !== []) {
+        try {
+            notifyStaffStatusChanges($pdo, $approvedIds, 'approved');
+        } catch (Throwable $e) {
+            error_log('[EventStaff] auto-approve notify batch: ' . $e->getMessage());
+        }
         error_log('[EventStaff] Auto-approved ' . $approved . ' pending registration(s) for staff id=' . $staffId);
     }
 

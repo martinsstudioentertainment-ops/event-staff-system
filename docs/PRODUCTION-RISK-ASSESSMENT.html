@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Production Risk Assessment</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+.crit{background:#fef2f2;color:#991b1b;font-weight:700;padding:.15rem .4rem;border-radius:4px;font-size:.75rem}
+.high{background:#fff7ed;color:#9a3412;font-weight:700;padding:.15rem .4rem;border-radius:4px;font-size:.75rem}
+.med{background:#fefce8;color:#854d0e;font-weight:700;padding:.15rem .4rem;border-radius:4px;font-size:.75rem}
+.low{background:#f0fdf4;color:#166534;font-weight:700;padding:.15rem .4rem;border-radius:4px;font-size:.75rem}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.84rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.meta{color:#64748b;font-size:.9rem}
+</style>
+</head>
+<body>
+
+<h1>Production Risk Assessment</h1>
+<p class="meta">Generated 7 June 2026 · Current production assumed stable with <code>feature_gps_attendance_v2</code> OFF</p>
+
+<h2>1. Risk matrix by area</h2>
+<table>
+<tr><th>Area</th><th>Risk</th><th>Level</th><th>Mitigation</th><th>Rollback</th></tr>
+<tr><td>Registration</td><td><code>registrant-lookup.php</code> returns PII by email only</td><td><span class="crit">Critical</span></td><td>Rate limit; require second factor or signed token; audit access</td><td>Disable endpoint via nginx rule</td></tr>
+<tr><td>Registration</td><td>Dual wizard/legacy JS increases regression surface</td><td><span class="med">Medium</span></td><td>Keep wizard flag OFF until verified; staged rollout</td><td>Flag OFF → legacy form</td></tr>
+<tr><td>Attendance</td><td>GPS v2 enables new code paths on flag ON</td><td><span class="high">High</span></td><td>Test event only; migrations 52+53 first; cron scheduled</td><td>Flag OFF instant</td></tr>
+<tr><td>Attendance</td><td>Admin scan disabled when GPS ON — ops workflow change</td><td><span class="med">Medium</span></td><td>Train ops on venue QR; signage at events</td><td>Flag OFF restores scan</td></tr>
+<tr><td>GPS</td><td><code>attendance-gps-ping.php</code> no auth token</td><td><span class="high">High</span></td><td>Harden before Phase 2; rate limit by IP</td><td>Disable API route</td></tr>
+<tr><td>GPS</td><td>Activation requires page open for fresh GPS</td><td><span class="med">Medium</span></td><td>Phase 2 heartbeat; staff comms at event</td><td>Flag OFF</td></tr>
+<tr><td>Payroll</td><td>Work hours tied to <code>activated_at</code> when GPS ON</td><td><span class="med">Medium</span></td><td>Verify work-hours UI before flag ON; no formula change when OFF</td><td>Flag OFF uses <code>checked_in_at</code></td></tr>
+<tr><td>Emails</td><td>SMTP MIME fixes deployed — monitor encoding</td><td><span class="low">Low</span></td><td><code>cron/email-production-verify.php</code> periodic</td><td>Revert mailer.php commit</td></tr>
+<tr><td>Admin portal</td><td>JSON APIs skip idle timeout</td><td><span class="med">Medium</span></td><td>Use <code>requireAdmin()</code> on APIs</td><td>Hotfix auth check</td></tr>
+<tr><td>Admin portal</td><td><code>apply-sync-ping.php</code> — staff role can trigger</td><td><span class="med">Medium</span></td><td>Add <code>requireAdminCapability('apply')</code></td><td>Restrict in auth</td></tr>
+<tr><td>Apply portal</td><td>No CSRF on forms</td><td><span class="med">Medium</span></td><td>Add CSRF to apply POST handlers</td><td>Revert apply auth changes</td></tr>
+<tr><td>Apply portal</td><td><code>check-staff.php</code> unauthenticated PII</td><td><span class="crit">Critical</span></td><td>API key or session auth</td><td>Block route at server</td></tr>
+<tr><td>Database</td><td>Phase 50 FKs may fail if orphans exist</td><td><span class="high">High</span></td><td>Run <code>phase16-precheck.sql</code> + phase 49 backfill first</td><td><code>rollback-phase48-51.sql</code></td></tr>
+</table>
+
+<h2>2. Critical path protections (current)</h2>
+<ul>
+<li>Feature flags default OFF for GPS and wizard</li>
+<li><code>feature_public_premium_v2</code> ON — homepage only; rollback via flag</li>
+<li>Deploy excludes production credentials</li>
+<li>Pre-deploy backup in <code>storage/backups/</code></li>
+</ul>
+
+<h2>3. Recommended monitoring</h2>
+<table>
+<tr><th>Check</th><th>Frequency</th></tr>
+<tr><td><code>api/health.php</code></td><td>Daily</td></tr>
+<tr><td>Registration submit error log</td><td>Daily on event weeks</td></tr>
+<tr><td>GPS verify script when flag ON</td><td>Before/after each event</td></tr>
+<tr><td>Email production verify cron</td><td>After mailer changes</td></tr>
+</table>
+
+<p class="meta">No production changes made in this assessment. See <code>SECURITY-HARDENING-REPORT.html</code> for detailed auth findings.</p>
+</body>
+</html>

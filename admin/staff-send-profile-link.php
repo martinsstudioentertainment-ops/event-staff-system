@@ -31,6 +31,9 @@ if (!empty($_POST['bulk_all'])) {
         'blacklisted' => isset($_POST['filter_blacklisted']) && $_POST['filter_blacklisted'] !== ''
             ? (bool) (int) $_POST['filter_blacklisted']
             : null,
+        'profile'     => in_array((string) ($_POST['filter_profile'] ?? ''), ['complete', 'incomplete'], true)
+            ? (string) $_POST['filter_profile']
+            : '',
     ];
 
     $staffIds = getStaffIdsForProfileLinkBulk($pdo, $filters);

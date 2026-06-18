@@ -47,12 +47,6 @@ if ($row['status'] !== 'approved') {
     exit;
 }
 
-$window = getEventCheckinWindow($row);
-if (!$window['is_open']) {
-    echo json_encode(['ok' => false, 'error' => formatCheckinWindowMessage($window)]);
-    exit;
-}
-
 if (hasCheckedIn($pdo, (int) $row['id'])) {
     echo json_encode([
         'ok'      => false,

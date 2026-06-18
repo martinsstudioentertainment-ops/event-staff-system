@@ -71,3 +71,17 @@ function richPost(string $key): string
 {
     return sanitizeRichText((string) ($_POST[$key] ?? ''));
 }
+
+/**
+ * @return array{plain: string, html: string|null}
+ */
+function richEmailParts(string $html): array
+{
+    $rendered = renderRichText($html);
+    $plain    = plainTextFromRich($html, 10000);
+
+    return [
+        'plain' => $plain !== '' ? $plain : strip_tags($html),
+        'html'  => $rendered !== '' ? $rendered : null,
+    ];
+}

@@ -9,13 +9,14 @@ require_once __DIR__ . '/../includes/staff-repository.php';
 require_once __DIR__ . '/../includes/audit-log.php';
 require_once __DIR__ . '/../includes/apply-remote-sync.php';
 
+requireAdmin();
+requireAdminCapability('staff');
+
 if (!isAdminSuperUser()) {
     setAdminFlash('error', 'Only administrators can permanently delete staff profiles.');
     header('Location: staff-directory.php');
     exit;
 }
-
-requireAdminCapability('staff');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: staff-directory.php');

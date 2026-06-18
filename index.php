@@ -16,6 +16,11 @@ require_once __DIR__ . '/includes/components/phone-input.php';
 
 require_once __DIR__ . '/includes/global-public-site.php';
 require_once __DIR__ . '/includes/public/staff-public-shell.php';
+require_once __DIR__ . '/includes/feature-flags.php';
+require_once __DIR__ . '/includes/registration-analytics.php';
+require_once __DIR__ . '/includes/public/registration-wizard-shell.php';
+require_once __DIR__ . '/includes/staff-google-oauth.php';
+require_once __DIR__ . '/includes/registration-google-gate.php';
 
 $frontendEvents = [];
 $siteName       = 'Event Staff System';
@@ -58,6 +63,34 @@ function checked(string $key, string $value): string
     return (($old[$key] ?? '') === $value) ? ' checked' : '';
 }
 
+function wiz_step_open(int $step): void
+{
+    global $wizardV2Enabled;
+    if (!$wizardV2Enabled) {
+        return;
+    }
+    $titles = [
+        1 => 'Welcome - choose your role',
+        2 => 'Pick your gigs',
+        3 => 'Your email',
+        4 => 'About you',
+        5 => 'Contact',
+        6 => 'Payroll details',
+        7 => 'PSA compliance',
+        8 => 'Review & submit',
+    ];
+    echo '<div class="reg-wizard__step" data-step="' . $step . '" hidden>';
+    echo '<h3 class="reg-wizard__step-title">' . h($titles[$step] ?? 'Step ' . $step) . '</h3>';
+}
+
+function wiz_step_close(): void
+{
+    global $wizardV2Enabled;
+    if ($wizardV2Enabled) {
+        echo '</div>';
+    }
+}
+
 $registeredCount = isset($_GET['registered']) ? max(1, (int) $_GET['registered']) : 0;
 $flash = '';
 if ($registeredCount > 0) {
@@ -94,14 +127,48 @@ if (($old['form_slug'] ?? '') === '') {
     $old['form_slug'] = $selectedFormSlug;
 }
 
-$pageTitle = $linkedForm
-    ? (string) ($linkedForm['title'] ?? 'Staff Registration')
-    : 'Register for Events';
-$pageSubtitle = $linkedForm
-    ? (string) ($linkedForm['subtitle'] ?? '')
-    : t('register_page_subtitle');
+$registrationGoogleRequired = $pdo && isRegistrationGoogleRequired($pdo);
+$registrationGoogleEmail    = $pdo ? getRegistrationVerifiedGoogleEmail() : null;
+$registrationGoogleError    = trim((string) ($_SESSION['registration_google_error'] ?? ''));
+unset($_SESSION['registration_google_error']);
+$showRegistrationGoogleGate = $registrationGoogleRequired
+    && $registrationGoogleEmail === null
+    && $registeredCount === 0
+    && $flash !== 'success';
+
+if ($registrationGoogleRequired && $registrationGoogleEmail === null) {
+    $old['email']  = '';
+    $returnEmail   = '';
+}
+
+if ($registrationGoogleEmail !== null) {
+    $old['email'] = $registrationGoogleEmail;
+    if ($returnEmail === '') {
+        $returnEmail = $registrationGoogleEmail;
+    }
+}
+
+$pageTitle = $showRegistrationGoogleGate
+    ? 'Pick available shift'
+    : ($linkedForm
+        ? (string) ($linkedForm['title'] ?? 'Pick available shift')
+        : 'Pick available shift');
+$pageSubtitle = $showRegistrationGoogleGate
+    ? 'Verify your email (Google or a code to any inbox), choose an open shift, then complete your details.'
+    : ($linkedForm
+        ? (string) ($linkedForm['subtitle'] ?? '')
+        : 'Choose an open shift, then complete your PSA and payroll details.');
 
 $showNotice = $pdo && isWebsiteNoticeEnabled($pdo);
+
+$wizardV2Enabled = isFeatureEnabled($pdo, 'feature_registration_wizard_v2');
+$analyticsSessionId = '';
+if ($wizardV2Enabled) {
+    if (empty($_SESSION['registration_analytics_sid'])) {
+        $_SESSION['registration_analytics_sid'] = createRegistrationAnalyticsSessionId();
+    }
+    $analyticsSessionId = (string) $_SESSION['registration_analytics_sid'];
+}
 
 $assetBase     = '';
 $themeColor    = '#2563eb';
@@ -110,6 +177,10 @@ require_once __DIR__ . '/includes/theme.php';
 if ($pdo) {
     $themeColor    = getThemeColor($pdo);
     $themeCategory = getThemeCategory($pdo);
+}
+
+if (!headers_sent()) {
+    header('Content-Type: text/html; charset=UTF-8');
 }
 
 ?>
@@ -135,15 +206,20 @@ if ($pdo) {
     <link rel="stylesheet" href="assets/css/site-notice.css">
     <?php endif; ?>
     <link rel="stylesheet" href="assets/css/registration-compact.css?v=<?= is_file(__DIR__ . '/assets/css/registration-compact.css') ? (string) filemtime(__DIR__ . '/assets/css/registration-compact.css') : '1' ?>">
+    <?php if ($wizardV2Enabled): ?>
+    <link rel="stylesheet" href="assets/css/registration-wizard.css?v=<?= is_file(__DIR__ . '/assets/css/registration-wizard.css') ? (string) filemtime(__DIR__ . '/assets/css/registration-wizard.css') : '1' ?>">
+    <?php endif; ?>
 </head>
-<body class="staff-public-shell staff-public-shell--event-ops registration-page registration-page--compact" data-registration-page="true" data-pwa-install="1" data-theme-category="<?= h($themeCategory) ?>" data-backend-submit="true" data-flash="<?= htmlspecialchars($flash, ENT_QUOTES, 'UTF-8') ?>" data-registered-count="<?= $registeredCount ?>" data-site-name="<?= h($siteName) ?>" data-locked-role="<?= h($lockFormType ? $lockedRole : '') ?>" data-roles-on-shift-label="<?= h(t('roles_on_shift')) ?>">
+<body class="staff-public-shell staff-public-shell--event-ops registration-page registration-page--compact<?= $wizardV2Enabled ? ' registration-page--wizard' : '' ?><?= $registrationGoogleEmail !== null ? ' registration-page--google-verified' : '' ?><?= $registrationGoogleRequired ? ' registration-page--google-required' : '' ?>" data-registration-page="true" data-pwa-install="1" data-theme-category="<?= h($themeCategory) ?>" data-backend-submit="true" data-flash="<?= htmlspecialchars($flash, ENT_QUOTES, 'UTF-8') ?>" data-registered-count="<?= $registeredCount ?>" data-site-name="<?= h($siteName) ?>" data-locked-role="<?= h($lockFormType ? $lockedRole : '') ?>" data-roles-on-shift-label="<?= h(t('roles_on_shift')) ?>" data-wizard-mode="<?= $wizardV2Enabled ? '1' : '0' ?>" data-wizard-analytics="<?= $wizardV2Enabled ? '1' : '0' ?>" data-analytics-session="<?= h($analyticsSessionId) ?>" data-analytics-csrf="<?= h(csrfToken()) ?>" data-analytics-form-slug="<?= h($formSlug !== '' && $linkedForm ? $formSlug : $selectedFormSlug) ?>" data-registration-google-email="<?= h($registrationGoogleEmail ?? '') ?>" data-shift-first-flow="<?= ($registrationGoogleRequired || $registrationGoogleEmail !== null) ? '1' : '0' ?>" data-google-registration-required="<?= $registrationGoogleRequired ? '1' : '0' ?>"<?= ($wizardV2Enabled && !empty($serverErrors)) ? ' data-server-error-restore="1"' : '' ?>>
     <?php renderStaffPublicBackground(true); ?>
 
     <?php
+    renderStaffFlashBroadcast($pdo);
+
     renderStaffPublicHeader($pdo, $siteName, [
         'language_switcher' => $pdo !== null,
         'lang_query'        => $formSlug !== '' ? 'form=' . urlencode($formSlug) : '',
-        'home_url'          => 'staff-app.php',
+        'home_url'          => 'index.php',
     ]);
     ?>
 
@@ -154,12 +230,22 @@ if ($pdo) {
     <main class="registration-page__wrap staff-public-main">
         <?php
         renderStaffPublicHero([
-            'eyebrow' => $linkedForm ? (string) ($linkedForm['short_label'] ?? 'Registration') : 'PSA security · DSP & Static',
+            'eyebrow' => $linkedForm ? (string) ($linkedForm['short_label'] ?? 'Registration') : 'PSA security | DSP & Static',
             'title'   => $pageTitle,
             'lead'    => renderRichText($pageSubtitle),
         ]);
         ?>
 
+        <?php if (!$showRegistrationGoogleGate && (($registrationGoogleEmail ?? '') !== '' || $returnEmail !== '')): ?>
+        <p class="form-hint" style="text-align:center;margin:0 0 1rem;max-width:36rem;margin-left:auto;margin-right:auto;">
+            Verified as <strong><?= h($registrationGoogleEmail ?? $returnEmail) ?></strong>.
+            Already on the roster? <a href="staff-app.php"><strong>Staff app</strong></a>.
+        </p>
+        <?php endif; ?>
+
+        <?php if ($showRegistrationGoogleGate): ?>
+            <?php renderRegistrationGoogleGate($pdo, $formSlug !== '' && $linkedForm ? $formSlug : $selectedFormSlug, $registrationGoogleError); ?>
+        <?php else: ?>
         <section class="card staff-public-card staff-public-card--no-inner-title">
             <p class="registration-mobile-title"><?= h($pageTitle) ?></p>
             <div class="card__header" aria-hidden="true">
@@ -170,8 +256,19 @@ if ($pdo) {
 
             <form id="registration-form" action="submit.php" method="post" enctype="multipart/form-data" novalidate>
                 <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                <?php if ($registrationGoogleEmail !== null): ?>
+                    <input type="hidden" name="registration_verified_google_email" id="registration_verified_google_email" value="<?= h($registrationGoogleEmail) ?>">
+                <?php endif; ?>
                 <div class="form-grid">
 
+                    <?php if ($wizardV2Enabled): ?>
+                        <?php renderRegistrationWizardShell(count($frontendEvents)); ?>
+                    <?php endif; ?>
+
+                    <?php wiz_step_open(1); ?>
+                    <?php if ($wizardV2Enabled): ?>
+                        <div id="reg-wizard-resume-prompt" class="reg-resume-prompt" hidden></div>
+                    <?php endif; ?>
                     <?php if (!$lockFormType): ?>
                     <div class="form-group form-group--full registration-role-field">
                         <label class="form-label form-label--required" for="form_slug"><?= h(t('your_role')) ?></label>
@@ -198,14 +295,25 @@ if ($pdo) {
                         <input type="hidden" name="form_slug" value="<?= h($formSlug) ?>">
                     <?php endif; ?>
                         <input type="hidden" name="staff_role" id="staff_role" value="<?= h($lockedRole) ?>">
+                    <?php wiz_step_close(); ?>
 
+                    <?php if ($registrationGoogleEmail !== null): ?>
+                        <input type="hidden" name="email" id="email" value="<?= old('email') ?>">
+                    <?php elseif (!$registrationGoogleRequired): ?>
+                    <?php wiz_step_open(3); ?>
+                    <?php if ($wizardV2Enabled): ?>
+                        <div id="reg-returning-panel" class="reg-returning-panel" hidden aria-live="polite"></div>
+                    <?php endif; ?>
                     <div class="form-group form-group--full">
                         <label class="form-label form-label--required" for="email"><?= h(t('email_address')) ?></label>
                         <input class="form-input" type="email" id="email" name="email" value="<?= old('email') ?>" placeholder="you@example.com" autocomplete="email">
                         <p class="form-hint"><?= h(t('email_hint')) ?></p>
                         <span class="form-error" id="email-error"></span>
                     </div>
+                    <?php wiz_step_close(); ?>
+                    <?php endif; ?>
 
+                    <?php wiz_step_open(4); ?>
                     <h3 class="form-section-title"><?= h(t('personal_details')) ?></h3>
 
                     <div class="form-group">
@@ -234,7 +342,8 @@ if ($pdo) {
 
                     <div class="form-group">
                         <label class="form-label form-label--required" for="date_of_birth">Date of birth</label>
-                        <input class="form-input" type="date" id="date_of_birth" name="date_of_birth" value="<?= old('date_of_birth') ?>">
+                        <input class="form-input" type="date" id="date_of_birth" name="date_of_birth" value="<?= old('date_of_birth') ?>" lang="en-IE">
+                        <p class="form-hint">Day / month / year (Irish format, e.g. 31/12/1990).</p>
                         <span class="form-error" id="date_of_birth-error"></span>
                     </div>
 
@@ -248,10 +357,22 @@ if ($pdo) {
                         </div>
                         <span class="form-error" id="gender-error"></span>
                     </div>
+                    <?php wiz_step_close(); ?>
 
+                    <?php wiz_step_open(5); ?>
                     <h3 class="form-section-title">Contact</h3>
+                    <?php if ($wizardV2Enabled): ?>
+                        <div class="reg-wizard__contact-panel" role="note">
+                            <p class="reg-wizard__contact-lead">Your mobile number lets organisers contact you about shift confirmations, roster changes, and event-day check-in.</p>
+                            <ul class="reg-wizard__contact-points">
+                                <li>Used only for work you apply for</li>
+                                <li>Not sold to third parties</li>
+                                <li>Update anytime in your staff profile</li>
+                            </ul>
+                        </div>
+                    <?php endif; ?>
 
-                    <div class="form-group">
+                    <div class="form-group form-group--full reg-wizard__contact-field">
                         <label class="form-label form-label--required" for="mobile_national">Mobile number</label>
                         <?php renderPhoneInputField([
                             'id'         => 'mobile',
@@ -260,8 +381,15 @@ if ($pdo) {
                             'required'   => true,
                         ]); ?>
                     </div>
+                    <?php wiz_step_close(); ?>
 
+                    <?php wiz_step_open(6); ?>
                     <h3 class="form-section-title">Financial &amp; identification</h3>
+                    <?php if ($wizardV2Enabled): ?>
+                        <div class="reg-wizard__payroll-notice" role="note">
+                            <p><strong>Registration platform only.</strong> Olasentra connects you with event opportunities. We are <strong>not</strong> your employer, payroll provider, or contracting party. Bank and tax details you provide are passed to the paying contractor or event organiser for approved work only.</p>
+                        </div>
+                    <?php endif; ?>
 
                     <div class="form-group">
                         <label class="form-label form-label--required" for="pps_number">National Insurance / PPS Number</label>
@@ -271,50 +399,63 @@ if ($pdo) {
 
                     <div class="form-group">
                         <label class="form-label form-label--required" for="bank_iban">Bank IBAN</label>
-                        <input class="form-input" type="text" id="bank_iban" name="bank_iban" value="<?= old('bank_iban') ?>" placeholder="IE29AIBK93115212345678" autocomplete="off" autocapitalize="characters" maxlength="34" pattern="[A-Za-z]{2}[0-9]{2}[A-Za-z0-9]{11,30}" title="IBAN with country code — not a bank name">
+                        <input class="form-input" type="text" id="bank_iban" name="bank_iban" value="<?= old('bank_iban') ?>" placeholder="IE29AIBK93115212345678" autocomplete="off" autocapitalize="characters" maxlength="34" pattern="[A-Za-z]{2}[0-9]{2}[A-Za-z0-9]{11,30}" title="IBAN with country code, not a bank name">
                         <p class="form-hint">Irish example: IE + 2 check digits + account (22 characters). UK: GB + 20 characters.</p>
                         <span class="form-error" id="bank_iban-error"></span>
                     </div>
+                    <?php wiz_step_close(); ?>
 
+                    <?php wiz_step_open(7); ?>
                     <h3 class="form-section-title">PSA licence</h3>
 
                     <div class="form-group">
                         <label class="form-label form-label--required" for="psa_licence">PSA licence number</label>
                         <input class="form-input" type="text" id="psa_licence" name="psa_licence" value="<?= old('psa_licence') ?>" placeholder="EM123456/00" autocomplete="off" autocapitalize="characters" pattern="EM[0-9]{6}/[0-9]{2}" title="Format EM123456/00">
-                        <p class="form-hint">Format: EM123456/00 (shown on your PSA card).</p>
+                        <p class="form-hint">Format: EM123456/00. We check the format, then you confirm on the <a href="https://www.psa-gov.ie/psa-registered-employees/" target="_blank" rel="noopener">official PSA register</a>.</p>
+                        <p class="form-hint" id="psa-licence-verify-status" aria-live="polite"></p>
                         <span class="form-error" id="psa_licence-error"></span>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label form-label--required" for="psa_expiry_date">PSA expiry date</label>
-                        <input class="form-input" type="date" id="psa_expiry_date" name="psa_expiry_date" value="<?= old('psa_expiry_date') ?>">
+                        <input class="form-input" type="date" id="psa_expiry_date" name="psa_expiry_date" value="<?= old('psa_expiry_date') ?>" lang="en-IE">
+                        <p class="form-hint">Day / month / year (Irish format, e.g. 31/12/2028).</p>
                         <span class="form-error" id="psa_expiry_date-error"></span>
                     </div>
 
                     <div class="form-group form-group--full">
-                        <label class="form-label form-label--required" for="psa_front_image">PSA card — front photo</label>
+                        <label class="form-label form-label--required" for="psa_front_image">PSA card, front photo</label>
                         <input class="form-input form-input--file" type="file" id="psa_front_image" name="psa_front_image" accept="<?= h(psaImageFileAcceptAttribute()) ?>" data-psa-upload="front">
                         <span class="form-error" id="psa_front_image-error"></span>
                     </div>
 
                     <div class="form-group form-group--full">
-                        <label class="form-label form-label--required" for="psa_back_image">PSA card — back photo</label>
+                        <label class="form-label form-label--required" for="psa_back_image">PSA card, back photo</label>
                         <input class="form-input form-input--file" type="file" id="psa_back_image" name="psa_back_image" accept="<?= h(psaImageFileAcceptAttribute()) ?>" data-psa-upload="back">
                         <span class="form-error" id="psa_back_image-error"></span>
                     </div>
+                    <?php wiz_step_close(); ?>
 
-                    <h3 class="form-section-title">Shift selection</h3>
+                    <?php wiz_step_open(2); ?>
+                    <h3 class="form-section-title"><?= $wizardV2Enabled ? 'Pick available shift' : 'Pick available shift' ?></h3>
+                    <?php if ($wizardV2Enabled): ?>
+                        <p class="form-hint">Open shifts load automatically — tap the shift you want, then continue to your details.</p>
+                    <?php endif; ?>
+
+                    <div id="shift-gate-notice" class="alert alert--warning" role="status" hidden>
+                        Complete all sections above (personal details, bank, and PSA card photos) before you can pick shifts.
+                    </div>
 
                     <?php if ($pdo): renderRegistrationPortalNotice($pdo); endif; ?>
 
-                    <div class="form-group form-group--full" id="event-selection-wrap">
+                    <div class="form-group form-group--full<?= $wizardV2Enabled ? '' : ' shift-picker-locked' ?>" id="event-selection-wrap">
                         <label class="form-label form-label--required" id="shift-picker-label">Available shifts</label>
                         <p class="form-hint" id="event-selection-hint">
                             <?= h(t('shift_list_hint')) ?>
                         </p>
                         <div
                             id="shift-picker-list"
-                            class="shift-picker-list"
+                            class="shift-picker-list<?= $wizardV2Enabled ? ' shift-picker-list--wizard' : '' ?>"
                             role="group"
                             aria-labelledby="shift-picker-label"
                             data-selected="<?= htmlspecialchars($selectedEventsJson, ENT_QUOTES, 'UTF-8') ?>"
@@ -324,8 +465,29 @@ if ($pdo) {
                         <p class="shift-picker-summary" id="shift-picker-summary" aria-live="polite">0 shifts selected</p>
                         <input type="hidden" id="venue_id" name="venue_id" value="<?= (int) $selectedVenueId ?>">
                         <span class="form-error" id="event_ids-error"></span>
+                        <div id="waitlist-offer" class="alert alert--info alert--visible" style="margin-top:0.75rem;display:none;">
+                            <p><strong>No shifts available right now?</strong> You can still register your interest. We will contact you when a place opens.</p>
+                            <label class="form-checkbox">
+                                <input type="checkbox" name="join_waiting_list" id="join_waiting_list" value="1">
+                                Add me to the waiting list
+                            </label>
+                            <input type="hidden" name="registration_mode" id="registration_mode" value="">
+                        </div>
                     </div>
+                    <?php if ($wizardV2Enabled): ?>
+                        <div id="reg-fast-track-footer" class="reg-fast-track-footer" hidden>
+                            <p class="reg-fast-track-lead">Welcome back — your saved profile will be used. Pick a shift and submit below.</p>
+                            <div id="reg-fast-track-events" class="reg-fast-track-events" aria-live="polite"></div>
+                            <div id="reg-fast-track-consent-mount"></div>
+                        </div>
+                    <?php endif; ?>
+                    <?php wiz_step_close(); ?>
 
+                    <?php wiz_step_open(8); ?>
+                    <?php if ($wizardV2Enabled): ?>
+                        <div id="reg-wizard-review-summary" class="reg-review-summary" aria-live="polite"></div>
+                    <?php endif; ?>
+                    <div id="reg-consent-home">
                     <div class="form-group form-group--full">
                         <label class="form-checkbox">
                             <input type="checkbox" name="privacy_consent" value="1"<?= !empty($old['privacy_consent']) ? ' checked' : '' ?> required>
@@ -333,14 +495,21 @@ if ($pdo) {
                         </label>
                         <span class="form-error" id="privacy_consent-error"></span>
                     </div>
+                    </div>
 
-                    <div class="form-actions">
+                    <div class="form-actions<?= $wizardV2Enabled ? ' form-actions--wizard-hidden' : '' ?>">
                         <button type="reset" class="btn btn--secondary">Clear form</button>
                         <button type="submit" class="btn btn--primary">Submit registration</button>
                     </div>
+                    <?php wiz_step_close(); ?>
+
+                    <?php if ($wizardV2Enabled): ?>
+                        <?php renderRegistrationWizardNav(); ?>
+                    <?php endif; ?>
                 </div>
             </form>
         </section>
+        <?php endif; ?>
     </main>
 
     <?php renderStaffPublicFooter($siteName); ?>
@@ -363,5 +532,34 @@ if ($pdo) {
     <script src="assets/js/site-notice.js"></script>
     <?php endif; ?>
     <script src="assets/js/returning-registrant.js"></script>
+    <?php $shiftGateVer = is_file(__DIR__ . '/assets/js/registration-shift-gate.js') ? (string) filemtime(__DIR__ . '/assets/js/registration-shift-gate.js') : '1'; ?>
+    <script src="assets/js/registration-shift-gate.js?v=<?= h($shiftGateVer) ?>"></script>
+    <?php if ($wizardV2Enabled): ?>
+    <?php $finJsVer = is_file(__DIR__ . '/assets/js/financial-field-validation.js') ? (string) filemtime(__DIR__ . '/assets/js/financial-field-validation.js') : '1'; ?>
+    <script src="assets/js/financial-field-validation.js?v=<?= h($finJsVer) ?>"></script>
+    <?php $wizAutosaveVer = is_file(__DIR__ . '/assets/js/registration-wizard-autosave.js') ? (string) filemtime(__DIR__ . '/assets/js/registration-wizard-autosave.js') : '1'; ?>
+    <script src="assets/js/registration-wizard-autosave.js?v=<?= h($wizAutosaveVer) ?>"></script>
+    <?php $wizValVer = is_file(__DIR__ . '/assets/js/registration-wizard-validation.js') ? (string) filemtime(__DIR__ . '/assets/js/registration-wizard-validation.js') : '1'; ?>
+    <script src="assets/js/registration-wizard-validation.js?v=<?= h($wizValVer) ?>"></script>
+    <?php $wizAnalyticsVer = is_file(__DIR__ . '/assets/js/registration-wizard-analytics.js') ? (string) filemtime(__DIR__ . '/assets/js/registration-wizard-analytics.js') : '1'; ?>
+    <script src="assets/js/registration-wizard-analytics.js?v=<?= h($wizAnalyticsVer) ?>"></script>
+    <?php $wizRetVer = is_file(__DIR__ . '/assets/js/registration-wizard-returning.js') ? (string) filemtime(__DIR__ . '/assets/js/registration-wizard-returning.js') : '1'; ?>
+    <script src="assets/js/registration-wizard-returning.js?v=<?= h($wizRetVer) ?>"></script>
+    <?php $wizPsaVer = is_file(__DIR__ . '/assets/js/registration-wizard-psa.js') ? (string) filemtime(__DIR__ . '/assets/js/registration-wizard-psa.js') : '1'; ?>
+    <script src="assets/js/registration-wizard-psa.js?v=<?= h($wizPsaVer) ?>"></script>
+    <?php $wizReviewVer = is_file(__DIR__ . '/assets/js/registration-wizard-review.js') ? (string) filemtime(__DIR__ . '/assets/js/registration-wizard-review.js') : '1'; ?>
+    <script src="assets/js/registration-wizard-review.js?v=<?= h($wizReviewVer) ?>"></script>
+    <?php if (!empty($serverErrors)): ?>
+    <script>window.REG_WIZARD_RESTORE_STEP = 8;</script>
+    <?php endif; ?>
+    <?php $wizJsVer = is_file(__DIR__ . '/assets/js/registration-wizard.js') ? (string) filemtime(__DIR__ . '/assets/js/registration-wizard.js') : '1'; ?>
+    <script src="assets/js/registration-wizard.js?v=<?= h($wizJsVer) ?>"></script>
+    <?php $wizRestoreVer = is_file(__DIR__ . '/assets/js/registration-wizard-server-restore.js') ? (string) filemtime(__DIR__ . '/assets/js/registration-wizard-server-restore.js') : '1'; ?>
+    <script src="assets/js/registration-wizard-server-restore.js?v=<?= h($wizRestoreVer) ?>"></script>
+    <?php endif; ?>
+    <?php if ($showRegistrationGoogleGate): ?>
+    <?php $regOtpJs = __DIR__ . '/assets/js/registration-email-otp.js'; ?>
+    <script src="assets/js/registration-email-otp.js?v=<?= is_file($regOtpJs) ? (string) filemtime($regOtpJs) : '1' ?>"></script>
+    <?php endif; ?>
 </body>
 </html>

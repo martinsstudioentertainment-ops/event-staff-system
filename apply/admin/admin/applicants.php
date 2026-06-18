@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/secure-layout.php';
+require_once __DIR__ . '/../includes/secure-pagination.php';
 
-$error       = '';
-$applicants  = [];
-$totalCount  = $pendingCount = $approvedCount = $rejectedCount = 0;
-$search      = trim($_GET['search'] ?? '');
+$error        = '';
+$applicants   = [];
+$totalCount   = $pendingCount = $approvedCount = $rejectedCount = 0;
+$filteredTotal = 0;
+$search       = trim($_GET['search'] ?? '');
 $statusFilter = trim($_GET['status'] ?? '');
+$page         = secureListPage();
+$perPage      = secureListPerPage();
+$offset       = secureListOffset($page, $perPage);
 
 $eventPdo = getMainAdminPdo();
 if (!$eventPdo instanceof PDO) {
@@ -26,22 +31,16 @@ try {
     $approvedCount = (int) $eventPdo->query("SELECT COUNT(*) FROM staff_registrations WHERE status = 'approved'")->fetchColumn();
     $rejectedCount = (int) $eventPdo->query("SELECT COUNT(*) FROM staff_registrations WHERE status = 'rejected'")->fetchColumn();
 
-    $sql = "
-        SELECT sr.id, sr.first_name, sr.surname, sr.email, sr.mobile, sr.staff_role,
-               sr.status, sr.created_at, e.name AS event_name, e.event_date
-        FROM staff_registrations sr
-        LEFT JOIN events e ON e.id = sr.event_id
-        WHERE 1=1
-    ";
+    $where  = ' WHERE 1=1';
     $params = [];
 
     if ($statusFilter !== '' && in_array($statusFilter, ['pending', 'approved', 'rejected'], true)) {
-        $sql .= ' AND sr.status = :status';
+        $where .= ' AND sr.status = :status';
         $params['status'] = $statusFilter;
     }
 
     if ($search !== '') {
-        $sql .= ' AND (sr.first_name LIKE :q1 OR sr.surname LIKE :q2 OR sr.email LIKE :q3 OR sr.mobile LIKE :q4 OR e.name LIKE :q5)';
+        $where .= ' AND (sr.first_name LIKE :q1 OR sr.surname LIKE :q2 OR sr.email LIKE :q3 OR sr.mobile LIKE :q4 OR e.name LIKE :q5)';
         $like = '%' . $search . '%';
         $params['q1'] = $like;
         $params['q2'] = $like;
@@ -50,7 +49,18 @@ try {
         $params['q5'] = $like;
     }
 
-    $sql .= ' ORDER BY sr.created_at DESC LIMIT 150';
+    $fromJoin = ' FROM staff_registrations sr LEFT JOIN events e ON e.id = sr.event_id';
+
+    $countStmt = $eventPdo->prepare('SELECT COUNT(*)' . $fromJoin . $where);
+    $countStmt->execute($params);
+    $filteredTotal = (int) $countStmt->fetchColumn();
+
+    $sql = "
+        SELECT sr.id, sr.first_name, sr.surname, sr.email, sr.mobile, sr.staff_role,
+               sr.status, sr.created_at, e.name AS event_name, e.event_date
+        " . $fromJoin . $where . '
+        ORDER BY sr.created_at DESC
+        LIMIT ' . (int) $perPage . ' OFFSET ' . (int) $offset;
 
     $stmt = $eventPdo->prepare($sql);
     $stmt->execute($params);
@@ -58,6 +68,11 @@ try {
 } catch (Exception $e) {
     $error = 'Failed to load main registrations: ' . $e->getMessage();
 }
+
+$paginationQuery = array_filter([
+    'search' => $search !== '' ? $search : null,
+    'status' => $statusFilter !== '' ? $statusFilter : null,
+]);
 
 secure_layout_start('Main registrations', 'applicants', 'Read-only view of event registrations from the main ERP database.');
 
@@ -100,6 +115,9 @@ if ($error !== '') {
                 <option value="rejected"<?= $statusFilter === 'rejected' ? ' selected' : '' ?>>Rejected</option>
             </select>
         </div>
+        <?php if ($perPage !== SECURE_LIST_DEFAULT_PER_PAGE): ?>
+            <input type="hidden" name="per_page" value="<?= (int) $perPage ?>">
+        <?php endif; ?>
         <button type="submit" class="secure-btn secure-btn--primary">Filter</button>
         <?php if ($search !== '' || $statusFilter !== ''): ?>
             <a href="applicants.php" class="secure-btn secure-btn--ghost">Clear</a>
@@ -108,9 +126,12 @@ if ($error !== '') {
 </div>
 
 <div class="secure-card secure-card--danger-top">
-    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:1rem;">
-        <h2 style="margin:0;font-size:1rem;">Recent registrations</h2>
-        <a href="import-applicants.php" class="secure-btn secure-btn--purple">Import to apply vault</a>
+    <div class="secure-list-toolbar">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.75rem;">
+            <h2 style="margin:0;font-size:1rem;">Registrations</h2>
+            <a href="import-applicants.php" class="secure-btn secure-btn--purple">Import to apply vault</a>
+        </div>
+        <?php renderSecurePerPageControl('applicants.php', $paginationQuery); ?>
     </div>
 
     <div class="secure-table-wrap">
@@ -141,17 +162,19 @@ if ($error !== '') {
                             <td>
                                 <?= secure_h((string) ($row['event_name'] ?? '—')) ?>
                                 <?php if (!empty($row['event_date'])): ?>
-                                    <span style="color:var(--secure-muted);font-size:0.75rem;"> · <?= secure_h((string) $row['event_date']) ?></span>
+                                    <span style="color:var(--secure-muted);font-size:0.75rem;"> · <?= secure_h(secure_format_date((string) $row['event_date'])) ?></span>
                                 <?php endif; ?>
                             </td>
                             <td><?= secure_status_badge((string) ($row['status'] ?? 'pending')) ?></td>
-                            <td><?= !empty($row['created_at']) ? secure_h((string) $row['created_at']) : '—' ?></td>
+                            <td><?= !empty($row['created_at']) ? secure_h(secure_format_datetime((string) $row['created_at'])) : '—' ?></td>
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
             </tbody>
         </table>
     </div>
+
+    <?php renderSecurePagination($page, $filteredTotal, 'applicants.php', $paginationQuery); ?>
 </div>
 
 <div class="secure-card">

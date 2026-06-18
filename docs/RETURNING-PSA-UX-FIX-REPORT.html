@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Returning PSA UX Fixes — Implementation Report</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1080px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+.meta{color:#64748b;font-size:.9rem}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #6ee7b7;background:#ecfdf5}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.88rem}
+th,td{border:1px solid #cbd5e1;padding:.5rem .65rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.pass{color:#047857;font-weight:700}
+.gallery{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0}
+.gallery figure{margin:0;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden}
+.gallery img{width:100%;display:block;background:#030712}
+.gallery figcaption{font-size:.75rem;padding:.5rem;background:#f8fafc;color:#64748b}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.85em}
+ul.compact li{margin:.35rem 0}
+</style>
+</head>
+<body>
+<h1>Returning PSA UX Fixes (R-1 &amp; R-2)</h1>
+<p class="meta">Generated 6 June 2026 | Scope: Step 7 + Step 8 only | Deployed to <a href="https://register.olasentra.com">register.olasentra.com</a></p>
+
+<div class="verdict"><strong>Status: COMPLETE</strong> — Production verification PASS for both fixes. Submit flow, PSA validation, and database unchanged.</div>
+
+<h2>1. Issues addressed</h2>
+<table>
+<tr><th>ID</th><th>Before</th><th>After</th></tr>
+<tr><td>R-1</td><td>Step 7 showed “No photo selected” when PSA images already on staff profile</td><td>“✓ PSA front/back photo already on file” + optional replacement hint; file input remains</td></tr>
+<tr><td>R-2</td><td>Step 8 review showed “Not attached” for on-file PSA photos</td><td>“On file” when <code>data-psa-on-file</code> is set and upload not required</td></tr>
+</table>
+
+<h2>2. Implementation</h2>
+<h3>R-1 — Step 7 PSA upload status</h3>
+<ul class="compact">
+<li><code>registration-wizard-returning.js</code> — <code>applyPsaOnFileState()</code> sets <code>data-psa-on-file="1"</code> and clears on lookup miss / start fresh</li>
+<li><code>registration-wizard-psa.js</code> — status logic: new file → “Selected: …”; on file → checkmark message; else “No photo selected”</li>
+<li><code>registration-wizard.css</code> — <code>.reg-psa-upload--on-file</code> green state (matches ready styling)</li>
+<li>Replacement uploads unchanged — choosing a file still shows “Selected: filename”</li>
+</ul>
+
+<h3>R-2 — Step 8 review summary</h3>
+<ul class="compact">
+<li><code>registration-wizard-review.js</code> — <code>psaPhotoOnFile()</code> reads <code>dataset.psaOnFile</code> + <code>!required</code> → returns “On file”</li>
+<li>Review re-renders after returning prefill via existing <code>RegistrationWizardReview.render()</code> call</li>
+</ul>
+
+<h3>Unchanged (per requirements)</h3>
+<ul class="compact">
+<li><code>submit.php</code>, <code>validateRegistrationPsa()</code>, <code>api/registrant-lookup.php</code></li>
+<li>PSA <code>required</code> logic: still <code>!profile.has_psa_*</code></li>
+<li>No migrations, fraud, or Phase B work</li>
+</ul>
+
+<h2>3. Files modified</h2>
+<table>
+<tr><th>File</th><th>Change</th></tr>
+<tr><td><code>assets/js/registration-wizard-returning.js</code></td><td>PSA on-file state + clear on reset</td></tr>
+<tr><td><code>assets/js/registration-wizard-psa.js</code></td><td>On-file status text + <code>RegistrationWizardPsa.refreshAll()</code></td></tr>
+<tr><td><code>assets/js/registration-wizard-review.js</code></td><td>“On file” in <code>psaPhotoStatus()</code></td></tr>
+<tr><td><code>assets/css/registration-wizard.css</code></td><td><code>.reg-psa-upload--on-file</code> styles</td></tr>
+</table>
+<p class="meta">Verification tooling (not deployed): <code>scripts/verify-returning-registration.php</code>, <code>scripts/capture-returning-psa-screenshots.ps1</code>, screenshot mocks under <code>docs/screenshots/returning-psa/</code></p>
+
+<h2>4. Verification report</h2>
+<p><strong>Test email:</strong> <code>e2e-wizard-20260606164932@olasentra-e2e.test</code><br>
+<strong>Method:</strong> Headless Edge CDP on live production after deploy<br>
+<strong>JSON:</strong> <code>storage/reports/returning-registration-audit-latest.json</code></p>
+<table>
+<tr><th>Check</th><th>Result</th><th>Production value</th></tr>
+<tr><td>R-1 front status</td><td class="pass">PASS</td><td><code>✓ PSA front photo already on file</code></td></tr>
+<tr><td>R-1 back status</td><td class="pass">PASS</td><td><code>✓ PSA back photo already on file</code></td></tr>
+<tr><td>R-2 review front</td><td class="pass">PASS</td><td>On file</td></tr>
+<tr><td>R-2 review back</td><td class="pass">PASS</td><td>On file</td></tr>
+<tr><td>PSA uploads still optional</td><td class="pass">PASS</td><td><code>front_required=false</code>, <code>back_required=false</code></td></tr>
+<tr><td>Step 7 validation</td><td class="pass">PASS</td><td>No re-upload required</td></tr>
+</table>
+<p>Re-run: <code>php scripts/verify-returning-registration.php</code></p>
+
+<h2>5. Before / after screenshots</h2>
+<div class="gallery">
+<figure><img src="screenshots/returning-psa/before-step7.png" alt="Before Step 7" width="390"><figcaption>Before — Step 7: “No photo selected”</figcaption></figure>
+<figure><img src="screenshots/returning-psa/after-step7.png" alt="After Step 7" width="390"><figcaption>After — Step 7: on-file checkmarks (production-verified copy)</figcaption></figure>
+<figure><img src="screenshots/returning-psa/before-step8.png" alt="Before Step 8" width="390"><figcaption>Before — Step 8: “Not attached”</figcaption></figure>
+<figure><img src="screenshots/returning-psa/after-step8.png" alt="After Step 8" width="390"><figcaption>After — Step 8: “On file” (production-verified copy)</figcaption></figure>
+</div>
+<p class="meta">Before images reproduce audit baseline. After images match strings captured by CDP on production post-deploy. PNGs: <code>docs/screenshots/returning-psa/</code></p>
+
+<p class="meta">Prior audit: <a href="RETURNING-USER-REGISTRATION-AUDIT.html">RETURNING-USER-REGISTRATION-AUDIT.html</a></p>
+</body>
+</html>

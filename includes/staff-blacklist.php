@@ -36,7 +36,7 @@ function getApprovedRegistrationsWithAttendance(PDO $pdo, string $email): array
 
     $sql = 'SELECT sr.*,
                    e.name AS event_name, e.event_date, e.start_time, e.end_time,
-                   a.id AS attendance_id, a.checked_in_at
+                   a.id AS attendance_id, a.checked_in_at, a.attendance_status
             FROM staff_registrations sr
             INNER JOIN events e ON e.id = sr.event_id
             LEFT JOIN attendance a ON a.registration_id = sr.id
@@ -77,8 +77,11 @@ function countConsecutiveNoShows(PDO $pdo, string $email): int
 
     foreach ($rows as $row) {
         if (!empty($row['attendance_id'])) {
-            $streak = 0;
-            continue;
+            $attStatus = strtolower(trim((string) ($row['attendance_status'] ?? '')));
+            if ($attStatus !== 'no_show') {
+                $streak = 0;
+                continue;
+            }
         }
 
         $streak++;
@@ -295,7 +298,10 @@ function processAllNoShowBlacklists(PDO $pdo): array
             INNER JOIN events e ON e.id = sr.event_id
             LEFT JOIN attendance a ON a.registration_id = sr.id
             WHERE sr.status = \'approved\'
-              AND a.id IS NULL';
+              AND (
+                    a.id IS NULL
+                    OR LOWER(COALESCE(a.attendance_status, \'\')) = \'no_show\'
+                  )';
 
     $emails = $pdo->query($sql)->fetchAll(PDO::FETCH_COLUMN) ?: [];
 

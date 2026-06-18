@@ -194,8 +194,7 @@ if ($action === 'sync_registrations_cancel') {
 }
 
 if ($action === 'sync_registrations' || $action === 'sync_registrations_continue') {
-    @ini_set('memory_limit', '512M');
-    @set_time_limit(120);
+    require_once __DIR__ . '/../includes/google-sheets-queue.php';
 
     if (!isGoogleSheetsSyncEnabled($pdo)) {
         unset($_SESSION['bulk_sheet_sync']);
@@ -204,38 +203,63 @@ if ($action === 'sync_registrations' || $action === 'sync_registrations_continue
         exit;
     }
 
-    if ($action === 'sync_registrations') {
-        $ids = getLinkedRegistrationIdsForSheetSync($pdo);
+    if ($action === 'sync_registrations' && googleSheetsQueueUsesWorker($pdo)) {
+        $ids = getLinkedEventIdsForSheetSync($pdo);
         if ($ids === []) {
-            setAdminFlash('error', 'No registrations to sync — link Google Sheets to events first.');
+            setAdminFlash('error', 'No events with linked Google Sheets — link sheets on Events first.');
+            header('Location: events.php');
+            exit;
+        }
+
+        $batchStats = syncLinkedEventsToGoogleSheets($pdo, $ids);
+        $queued     = (int) ($batchStats['queued'] ?? count($ids));
+        logAdminAudit($pdo, 'bulk_sheet_sync', 'system', null, "queued {$queued} event sheet(s) for cron worker");
+        setAdminFlash(
+            'success',
+            "Queued {$queued} event sheet(s) for sync. Cron processes ~1 per minute — check Google Sheets control for queue status."
+        );
+        header('Location: events.php');
+        exit;
+    }
+
+    @ini_set('memory_limit', '512M');
+    @set_time_limit(120);
+
+    if ($action === 'sync_registrations') {
+        $ids = getLinkedEventIdsForSheetSync($pdo);
+        if ($ids === []) {
+            setAdminFlash('error', 'No events with linked Google Sheets — link sheets on Events first.');
             header('Location: events.php');
             exit;
         }
 
         $_SESSION['bulk_sheet_sync'] = [
-            'ids'   => $ids,
-            'pos'   => 0,
-            'stats' => ['synced' => 0, 'removed' => 0, 'skipped' => 0, 'failed' => 0],
+            'event_ids' => $ids,
+            'pos'       => 0,
+            'stats'     => ['synced' => 0, 'removed' => 0, 'skipped' => 0, 'failed' => 0, 'events' => 0],
         ];
     }
 
     $state = $_SESSION['bulk_sheet_sync'] ?? null;
-    if (!is_array($state) || !isset($state['ids'], $state['pos'], $state['stats'])) {
+    if (!is_array($state) || !isset($state['event_ids'], $state['pos'], $state['stats'])) {
         setAdminFlash('error', 'Sheet sync session expired. Click Sync registrations to sheets again.');
         header('Location: events.php');
         exit;
     }
 
-    $allIds    = array_values(array_map('intval', $state['ids']));
+    $allIds    = array_values(array_map('intval', $state['event_ids']));
     $pos       = max(0, (int) $state['pos']);
     $total     = count($allIds);
     $batchSize = googleSheetsBulkSyncBatchSize();
     $chunk     = array_slice($allIds, $pos, $batchSize);
 
     if ($chunk !== []) {
-        $batchStats = syncRegistrationsToGoogleSheets($pdo, $chunk);
-        $state['stats'] = mergeGoogleSheetsSyncStats($state['stats'], $batchStats);
-        $state['pos']   = $pos + count($chunk);
+        $batchStats = syncLinkedEventsToGoogleSheets($pdo, $chunk);
+        $state['stats']['synced']  = (int) ($state['stats']['synced'] ?? 0) + (int) ($batchStats['synced'] ?? 0);
+        $state['stats']['skipped'] = (int) ($state['stats']['skipped'] ?? 0) + (int) ($batchStats['skipped'] ?? 0);
+        $state['stats']['failed']  = (int) ($state['stats']['failed'] ?? 0) + (int) ($batchStats['failed'] ?? 0);
+        $state['stats']['events']  = (int) ($state['stats']['events'] ?? 0) + (int) ($batchStats['events'] ?? 0);
+        $state['pos']              = $pos + count($chunk);
         $_SESSION['bulk_sheet_sync'] = $state;
     }
 
@@ -264,7 +288,7 @@ if ($action === 'sync_registrations' || $action === 'sync_registrations_continue
 <body>
     <div class="box">
         <h1 style="font-size:1.25rem;margin:0 0 0.5rem">Syncing Google Sheets</h1>
-        <p><?= (int) $done ?> / <?= (int) $total ?> registrations (<?= (int) $pct ?>%)</p>
+        <p><?= (int) $done ?> / <?= (int) $total ?> events (<?= (int) $pct ?>%)</p>
         <div class="bar"><span></span></div>
         <p class="muted">Do not close this tab. The next batch starts automatically.</p>
         <form method="post" action="events-sheets-action.php" style="margin-top:1rem">
@@ -286,31 +310,31 @@ if ($action === 'sync_registrations' || $action === 'sync_registrations_continue
 
     unset($_SESSION['bulk_sheet_sync']);
 
-    $removed = (int) ($stats['removed'] ?? 0);
+    $eventsRebuilt = (int) ($stats['events'] ?? 0);
     logAdminAudit(
         $pdo,
         'bulk_sheet_sync',
         'system',
         null,
-        "synced {$stats['synced']}, removed {$removed}, skipped {$stats['skipped']}, failed {$stats['failed']}"
+        "rebuilt {$eventsRebuilt} event sheet(s), {$stats['synced']} staff row(s), skipped {$stats['skipped']}, failed {$stats['failed']}"
     );
 
-    if ($stats['failed'] === 0 && ($stats['synced'] > 0 || $removed > 0)) {
-        $parts = [];
-        if ($stats['synced'] > 0) {
-            $parts[] = "synced {$stats['synced']} approved row(s)";
+    if ($stats['failed'] === 0 && ($stats['synced'] > 0 || $eventsRebuilt > 0)) {
+        setAdminFlash(
+            'success',
+            "Rebuilt {$eventsRebuilt} event sheet(s) with {$stats['synced']} staff row(s) — exact signup count per event (pending + approved, rejected removed)."
+        );
+    } elseif ($stats['synced'] > 0 || $eventsRebuilt > 0) {
+        $errHint = '';
+        if (!empty($stats['errors']) && is_array($stats['errors'])) {
+            $errHint = ' — ' . implode('; ', array_slice($stats['errors'], 0, 4));
         }
-        if ($removed > 0) {
-            $parts[] = "removed {$removed} pending/rejected row(s)";
-        }
-        setAdminFlash('success', ucfirst(implode('; ', $parts)) . ' on linked Google Sheets.');
-    } elseif ($stats['synced'] > 0 || $removed > 0) {
         setAdminFlash(
             'warning',
-            "Synced {$stats['synced']} row(s); {$stats['failed']} failed. Check storage/logs/google-sheets.log"
+            "Rebuilt {$eventsRebuilt} sheet(s), {$stats['synced']} staff row(s); {$stats['failed']} event(s) failed.{$errHint}"
         );
     } elseif ($stats['skipped'] > 0 && $stats['failed'] === 0) {
-        setAdminFlash('success', 'Sync complete. No sheet changes were needed for the remaining registrations.');
+        setAdminFlash('success', 'Sync complete. No linked events needed changes.');
     } else {
         setAdminFlash('error', 'Sheet sync failed. Check storage/logs/google-sheets.log');
     }

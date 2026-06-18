@@ -8,6 +8,7 @@
 
 require_once __DIR__ . '/staff-psa.php';
 
+$staff = $staff ?? ($staffRecord ?? null);
 $psaMissing = getStaffPsaMissingFields($staff);
 $psaComplete = $psaMissing === [];
 $psaErrors = $psaErrors ?? [];
@@ -52,8 +53,9 @@ $psaErrors = $psaErrors ?? [];
             <div class="form-group form-group--full">
                 <label class="form-label<?= empty($staff['psa_front_image']) ? ' form-label--required' : '' ?>" for="status_psa_front">PSA card — front</label>
                 <input class="form-input form-input--file" type="file" id="status_psa_front" name="psa_front_image" accept="<?= h(psaImageFileAcceptAttribute()) ?>"<?= empty($staff['psa_front_image']) ? ' required' : '' ?>>
-                <?php if (!empty($staff['psa_front_image'])): ?>
-                    <p class="form-hint"><a href="<?= h((string) $staff['psa_front_image']) ?>" target="_blank" rel="noopener">View current front photo</a></p>
+                <?php if (isStoredPsaImagePath($staff['psa_front_image'] ?? null)): ?>
+                    <?php $statusPsaFrontUrl = psaImagePublicUrl((string) $staff['psa_front_image'], $pdo); ?>
+                    <p class="form-hint"><a href="<?= h($statusPsaFrontUrl) ?>" target="_blank" rel="noopener">View current front photo</a></p>
                 <?php endif; ?>
                 <?php if (!empty($psaErrors['psa_front_image'])): ?>
                     <span class="form-error form-error--visible"><?= h($psaErrors['psa_front_image']) ?></span>
@@ -63,8 +65,9 @@ $psaErrors = $psaErrors ?? [];
             <div class="form-group form-group--full">
                 <label class="form-label<?= empty($staff['psa_back_image']) ? ' form-label--required' : '' ?>" for="status_psa_back">PSA card — back</label>
                 <input class="form-input form-input--file" type="file" id="status_psa_back" name="psa_back_image" accept="<?= h(psaImageFileAcceptAttribute()) ?>"<?= empty($staff['psa_back_image']) ? ' required' : '' ?>>
-                <?php if (!empty($staff['psa_back_image'])): ?>
-                    <p class="form-hint"><a href="<?= h((string) $staff['psa_back_image']) ?>" target="_blank" rel="noopener">View current back photo</a></p>
+                <?php if (isStoredPsaImagePath($staff['psa_back_image'] ?? null)): ?>
+                    <?php $statusPsaBackUrl = psaImagePublicUrl((string) $staff['psa_back_image'], $pdo); ?>
+                    <p class="form-hint"><a href="<?= h($statusPsaBackUrl) ?>" target="_blank" rel="noopener">View current back photo</a></p>
                 <?php endif; ?>
                 <?php if (!empty($psaErrors['psa_back_image'])): ?>
                     <span class="form-error form-error--visible"><?= h($psaErrors['psa_back_image']) ?></span>

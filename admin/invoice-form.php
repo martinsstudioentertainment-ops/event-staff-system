@@ -86,7 +86,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <select class="form-select" id="event_id" name="event_id" required>
                     <option value="">Select event…</option>
                     <?php foreach ($events as $ev): ?>
-                        <option value="<?= (int) $ev['id'] ?>"><?= h($ev['name'] . ' — ' . date('d.m.Y', strtotime($ev['event_date']))) ?></option>
+                        <option value="<?= (int) $ev['id'] ?>"><?= h($ev['name'] . ' — ' . formatEventDateLabel((string) $ev['event_date'])) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -159,7 +159,12 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <?php if ($lines === []): ?>
             <p class="form-hint">No staff lines to invoice. Check in staff first via Attendance or Work hours.</p>
         <?php else: ?>
-            <div class="table-wrap" style="margin-top:1.25rem;">
+            <div class="toolbar toolbar--compact invoice-fixed-toolbar" style="margin-top:1.25rem;">
+                <button type="button" class="btn btn--secondary btn--small" id="invoice-fixed-select-all">Select all Fixed</button>
+                <button type="button" class="btn btn--secondary btn--small" id="invoice-fixed-deselect-all">Deselect all Fixed</button>
+                <span class="form-hint" style="margin:0;" id="invoice-fixed-toolbar-hint" aria-live="polite"></span>
+            </div>
+            <div class="table-wrap" style="margin-top:0.5rem;">
                 <table class="data-table invoice-lines-table" id="invoice-lines-table">
                     <thead>
                         <tr>
@@ -169,7 +174,12 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                             <th>Hours billed</th>
                             <th>Rate / hr</th>
                             <th>Amount</th>
-                            <th>Override</th>
+                            <th>
+                                <label class="form-checkbox" style="margin:0;white-space:nowrap;">
+                                    <input type="checkbox" id="invoice-fixed-select-all-head" aria-label="Select all Fixed">
+                                    <span>Fixed</span>
+                                </label>
+                            </th>
                             <th>Note</th>
                         </tr>
                     </thead>
@@ -236,7 +246,67 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 </section>
 
 <?php if ($event && $lines !== []): ?>
-<script src="../assets/js/invoice-form.js"></script>
+<?php
+$invoiceFormJsPath = dirname(__DIR__) . '/assets/js/invoice-form.js';
+$invoiceFormJsVer  = is_file($invoiceFormJsPath) ? (string) filemtime($invoiceFormJsPath) : '1';
+?>
+<script src="<?= h($assetBase) ?>assets/js/invoice-form.js?v=<?= h($invoiceFormJsVer) ?>"></script>
+<script>
+(function () {
+    'use strict';
+    var form = document.getElementById('commission-invoice-form');
+    var table = document.getElementById('invoice-lines-table');
+    var hint = document.getElementById('invoice-fixed-toolbar-hint');
+    if (!form || !table) {
+        return;
+    }
+
+    function rowChecks() {
+        return table.querySelectorAll('.invoice-line__override');
+    }
+
+    function setAll(checked) {
+        var count = 0;
+        rowChecks().forEach(function (cb) {
+            cb.checked = checked;
+            cb.dispatchEvent(new Event('change', { bubbles: true }));
+            count += 1;
+        });
+        var head = document.getElementById('invoice-fixed-select-all-head');
+        if (head) {
+            head.checked = checked;
+            head.indeterminate = false;
+        }
+        if (hint) {
+            hint.textContent = checked
+                ? ('Fixed selected on ' + count + ' row' + (count === 1 ? '' : 's') + '.')
+                : ('Fixed cleared on ' + count + ' row' + (count === 1 ? '' : 's') + ' — amounts recalculate from hours × rate.');
+        }
+        form.dispatchEvent(new CustomEvent('invoice-fixed-bulk-change'));
+    }
+
+    form.addEventListener('click', function (e) {
+        var t = e.target;
+        if (!t || !t.id) {
+            return;
+        }
+        if (t.id === 'invoice-fixed-select-all') {
+            e.preventDefault();
+            setAll(true);
+        } else if (t.id === 'invoice-fixed-deselect-all') {
+            e.preventDefault();
+            setAll(false);
+        }
+    });
+
+    var head = document.getElementById('invoice-fixed-select-all-head');
+    if (head) {
+        head.addEventListener('change', function () {
+            setAll(head.checked);
+        });
+    }
+})();
+</script>
 <?php endif; ?>
 
 <?php include __DIR__ . '/../includes/admin/layout-bottom.php'; ?>

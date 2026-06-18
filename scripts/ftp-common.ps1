@@ -75,6 +75,10 @@ function Send-FtpFile {
     if (-not (Test-Path $LocalPath)) {
         throw "Local file missing: $LocalPath"
     }
+    if ((Get-Item $LocalPath).Length -eq 0) {
+        Write-Host "  !! skipped empty file: $RemoteRelativePath" -ForegroundColor Red
+        return
+    }
     $uri = Get-FtpUri -Server $Deploy.FtpServer -RemoteDir $RemoteBase -RelativePath $RemoteRelativePath
     Write-Host "  -> $RemoteRelativePath" -ForegroundColor Cyan
     $client = New-Object System.Net.WebClient

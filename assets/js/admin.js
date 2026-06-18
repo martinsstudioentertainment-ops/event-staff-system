@@ -6,42 +6,6 @@
 
     const THEME_KEY = 'eventStaffTheme';
 
-    function initSidebar() {
-        const menuBtn = document.getElementById('menu-toggle');
-        const sidebar = document.getElementById('sidebar');
-        const overlay = document.getElementById('sidebar-overlay');
-
-        if (!menuBtn || !sidebar) return;
-
-        function closeSidebar() {
-            sidebar.classList.remove('sidebar--open');
-            if (overlay) overlay.classList.remove('sidebar-overlay--visible');
-            document.body.style.overflow = '';
-        }
-
-        function openSidebar() {
-            sidebar.classList.add('sidebar--open');
-            if (overlay) overlay.classList.add('sidebar-overlay--visible');
-            document.body.style.overflow = 'hidden';
-        }
-
-        menuBtn.addEventListener('click', function () {
-            if (sidebar.classList.contains('sidebar--open')) {
-                closeSidebar();
-            } else {
-                openSidebar();
-            }
-        });
-
-        if (overlay) overlay.addEventListener('click', closeSidebar);
-
-        sidebar.querySelectorAll('.sidebar__link, .sidebar__logout, .sidebar__quick-link').forEach(function (link) {
-            link.addEventListener('click', function () {
-                if (window.innerWidth <= 768) closeSidebar();
-            });
-        });
-    }
-
     function initMobileTables() {
         document.querySelectorAll('.data-table').forEach(function (table) {
             const headers = Array.from(table.querySelectorAll('thead th')).map(function (th) {
@@ -149,13 +113,14 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
-        initSidebar();
         initThemeToggle();
         initMobileTables();
         initCopyButtons();
         initSensitiveReveal();
         initStaffBulkSelect();
         initEventsSheetBulkSelect();
+        initEventDeleteModal();
+        initUserMenu();
     });
 
     function initStaffBulkSelect() {
@@ -254,4 +219,114 @@
             }
         });
     }
+
+    function initEventDeleteModal() {
+        var modal = document.getElementById('event-delete-modal');
+        if (!modal) {
+            return;
+        }
+
+        var form = document.getElementById('event-delete-modal-form');
+        var eventIdInput = document.getElementById('event-delete-modal-event-id');
+        var eventNameEl = document.getElementById('event-delete-modal-event-name');
+        var summaryEl = document.getElementById('event-delete-modal-summary');
+        var confirmInput = document.getElementById('event-delete-modal-confirm');
+
+        function closeModal() {
+            modal.hidden = true;
+            document.body.classList.remove('event-delete-modal-open');
+            if (confirmInput) {
+                confirmInput.value = '';
+            }
+        }
+
+        function openModal(trigger) {
+            if (!eventIdInput || !eventNameEl || !summaryEl) {
+                return;
+            }
+
+            eventIdInput.value = trigger.getAttribute('data-event-id') || '';
+            eventNameEl.textContent = trigger.getAttribute('data-event-name') || 'Event';
+            var regs = trigger.getAttribute('data-event-regs') || '0';
+            summaryEl.textContent = 'Permanently removes this event, ' + regs + ' registration(s), attendance, invoices, and all related history. This cannot be undone.';
+            if (confirmInput) {
+                confirmInput.value = '';
+            }
+            modal.hidden = false;
+            document.body.classList.add('event-delete-modal-open');
+            if (confirmInput) {
+                confirmInput.focus();
+            }
+        }
+
+        document.querySelectorAll('[data-event-delete-trigger]').forEach(function (trigger) {
+            trigger.addEventListener('click', function () {
+                openModal(trigger);
+            });
+        });
+
+        modal.querySelectorAll('[data-event-delete-close]').forEach(function (el) {
+            el.addEventListener('click', closeModal);
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && !modal.hidden) {
+                closeModal();
+            }
+        });
+
+        if (form) {
+            form.addEventListener('submit', function (event) {
+                if (!confirmInput || confirmInput.value.trim().toUpperCase() !== 'DELETE') {
+                    event.preventDefault();
+                    alert('Type DELETE in capital letters to confirm.');
+                    if (confirmInput) {
+                        confirmInput.focus();
+                    }
+                    return;
+                }
+
+                if (!window.confirm('Delete this event permanently?')) {
+                    event.preventDefault();
+                }
+            });
+        }
+    }
+
+    function initUserMenu() {
+        var btn = document.getElementById('admin-user-menu-btn');
+        var menu = document.getElementById('admin-user-menu');
+        if (!btn || !menu) {
+            return;
+        }
+
+        function closeMenu() {
+            menu.hidden = true;
+            btn.setAttribute('aria-expanded', 'false');
+        }
+
+        btn.addEventListener('click', function (event) {
+            event.stopPropagation();
+            var open = menu.hidden;
+            if (open) {
+                menu.hidden = false;
+                btn.setAttribute('aria-expanded', 'true');
+            } else {
+                closeMenu();
+            }
+        });
+
+        document.addEventListener('click', function (event) {
+            if (!menu.hidden && !menu.contains(event.target) && event.target !== btn) {
+                closeMenu();
+            }
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                closeMenu();
+            }
+        });
+    }
+
 })();

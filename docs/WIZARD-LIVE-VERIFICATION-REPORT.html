@@ -1,0 +1,76 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wizard live verification — 2026-06-06</title>
+<style>
+body { font-family: system-ui, sans-serif; max-width: 960px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+h1 { font-size: 1.5rem; }
+h2 { font-size: 1.15rem; margin-top: 2rem; }
+.badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 6px; font-weight: 700; }
+.badge.pass { background: #dcfce7; color: #166534; }
+table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.9rem; }
+th, td { border: 1px solid #e5e7eb; padding: 0.5rem 0.75rem; text-align: left; }
+th { background: #f9fafb; }
+tr.pass td:nth-child(2) { color: #166534; font-weight: 600; }
+tr.fail td:nth-child(2) { color: #991b1b; font-weight: 600; }
+tr.warn td:nth-child(2) { color: #92400e; font-weight: 600; }
+.meta { color: #6b7280; font-size: 0.9rem; }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; margin-top: 1rem; }
+.gallery figure { margin: 0; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
+.gallery img { width: 100%; display: block; }
+.gallery figcaption { padding: 0.5rem; font-size: 0.85rem; background: #f9fafb; }
+.note { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<h1>Registration wizard v2 — live production verification</h1>
+<p class="meta">Generated 2026-06-06 18:24 UTC | <a href="https://register.olasentra.com/index.php">register.olasentra.com/index.php</a></p>
+<p>Overall: <span class="badge pass">PASS</span> — 13 passed, 0 failed (1 warn)</p>
+
+<div class="note">
+<strong>Blocking gate cleared.</strong> <code>feature_registration_wizard_v2</code> was enabled on production, verified live, rolled back and re-enabled. Wizard remains <strong>ON</strong> for production traffic. Further Phase A work (A.7+) may proceed after review of this report.
+</div>
+
+<h2>Verification checklist</h2>
+<table>
+<thead><tr><th>Check</th><th>Status</th><th>Detail</th></tr></thead>
+<tbody>
+<tr class="pass"><td>Enable feature_registration_wizard_v2</td><td>PASS</td><td>cron/wizard-flag-toggle.php?action=enable — flag = 1</td></tr>
+<tr class="pass"><td>Hard refresh / live HTML</td><td>PASS</td><td>data-wizard-mode="1" on index.php</td></tr>
+<tr class="pass"><td>All 8 step panels in HTML</td><td>PASS</td><td>18 reg-wizard__step elements (titles + panels)</td></tr>
+<tr class="pass"><td>Wizard assets deployed</td><td>PASS</td><td>registration-wizard.css/js + autosave + validation linked, HTTP 200</td></tr>
+<tr class="pass"><td>Progress shell Step 1 of 8</td><td>PASS</td><td>reg-wizard__step-label visible in live HTML</td></tr>
+<tr class="pass"><td>Step 1 screenshot (live index.php)</td><td>PASS</td><td>Progress bar, role picker, Continue/Back nav</td></tr>
+<tr class="pass"><td>Steps 2–8 screenshots</td><td>PASS</td><td>8 mobile PNGs captured from production domain</td></tr>
+<tr class="pass"><td>Step 8 review summary</td><td>PASS</td><td>Role, shifts, contact, personal, payroll, PSA, consent sections render</td></tr>
+<tr class="pass"><td>Full registration → submit.php</td><td>PASS</td><td>e2e-live-wizard-20260606182111@olasentra-e2e.test</td></tr>
+<tr class="pass"><td>Rollback (flag OFF)</td><td>PASS</td><td>data-wizard-mode="0", 0 wizard panels</td></tr>
+<tr class="pass"><td>Re-enable after rollback</td><td>PASS</td><td>Wizard left ON for production</td></tr>
+<tr class="pass"><td>verify-wizard-production.ps1</td><td>PASS</td><td>10 OK / 0 FAIL</td></tr>
+<tr class="warn"><td>Analytics API probe</td><td>WARN</td><td>403 without valid CSRF (expected for unauthenticated ping; not a flag issue)</td></tr>
+</tbody>
+</table>
+
+<h2>Production screenshots (mobile, flag ON)</h2>
+<p class="meta">Step 1 captured from live <code>index.php</code> (hard refresh equivalent). Steps 2–8 from <code>wizard-screenshot-preview.php</code> on the same production host with identical CSS stack (flag-gated).</p>
+<div class="gallery">
+<figure><img src="screenshots/wizard-live-production/step-01-welcome-mobile.png" alt="Step 1 Welcome" loading="lazy"><figcaption>Step 1 — Welcome (live index.php)</figcaption></figure>
+<figure><img src="screenshots/wizard-live-production/step-02-your-gigs-mobile.png" alt="Step 2 Your gigs" loading="lazy"><figcaption>Step 2 — Your gigs</figcaption></figure>
+<figure><img src="screenshots/wizard-live-production/step-03-email-mobile.png" alt="Step 3 Email" loading="lazy"><figcaption>Step 3 — Email (returning panel)</figcaption></figure>
+<figure><img src="screenshots/wizard-live-production/step-04-about-you-mobile.png" alt="Step 4 About you" loading="lazy"><figcaption>Step 4 — About you</figcaption></figure>
+<figure><img src="screenshots/wizard-live-production/step-05-contact-mobile.png" alt="Step 5 Contact" loading="lazy"><figcaption>Step 5 — Contact</figcaption></figure>
+<figure><img src="screenshots/wizard-live-production/step-06-payroll-mobile.png" alt="Step 6 Payroll" loading="lazy"><figcaption>Step 6 — Payroll</figcaption></figure>
+<figure><img src="screenshots/wizard-live-production/step-07-psa-mobile.png" alt="Step 7 PSA" loading="lazy"><figcaption>Step 7 — PSA</figcaption></figure>
+<figure><img src="screenshots/wizard-live-production/step-08-review-mobile.png" alt="Step 8 Review" loading="lazy"><figcaption>Step 8 — Review summary</figcaption></figure>
+</div>
+
+<h2>Ops notes</h2>
+<ul>
+<li>Toggle flag: Admin → <a href="https://admin.olasentra.com/feature-flags.php">Feature flags</a>, or <code>cron/wizard-flag-toggle.php?key=…&amp;action=enable|disable|status</code></li>
+<li>Re-run verification: <code>powershell -File .\scripts\wizard-go-live-verify.ps1 -SkipDeploy</code></li>
+<li>Re-capture screenshots: <code>powershell -File .\scripts\capture-production-wizard-screenshots.ps1</code></li>
+</ul>
+</body>
+</html>

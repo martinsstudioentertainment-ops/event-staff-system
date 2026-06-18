@@ -5,24 +5,34 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/secure-layout.php';
+require_once __DIR__ . '/../includes/secure-pagination.php';
 
-$search = trim($_GET['search'] ?? '');
+$search  = trim($_GET['search'] ?? '');
+$page    = secureListPage();
+$perPage = secureListPerPage();
+$offset  = secureListOffset($page, $perPage);
 
-$sql = 'SELECT * FROM staff_master';
+$where  = '';
 $params = [];
-
 if ($search !== '') {
-    $sql .= " WHERE first_name LIKE :search OR last_name LIKE :search OR email LIKE :search OR phone LIKE :search OR psa_licence LIKE :search";
+    $where  = ' WHERE first_name LIKE :search OR last_name LIKE :search OR email LIKE :search OR phone LIKE :search OR psa_licence LIKE :search';
     $params[':search'] = '%' . $search . '%';
 }
 
-$sql .= ' ORDER BY id DESC LIMIT 250';
+$countStmt = $pdo->prepare('SELECT COUNT(*) FROM staff_master' . $where);
+$countStmt->execute($params);
+$filteredTotal = (int) $countStmt->fetchColumn();
 
+$totalStaff = (int) $pdo->query('SELECT COUNT(*) FROM staff_master')->fetchColumn();
+
+$sql = 'SELECT * FROM staff_master' . $where . ' ORDER BY id DESC LIMIT ' . (int) $perPage . ' OFFSET ' . (int) $offset;
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $staff = $stmt->fetchAll();
 
-$totalStaff = (int) $pdo->query('SELECT COUNT(*) FROM staff_master')->fetchColumn();
+$paginationQuery = array_filter([
+    'search' => $search !== '' ? $search : null,
+]);
 
 secure_layout_start('Staff directory', 'staff', (string) $totalStaff . ' records in secure vault. Search and open profiles to verify.');
 
@@ -30,20 +40,23 @@ secure_layout_start('Staff directory', 'staff', (string) $totalStaff . ' records
 
 <div class="secure-stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));">
     <div class="secure-stat secure-stat--muted">
-        <div class="secure-stat__label">Listed</div>
+        <div class="secure-stat__label">This page</div>
         <div class="secure-stat__value"><?= count($staff) ?></div>
     </div>
     <div class="secure-stat secure-stat--muted">
-        <div class="secure-stat__label">Total vault</div>
-        <div class="secure-stat__value"><?= $totalStaff ?></div>
+        <div class="secure-stat__label"><?= $search !== '' ? 'Matching' : 'Total vault' ?></div>
+        <div class="secure-stat__value"><?= $filteredTotal ?></div>
     </div>
 </div>
 
 <div class="secure-card">
     <form method="get" class="secure-field" style="margin-bottom:0;">
         <label class="secure-label" for="search">Search staff vault</label>
-        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
             <input class="secure-input" type="search" id="search" name="search" placeholder="Name, email, phone, PSA…" value="<?= secure_h($search) ?>" style="flex:1;min-width:200px;">
+            <?php if ($perPage !== SECURE_LIST_DEFAULT_PER_PAGE): ?>
+                <input type="hidden" name="per_page" value="<?= (int) $perPage ?>">
+            <?php endif; ?>
             <button type="submit" class="secure-btn secure-btn--primary">Search</button>
             <?php if ($search !== ''): ?>
                 <a href="staff-list.php" class="secure-btn secure-btn--ghost">Clear</a>
@@ -53,6 +66,11 @@ secure_layout_start('Staff directory', 'staff', (string) $totalStaff . ' records
 </div>
 
 <div class="secure-card secure-card--danger-top">
+    <div class="secure-list-toolbar">
+        <h2 style="margin:0;font-size:1rem;">Staff vault</h2>
+        <?php renderSecurePerPageControl('staff-list.php', $paginationQuery); ?>
+    </div>
+
     <div class="secure-table-wrap">
         <table class="secure-table">
             <thead>
@@ -86,6 +104,8 @@ secure_layout_start('Staff directory', 'staff', (string) $totalStaff . ' records
             </tbody>
         </table>
     </div>
+
+    <?php renderSecurePagination($page, $filteredTotal, 'staff-list.php', $paginationQuery); ?>
 </div>
 
 <?php secure_layout_end(); ?>

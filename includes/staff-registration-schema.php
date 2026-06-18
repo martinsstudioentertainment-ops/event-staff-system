@@ -92,6 +92,12 @@ function ensureStaffRegistrationSaveSchema(PDO $pdo): void
     }
 
     staffRegistrationInvalidateColumnCache();
+
+    if (is_file(__DIR__ . '/staff-allocation-schema.php')) {
+        require_once __DIR__ . '/staff-allocation-schema.php';
+        ensureStaffAllocationSchema($pdo);
+    }
+
     $ready = true;
 }
 
@@ -112,29 +118,9 @@ function ensureStaffRegistrationRoleColumn(PDO $pdo): void
  */
 function normalizeDateOfBirthForDb(string $value): string
 {
-    $value = trim($value);
-    if ($value === '') {
-        return '';
-    }
+    require_once __DIR__ . '/date-format.php';
 
-    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
-        return $value;
-    }
-
-    $formats = ['m/d/Y', 'n/j/Y', 'd/m/Y', 'j/n/Y', 'd-m-Y', 'd.m.Y'];
-    foreach ($formats as $format) {
-        $date = DateTime::createFromFormat($format, $value);
-        if ($date instanceof DateTime) {
-            return $date->format('Y-m-d');
-        }
-    }
-
-    $ts = strtotime($value);
-    if ($ts !== false) {
-        return date('Y-m-d', $ts);
-    }
-
-    return $value;
+    return parseDisplayDateToDb($value);
 }
 
 /**

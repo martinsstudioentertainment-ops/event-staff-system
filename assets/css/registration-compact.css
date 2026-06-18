@@ -259,6 +259,17 @@
     max-height: none;
 }
 
+.registration-page--compact .shift-picker-locked {
+    opacity: 0.55;
+    pointer-events: none;
+    user-select: none;
+    filter: grayscale(0.15);
+}
+
+.registration-page--compact #shift-gate-notice {
+    margin-bottom: 0.75rem;
+}
+
 .registration-page--compact .event-checkbox {
     padding: 0.45rem 0.4rem;
 }
@@ -329,4 +340,37 @@
         font-size: 16px;
         min-height: 40px;
     }
+}
+
+.registration-identity-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1rem 0;
+    color: rgba(15, 23, 42, 0.55);
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.registration-identity-divider::before,
+.registration-identity-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(15, 23, 42, 0.12);
+}
+
+.registration-email-otp__code {
+    letter-spacing: 0.35em;
+    text-align: center;
+    font-weight: 700;
+}
+
+.registration-email-otp__back {
+    margin-top: 0.5rem;
+}
+
+.registration-email-otp__error {
+    margin-top: 0.75rem;
 }

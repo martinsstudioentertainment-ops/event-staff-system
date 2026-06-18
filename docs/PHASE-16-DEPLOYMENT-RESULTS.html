@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Phase 16 — Production Deployment Results</title>
+<style>
+@page { size: A4; margin: 11mm 10mm; }
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 8.5pt; line-height: 1.4; color: #0f172a; margin: 0; padding: 14px; }
+.cover { page-break-after: always; text-align: center; padding: 48px 28px; background: #030712; color: #f8fafc; margin: -14px -14px 0; min-height: 96vh; display: flex; flex-direction: column; justify-content: center; }
+.cover h1 { font-size: 19pt; }
+h2 { font-size: 11pt; margin: 16px 0 6px; padding: 5px 10px; background: #1e293b; color: #fff; border-radius: 4px; page-break-after: avoid; }
+h3 { font-size: 9.5pt; margin: 10px 0 4px; color: #4338ca; }
+table { width: 100%; border-collapse: collapse; margin: 5px 0 8px; font-size: 7.5pt; }
+th { background: #334155; color: #fff; padding: 4px 6px; text-align: left; }
+td { border-bottom: 1px solid #e2e8f0; padding: 4px 6px; vertical-align: top; }
+tr:nth-child(even) td { background: #f8fafc; }
+pre { background: #0f172a; color: #e2e8f0; padding: 8px; font-size: 6.5pt; border-radius: 4px; white-space: pre-wrap; }
+.callout { border-left: 3px solid #6366f1; background: #eef2ff; padding: 7px 9px; margin: 6px 0; font-size: 8pt; }
+.ok { border-color: #22c55e; background: #f0fdf4; }
+.warn { border-color: #f59e0b; background: #fff7ed; }
+.badge-ok { background: #22c55e; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 7pt; font-weight: 700; }
+.badge-pending { background: #f59e0b; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 7pt; font-weight: 700; }
+ul, ol { margin: 4px 0; padding-left: 16px; }
+code { background: #f1f5f9; padding: 1px 3px; font-size: 6.5pt; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+<p>Olasentra Event Operations Command Platform</p>
+<h1>Phase 16 Deployment Results</h1>
+<p>Production execution report — Gate F approved</p>
+<p style="color:#94a3b8;margin-top:24px;">Deployed 6 June 2026 · 14:44 UTC · admin.olasentra.com</p>
+<p><span class="badge-ok">PHASE16_COMPLETE</span></p>
+</div>
+
+<h2>1. Executive summary</h2>
+<div class="callout ok">
+<strong>Phase 16 database optimization deployed successfully</strong> on production during the approved off-peak window.
+All Gate F conditions were met. Phase 15 security hardening remains <strong>blocked</strong> until Gate G (24-hour stability + explicit approval).
+</div>
+
+<table>
+<tr><th>Item</th><th>Result</th></tr>
+<tr><td>Gate F approval</td><td>Approved — 6 June 2026</td></tr>
+<tr><td>Deployment window</td><td>Off-peak · 14:44:06 UTC</td></tr>
+<tr><td>Duration</td><td>~1 second (SQL execution)</td></tr>
+<tr><td>Outcome</td><td><span class="badge-ok">SUCCESS</span></td></tr>
+<tr><td>Production baseline</td><td>Event #1 Nick Cave — 36 registrations unchanged</td></tr>
+<tr><td>Gate G status</td><td><span class="badge-pending">PENDING</span> — 24h monitor until ~7 June 2026 14:44 UTC</td></tr>
+</table>
+
+<h2>2. Gate F conditions — verification</h2>
+<table>
+<tr><th>#</th><th>Condition</th><th>Status</th><th>Evidence</th></tr>
+<tr><td>1</td><td>Full production backup completed and verified</td><td>✓ Pass</td><td>DB 326.5 KB · settings 24.1 KB · site 431.8 MB (1,552 files)</td></tr>
+<tr><td>2</td><td>phase16-precheck output saved</td><td>✓ Pass</td><td><code>storage/backups/phase16/phase16-precheck-20260606.txt</code></td></tr>
+<tr><td>3</td><td>Orphan count zero before Phase 50</td><td>✓ Pass</td><td>All 5 orphan checks = 0</td></tr>
+<tr><td>4</td><td>phase16-postcheck zero failures</td><td>✓ Pass</td><td>bad_count = 0 · 8 platform tables</td></tr>
+<tr><td>5</td><td>Full smoke test completed</td><td>✓ Pass</td><td>health.php · register · admin login</td></tr>
+<tr><td>6</td><td>Monitor production 24 hours</td><td>⏳ In progress</td><td>Gate G not yet approved</td></tr>
+<tr><td>7</td><td>Gate G before Phase 15</td><td>⏳ Pending</td><td>Phase 15 blocked</td></tr>
+</table>
+
+<h2>3. Backup record</h2>
+<table>
+<tr><th>Artifact</th><th>Size</th><th>Location</th></tr>
+<tr><td>database.sql (server)</td><td>326.5 KB</td><td><code>storage/backups/weekly/database.sql</code></td></tr>
+<tr><td>database.sql (local archive)</td><td>334,342 bytes</td><td><code>storage/backups/phase16/production-backup-20260606/database.sql</code></td></tr>
+<tr><td>settings-and-cms.json</td><td>24.1 KB</td><td><code>storage/backups/weekly/settings-and-cms.json</code></td></tr>
+<tr><td>site-files.zip</td><td>431.8 MB</td><td><code>storage/backups/weekly/site-files.zip</code></td></tr>
+<tr><td>Local pre-deploy zip</td><td>4.44 MB</td><td><code>storage/backups/pre-deploy-20260606-144326.zip</code></td></tr>
+</table>
+
+<h2>4. Migrations applied</h2>
+<table>
+<tr><th>File</th><th>Step</th><th>Result</th><th>Description</th></tr>
+<tr><td><code>phase16-precheck.sql</code></td><td>2</td><td>✓</td><td>Read-only diagnostics</td></tr>
+<tr><td><code>migrate-phase48-composite-indexes.sql</code></td><td>5</td><td>✓ OK</td><td>Indexes on staff_registrations, events, staff, app_notifications</td></tr>
+<tr><td><code>migrate-phase49-backfill-staff-id.sql</code></td><td>6</td><td>✓ OK</td><td>Linked staff_id on all registrations</td></tr>
+<tr><td><code>migrate-phase50-foreign-keys.sql</code></td><td>8</td><td>✓ OK</td><td>FKs: staff_messages, personal_invoice_lines, saved_job_records</td></tr>
+<tr><td><code>migrate-phase51-platform-ops-tables.sql</code></td><td>9</td><td>✓ OK</td><td>5 platform ops tables + 3 dormant equipment tables (no dev planned)</td></tr>
+<tr><td><code>phase16-postcheck.sql</code></td><td>10</td><td>✓</td><td>Verification passed</td></tr>
+</table>
+
+<h3>4.1 Orphan gate (pre Phase 50)</h3>
+<pre>missing_staff_id     = 0
+orphan_staff_id      = 0
+orphan_messages      = 0
+orphan_invoice_lines = 0
+orphan_job_event     = 0</pre>
+
+<h3>4.2 New tables (Phase 51 — schema only, no UI yet)</h3>
+<table>
+<tr><th>Table</th><th>Future phase</th></tr>
+<tr><td>platform_cleanup_log</td><td>P18 Cleanup Center</td></tr>
+<tr><td>platform_storage_snapshots</td><td>P19 Storage Analyzer</td></tr>
+<tr><td>platform_audit_runs</td><td>P20 Monthly System Audit</td></tr>
+<tr><td>platform_ssl_checks</td><td>P21 Domain &amp; SSL Monitoring</td></tr>
+<tr><td>emergency_event_log</td><td>P22 Emergency Event Mode</td></tr>
+<tr><td>equipment_* (3 tables)</td><td>Out of scope — rental removed from roadmap</td></tr>
+</table>
+
+<h2>5. Production baseline — unchanged</h2>
+<table>
+<tr><th>Event</th><th>Status</th><th>Count</th></tr>
+<tr><td>#1 Nick Cave</td><td>approved</td><td>35</td></tr>
+<tr><td>#1 Nick Cave</td><td>rejected</td><td>1</td></tr>
+<tr><td colspan="2"><strong>Total</strong></td><td><strong>36</strong></td></tr>
+</table>
+
+<h2>6. Smoke test results</h2>
+<table>
+<tr><th>#</th><th>Test</th><th>Expected</th><th>Result</th></tr>
+<tr><td>1</td><td><code>api/health.php</code></td><td>database: ok</td><td>✓ app, database, storage = ok</td></tr>
+<tr><td>2</td><td>Event #1 registration counts</td><td>36 rows</td><td>✓ 35 approved + 1 rejected</td></tr>
+<tr><td>3</td><td>Platform tables</td><td>8 tables</td><td>✓ platform_tables = 8</td></tr>
+<tr><td>4</td><td>Index idx_events_active_date</td><td>Present</td><td>✓ Verified</td></tr>
+<tr><td>5</td><td><code>register.olasentra.com</code></td><td>HTTP 200</td><td>✓</td></tr>
+<tr><td>6</td><td><code>admin.olasentra.com/admin/login.php</code></td><td>HTTP 200</td><td>✓</td></tr>
+</table>
+
+<h2>7. Deployment log (verbatim)</h2>
+<pre>[2026-06-06 14:44:06] === Phase 16 deploy start ===
+[2026-06-06 14:44:06] Log file: /home/olastofx/public_html/storage/backups/phase16/phase16-deploy-20260606-144406.log
+[2026-06-06 14:44:06] STEP 1: Backup skipped (orchestrator ran backup)
+[2026-06-06 14:44:06] STEP 2: phase16-precheck.sql
+[2026-06-06 14:44:06] STEP: migrate-phase48-composite-indexes.sql
+[2026-06-06 14:44:07] OK
+[2026-06-06 14:44:07] STEP: migrate-phase49-backfill-staff-id.sql
+[2026-06-06 14:44:07] OK
+[2026-06-06 14:44:07] STEP: Orphan gate (must be zero before phase 50)
+[2026-06-06 14:44:07]   missing_staff_id = 0
+[2026-06-06 14:44:07]   orphan_staff_id = 0
+[2026-06-06 14:44:07]   orphan_messages = 0
+[2026-06-06 14:44:07]   orphan_invoice_lines = 0
+[2026-06-06 14:44:07]   orphan_job_event = 0
+[2026-06-06 14:44:07] STEP: migrate-phase50-foreign-keys.sql
+[2026-06-06 14:44:07] OK
+[2026-06-06 14:44:07] STEP: migrate-phase51-platform-ops-tables.sql
+[2026-06-06 14:44:07] OK
+[2026-06-06 14:44:07] STEP: phase16-postcheck.sql
+[2026-06-06 14:44:07] STEP: Smoke — event #1 counts
+[2026-06-06 14:44:07]   baseline: approved=35, rejected=1
+[2026-06-06 14:44:07]   platform_tables = 8
+[2026-06-06 14:44:07] PHASE16_COMPLETE
+[2026-06-06 14:44:07] === SUCCESS ===</pre>
+
+<h2>8. Rollback reference</h2>
+<p>If issues arise during the 24-hour monitor window:</p>
+<pre>LEVEL 1 (partial): database/rollback-phase48-51.sql
+LEVEL 2 (full):    Restore storage/backups/phase16/production-backup-20260606/database.sql</pre>
+<p>Note: Level 1 rollback does not undo staff_id backfill from phase 49 (intentional).</p>
+
+<h2>9. Next steps</h2>
+<div class="callout warn">
+<strong>Gate G — required before Phase 15</strong>
+<ol>
+<li>Monitor production until ~7 June 2026 14:44 UTC (24 hours from deploy)</li>
+<li>Verify manually: <code>admin/staff.php?event_id=1</code> (36 rows), inbox, job records</li>
+<li>Check <code>storage/logs/error.log</code> for new errors</li>
+<li>Reply <strong>Gate G approved</strong> to begin Phase 15 security hardening</li>
+</ol>
+</div>
+
+<h3>Phase 16b (not yet started)</h3>
+<ul>
+<li>Update <code>includes/database-migrations.php</code> runner manifest (52 files)</li>
+<li>Extend <code>deleteStaffProfileCompletely()</code> cleanup</li>
+<li>Go-live migration status UI</li>
+</ul>
+
+<h2>10. Artifact index</h2>
+<table>
+<tr><th>File</th><th>Purpose</th></tr>
+<tr><td><code>docs/PHASE-16-DEPLOYMENT-RESULTS.pdf</code></td><td>This report</td></tr>
+<tr><td><code>docs/PHASE-16-IMPLEMENTATION-PACKAGE.pdf</code></td><td>Pre-deploy blueprint (Gate F)</td></tr>
+<tr><td><code>storage/backups/phase16/phase16-precheck-20260606.txt</code></td><td>Precheck archive</td></tr>
+<tr><td><code>storage/backups/phase16/phase16-deploy-20260606-144406.log</code></td><td>Server deploy log</td></tr>
+<tr><td><code>storage/backups/phase16/production-backup-20260606/database.sql</code></td><td>Pre-migrate DB dump</td></tr>
+<tr><td><code>database/rollback-phase48-51.sql</code></td><td>Partial rollback script</td></tr>
+<tr><td><code>cron/run-phase16-deploy.php</code></td><td>Deployment runner (on server)</td></tr>
+</table>
+
+<p style="font-size:7pt;color:#94a3b8;margin-top:16px;">Olasentra · Phase 16 Deployment Results · Generated 6 June 2026 · Companion: PHASE-16-IMPLEMENTATION-PACKAGE v1.0</p>
+
+</body>
+</html>

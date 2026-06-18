@@ -57,7 +57,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <option value="">All events</option>
                 <?php foreach ($events as $event): ?>
                     <option value="<?= (int) $event['id'] ?>"<?= (int) $filters['event_id'] === (int) $event['id'] ? ' selected' : '' ?>>
-                        <?= h($event['name'] . ' — ' . date('d.m.Y', strtotime($event['event_date']))) ?>
+                        <?= h($event['name'] . ' — ' . formatEventDateLabel((string) $event['event_date'])) ?>
                     </option>
                 <?php endforeach; ?>
             </select>

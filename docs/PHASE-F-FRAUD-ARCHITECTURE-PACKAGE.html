@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase F — Fraud Architecture Package</title>
+<style>
+:root{--erp-bg:#f8fafc;--erp-card:#fff;--erp-border:#e2e8f0;--erp-primary:#4f46e5;--risk-low:#0369a1;--risk-med:#b45309;--risk-high:#b91c1c}
+body{font-family:system-ui,-apple-system,sans-serif;max-width:1140px;margin:2rem auto;padding:0 1rem 3rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.65rem;letter-spacing:-.02em}
+h2{font-size:1.18rem;margin-top:2.5rem;border-bottom:2px solid var(--erp-border);padding-bottom:.4rem}
+h3{font-size:1rem;margin-top:1.35rem;color:#334155}
+.meta{color:#64748b;font-size:.9rem}
+.badge{display:inline-block;padding:.2rem .6rem;border-radius:5px;font-weight:700;font-size:.78rem}
+.badge.ok{background:#dcfce7;color:#166534}.badge.no{background:#fee2e2;color:#991b1c}.badge.arch{background:#e0e7ff;color:#3730a3}
+.badge.low{background:#e0f2fe;color:var(--risk-low)}.badge.med{background:#fef3c7;color:var(--risk-med)}.badge.high{background:#fee2e2;color:var(--risk-high)}
+.verdict{margin:1.5rem 0;padding:1rem 1.2rem;border-radius:10px;border:1px solid #86efac;background:#ecfdf5}
+.policy{margin:1rem 0;padding:.9rem 1rem;border-radius:8px;border:1px solid #fca5a5;background:#fef2f2;font-size:.92rem}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.85rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9;font-weight:600}
+code,pre{background:#f1f5f9;padding:.1rem .35rem;border-radius:3px;font-size:.84em}
+pre{padding:.85rem;overflow-x:auto;line-height:1.45;border:1px solid var(--erp-border);border-radius:8px}
+ul.compact li{margin:.28rem 0}
+.toc{background:var(--erp-bg);border:1px solid var(--erp-border);border-radius:10px;padding:1rem 1.25rem;margin:1.5rem 0}
+.toc ol{margin:.5rem 0 0 1.25rem}
+.diagram{background:#fff;border:1px solid var(--erp-border);border-radius:10px;padding:1rem;margin:1rem 0;font-family:ui-monospace,monospace;font-size:.78rem;line-height:1.4;overflow-x:auto;white-space:pre}
+/* Wireframe mockups */
+.mock{background:var(--erp-bg);border:1px solid var(--erp-border);border-radius:12px;padding:1rem;margin:1.25rem 0}
+.mock-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin:0 0 .75rem}
+.mock-admin{background:#1e293b;border-radius:10px;padding:.5rem;display:grid;grid-template-columns:200px 1fr;gap:.5rem;min-height:420px}
+.mock-sidebar{background:#0f172a;border-radius:8px;padding:.75rem;font-size:.68rem;color:#94a3b8}
+.mock-sidebar .active{color:#fff;background:#334155;border-radius:6px;padding:.35rem .5rem;margin:.25rem 0}
+.mock-main{background:#f1f5f9;border-radius:8px;padding:.75rem}
+.mock-card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:.65rem;margin-bottom:.5rem}
+.mock-toolbar{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.65rem}
+.mock-pill{background:#e2e8f0;border-radius:999px;padding:.2rem .55rem;font-size:.65rem}
+.mock-pill.on{background:#c7d2fe;color:#312e81}
+.mock-table{width:100%;font-size:.62rem;border-collapse:collapse}
+.mock-table th,.mock-table td{border:1px solid #e2e8f0;padding:.35rem .4rem;text-align:left}
+.mock-table th{background:#f8fafc}
+.mock-drawer{display:grid;grid-template-columns:1fr 280px;gap:.5rem;margin-top:.5rem}
+.mock-detail{background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:.6rem;font-size:.62rem}
+.mock-btn{display:inline-block;background:#4f46e5;color:#fff;border-radius:6px;padding:.25rem .5rem;font-size:.6rem;margin:.15rem .1rem 0 0}
+.mock-btn.sec{background:#fff;color:#334155;border:1px solid #cbd5e1}
+.mock-btn.warn{background:#fef3c7;color:#92400e;border:1px solid #fcd34d}
+.risk-dot{display:inline-block;width:.55rem;height:.55rem;border-radius:50%;margin-right:.25rem}
+.risk-dot.high{background:#ef4444}.risk-dot.med{background:#f59e0b}.risk-dot.low{background:#3b82f6}
+.score-bar{height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin:.35rem 0}
+.score-fill{height:100%;border-radius:4px}
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
+@media(max-width:800px){.cols2{grid-template-columns:1fr}.mock-admin{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<h1>Phase F — Fraud Architecture Package</h1>
+<p class="meta">Olasentra Registration Platform | Architecture only | Generated 2026-06-06 | <span class="badge arch">NO CODE · NO MIGRATIONS · NO DEPLOY</span></p>
+
+<div class="verdict">
+<strong>Status:</strong> Architecture package for scheduling review. Builds on approved <a href="ANTI-FRAUD-REVIEW-REPORT.html">Anti-Fraud Protection Review</a>. Olasentra is an <em>opportunity and registration platform</em> — suspicious applications are <strong>flagged for admin review</strong>, never automatically denied by Phase F.
+</div>
+
+<div class="policy">
+<strong>Approved scope:</strong> Fraud Shadow Mode · Fraud Queue · Risk Scoring · Duplicate Detection Strategy · Velocity Monitoring Strategy<br>
+<strong>Explicitly not approved:</strong> Automatic rejection · Automatic blocking · Automatic blacklist · Any applicant denial without admin review · <code>feature_fraud_shadow_mode = 2</code> (live block) is <em>out of scope</em> until separate legal/ops sign-off.
+</div>
+
+<nav class="toc">
+<strong>Contents</strong>
+<ol>
+<li><a href="#db">Database impact</a></li>
+<li><a href="#storage">Storage impact</a></li>
+<li><a href="#perf">Performance impact</a></li>
+<li><a href="#privacy">Privacy impact</a></li>
+<li><a href="#gdpr">GDPR considerations</a></li>
+<li><a href="#workflow">Admin review workflow</a></li>
+<li><a href="#mockups">Fraud queue UI mockups</a></li>
+<li><a href="#scoring">Risk score design</a></li>
+<li><a href="#schedule">Scheduling decision gate</a></li>
+</ol>
+</nav>
+
+<h2 id="db">1. Database impact</h2>
+<p>Proposed <em>additive</em> schema only. No changes to <code>submit.php</code> validation outcomes. Existing tables <code>staff</code>, <code>staff_registrations</code>, <code>staff_blacklist</code> remain authoritative for registration state.</p>
+
+<h3>1.1 New tables (proposed)</h3>
+
+<h4><code>registration_fraud_assessments</code> — one row per successful submit batch</h4>
+<p>Written <strong>after</strong> <code>saveRegistrations()</code> succeeds. Links to first inserted <code>staff_registrations.id</code> and <code>staff.id</code>.</p>
+<pre>registration_fraud_assessments
+  id                  INT UNSIGNED PK AI
+  staff_id            INT UNSIGNED NULL      -- FK staff.id
+  registration_id     INT UNSIGNED NULL      -- FK staff_registrations.id (primary row)
+  email               VARCHAR(150) NOT NULL  -- denormalised for queue sort
+  risk_score          TINYINT UNSIGNED       -- 0-100
+  risk_tier           ENUM('low','medium','high')
+  mode                ENUM('shadow')         -- always shadow in Phase F
+  flags_json          JSON NOT NULL          -- array of flag codes + metadata
+  duplicate_matches_json JSON NULL           -- matched staff_ids + match types
+  queue_status        ENUM('open','reviewed_ok','escalated','dismissed') DEFAULT 'open'
+  reviewed_by         INT UNSIGNED NULL      -- admin_users.id
+  reviewed_at         TIMESTAMP NULL
+  review_note         TEXT NULL
+  created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  INDEX idx_fraud_queue (queue_status, risk_tier, created_at)
+  INDEX idx_fraud_staff (staff_id)
+  INDEX idx_fraud_email (email)
+  INDEX idx_fraud_score (risk_score)</pre>
+
+<h4><code>registration_submit_meta</code> — technical context per assessment</h4>
+<pre>registration_submit_meta
+  id                  INT UNSIGNED PK AI
+  assessment_id       INT UNSIGNED NOT NULL  -- FK registration_fraud_assessments.id
+  ip_address          VARCHAR(45) NULL
+  user_agent          VARCHAR(500) NULL
+  accept_language     VARCHAR(120) NULL
+  country_code        CHAR(2) NULL           -- from ip_geo_cache pattern
+  region              VARCHAR(80) NULL
+  city                VARCHAR(80) NULL
+  analytics_session_id VARCHAR(64) NULL     -- registration_analytics_sid
+  device_hash         VARCHAR(64) NULL      -- optional, salted client fingerprint
+  wizard_duration_sec INT UNSIGNED NULL     -- started → submit delta
+  validation_failures TINYINT UNSIGNED DEFAULT 0  -- session count before success
+  event_count         TINYINT UNSIGNED       -- events in this submit
+  is_disposable_email TINYINT(1) DEFAULT 0
+  is_datacenter_ip    TINYINT(1) DEFAULT 0  -- optional Phase F4
+  created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  INDEX idx_meta_ip_time (ip_address, created_at)
+  INDEX idx_meta_device (device_hash, created_at)
+  INDEX idx_meta_assessment (assessment_id)</pre>
+
+<h4><code>registration_identity_index</code> — normalised lookup keys (shadow duplicate detection)</h4>
+<p>Supports cross-email matching without scanning full <code>staff</code> table on every submit. Populated/updated post-save from existing staff row.</p>
+<pre>registration_identity_index
+  id                  INT UNSIGNED PK AI
+  staff_id            INT UNSIGNED NOT NULL
+  key_type            ENUM('pps_norm','psa_norm','iban_norm','mobile_e164','identity_composite')
+  key_value           VARCHAR(128) NOT NULL   -- normalised or HMAC hash for IBAN
+  key_display_hint    VARCHAR(32) NULL          -- e.g. IBAN last 4, never full IBAN in logs
+  updated_at          TIMESTAMP
+  UNIQUE KEY uq_identity_key (key_type, key_value)
+  INDEX idx_identity_staff (staff_id)</pre>
+
+<h4><code>fraud_velocity_buckets</code> — rolling counters (optional; alt: file cache)</h4>
+<pre>fraud_velocity_buckets
+  bucket_type         ENUM('ip_24h','device_7d','iban_30d')
+  bucket_key          VARCHAR(128) NOT NULL
+  count_value         INT UNSIGNED DEFAULT 0
+  distinct_emails     INT UNSIGNED DEFAULT 0
+  window_start        TIMESTAMP NOT NULL
+  window_end          TIMESTAMP NOT NULL
+  updated_at          TIMESTAMP
+  PRIMARY KEY (bucket_type, bucket_key, window_start)</pre>
+
+<h4><code>fraud_review_audit</code> — admin actions on queue items</h4>
+<pre>fraud_review_audit
+  id                  INT UNSIGNED PK AI
+  assessment_id       INT UNSIGNED NOT NULL
+  admin_id            INT UNSIGNED NOT NULL
+  action              ENUM('view','mark_ok','escalate','dismiss','note','open_staff','open_blacklist_form')
+  detail_json         JSON NULL
+  ip_address          VARCHAR(45) NULL
+  created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  INDEX idx_fraud_audit_assessment (assessment_id)</pre>
+
+<h3>1.2 Existing tables — read-only use</h3>
+<table>
+<thead><tr><th>Table</th><th>Phase F usage</th><th>Modified?</th></tr></thead>
+<tbody>
+<tr><td><code>staff_registrations</code></td><td>Source fields for scoring; link assessment → registration</td><td><span class="badge no">No</span></td></tr>
+<tr><td><code>staff</code></td><td>Duplicate PSA/PPS/IBAN/mobile queries; <code>idx_psa_licence</code></td><td><span class="badge no">No</span></td></tr>
+<tr><td><code>staff_blacklist</code></td><td>Existing submit block — unchanged; manual link from queue only</td><td><span class="badge no">No</span></td></tr>
+<tr><td><code>ip_geo_cache</code></td><td>Reuse for country on submit IP</td><td><span class="badge no">No</span></td></tr>
+<tr><td><code>admin_audit_log</code></td><td>Mirror critical fraud review events (optional duplicate)</td><td><span class="badge no">No</span></td></tr>
+</tbody>
+</table>
+
+<h3>1.3 Proposed indexes on existing data (optional optimisation)</h3>
+<ul class="compact">
+<li><code>staff (pps_number)</code> — non-unique index if duplicate PPS queries are slow (values already stored)</li>
+<li><code>staff (bank_iban)</code> — non-unique index; consider storing lookup hash column instead of indexing raw IBAN</li>
+<li><code>staff (mobile)</code> — E.164 normalised column + index (architecture prefers <code>registration_identity_index</code> to avoid staff table migration)</li>
+</ul>
+
+<h3>1.4 Feature flag (system_settings)</h3>
+<pre>feature_fraud_shadow_mode
+  0 = off (default until scheduled)
+  1 = shadow — assess, score, queue; zero applicant impact
+  (value 2 live block — NOT in Phase F scope)</pre>
+
+<h2 id="storage">2. Storage impact</h2>
+
+<h3>2.1 MySQL growth estimates</h3>
+<p>Assumptions: ~200 registrations/month (seasonal peaks ~800/month). One assessment row per successful submit (may cover multiple events in one POST).</p>
+<table>
+<thead><tr><th>Artifact</th><th>Rows/month (avg)</th><th>~Bytes/row</th><th>Monthly</th><th>12-month</th></tr></thead>
+<tbody>
+<tr><td><code>registration_fraud_assessments</code></td><td>200</td><td>1.2 KB</td><td>240 KB</td><td>~3 MB</td></tr>
+<tr><td><code>registration_submit_meta</code></td><td>200</td><td>800 B</td><td>160 KB</td><td>~2 MB</td></tr>
+<tr><td><code>registration_identity_index</code></td><td>~5 keys × new staff</td><td>200 B</td><td>200 KB</td><td>~2.5 MB</td></tr>
+<tr><td><code>fraud_velocity_buckets</code></td><td>~500 rolling</td><td>150 B</td><td>75 KB</td><td>~1 MB (pruned)</td></tr>
+<tr><td><code>fraud_review_audit</code></td><td>~50 actions</td><td>400 B</td><td>20 KB</td><td>~250 KB</td></tr>
+<tr><td><strong>Total DB delta</strong></td><td colspan="2"></td><td><strong>&lt;1 MB</strong></td><td><strong>&lt;10 MB</strong></td></tr>
+</tbody>
+</table>
+
+<h3>2.2 File storage</h3>
+<table>
+<thead><tr><th>Path</th><th>Purpose</th><th>Size</th></tr></thead>
+<tbody>
+<tr><td><code>storage/fraud/disposable-domains.json</code></td><td>Static disposable email list (~3k domains)</td><td>~80 KB</td></tr>
+<tr><td><code>storage/fraud/velocity-snapshot.json</code></td><td>Optional cron output for ops email</td><td>&lt;50 KB</td></tr>
+<tr><td><code>storage/analytics/registration-funnel/</code></td><td>Existing — correlated, not duplicated</td><td>Unchanged</td></tr>
+</tbody>
+</table>
+
+<h3>2.3 Retention policy (architecture)</h3>
+<ul class="compact">
+<li><strong>Assessments + meta:</strong> 24 months, then anonymise email/IP (retain aggregate stats)</li>
+<li><strong>Identity index:</strong> lives with staff record lifecycle</li>
+<li><strong>Velocity buckets:</strong> rolling windows only (24h / 7d / 30d) — auto-prune</li>
+<li><strong>Review audit:</strong> 36 months (align with <code>admin_audit_log</code>)</li>
+</ul>
+
+<h2 id="perf">3. Performance impact</h2>
+
+<h3>3.1 Submit path (<code>submit.php</code>)</h3>
+<p>Shadow hook runs <strong>after</strong> successful commit — applicant latency unchanged.</p>
+<table>
+<thead><tr><th>Operation</th><th>Est. added time</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>Normalise PPS/PSA/IBAN/mobile</td><td>&lt;1 ms</td><td>Reuse <code>financial-field-validation.php</code></td></tr>
+<tr><td>Identity index lookups (4–5 queries)</td><td>2–8 ms</td><td>Indexed <code>uq_identity_key</code></td></tr>
+<tr><td>Velocity bucket read/update</td><td>1–3 ms</td><td>Single row upsert per bucket type</td></tr>
+<tr><td>Score computation</td><td>&lt;1 ms</td><td>In-memory rules engine</td></tr>
+<tr><td>Insert assessment + meta</td><td>2–5 ms</td><td>2 INSERTs in same connection</td></tr>
+<tr><td>Geo IP lookup (cached)</td><td>0–2 ms</td><td>Hit <code>ip_geo_cache</code>; miss → async optional</td></tr>
+<tr><td><strong>Total (async-capable)</strong></td><td><strong>5–20 ms</strong></td><td>Can defer to shutdown function if &gt;25 ms measured</td></tr>
+</tbody>
+</table>
+
+<h3>3.2 Admin Fraud Queue</h3>
+<ul class="compact">
+<li>List query: paginated <code>WHERE queue_status='open' ORDER BY risk_score DESC</code> — &lt;50 ms at 10k rows with indexes</li>
+<li>Detail view: 1 assessment + meta + matched staff JOINs — &lt;30 ms</li>
+<li>No impact on public registration pages when flag OFF</li>
+</ul>
+
+<h3>3.3 Cron (<code>fraud-velocity-scan.php</code>)</h3>
+<ul class="compact">
+<li>Nightly aggregation over last 24h/7d — estimated &lt;2 s at 10k assessments</li>
+<li>Ops email only if high-risk open count &gt; configurable threshold (default 5)</li>
+</ul>
+
+<h3>3.4 Risk mitigations</h3>
+<ul class="compact">
+<li>Post-commit hook only — never inside registration transaction</li>
+<li>Flag OFF = zero queries (same as today)</li>
+<li>Identity index avoids full-table scan on <code>staff</code></li>
+<li>Peak load: queue writes batched; consider <code>register_shutdown_function</code> for assess</li>
+</ul>
+
+<h2 id="privacy">4. Privacy impact</h2>
+
+<h3>4.1 New data collected</h3>
+<table>
+<thead><tr><th>Data</th><th>Source</th><th>Purpose</th><th>Applicant visible?</th></tr></thead>
+<tbody>
+<tr><td>IP address</td><td>Server <code>REMOTE_ADDR</code></td><td>Velocity, geo risk</td><td>No (server-side)</td></tr>
+<tr><td>User-Agent</td><td>HTTP header</td><td>Device class, bot patterns</td><td>No</td></tr>
+<tr><td>Country/region/city</td><td>Geo IP cache</td><td>Risk context for admin</td><td>No</td></tr>
+<tr><td>Analytics session ID</td><td>Existing wizard session</td><td>Correlate funnel + submit</td><td>No</td></tr>
+<tr><td>Device hash (optional F4)</td><td>Client script → server</td><td>Cross-session device link</td><td>Requires notice update</td></tr>
+<tr><td>Normalised identity keys</td><td>Form fields already submitted</td><td>Duplicate detection</td><td>Indirect (same data they entered)</td></tr>
+<tr><td>Risk score + flags</td><td>Derived</td><td>Admin review queue</td><td><strong>Never shown to applicant</strong></td></tr>
+</tbody>
+</table>
+
+<h3>4.2 Data NOT collected in Phase F</h3>
+<ul class="compact">
+<li>Full browser fingerprint canvas/WebGL (unless F4 approved with DPIA)</li>
+<li>Third-party fraud SaaS scores passed to applicant</li>
+<li>Automated credit checks or government ID verification</li>
+<li>Sharing fraud scores with event organisers or contractors</li>
+</ul>
+
+<h3>4.3 Data minimisation</h3>
+<ul class="compact">
+<li>IBAN stored in index as <strong>HMAC-SHA256</strong> (server secret) — queue shows last 4 only</li>
+<li>PPS stored as normalised uppercase — admin queue masks middle digits</li>
+<li>PSA stored normalised — display full licence to admin only (already in staff record)</li>
+<li>IP truncated to /24 for displays after 90 days (optional anonymisation job)</li>
+</ul>
+
+<h2 id="gdpr">5. GDPR considerations</h2>
+<p>Olasentra operates in Ireland/EU. Phase F processes personal data already collected at registration; it adds <em>security/fraud monitoring</em> metadata.</p>
+
+<h3>5.1 Lawful basis</h3>
+<table>
+<thead><tr><th>Processing</th><th>Basis</th><th>Rationale</th></tr></thead>
+<tbody>
+<tr><td>Registration + payroll fields</td><td>Contract / Legitimate interest</td><td>Existing — connecting staff to opportunities</td></tr>
+<tr><td>Fraud assessment (shadow)</td><td><strong>Legitimate interest</strong> (Art 6(1)(f))</td><td>Protect platform integrity, organisers, genuine applicants</td></tr>
+<tr><td>IP + device metadata</td><td>Legitimate interest</td><td>Security monitoring; balanced against applicant rights</td></tr>
+<tr><td>Admin manual review</td><td>Legitimate interest</td><td>Human decision — no automated rejection (Art 22 safe)</td></tr>
+</tbody>
+</table>
+
+<h3>5.2 Data subject rights</h3>
+<ul class="compact">
+<li><strong>Access:</strong> Fraud assessment rows for their email/staff_id included in SAR export (admin tool)</li>
+<li><strong>Rectification:</strong> Correcting staff profile updates identity index on next save</li>
+<li><strong>Erasure:</strong> Staff delete flow must cascade or anonymise fraud assessments (architecture requirement)</li>
+<li><strong>Object:</strong> Document process for fraud-metadata objection (likely upheld only where no active registrations)</li>
+</ul>
+
+<h3>5.3 Automated decision-making (Art 22)</h3>
+<div class="policy">
+Phase F produces <strong>risk scores for admin review only</strong>. No legal or similarly significant effect on applicants. Scores do not change registration outcome. This architecture intentionally avoids Art 22 automated decision scope.
+</div>
+
+<h3>5.4 DPIA recommendation</h3>
+<p>Lightweight DPIA advised before enabling shadow mode in production:</p>
+<ul class="compact">
+<li>Document necessity of IP/device retention vs alternatives</li>
+<li>False-positive impact assessment (legitimate applicant flagged — still registered)</li>
+<li>Retention schedule sign-off</li>
+<li>Processor list if IP intelligence API added (F4)</li>
+<li>Privacy Notice update: “We monitor registrations for fraud and duplicate identity to protect the platform”</li>
+</ul>
+
+<h3>5.5 Cross-border</h3>
+<ul class="compact">
+<li>Data remains on existing Namecheap/cPanel hosting (confirm region in DPIA)</li>
+<li>IP geo lookup: prefer self-hosted MaxMind or EU-hosted API; document sub-processor</li>
+</ul>
+
+<h2 id="workflow">6. Admin review workflow</h2>
+
+<h3>6.1 Principles</h3>
+<ul class="compact">
+<li>Every flagged application <strong>already succeeded</strong> as a registration — review is post-hoc</li>
+<li>Admin actions are <strong>informational</strong> unless operator explicitly uses existing tools (reject registration, blacklist)</li>
+<li>Queue default sort: High risk → newest first</li>
+<li>No applicant notification when flagged (avoid tipping off fraudsters)</li>
+</ul>
+
+<h3>6.2 State machine</h3>
+<div class="diagram">[submit.php success]
+        │
+        ▼
+┌───────────────────┐
+│ Shadow assess     │  risk_score + flags (always runs if flag=1)
+│ queue_status=open │  if tier=low AND no compliance flags → optional auto-dismiss*
+└─────────┬─────────┘
+          │
+          ▼
+┌───────────────────┐     Admin: Mark OK        ┌─────────────────┐
+│ OPEN (in queue)   │ ────────────────────────► │ reviewed_ok     │
+└─────────┬─────────┘                           └─────────────────┘
+          │
+          │ Admin: Escalate
+          ▼
+┌───────────────────┐     Admin: Dismiss        ┌─────────────────┐
+│ escalated         │ ────────────────────────► │ dismissed       │
+└─────────┬─────────┘   (false positive)        └─────────────────┘
+          │
+          │ Admin manual only (existing tools):
+          ▼
+   view-staff.php → update-status (reject)
+   blacklist.php  → add email (separate confirmation)
+   staff-message  → contact applicant
+
+* Architecture option: low-risk + zero flags → queue_status=dismissed without admin
+  action (reduces noise). Configurable; default ON for tier=low only.</div>
+
+<h3>6.3 Role capabilities</h3>
+<table>
+<thead><tr><th>Capability</th><th>View queue</th><th>Review</th><th>Escalate</th><th>Link to blacklist</th></tr></thead>
+<tbody>
+<tr><td><code>staff</code> (default admin)</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes — manual form</td></tr>
+<tr><td><code>fraud_review</code> (optional new cap)</td><td>Yes</td><td>Yes</td><td>Yes</td><td>No</td></tr>
+<tr><td>Read-only auditor</td><td>Yes</td><td>No</td><td>No</td><td>No</td></tr>
+</tbody>
+</table>
+
+<h3>6.4 Review checklist (admin SOP)</h3>
+<ol>
+<li>Open queue item → read flags and matched identities</li>
+<li>Compare staff profiles side-by-side (name, DOB, events, PSA)</li>
+<li>Check PSA compliance in Apply admin if <code>psa_expired</code> / <code>psa_duplicate</code></li>
+<li>Decide: legitimate returning worker / family shared IBAN / likely duplicate account</li>
+<li>Mark OK, Escalate, or Dismiss with mandatory note if High risk</li>
+<li>Only if policy violation confirmed → use existing reject/blacklist flows <strong>manually</strong></li>
+</ol>
+
+<h2 id="mockups">7. Fraud queue UI mockups</h2>
+<p>Wireframes aligned with existing admin ERP layout (<code>admin.css</code>, sidebar pattern). Route: <code>admin/fraud-queue.php</code>.</p>
+
+<h3>7.1 Queue list view</h3>
+<div class="mock">
+<p class="mock-title">Mockup — Fraud Queue (desktop)</p>
+<div class="mock-admin">
+<div class="mock-sidebar">
+<div style="color:#64748b;margin-bottom:.5rem">Olasentra Admin</div>
+<div>Dashboard</div>
+<div>Staff</div>
+<div class="active">Fraud Queue <span style="background:#ef4444;color:#fff;border-radius:999px;padding:0 .35rem;font-size:.55rem">7</span></div>
+<div>Blacklist</div>
+<div>PSA / Apply</div>
+</div>
+<div class="mock-main">
+<div class="mock-card">
+<strong style="font-size:.85rem">Fraud Queue</strong>
+<span style="font-size:.6rem;color:#64748b;margin-left:.5rem">Shadow mode · flags only · no auto-reject</span>
+<div class="mock-toolbar" style="margin-top:.5rem">
+<span class="mock-pill on">Review required</span>
+<span class="mock-pill">Duplicates</span>
+<span class="mock-pill">Compliance</span>
+<span class="mock-pill">Suspicious</span>
+<span class="mock-pill">All open</span>
+<span class="mock-pill">Reviewed</span>
+</div>
+<table class="mock-table">
+<thead><tr><th></th><th>Applicant</th><th>Risk</th><th>Score</th><th>Flags</th><th>Submitted</th><th>Status</th></tr></thead>
+<tbody>
+<tr>
+<td><input type="checkbox" style="width:.7rem"></td>
+<td><strong>Jane Smith</strong><br>jane.smith@example.com</td>
+<td><span class="risk-dot high"></span>High</td>
+<td>72</td>
+<td><code>duplicate_pps</code> <code>shared_iban</code></td>
+<td>6 Jun 14:32</td>
+<td><span style="color:#b45309">Open</span></td>
+</tr>
+<tr>
+<td><input type="checkbox"></td>
+<td><strong>John Doe</strong><br>john.d@tempmail.test</td>
+<td><span class="risk-dot med"></span>Med</td>
+<td>48</td>
+<td><code>disposable_email</code> <code>velocity_ip</code></td>
+<td>6 Jun 13:10</td>
+<td><span style="color:#b45309">Open</span></td>
+</tr>
+<tr>
+<td><input type="checkbox"></td>
+<td><strong>Mary Walsh</strong><br>mary.w@icloud.com</td>
+<td><span class="risk-dot med"></span>Med</td>
+<td>35</td>
+<td><code>psa_expired</code></td>
+<td>6 Jun 11:05</td>
+<td><span style="color:#b45309">Open</span></td>
+</tr>
+<tr>
+<td><input type="checkbox"></td>
+<td><strong>Tom Brown</strong><br>tom.b@gmail.com</td>
+<td><span class="risk-dot low"></span>Low</td>
+<td>12</td>
+<td>—</td>
+<td>6 Jun 09:44</td>
+<td><span style="color:#64748b">Auto-dismissed</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+
+<h3>7.2 Detail drawer (selected item)</h3>
+<div class="mock">
+<p class="mock-title">Mockup — Assessment detail</p>
+<div class="mock-drawer">
+<div class="mock-detail">
+<strong>Jane Smith</strong> · jane.smith@example.com<br>
+<span class="badge high">High risk · 72/100</span>
+<div class="score-bar"><div class="score-fill" style="width:72%;background:#ef4444"></div></div>
+<p style="margin:.5rem 0 .25rem"><strong>Flags</strong></p>
+<ul style="margin:0;padding-left:1rem">
+<li><code>duplicate_pps</code> — matches staff #1042 (m.jane@othermail.com)</li>
+<li><code>shared_iban</code> — same IBAN hint ···5678 as staff #1042</li>
+</ul>
+<p style="margin:.5rem 0 .25rem"><strong>Submit context</strong></p>
+IP 86.41.xxx.xxx · IE/Dublin · Chrome/Android<br>
+Session 4m 12s · 1 validation retry · 1 event selected
+<p style="margin:.5rem 0 .25rem"><strong>Matched records</strong></p>
+<table class="mock-table">
+<tr><th>Staff</th><th>Email</th><th>Match</th></tr>
+<tr><td>#1042</td><td>m.jane@othermail.com</td><td>PPS, IBAN</td></tr>
+</table>
+<span class="mock-btn">Mark reviewed OK</span>
+<span class="mock-btn sec">Escalate</span>
+<span class="mock-btn sec">Dismiss (false positive)</span>
+<span class="mock-btn sec">Open staff profile</span>
+<span class="mock-btn warn">Open blacklist form ↗</span>
+<p style="font-size:.55rem;color:#64748b;margin-top:.5rem">Blacklist opens existing admin/blacklist.php — separate confirmation required.</p>
+</div>
+<div class="mock-detail" style="background:#f8fafc">
+<strong>Review note</strong> (required for High)<br>
+<textarea style="width:100%;height:80px;font-size:.6rem;margin:.35rem 0" placeholder="e.g. Same person, two emails — contacted applicant"></textarea>
+<strong>Audit trail</strong>
+<ul style="margin:0;padding-left:1rem;font-size:.58rem">
+<li>6 Jun 14:32 — System — assessed (shadow)</li>
+<li>6 Jun 15:01 — admin@olasentra — viewed</li>
+</ul>
+</div>
+</div>
+</div>
+
+<h3>7.3 Mobile admin (responsive)</h3>
+<div class="mock">
+<p class="mock-title">Mockup — Fraud Queue (mobile, stacked cards)</p>
+<div style="max-width:390px;background:#f1f5f9;border-radius:8px;padding:.5rem">
+<div class="mock-card">
+<span class="risk-dot high"></span><strong>Jane Smith</strong> <span class="badge high" style="font-size:.6rem">72</span><br>
+<span style="font-size:.6rem">duplicate_pps · shared_iban</span><br>
+<span class="mock-btn" style="margin-top:.35rem">Review</span>
+</div>
+<div class="mock-card">
+<span class="risk-dot med"></span><strong>John Doe</strong> <span class="badge med" style="font-size:.6rem">48</span><br>
+<span style="font-size:.6rem">disposable_email · velocity_ip</span><br>
+<span class="mock-btn" style="margin-top:.35rem">Review</span>
+</div>
+</div>
+</div>
+
+<h3>7.4 Dashboard widget (optional)</h3>
+<p>Compact KPI on <code>admin/dashboard.php</code>: Open fraud items (count by tier), last 24h high-risk submissions, top velocity IP (masked).</p>
+
+<h2 id="scoring">8. Risk score design</h2>
+
+<h3>8.1 Score model</h3>
+<p>Integer <strong>0–100</strong>, sum of triggered rules capped at 100. Computed once per successful submit. Immutable after write (new submit = new assessment).</p>
+
+<div class="cols2">
+<div>
+<h4>Tiers</h4>
+<table>
+<tr><th>Tier</th><th>Range</th><th>Queue behaviour</th></tr>
+<tr><td><span class="badge low">Low</span></td><td>0–25</td><td>Auto-dismiss* or hidden from default filter</td></tr>
+<tr><td><span class="badge med">Medium</span></td><td>26–60</td><td>Open — appears in queue</td></tr>
+<tr><td><span class="badge high">High</span></td><td>61–100</td><td>Open — top sort; note required on review</td></tr>
+</table>
+</div>
+<div>
+<h4>Flag codes (canonical)</h4>
+<ul class="compact" style="font-size:.82rem">
+<li><code>duplicate_pps</code> <code>duplicate_psa</code> <code>duplicate_iban</code> <code>duplicate_mobile</code></li>
+<li><code>probable_same_person</code> (name + DOB + different email)</li>
+<li><code>disposable_email</code> <code>velocity_ip</code> <code>velocity_device</code></li>
+<li><code>rapid_submit</code> <code>validation_burst</code></li>
+<li><code>psa_expired</code> <code>psa_duplicate</code> <code>psa_images_missing</code></li>
+<li><code>datacenter_ip</code> (optional F4)</li>
+</ul>
+</div>
+</div>
+
+<h3>8.2 Rule weights (approved strategy)</h3>
+<table>
+<thead><tr><th>Rule ID</th><th>Condition</th><th>Points</th><th>Flag</th></tr></thead>
+<tbody>
+<tr><td>R01</td><td>Normalised PPS matches different <code>staff_id</code></td><td>+35</td><td><code>duplicate_pps</code></td></tr>
+<tr><td>R02</td><td>Normalised PSA matches different <code>staff_id</code></td><td>+30</td><td><code>duplicate_psa</code></td></tr>
+<tr><td>R03</td><td>IBAN hash matches different <code>staff_id</code></td><td>+30</td><td><code>duplicate_iban</code></td></tr>
+<tr><td>R04</td><td>E.164 mobile matches different <code>staff_id</code></td><td>+20</td><td><code>duplicate_mobile</code></td></tr>
+<tr><td>R05</td><td>Same surname + first_name + DOB, different email</td><td>+25</td><td><code>probable_same_person</code></td></tr>
+<tr><td>R06</td><td>Email domain in disposable list</td><td>+25</td><td><code>disposable_email</code></td></tr>
+<tr><td>R07</td><td>&gt;5 successful submits from IP in 24h</td><td>+20</td><td><code>velocity_ip</code></td></tr>
+<tr><td>R08</td><td>&gt;3 distinct emails from device_hash in 7d</td><td>+25</td><td><code>velocity_device</code></td></tr>
+<tr><td>R09</td><td>Submit &lt;60s after wizard start</td><td>+10</td><td><code>rapid_submit</code></td></tr>
+<tr><td>R10</td><td>≥3 validation failures in session before success</td><td>+10</td><td><code>validation_burst</code></td></tr>
+<tr><td>R11</td><td>PSA expiry date &lt; today</td><td>+15</td><td><code>psa_expired</code></td></tr>
+<tr><td>R12</td><td>PSA images missing after submit</td><td>+15</td><td><code>psa_images_missing</code></td></tr>
+<tr><td>R13</td><td>Datacenter/VPN ASN (optional)</td><td>+15</td><td><code>datacenter_ip</code></td></tr>
+</tbody>
+</table>
+<p style="font-size:.88rem;color:#64748b">Cap: <code>risk_score = min(100, sum(points))</code>. Tier from score. Multiple flags preserved in <code>flags_json</code> for admin transparency.</p>
+
+<h3>8.3 Example scenarios</h3>
+<table>
+<thead><tr><th>Scenario</th><th>Rules fired</th><th>Score</th><th>Tier</th><th>Applicant outcome</th></tr></thead>
+<tbody>
+<tr><td>Returning worker, new event, clean identity</td><td>—</td><td>0</td><td>Low</td><td>Registered ✓ (unchanged)</td></tr>
+<tr><td>Expired PSA, otherwise clean</td><td>R11</td><td>15</td><td>Low</td><td>Registered ✓ · compliance flag for admin</td></tr>
+<tr><td>Temp mail + fast submit</td><td>R06+R09</td><td>35</td><td>Medium</td><td>Registered ✓ · queue review</td></tr>
+<tr><td>Same PPS + IBAN, new email</td><td>R01+R03</td><td>65</td><td>High</td><td>Registered ✓ · priority review</td></tr>
+</tbody>
+</table>
+
+<h3>8.4 Configuration surface</h3>
+<p>Admin → Settings (or <code>system_settings</code> JSON):</p>
+<ul class="compact">
+<li>Per-rule enable/disable (shadow tuning without deploy)</li>
+<li>Threshold overrides (velocity counts)</li>
+<li>Auto-dismiss low tier: on/off</li>
+<li>Ops alert email when open high ≥ N</li>
+</ul>
+
+<h3>8.5 Integration diagram</h3>
+<div class="diagram">register.olasentra.com                          admin.olasentra.com
+─────────────────────                          ───────────────────
+
+index.php (wizard)                             fraud-queue.php
+     │                                              ▲
+     ▼                                              │
+submit.php ──success──► fraud-assessor (shadow) ─────┤
+     │                      │                        │
+     │                      ├──► registration_fraud_assessments
+     │                      ├──► registration_submit_meta
+     │                      └──► registration_identity_index
+     │                                               │
+     └──► staff_registrations (unchanged)            │
+              │                                      │
+              └──► staff (unchanged)                 │
+                                                     │
+                              fraud_review_audit ◄───┘
+                              admin_audit_log (mirror)
+
+cron/fraud-velocity-scan.php ──► ops email (optional)
+feature_fraud_shadow_mode=1 ──► enables assess path only</div>
+
+<h2 id="schedule">9. Scheduling decision gate</h2>
+
+<table>
+<thead><tr><th>Gate</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>Anti-Fraud Review Report</td><td><span class="badge ok">Approved</span></td></tr>
+<tr><td>Phase F Architecture Package (this document)</td><td><span class="badge arch">Awaiting review</span></td></tr>
+<tr><td>Phase B (UX master plan next phases)</td><td><span class="badge no">Blocked</span> until architecture approved</td></tr>
+<tr><td>Implementation (F1–F3)</td><td><span class="badge no">Not scheduled</span> — decision after architecture sign-off</td></tr>
+<tr><td>Live enforcement (block/reject)</td><td><span class="badge no">Not approved</span></td></tr>
+</tbody>
+</table>
+
+<h3>Estimated implementation effort (if scheduled)</h3>
+<table>
+<thead><tr><th>Phase</th><th>Scope</th><th>Estimate</th></tr></thead>
+<tbody>
+<tr><td>F1</td><td>Schema, shadow assessor, identity index, flag</td><td>2–3 dev days</td></tr>
+<tr><td>F2</td><td>Scoring engine, velocity, disposable list, cron</td><td>2–3 dev days</td></tr>
+<tr><td>F3</td><td>Fraud queue UI, audit, dashboard widget, SOP doc</td><td>3–4 dev days</td></tr>
+<tr><td>F4</td><td>Device hash, IP intel, DPIA + Privacy Notice update</td><td>2–3 dev days (optional)</td></tr>
+<tr><td>Soak</td><td>14-day shadow on production before tuning</td><td>Calendar time</td></tr>
+</tbody>
+</table>
+
+<h3>Pre-implementation checklist (when scheduling)</h3>
+<ul class="compact">
+<li>Architecture package approved</li>
+<li>DPIA completed (lightweight)</li>
+<li>Privacy Notice draft reviewed</li>
+<li>Admin SOP for fraud review agreed</li>
+<li>Rollback plan: <code>feature_fraud_shadow_mode = 0</code> instant off</li>
+</ul>
+
+<p class="meta">Related: <a href="ANTI-FRAUD-REVIEW-REPORT.html">Anti-Fraud Review</a> · <a href="PHASE-A-CLOSURE-REPORT.html">Phase A Closure</a> · <a href="PHASE-A7-MOBILE-QA-REPORT.html">Phase A.7 Mobile QA</a></p>
+
+</body>
+</html>

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Email Rejection Template Audit</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+h3{font-size:.98rem;margin-top:1.25rem;color:#334155}
+.meta{color:#64748b;font-size:.9rem}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #fca5a5;background:#fef2f2}
+.verdict.ok{border-color:#6ee7b7;background:#ecfdf5}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.85rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.crit{color:#b91c1c;font-weight:700}
+.high{color:#c2410c;font-weight:600}
+.pass{color:#047857;font-weight:700}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.82em}
+pre{background:#0f172a;color:#e2e8f0;padding:.85rem;border-radius:8px;overflow:auto;font-size:.76rem;white-space:pre-wrap}
+ul.compact li{margin:.3rem 0}
+.match{background:#fef3c7;padding:.1rem .25rem;border-radius:3px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin:1rem 0}
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;margin:1rem 0}
+@media(max-width:900px){.grid,.grid-2{grid-template-columns:1fr}}
+.shot{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#f8fafc}
+.shot img{display:block;width:100%;height:auto}
+.shot figcaption{padding:.5rem .65rem;font-size:.78rem;color:#475569;background:#fff;border-top:1px solid #e2e8f0}
+.note{font-size:.88rem;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.75rem 1rem;margin:1rem 0}
+</style>
+</head>
+<body>
+
+<h1>Email Rejection Template Audit</h1>
+<p class="meta">Generated 6 June 2026 · <strong>Audit only — no fixes implemented</strong> · Defect: Registration Not Approved / Rejection email · Production transport: SMTP</p>
+
+<div class="verdict"><strong>Root cause confirmed:</strong> The rejection email builds a correct plain-text part and a correct HTML part, but <code>buildEmailMimePayload()</code> sends <strong>HTML only</strong> as a single <code>text/html</code> body with <code>Content-Transfer-Encoding: quoted-printable</code>. When the recipient client displays that body <em>without</em> decoding quoted-printable and rendering HTML (plain-text view, misidentified MIME, or strict security filter), users see literal <code>&lt;br&gt;</code> / <code>&lt;p&gt;</code> tags, words split at QP soft line breaks, and status URLs as raw text. <strong>Not a template copy bug — a MIME architecture bug affecting all <code>buildStaffEmailHtmlFromLines()</code> emails.</strong></div>
+
+<h2>1. Templates audited</h2>
+<table>
+<tr><th>ID</th><th>Name</th><th>Status</th><th>File / function</th><th>Trigger</th></tr>
+<tr><td>E04</td><td>Registration rejected (consolidated)</td><td class="crit">DEFECT REPORTED</td><td><code>includes/notifications.php</code> → <code>sendConsolidatedRejectionEmail()</code></td><td>Admin sets status <code>rejected</code></td></tr>
+<tr><td>—</td><td>In-app “Not approved” notification</td><td class="pass">Separate path (not email)</td><td><code>includes/notification-center.php</code> → <code>notifyStaffStatusInApp()</code></td><td>Same status change</td></tr>
+</table>
+
+<p><strong>No other rejection / declined / not-approved email templates exist.</strong> Search covered <code>includes/*.php</code>, <code>admin/update-status.php</code>, <code>admin/bulk-status.php</code>, apply portal, and prior email audit inventory. There is no <code>declined</code> status email, no standalone “not approved” template file, and no alternate rejection builder.</p>
+
+<h3>Call chain (rejection email only)</h3>
+<pre>admin/update-status.php  (POST status=rejected)
+admin/bulk-status.php    (bulk status=rejected)
+    → notifyStaffStatusChange() / notifyStaffStatusChanges()
+        → includes/notifications.php
+            → sendConsolidatedRejectionEmail()
+                → buildStaffEmailHtmlFromLines()   [includes/email-copy.php]
+                → sendEmail($pdo, $to, $subject, $text, $html)   [includes/mailer.php]
+                    → sendSmtpMessage()   [includes/smtp-mailer.php]
+                        → buildEmailMimePayload($text, $html)</pre>
+
+<h2>2. Production symptoms vs generated output</h2>
+<table>
+<tr><th>Observed defect</th><th>Mechanism</th><th>Evidence in generated MIME</th></tr>
+<tr>
+<td>Raw <code>&lt;br&gt;</code> and <code>&lt;p&gt;</code> visible</td>
+<td>HTML source shown as plain text (not rendered)</td>
+<td><code>buildStaffEmailHtmlFromLines()</code> emits <code>&lt;br&gt;</code> for blank lines and <code>&lt;p style=…&gt;</code> for text lines</td>
+</tr>
+<tr>
+<td><span class="match">Contr actor</span></td>
+<td>QP soft break inside “Contractor listed…”</td>
+<td>QP sample: <code>…Contr actor listed for this shift…</code> after <code>=</code> line wrap removed</td>
+</tr>
+<tr>
+<td><span class="match">Sec urity</span></td>
+<td>QP soft break inside “Acme Security” or “Static Security”</td>
+<td>Event line QP-wrapped at 76-char boundaries</td>
+</tr>
+<tr>
+<td><span class="match">lis ted</span></td>
+<td>QP soft break in “Contractor listed”</td>
+<td>QP sample: <code>Contractor lis ted for this shift</code></td>
+</tr>
+<tr>
+<td><span class="match">th em</span></td>
+<td>QP soft break in “with them”</td>
+<td>QP sample: <code>…duties wi th them</code> (wrap at <code>dut=</code> / <code>ies</code> region)</td>
+</tr>
+<tr>
+<td><span class="match">S ent</span></td>
+<td>QP soft break in “Sent by the registration portal…”</td>
+<td>Footer line in <code>appendEmailPortalContext()</code> → <code>getEmailShortFooter()</code></td>
+</tr>
+<tr>
+<td>Status URL as text, not clickable</td>
+<td>HTML <code>&lt;a href&gt;</code> not rendered; URL shown from raw HTML/QP body</td>
+<td>Plain-text part has bare URL; HTML has link + button — neither used if client shows raw MIME body</td>
+</tr>
+</table>
+
+<h2>3. Plain text version output</h2>
+<p>Built in <code>sendConsolidatedRejectionEmail()</code> at <code>includes/notifications.php</code> lines 113–146, then <code>$text = implode("\n", $bodyLines)</code>.</p>
+<pre>Dear {first_name},
+
+Thank you for your interest. Your staff registration was not approved at this time.
+[or: The following {N} registration(s) were not approved at this time.]
+
+* {event label} - {role}
+  Contractor listed for this shift: {name} (confirm pay and duties with them).   [optional]
+
+View your registration status anytime:
+https://register.olasentra.com/status.php?token={token}
+
+If you have questions, please contact us using the contact details on the website.
+
+Sent by the registration portal only. Pay and duties are agreed with the on-site contractor or event organiser.
+
+Regards,
+{site_name}</pre>
+
+<p class="meta"><strong>Plain text quality:</strong> Correct structure; ASCII-safe event labels via <code>formatEventLabelForEmail()</code>; bare URL on its own line; no HTML tags in this part. <strong>This part is never attached to the outbound MIME message when HTML is present.</strong></p>
+
+<h2>4. HTML version output</h2>
+<p>Built by <code>buildStaffEmailHtmlFromLines()</code> in <code>includes/email-copy.php</code> (lines 188–214), called with CTA args <code>($bodyLines, $statusUrl, 'View my status')</code>.</p>
+<pre>&lt;div style="font-family:Segoe UI,Arial,sans-serif;…"&gt;
+  &lt;p&gt;Dear {name},&lt;/p&gt;&lt;br&gt;
+  &lt;p&gt;Thank you for your interest. Your staff registration was not approved…&lt;/p&gt;&lt;br&gt;
+  &lt;p&gt;* {event} - {role}&lt;/p&gt;
+  &lt;p&gt;  Contractor listed for this shift: …&lt;/p&gt;   [optional]
+  &lt;br&gt;
+  &lt;p&gt;View your registration status anytime:&lt;/p&gt;
+  &lt;p&gt;&lt;a href="{statusUrl}"&gt;{statusUrl}&lt;/a&gt;&lt;/p&gt;   ← auto-link for URL lines
+  …
+  &lt;p&gt;&lt;a href="{statusUrl}" style="…button…"&gt;View my status&lt;/a&gt;&lt;/p&gt;   ← CTA button
+&lt;/div&gt;</pre>
+
+<p><strong>HTML quality when rendered:</strong> Links and button are correct. <strong>Issue:</strong> status URL appears twice (inline link + button). Empty lines become bare <code>&lt;br&gt;</code> (valid HTML but noisy in broken render). Dynamic text passed through <code>htmlspecialchars()</code> + <code>emailAsciiSafe()</code> — no double-encoding bug.</p>
+
+<h2>5. MIME structure (actual wire format)</h2>
+<table>
+<tr><th>Property</th><th>Rejection email (production path)</th><th>Expected for plain+HTML</th></tr>
+<tr><td>Structure</td><td class="crit">Single part</td><td><code>multipart/alternative</code> (text/plain + text/html)</td></tr>
+<tr><td>Content-Type</td><td><code>text/html; charset=UTF-8</code></td><td><code>multipart/alternative; boundary=…</code></td></tr>
+<tr><td>Transfer-Encoding</td><td><code>quoted-printable</code></td><td>Plain: <code>8bit</code> or QP; HTML: QP or 8bit</td></tr>
+<tr><td>Plain text part sent?</td><td class="crit">No — discarded</td><td>Yes</td></tr>
+<tr><td>HTML part sent?</td><td class="pass">Yes</td><td>Yes</td></tr>
+<tr><td>QP soft line breaks</td><td class="high">18 in sample rejection body</td><td>N/A if plain part used for text clients</td></tr>
+</table>
+
+<h3>Responsible code — MIME builder</h3>
+<pre>includes/mailer.php → buildEmailMimePayload()  [lines 26–41]
+
+if ($html !== '') {
+    return [
+        'content_type'      => 'text/html; charset=UTF-8',
+        'transfer_encoding' => 'quoted-printable',
+        'body'              => quoted_printable_encode(normalizeEmailLines($html)),
+    ];
+}
+// $textBody is ignored when HTML is non-empty</pre>
+
+<p>Both <code>sendEmail()</code> (PHP <code>mail()</code> path) and <code>sendSmtpMessage()</code> (<code>includes/smtp-mailer.php</code> lines 150–153) call this function. Production uses SMTP per prior email verification.</p>
+
+<h2>6. Quoted-printable encoding analysis</h2>
+<p>PHP <code>quoted_printable_encode()</code> wraps lines at 76 characters, inserting <code>=\r\n</code> soft line breaks. Correct clients decode these before HTML rendering. Defective display occurs when:</p>
+<ol class="compact">
+<li>Client shows the HTML part in <strong>plain text mode</strong> (user setting or mobile “message text”).</li>
+<li>Client fails to decode QP before display (some older or strict parsers).</li>
+<li>Security gateway strips HTML and forwards raw body.</li>
+<li>Client receives single-part HTML but treats as <code>text/plain</code> due to missing/alternate Content-Type handling.</li>
+</ol>
+
+<h3>QP sample (first ~900 chars of wire body)</h3>
+<pre>&lt;div style=3D"font-family:Segoe UI,Arial,sans-serif;line-height:1.55;color:=
+#111827;max-width:560px;"&gt;&lt;p style=3D"margin:0 0 8px;"&gt;Dear Olayinka,&lt;/p&gt;&lt;b=
+r&gt;&lt;p style=3D"margin:0 0 8px;"&gt;Thank you for your interest. Your staff regi=
+stration was not approved at this time.&lt;/p&gt;&lt;br&gt;…
+&lt;p style=3D"margin:0 0 8px;"&gt;  Contractor listed for this shift: Acme Securi=
+ty (confirm pay and duties with them).&lt;/p&gt;…
+&lt;p&gt;&lt;a href=3D"https://register.olasentra.com/status.php?=
+token=3Dabc123" …&gt;https://register.olasentra.com/status.php?token=3Dabc123&lt;/a&gt;&lt;/p&gt;</pre>
+
+<p>Stripping <code>=\r\n</code> without full QP decode produces the exact word splits reported: <code>regi</code>+<code>stration</code>, <code>Contr</code>+<code>actor</code>, <code>Securi</code>+<code>ty</code>, <code>lis</code>+<code>ted</code>, <code>wi</code>+<code>th</code>, <code>S</code>+<code>ent</code>.</p>
+
+<h2>7. Link rendering</h2>
+<table>
+<tr><th>Layer</th><th>Status URL handling</th><th>Clickable when…</th></tr>
+<tr><td>Plain text part (built, not sent)</td><td>Bare URL on line after “View your registration status anytime:”</td><td>Client uses plain part — <strong>never happens today</strong></td></tr>
+<tr><td>HTML auto-link</td><td><code>buildStaffEmailHtmlFromLines()</code> detects <code>^https?://</code> lines → <code>&lt;a href="…"&gt;…&lt;/a&gt;</code></td><td>HTML rendered</td></tr>
+<tr><td>HTML CTA button</td><td><code>buildStaffEmailButton()</code> → styled <code>&lt;a&gt;View my status&lt;/a&gt;</td><td>HTML rendered</td></tr>
+<tr><td>QP wire encoding</td><td><code>=3D</code> for <code>=</code> in URLs (<code>token=3D…</code>)</td><td>Must be QP-decoded first</td></tr>
+<tr><td>Broken display (reported)</td><td>Raw URL text, possibly truncated at soft break</td><td>QP/HTML not decoded/rendered</td></tr>
+</table>
+
+<p>Token URL built via <code>ensureStatusToken()</code> + <code>getStatusUrl()</code> in <code>includes/status-repository.php</code> (called from <code>notifications.php</code>). URL generation is correct; link failure is downstream of MIME/display.</p>
+
+<h2>8. Word wrapping</h2>
+<table>
+<tr><th>Layer</th><th>Wrapping behaviour</th></tr>
+<tr><td>Plain text (source)</td><td><code>\n</code> only between logical lines; long URLs unbroken — correct</td></tr>
+<tr><td>HTML (source)</td><td><code>word-break:break-all</code> on auto-linked URLs only</td></tr>
+<tr><td>SMTP QP encode</td><td>Hard wrap at 76 octets with <code>=\r\n</code> — <strong>source of spurious mid-word breaks in defective clients</strong></td></tr>
+<tr><td>RFC 5322 header</td><td>Subject passed through <code>smtpEncodeHeader()</code> — not related to body defect</td></tr>
+</table>
+
+<h2>9. Files responsible (exact)</h2>
+<table>
+<tr><th>File</th><th>Role in defect</th><th>Lines / symbols</th></tr>
+<tr><td><code>includes/notifications.php</code></td><td>Rejection template content; builds <code>$text</code> + <code>$html</code>; calls <code>sendEmail()</code></td><td><code>sendConsolidatedRejectionEmail()</code> 97–154; trigger <code>notifyStaffStatusChanges()</code> 32–74</td></tr>
+<tr><td><code>includes/email-copy.php</code></td><td>HTML line renderer; CTA button; footer line containing “Sent by…”</td><td><code>buildStaffEmailHtmlFromLines()</code> 188–214; <code>buildStaffEmailButton()</code> 169–183; <code>appendEmailPortalContext()</code> 164–167</td></tr>
+<tr><td><code>includes/mailer.php</code></td><td><strong>Root cause:</strong> drops plain part; QP-encodes HTML only</td><td><code>buildEmailMimePayload()</code> 26–41; <code>sendEmail()</code> 136–228</td></tr>
+<tr><td><code>includes/smtp-mailer.php</code></td><td>Production send path; applies same MIME builder</td><td><code>sendSmtpMessage()</code> 33–183, MIME at 150–153</td></tr>
+<tr><td><code>admin/update-status.php</code></td><td>Trigger (single reject)</td><td><code>notifyStaffStatusChange()</code> line 48</td></tr>
+<tr><td><code>admin/bulk-status.php</code></td><td>Trigger (bulk reject)</td><td><code>notifyStaffStatusChanges()</code> on rejected batch</td></tr>
+<tr><td><code>includes/status-repository.php</code></td><td>Status URL generation (not defective)</td><td><code>ensureStatusToken()</code>, <code>getStatusUrl()</code></td></tr>
+<tr><td><code>includes/notification-center.php</code></td><td>In-app only — not the broken email</td><td><code>notifyStaffStatusInApp()</code> label “Not approved”</td></tr>
+</table>
+
+<h2>10. Collateral impact (same MIME bug)</h2>
+<p>Any email calling <code>sendEmail($pdo, $to, $subject, $text, $html)</code> with non-empty HTML is affected — not rejection-only:</p>
+<ul class="compact">
+<li><code>notifyStaffRegistrationSubmitted()</code> — registration confirmation (E01)</li>
+<li><code>sendConsolidatedAccessPassEmail()</code> — approval / access pass (E02) — uses custom HTML but same MIME path</li>
+<li><code>sendAdminAlertEmail()</code> — admin alerts (E12)</li>
+<li><code>sendEventStaffBroadcast()</code> — staff messaging (E08)</li>
+<li><code>notifyRegisteredStaffNewEvent()</code> — new event alert (E09)</li>
+<li><code>staff-profile-email.php</code> — profile link emails (E10/E11)</li>
+</ul>
+<p>Plain-text-only emails (<code>notifyStaffCheckin()</code>, daily reminders) use <code>sendEmail(..., $body)</code> without HTML — <strong>not affected</strong> by this specific defect.</p>
+
+<h2>11. Root cause summary</h2>
+<div class="verdict ok">
+<ol class="compact">
+<li><strong>Primary:</strong> <code>buildEmailMimePayload()</code> sends HTML-only single part; plain-text alternative is built then discarded.</li>
+<li><strong>Secondary:</strong> HTML body encoded with <code>quoted-printable</code>; clients that do not decode QP before display show mid-word breaks at <code>=\r\n</code> boundaries.</li>
+<li><strong>Tertiary:</strong> Those same clients render HTML tags literally (<code>&lt;p&gt;</code>, <code>&lt;br&gt;</code>) instead of parsing HTML.</li>
+<li><strong>Link symptom:</strong> Consequence of (1)+(2)+(3) — <code>&lt;a href&gt;</code> never activated; bare URL from HTML source or truncated QP line shown as text.</li>
+</ol>
+<p><strong>Not root cause:</strong> Template copy, ASCII encoding fix, subject line, status token generation, or SMTP auth. Rejection-specific wording (“Contractor listed…”, “Sent by…”) merely provides the vocabulary that QP breaks split.</p>
+</div>
+
+<h2>12. Rendering screenshots</h2>
+<p class="meta">Generated from production MIME builder output via <code>scripts/audit-rejection-email-renders.php</code> + <code>scripts/capture-email-rejection-screenshots.ps1</code>. Three render modes × three client chrome layouts (Gmail, Outlook, Apple Mail).</p>
+
+<div class="note"><strong>Broken panels</strong> simulate the reported production defect: wire-format QP HTML displayed as plain text (soft breaks stripped, no QP decode, no HTML render). <strong>Correct panels</strong> show how the same HTML part looks when decoded and rendered. <strong>Plain panels</strong> show the text part that is built but not sent today.</div>
+
+<h3>12.1 Production defect (reported behaviour)</h3>
+<div class="grid">
+<figure class="shot"><img src="screenshots/email-rejection/rejection-broken-gmail.png" alt="Broken render Gmail"><figcaption><strong>Gmail</strong> — Raw <code>&lt;br&gt;</code>, <code>&lt;p&gt;</code>, <code>=3D</code>; words split; URL not clickable</figcaption></figure>
+<figure class="shot"><img src="screenshots/email-rejection/rejection-broken-outlook.png" alt="Broken render Outlook"><figcaption><strong>Outlook</strong> — Same QP-as-text failure mode</figcaption></figure>
+<figure class="shot"><img src="screenshots/email-rejection/rejection-broken-apple.png" alt="Broken render Apple Mail"><figcaption><strong>Apple Mail</strong> — Monospace raw HTML body</figcaption></figure>
+</div>
+
+<h3>12.2 Correct HTML render (when client decodes QP + renders HTML)</h3>
+<div class="grid">
+<figure class="shot"><img src="screenshots/email-rejection/rejection-correct-gmail.png" alt="Correct render Gmail"><figcaption><strong>Gmail</strong> — Clean paragraphs; clickable URL + “View my status” button</figcaption></figure>
+<figure class="shot"><img src="screenshots/email-rejection/rejection-correct-outlook.png" alt="Correct render Outlook"><figcaption><strong>Outlook</strong> — Links and button render correctly</figcaption></figure>
+<figure class="shot"><img src="screenshots/email-rejection/rejection-correct-apple.png" alt="Correct render Apple Mail"><figcaption><strong>Apple Mail</strong> — Mobile-width layout OK</figcaption></figure>
+</div>
+
+<h3>12.3 Plain-text part (built, not sent in current MIME)</h3>
+<div class="grid">
+<figure class="shot"><img src="screenshots/email-rejection/rejection-plain-gmail.png" alt="Plain text Gmail"><figcaption><strong>Gmail</strong> — Correct fallback: no tags, intact words, bare URL</figcaption></figure>
+<figure class="shot"><img src="screenshots/email-rejection/rejection-plain-outlook.png" alt="Plain text Outlook"><figcaption><strong>Outlook</strong> — Plain text readable</figcaption></figure>
+<figure class="shot"><img src="screenshots/email-rejection/rejection-plain-apple.png" alt="Plain text Apple Mail"><figcaption><strong>Apple Mail</strong> — Would auto-link URL in native plain renderer</figcaption></figure>
+</div>
+
+<h2>13. Fix directions (audit only — not implemented)</h2>
+<p>For implementation phase reference only:</p>
+<ul class="compact">
+<li>Emit <code>multipart/alternative</code> with both <code>text/plain; charset=UTF-8</code> and <code>text/html; charset=UTF-8</code> parts.</li>
+<li>Consider <code>8bit</code> or base64 for HTML on UTF-8 SMTP to reduce QP soft-break surface.</li>
+<li>Optionally remove duplicate status URL (inline + button) in HTML for cleaner fallback.</li>
+<li>Re-test rejection email in Gmail, Outlook, and Apple Mail plain-text + HTML views after MIME fix.</li>
+</ul>
+
+<h2>14. Reproduction artifacts</h2>
+<table>
+<tr><th>Artifact</th><th>Path</th></tr>
+<tr><td>This report</td><td><code>docs/EMAIL-REJECTION-TEMPLATE-AUDIT.html</code></td></tr>
+<tr><td>MIME snapshot JSON</td><td><code>storage/reports/email-rejection-template-audit-snapshot.json</code></td></tr>
+<tr><td>Screenshots (9 PNG)</td><td><code>docs/screenshots/email-rejection/*.png</code></td></tr>
+<tr><td>Render preview HTML</td><td><code>docs/screenshots/email-rejection/html/*.html</code></td></tr>
+<tr><td>MIME reproduction</td><td><code>scripts/audit-rejection-email-mime.php</code></td></tr>
+<tr><td>Render builder</td><td><code>scripts/audit-rejection-email-renders.php</code></td></tr>
+<tr><td>Screenshot capture</td><td><code>scripts/capture-email-rejection-screenshots.ps1</code></td></tr>
+<tr><td>Prior email system audit</td><td><code>docs/EMAIL-SYSTEM-AUDIT-REPORT.html</code> (§3.1 E04, §2 MIME builder)</td></tr>
+</table>
+
+<pre>php scripts/audit-rejection-email-mime.php
+php scripts/audit-rejection-email-renders.php
+powershell -ExecutionPolicy Bypass -File scripts/capture-email-rejection-screenshots.ps1
+# MIME: OK html-only mime, QP soft breaks: 18</pre>
+
+</body>
+</html>

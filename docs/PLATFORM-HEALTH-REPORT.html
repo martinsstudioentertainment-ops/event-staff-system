@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Platform Health Report — Sprint 5</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:2rem;background:#0f172a;color:#e2e8f0;line-height:1.5}
+h1,h2{color:#f8fafc}
+.card{background:#1e293b;border:1px solid rgba(148,163,184,.2);border-radius:12px;padding:1.25rem;margin:1rem 0}
+.score{font-size:2.5rem;font-weight:700;color:#4ade80}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th,td{padding:.5rem .65rem;border-bottom:1px solid rgba(148,163,184,.15);text-align:left}
+th{color:#94a3b8;font-size:.75rem;text-transform:uppercase}
+tr.pass td:nth-child(5){color:#4ade80}
+tr.fail td:nth-child(5){color:#f87171}
+code{background:rgba(0,0,0,.25);padding:.1rem .35rem;border-radius:4px}
+ul{margin:.5rem 0;padding-left:1.25rem}
+.meta{color:#94a3b8;font-size:.85rem}
+</style>
+</head>
+<body>
+<h1>Platform Health Report</h1>
+<p class="meta">Sprint 5 — Critical fixes + Apply portal recovery · Generated 2026-06-12 05:10:41 UTC</p>
+
+<div class="card">
+<h2>Readiness score</h2>
+<p class="score">0%</p>
+<p>0 passing · 21 failing · 21 checks</p>
+</div>
+
+<div class="card">
+<h2>Verification results</h2>
+<table>
+<thead><tr><th>Portal</th><th>Path</th><th>HTTP</th><th>Result</th><th>Note</th></tr></thead>
+<tbody><tr class="fail"><td>Admin</td><td><code>admin/login.php</code></td><td>0</td><td>FAIL</td><td></td></tr><tr class="fail"><td>Admin</td><td><code>admin/dashboard.php</code></td><td>0</td><td>FAIL</td><td></td></tr><tr class="fail"><td>Admin</td><td><code>admin/system-health.php</code></td><td>0</td><td>FAIL</td><td></td></tr><tr class="fail"><td>Admin</td><td><code>admin/go-live.php</code></td><td>0</td><td>FAIL</td><td></td></tr><tr class="fail"><td>Admin</td><td><code>admin/staff.php</code></td><td>0</td><td>FAIL</td><td></td></tr><tr class="fail"><td>Admin</td><td><code>assets/css/admin.css</code></td><td>0</td><td>FAIL</td><td></td></tr><tr class="fail"><td>Admin</td><td><code>assets/css/admin-v3.css</code></td><td>0</td><td>FAIL</td><td></td></tr><tr class="fail"><td>Admin</td><td><code>assets/js/admin.js</code></td><td>0</td><td>FAIL</td><td></td></tr><tr class="fail"><td>Apply</td><td><code>/</code></td><td>0</td><td>FAIL</td><td></td></tr><tr class="fail"><td>Apply</td><td><code>admin/index.php</code></td><td>0</td><td>FAIL</td><td></td></tr><tr class="fail"><td>Apply</td><td><code>admin/admin/login.php</code></td><td>0</td><td>FAIL</td><td></td></tr><tr class="fail"><td>Apply</td><td><code>admin/admin/dashboard.php</code></td><td>0</td><td>FAIL</td><td></td></tr><tr class="fail"><td>Apply</td><td><code>admin/admin/payroll.php</code></td><td>0</td><td>FAIL</td><td></td></tr><tr class="fail"><td>Apply</td><td><code>admin/admin/staff-list.php</code></td><td>0</td><td>FAIL</td><td></td></tr><tr class="fail"><td>Apply</td><td><code>admin/admin/psa-compliance.php</code></td><td>0</td><td>FAIL</td><td></td></tr><tr class="fail"><td>Apply</td><td><code>admin/admin/settings.php</code></td><td>0</td><td>FAIL</td><td></td></tr><tr class="fail"><td>Apply</td><td><code>admin/assets/css/secure-admin.css</code></td><td>0</td><td>FAIL</td><td></td></tr><tr class="fail"><td>Registration</td><td><code>/</code></td><td>0</td><td>FAIL</td><td></td></tr><tr class="fail"><td>Registration</td><td><code>index.php</code></td><td>0</td><td>FAIL</td><td></td></tr><tr class="fail"><td>Staff</td><td><code>staff-portal.php</code></td><td>0</td><td>FAIL</td><td></td></tr><tr class="fail"><td>Staff</td><td><code>staff-app.php</code></td><td>0</td><td>FAIL</td><td></td></tr></tbody>
+</table>
+<p class="meta">302/401 on protected admin pages without session is expected and counted OK when no PHP fatal in body.</p>
+</div>
+
+<div class="card">
+<h2>Root cause — Apply HTTP 500</h2>
+<p><code>apply/admin/includes/auth.php</code> used <code>dirname(__DIR__, 3) . '/includes/app-environment.php'</code>, resolving to <code>/home/olastofx/includes/app-environment.php</code> on production. That file lives under <code>public_html/includes/</code> on the main host, not on the Apply document root — causing fatal errors on every authenticated Apply page.</p>
+</div>
+
+<div class="card">
+<h2>Fixes applied</h2>
+<ul><li>Apply HTTP 500: auth.php required /home/olastofx/includes/app-environment.php (wrong path on Apply host)</li><li>Added apply_require_app_environment() with main ERP + local shim fallback</li><li>Fixed session-idle-timeout.js path on Apply secure layout</li><li>Fixed phone-numbers.php load on edit-staff.php</li><li>Admin system-health: missing attendance-gps-phase1.php include (prior sprint)</li><li>Admin V3: readiness checklist contrast + table/detail readability CSS</li></ul>
+</div>
+
+<div class="card">
+<h2>Remaining risks / blockers</h2>
+<ul><li>Apply payroll export requires Google Sheets credentials on server — verify after login</li><li>cPanel cron schedules not stored in-app — operator must confirm</li><li>GPS flag should stay OFF unless piloting</li></ul>
+</div>
+
+<div class="card">
+<h2>Screenshots</h2>
+<p class="meta">Automated HTTP verification used (no browser session). Re-check Apply dashboard and payroll after signing in at <a href="https://apply.olasentra.com/admin/admin/login.php" style="color:#818cf8">Apply login</a>.</p>
+</div>
+</body>
+</html>

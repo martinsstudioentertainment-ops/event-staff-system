@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overnight Engineering Summary</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #6ee7b7;background:#ecfdf5}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.84rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.crit{color:#b91c1c;font-weight:700}
+.meta{color:#64748b;font-size:.9rem}
+ul.compact li{margin:.3rem 0}
+</style>
+</head>
+<body>
+
+<h1>Overnight Engineering Summary</h1>
+<p class="meta">Generated 7 June 2026 · Documentation-only pass · No code changes · No migrations · No deployments</p>
+
+<div class="verdict"><strong>Objective met:</strong> Eight master documents produced to strengthen platform understanding and prepare safe implementation for the next session. Production stability preserved — zero runtime changes in this overnight pass.</div>
+
+<h2>1. Deliverables completed</h2>
+<table>
+<tr><th>#</th><th>Task</th><th>Document</th><th>Status</th></tr>
+<tr><td>1</td><td>System architecture</td><td><code>SYSTEM-ARCHITECTURE-MASTER-DOCUMENT.html</code></td><td>Done</td></tr>
+<tr><td>2</td><td>Technical debt audit</td><td><code>TECHNICAL-DEBT-MASTER-REPORT.html</code></td><td>Done</td></tr>
+<tr><td>3</td><td>Production risk assessment</td><td><code>PRODUCTION-RISK-ASSESSMENT.html</code></td><td>Done</td></tr>
+<tr><td>4</td><td>GPS Phase 1.5 readiness</td><td><code>GPS-PHASE15-READINESS-REPORT.html</code></td><td>Done</td></tr>
+<tr><td>5</td><td>Security review</td><td><code>SECURITY-HARDENING-REPORT.html</code></td><td>Done</td></tr>
+<tr><td>6</td><td>Database review</td><td><code>DATABASE-HEALTH-REVIEW.html</code></td><td>Done</td></tr>
+<tr><td>7</td><td>Future roadmap</td><td><code>ROADMAP-2026-Q3-Q4.html</code></td><td>Done</td></tr>
+<tr><td>8</td><td>Overnight summary</td><td><code>OVERNIGHT-ENGINEERING-SUMMARY.html</code></td><td>Done</td></tr>
+</table>
+
+<h2>2. Key risks found</h2>
+<table>
+<tr><th>Risk</th><th>Severity</th></tr>
+<tr><td><code>api/registrant-lookup.php</code> — PII by email alone</td><td class="crit">Critical</td></tr>
+<tr><td><code>apply/admin/api/check-staff.php</code> — unauthenticated PII</td><td class="crit">Critical</td></tr>
+<tr><td><code>api/attendance-gps-ping.php</code> — no auth token</td><td>High</td></tr>
+<tr><td>10 stub feature flags togglable with no implementation</td><td>High</td></tr>
+<tr><td>Phase 50 FKs blocked if orphan data exists</td><td>High</td></tr>
+<tr><td>GPS flag ON changes ops workflow (no admin scan)</td><td>Medium</td></tr>
+</table>
+
+<h2>3. Recommendations (priority order)</h2>
+<ol class="compact">
+<li><strong>Verify GPS Phase 1.5 on production</strong> — migrations 52+53, run <code>verify-gps-phase15.php</code>, single test event</li>
+<li><strong>Harden public APIs</strong> — registrant-lookup, check-staff before wider exposure</li>
+<li><strong>Add ping API auth</strong> — before GPS Phase 2</li>
+<li><strong>Run phase16-precheck</strong> — before phase 50 foreign keys</li>
+<li><strong>Hide or implement stub feature flags</strong> — reduce admin confusion</li>
+<li><strong>Archive closed investigation docs</strong> — reduce doc sprawl</li>
+</ol>
+
+<h2>4. Blockers</h2>
+<ul class="compact">
+<li>Production migration status for phases 52–53 not confirmed in this pass</li>
+<li>GPS Phase 2 blocked until Phase 1.5 production sign-off</li>
+<li>Phase 50 FK migration blocked until precheck clean</li>
+<li>No live DB access from dev environment for verification script</li>
+</ul>
+
+<h2>5. Production status (unchanged)</h2>
+<ul class="compact">
+<li><code>feature_gps_attendance_v2</code> — expected OFF (safe)</li>
+<li><code>feature_registration_wizard_v2</code> — <strong>ON</strong> (verified live 7 Jun 2026)</li>
+<li><code>feature_public_premium_v2</code> — ON (homepage)</li>
+<li>Code for GPS 1 + 1.5 previously deployed via FTP</li>
+<li>No changes made in this overnight documentation pass</li>
+</ul>
+
+<h2>6. Suggested next implementation phase</h2>
+<p><strong>Next session: GPS Phase 1.5 production verification</strong> (ops + mobile QA), not Phase 2 development.</p>
+<p>After sign-off: security quick wins (registrant-lookup, ping auth) then GPS Phase 2.</p>
+
+<h2>7. Rollback reminder</h2>
+<p>Every future change: flag OFF first line of defence. GPS: <code>rollback-phase53</code> → <code>rollback-phase52</code>. Full platform: pre-deploy backup + weekly DB backup.</p>
+
+<h2>8. Document index</h2>
+<p>All reports in <code>docs/</code>. Start with <code>SYSTEM-ARCHITECTURE-MASTER-DOCUMENT.html</code> for onboarding; <code>GPS-PHASE15-READINESS-REPORT.html</code> for immediate GPS work; <code>GPS-ATTENDANCE-V2-MASTER-PROGRESS-REPORT.html</code> for program tracking.</p>
+
+</body>
+</html>

@@ -2,7 +2,6 @@
 
 require_once __DIR__ . '/../mailer.php';
 require_once __DIR__ . '/../theme.php';
-require_once __DIR__ . '/../reminders.php';
 require_once __DIR__ . '/../admin-ui-settings.php';
 require_once __DIR__ . '/../system-settings.php';
 require_once __DIR__ . '/../i18n.php';
@@ -84,8 +83,11 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
             }
             $emailSettings = [
                 'notify_staff_enabled'   => !empty($_POST['notify_staff_enabled']) ? '1' : '0',
+                'notify_staff_shift_alerts' => !empty($_POST['notify_staff_shift_alerts']) ? '1' : '0',
+                'email_show_pay_rate'    => !empty($_POST['email_show_pay_rate']) ? '1' : '0',
                 'notify_on_registration' => !empty($_POST['notify_on_registration']) ? '1' : '0',
                 'notify_on_checkin'      => !empty($_POST['notify_on_checkin']) ? '1' : '0',
+                'notify_ops_on_checkin'  => !empty($_POST['notify_ops_on_checkin']) ? '1' : '0',
                 'reminder_daily_enabled' => !empty($_POST['reminder_daily_enabled']) ? '1' : '0',
                 'reminder_signup_nudge_enabled' => !empty($_POST['reminder_signup_nudge_enabled']) ? '1' : '0',
                 'reminder_signup_nudge_delay_days' => (string) max(0, (int) ($_POST['reminder_signup_nudge_delay_days'] ?? 2)),
@@ -108,6 +110,7 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
             $success  = 'Email settings saved.';
         }
     } elseif ($action === 'run_reminders') {
+        require_once __DIR__ . '/../reminders.php';
         $stats   = runDailyReminders($pdo);
         $success = sprintf(
             'Reminders sent — daily event: %d, signup nudges: %d%s.',
@@ -178,6 +181,7 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
             'language'                 => (string) ($_POST['language'] ?? ''),
             'maintenance_mode'         => (string) ($_POST['maintenance_mode'] ?? ''),
             'admin_2fa_required'       => (string) ($_POST['admin_2fa_required'] ?? ''),
+            'admin_login_otp_email'    => trim((string) ($_POST['admin_login_otp_email'] ?? '')),
             'activity_logging_enabled' => (string) ($_POST['activity_logging_enabled'] ?? ''),
             'auto_backup_enabled'      => (string) ($_POST['auto_backup_enabled'] ?? ''),
         ];
@@ -317,6 +321,39 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
         }
 
         $settings = getAllSettings($pdo);
+    } elseif ($action === 'staff_google_signin' || $action === 'staff_google_signin_go_live') {
+        if (!adminCan('settings')) {
+            return ['error' => 'You do not have permission to change staff sign-in settings.', 'success' => '', 'settings' => $settings];
+        }
+        require_once __DIR__ . '/../staff-google-oauth.php';
+        if ($action === 'staff_google_signin_go_live') {
+            if (!isStaffGoogleSigninConfigured($pdo)) {
+                return [
+                    'error'    => 'Save Google OAuth Client ID and secret under Google Sheets settings first.',
+                    'success'  => '',
+                    'settings' => $settings,
+                ];
+            }
+            saveSettings($pdo, [
+                'staff_google_signin_enabled'  => '1',
+                'staff_google_signin_required' => '1',
+            ]);
+            $settings = getAllSettings($pdo);
+            $success  = 'Gmail sign-in is ON and required. Test on your phone, then tell staff to use the same Gmail as registration. Redirect URI: '
+                . staffGoogleOAuthRedirectUri($pdo);
+        } else {
+            $googleOn = !empty($_POST['staff_google_signin_enabled']);
+            saveSettings($pdo, [
+                'staff_google_signin_enabled'     => $googleOn ? '1' : '0',
+                'staff_google_signin_required'    => $googleOn ? '1' : '0',
+                'staff_google_oauth_redirect_uri' => trim((string) ($_POST['staff_google_oauth_redirect_uri'] ?? '')),
+            ]);
+            $settings = getAllSettings($pdo);
+            $success  = 'Staff Google sign-in settings saved.';
+            if (isStaffGoogleSigninEnabled($pdo)) {
+                $success .= ' Add redirect URI in Google Cloud: ' . staffGoogleOAuthRedirectUri($pdo);
+            }
+        }
     } elseif ($action === 'staff_profile_gate') {
         if (!adminCan('settings')) {
             return ['error' => 'You do not have permission to change staff profile settings.', 'success' => '', 'settings' => $settings];
@@ -356,6 +393,102 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
             $settings = getAllSettings($pdo);
             $success  = 'PWA settings saved.';
         }
+    } elseif ($action === 'mobile_api_settings') {
+        if (!adminCan('settings')) {
+            return ['error' => 'You do not have permission to change Mobile API settings.', 'success' => '', 'settings' => $settings];
+        }
+        require_once __DIR__ . '/../mobile/schema/mobile-api-schema.php';
+        if (!empty($_POST['generate_mobile_jwt_secret'])) {
+            mobileGenerateJwtSecret($pdo);
+            $settings = getAllSettings($pdo);
+            $success  = 'Mobile JWT secret generated. Existing app tokens should be considered invalid if you rotate in production.';
+        } else {
+            $minVersion = trim((string) ($_POST['mobile_min_app_version'] ?? '1.0.0'));
+            if ($minVersion === '') {
+                $minVersion = '1.0.0';
+            }
+            $accessTtl = max(60, min(3600, (int) ($_POST['mobile_jwt_access_ttl'] ?? 900)));
+            $refreshDays = max(1, min(365, (int) ($_POST['mobile_jwt_refresh_days'] ?? 90)));
+            saveSettings($pdo, [
+                'mobile_api_enabled'       => !empty($_POST['mobile_api_enabled']) ? '1' : '0',
+                'mobile_min_app_version'   => $minVersion,
+                'mobile_jwt_access_ttl'    => (string) $accessTtl,
+                'mobile_jwt_refresh_days'  => (string) $refreshDays,
+                'fcm_project_id'           => trim((string) ($_POST['fcm_project_id'] ?? '')),
+                'fcm_service_account_path' => trim((string) ($_POST['fcm_service_account_path'] ?? '')),
+            ]);
+            $settings = getAllSettings($pdo);
+            $success  = 'Mobile API settings saved.';
+            if (mobileApiIsEnabled($pdo)) {
+                $success .= ' Native app auth endpoints are live at /api/mobile/v1/.';
+            } else {
+                $success .= ' Mobile API is disabled — GET /config still works; auth returns 503.';
+            }
+        }
+    } elseif ($action === 'mobile_portal_settings') {
+        if (!adminCan('settings')) {
+            return ['error' => 'You do not have permission to change Mobile Portal settings.', 'success' => '', 'settings' => $settings];
+        }
+
+        $appName = trim((string) ($_POST['mobile_portal_app_name'] ?? 'Olasentra'));
+        if ($appName === '') {
+            return ['error' => 'App name is required.', 'success' => '', 'settings' => $settings];
+        }
+
+        $theme = strtolower(trim((string) ($_POST['mobile_portal_default_theme'] ?? 'dark')));
+        if (!in_array($theme, ['dark', 'light'], true)) {
+            $theme = 'dark';
+        }
+
+        $announcementsJson = trim((string) ($_POST['mobile_portal_announcements_json'] ?? '[]'));
+        $helpLinksJson     = trim((string) ($_POST['mobile_portal_help_links_json'] ?? '[]'));
+        if (json_decode($announcementsJson) === null && strtolower($announcementsJson) !== 'null') {
+            return ['error' => 'Announcements JSON is invalid.', 'success' => '', 'settings' => $settings];
+        }
+        if (json_decode($helpLinksJson) === null && strtolower($helpLinksJson) !== 'null') {
+            return ['error' => 'Help links JSON is invalid.', 'success' => '', 'settings' => $settings];
+        }
+
+        $primaryColor = trim((string) ($_POST['mobile_portal_primary_color'] ?? '#1B1B1F'));
+        $accentColor  = trim((string) ($_POST['mobile_portal_accent_color'] ?? '#E85D04'));
+        if ($primaryColor !== '' && preg_match('/^#[0-9A-Fa-f]{6}$/', $primaryColor) !== 1) {
+            return ['error' => 'Primary colour must be a hex value like #1B1B1F.', 'success' => '', 'settings' => $settings];
+        }
+        if ($accentColor !== '' && preg_match('/^#[0-9A-Fa-f]{6}$/', $accentColor) !== 1) {
+            return ['error' => 'Accent colour must be a hex value like #E85D04.', 'success' => '', 'settings' => $settings];
+        }
+
+        $contactEmail = trim((string) ($_POST['mobile_portal_contact_email'] ?? ''));
+        if ($contactEmail !== '' && filter_var($contactEmail, FILTER_VALIDATE_EMAIL) === false) {
+            return ['error' => 'Support email is not valid.', 'success' => '', 'settings' => $settings];
+        }
+
+        saveSettings($pdo, [
+            'mobile_portal_app_name'             => $appName,
+            'mobile_portal_default_theme'        => $theme,
+            'mobile_portal_allow_theme_toggle'   => !empty($_POST['mobile_portal_allow_theme_toggle']) ? '1' : '0',
+            'mobile_portal_primary_color'        => $primaryColor,
+            'mobile_portal_accent_color'         => $accentColor,
+            'mobile_portal_logo_path'            => trim((string) ($_POST['mobile_portal_logo_path'] ?? '')),
+            'mobile_portal_splash_logo_path'     => trim((string) ($_POST['mobile_portal_splash_logo_path'] ?? '')),
+            'mobile_portal_login_logo_path'      => trim((string) ($_POST['mobile_portal_login_logo_path'] ?? '')),
+            'mobile_portal_dashboard_logo_path'  => trim((string) ($_POST['mobile_portal_dashboard_logo_path'] ?? '')),
+            'mobile_portal_welcome_image_path'   => trim((string) ($_POST['mobile_portal_welcome_image_path'] ?? '')),
+            'mobile_portal_banner_image_path'    => trim((string) ($_POST['mobile_portal_banner_image_path'] ?? '')),
+            'mobile_portal_banner_title'         => trim((string) ($_POST['mobile_portal_banner_title'] ?? '')),
+            'mobile_portal_banner_body'          => trim((string) ($_POST['mobile_portal_banner_body'] ?? '')),
+            'mobile_portal_announcements_json'   => $announcementsJson !== '' ? $announcementsJson : '[]',
+            'mobile_portal_help_links_json'      => $helpLinksJson !== '' ? $helpLinksJson : '[]',
+            'mobile_portal_contact_email'        => $contactEmail,
+            'mobile_portal_contact_phone'        => trim((string) ($_POST['mobile_portal_contact_phone'] ?? '')),
+            'mobile_portal_version_label'        => trim((string) ($_POST['mobile_portal_version_label'] ?? '')),
+            'mobile_portal_version_notes'        => trim((string) ($_POST['mobile_portal_version_notes'] ?? '')),
+            'mobile_portal_force_update_message' => trim((string) ($_POST['mobile_portal_force_update_message'] ?? '')),
+            'mobile_portal_maintenance_enabled'  => !empty($_POST['mobile_portal_maintenance_enabled']) ? '1' : '0',
+            'mobile_portal_maintenance_message'  => trim((string) ($_POST['mobile_portal_maintenance_message'] ?? '')),
+        ]);
+        $settings = getAllSettings($pdo);
+        $success  = 'Mobile Portal settings saved.';
     } elseif ($action === 'password') {
         $current = (string) ($_POST['current_password'] ?? '');
         $new     = (string) ($_POST['new_password'] ?? '');

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Phase A.6 Implementation Package — Autosave Visibility</title>
+<style>
+body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; line-height: 1.5; color: #111; }
+h1 { font-size: 1.5rem; }
+h2 { font-size: 1.15rem; margin-top: 2rem; border-bottom: 1px solid #ddd; padding-bottom: 0.25rem; }
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+th, td { border: 1px solid #ccc; padding: 0.5rem 0.75rem; text-align: left; vertical-align: top; }
+th { background: #f3f4f6; }
+code { background: #f3f4f6; padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.9em; }
+.pass { color: #047857; font-weight: 600; }
+ul { padding-left: 1.2rem; }
+</style>
+</head>
+<body>
+<h1>Phase A.6 — Autosave Visibility &amp; Resume UX</h1>
+<p><strong>Status:</strong> <span class="pass">Complete</span> | Flag <code>feature_registration_wizard_v2</code> <strong>OFF</strong></p>
+
+<h2>1. Requirements met</h2>
+<table>
+<tr><th>Requirement</th><th>Implementation</th></tr>
+<tr><td>Draft saved status clearly visible</td><td><code>#reg-wizard-save-status</code> below progress bar — green dot + “Draft saved”</td></tr>
+<tr><td>Last saved time</td><td><code>formatSavedTime()</code> — e.g. “Last saved 6 Jun, 14:32”</td></tr>
+<tr><td>Saving indicator</td><td>Purple pulse + “Saving draft…” during debounced write</td></tr>
+<tr><td>Resume application UX</td><td>Enhanced resume card with badge, step name, shift count, PSA note</td></tr>
+<tr><td>Unobtrusive indicators</td><td>0.72rem text, single line, no modal</td></tr>
+<tr><td>Clean mobile layout</td><td>Resume buttons stack on narrow screens; save status one line</td></tr>
+<tr><td>No DB changes</td><td>localStorage only (<code>olasentra_reg_wizard_{slug}</code>)</td></tr>
+<tr><td>No submit.php changes</td><td>Verified — submit path untouched</td></tr>
+<tr><td>Legacy unaffected when flag OFF</td><td>Scripts/CSS gated on <code>data-wizard-mode="1"</code></td></tr>
+</table>
+
+<h2>2. Files changed</h2>
+<table>
+<tr><th>File</th><th>Change</th></tr>
+<tr><td><code>includes/public/registration-wizard-shell.php</code></td><td>Save status mount point in progress area</td></tr>
+<tr><td><code>assets/js/registration-wizard-autosave.js</code></td><td>Save UI states, last-saved time, step labels, public API</td></tr>
+<tr><td><code>assets/js/registration-wizard-returning.js</code></td><td>Improved resume prompt copy and actions</td></tr>
+<tr><td><code>assets/css/registration-wizard.css</code></td><td>Save status + resume badge/note styles</td></tr>
+<tr><td><code>wizard-screenshot-preview.php</code></td><td>Step 1 resume + save status preview frames</td></tr>
+<tr><td><code>scripts/verify-phase-a6.ps1</code></td><td>21 automated checks</td></tr>
+<tr><td><code>scripts/run-a6-screenshots.ps1</code></td><td>Styled screenshot capture for QA</td></tr>
+</table>
+
+<h2>3. Autosave behaviour</h2>
+<ul>
+<li><strong>Trigger:</strong> debounced 600ms on input/change + immediate save on step transition (existing wizard hook)</li>
+<li><strong>States:</strong> hidden → saving → saved | error</li>
+<li><strong>TTL:</strong> 7 days (unchanged)</li>
+<li><strong>Excluded:</strong> file inputs (PSA photos) — disclosed in resume note</li>
+<li><strong>Clear:</strong> successful submit, “Start fresh”, 7-day expiry</li>
+</ul>
+
+<h2>4. Resume prompt</h2>
+<p>Shown on Step 1 when meaningful draft exists in localStorage:</p>
+<ul>
+<li>Badge: “Saved on this device”</li>
+<li>Last saved timestamp (locale en-IE)</li>
+<li>Step name reached (e.g. Contact) + step number</li>
+<li>Shift count when events were selected</li>
+<li>PSA re-attach reminder</li>
+<li>Resume application / Start fresh actions</li>
+</ul>
+
+<h2>5. Verification</h2>
+<p><code>docs/PHASE-A6-VERIFICATION-REPORT.html</code></p>
+<p>Command: <code>powershell -File scripts\verify-phase-a6.ps1</code></p>
+
+<h2>6. Next phase</h2>
+<p><strong>A.7</strong> — Mobile QA (iOS Safari, Android Chrome) + accessibility. Flag remains OFF until A.8.</p>
+</body>
+</html>

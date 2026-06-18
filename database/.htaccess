@@ -1,0 +1,2 @@
+# Block web access to database tools and SQL files (CLI / migrations only).
+Require all denied

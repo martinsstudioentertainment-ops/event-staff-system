@@ -36,10 +36,20 @@ function processWebsitePost(PDO $pdo, string $expectedAction): array
             if (!empty($_POST['remove_company_logo'])) {
                 deleteCompanyLogoFile($pdo);
             }
+            if (!empty($_POST['remove_company_share_image'])) {
+                deleteCompanyShareImageFile($pdo);
+            }
 
             $logoResult = handleCompanyLogoUpload($pdo, $_FILES['company_logo'] ?? []);
             if ($logoResult !== true) {
                 $logoError = (string) $logoResult;
+            }
+
+            $shareResult = handleCompanyShareImageUpload($pdo, $_FILES['company_share_image'] ?? []);
+            if ($shareResult !== true && $logoError === null) {
+                $logoError = (string) $shareResult;
+            } elseif ($shareResult !== true && $logoError !== null) {
+                $logoError .= ' ' . (string) $shareResult;
             }
 
             $toSave = syncCompanyBrandingSettings($pdo, [

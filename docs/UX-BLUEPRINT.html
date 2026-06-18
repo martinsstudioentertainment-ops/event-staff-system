@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Event Staff Platform — Complete UX Blueprint</title>
+    <style>
+        @page { size: A4; margin: 14mm 12mm; }
+        * { box-sizing: border-box; }
+        body {
+            font-family: "Segoe UI", system-ui, sans-serif;
+            font-size: 9.5pt;
+            line-height: 1.45;
+            color: #0f172a;
+            margin: 0;
+            padding: 18px;
+        }
+        h1 { font-size: 20pt; margin: 0 0 6px; color: #1e1b4b; }
+        h2 {
+            font-size: 12pt;
+            margin: 22px 0 8px;
+            padding: 7px 12px;
+            background: linear-gradient(90deg, #4f46e5, #7c3aed);
+            color: #fff;
+            border-radius: 4px;
+            page-break-after: avoid;
+        }
+        h3 { font-size: 10.5pt; margin: 14px 0 6px; color: #312e81; page-break-after: avoid; }
+        h4 { font-size: 9.5pt; margin: 10px 0 4px; color: #4338ca; }
+        .meta { font-size: 8.5pt; color: #64748b; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; }
+        p { margin: 6px 0; }
+        ul, ol { margin: 6px 0 10px; padding-left: 20px; }
+        li { margin: 3px 0; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 8px 0 12px;
+            font-size: 8pt;
+        }
+        th {
+            background: #1e293b;
+            color: #f8fafc;
+            text-align: left;
+            padding: 5px 6px;
+            font-weight: 600;
+        }
+        td {
+            border-bottom: 1px solid #e2e8f0;
+            padding: 5px 6px;
+            vertical-align: top;
+        }
+        tr:nth-child(even) td { background: #f8fafc; }
+        pre, .diagram {
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 7.5pt;
+            line-height: 1.35;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
+            margin: 8px 0;
+        }
+        .callout {
+            background: #eef2ff;
+            border-left: 4px solid #4f46e5;
+            padding: 10px 12px;
+            margin: 10px 0;
+            border-radius: 0 6px 6px 0;
+            font-size: 8.5pt;
+        }
+        .toc { columns: 2; font-size: 8.5pt; margin: 12px 0 18px; }
+        .toc li { margin: 3px 0; }
+        .page-break { page-break-before: always; }
+        code { font-size: 7.5pt; background: #f1f5f9; padding: 1px 4px; border-radius: 2px; }
+        .footer-note { font-size: 7.5pt; color: #94a3b8; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 8px; }
+        .yes { color: #15803d; font-weight: 700; }
+        .no { color: #cbd5e1; }
+    </style>
+</head>
+<body>
+
+<h1>Event Staff Platform — Complete UX Blueprint</h1>
+<p class="meta">
+    <strong>Document type:</strong> Information architecture &amp; screen hierarchy &nbsp;|&nbsp;
+    <strong>Generated:</strong> 6 June 2026 &nbsp;|&nbsp;
+    <strong>Scope:</strong> Admin ERP · Staff PWA · Public website · Apply payroll &nbsp;|&nbsp;
+    <strong>Status:</strong> Design blueprint — no code
+</p>
+
+<ul class="toc">
+    <li>1. Platform topology</li>
+    <li>2. Data model → UX domains</li>
+    <li>3. Current state gaps</li>
+    <li>4. Ideal information architecture</li>
+    <li>5. Navigation hierarchy</li>
+    <li>6. Dashboard architecture</li>
+    <li>7. Notification center</li>
+    <li>8. Public website</li>
+    <li>9. Staff PWA</li>
+    <li>10. Admin screen hierarchy</li>
+    <li>11. Event Detail hub</li>
+    <li>12. User journeys</li>
+    <li>13. Global patterns</li>
+    <li>14. Design principles</li>
+    <li>15. Implementation roadmap</li>
+</ul>
+
+<h2>1. Platform Topology</h2>
+<p>The system is a <strong>workforce operations platform</strong> with four surfaces sharing one data model:</p>
+
+<table>
+    <tr><th>Surface</th><th>Host</th><th>Primary users</th><th>Job to be done</th></tr>
+    <tr><td>Marketing site</td><td>Main domain</td><td>Prospective staff, clients</td><td>Trust, explain roles, drive registration</td></tr>
+    <tr><td>Registration site</td><td>register.*</td><td>New/returning applicants</td><td>Apply for shifts, submit PSA/bank details</td></tr>
+    <tr><td>Staff PWA</td><td>register.*</td><td>Approved/pending staff</td><td>Track status, check in, message ops, get alerts</td></tr>
+    <tr><td>Admin ERP</td><td>admin.*</td><td>Admin, Manager, Staff role</td><td>Run events: roster → attendance → finance</td></tr>
+    <tr><td>Apply admin</td><td>apply.*</td><td>Admin, payroll</td><td>PSA compliance, payroll export, master vault</td></tr>
+</table>
+
+<pre>┌─────────────────────────────────────────────────────────────────┐
+│  PUBLIC LAYER                                                   │
+│  Marketing (home, FAQ, roles) ──CTA──► Registration (index.php) │
+└───────────────────────────────┬─────────────────────────────────┘
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  STAFF PWA          staff-app · portal · status · messages      │
+└───────────────────────────────┬─────────────────────────────────┘
+                                ▼
+                         ┌──────────────┐
+                         │    MySQL     │
+                         │  17+ tables  │
+                         └──────┬───────┘
+                ┌────────────────┴────────────────┐
+                ▼                                 ▼
+┌───────────────────────────┐    ┌───────────────────────────────┐
+│  ADMIN ERP (109 pages)    │    │  APPLY ADMIN (payroll, PSA)   │
+│  dashboard · staff · ops  │◄──►│  SSO bridge via apply-portal  │
+└───────────────────────────┘    └───────────────────────────────┘</pre>
+
+<h2>2. Data Model → UX Domains</h2>
+<p>The database implies six product domains. UX should mirror these, not the current 22 flat sidebar links.</p>
+
+<table>
+    <tr><th>Domain</th><th>Core tables</th><th>Natural UX home</th></tr>
+    <tr><td>People</td><td>staff, staff_registrations, staff_blacklist</td><td>Staff Directory + Registration Queue</td></tr>
+    <tr><td>Events &amp; venues</td><td>events, venues, work_types</td><td>Event Command Center</td></tr>
+    <tr><td>Field ops</td><td>attendance (+ work-hours columns)</td><td>Live Ops (check-in, hours)</td></tr>
+    <tr><td>Communications</td><td>staff_messages, app_notifications, push_subscriptions</td><td>Unified Inbox</td></tr>
+    <tr><td>Finance</td><td>commission_invoices, saved_job_records, personal_invoice_lines</td><td>Finance workspace</td></tr>
+    <tr><td>Platform</td><td>system_settings, admin_users, admin_audit_log, website_visits</td><td>Settings &amp; governance</td></tr>
+</table>
+
+<h3>Key entity relationships</h3>
+<ul>
+    <li><code>staff</code> = identity (one person, one email)</li>
+    <li><code>staff_registrations</code> = shift application (one row per email × event)</li>
+    <li><code>attendance</code> = check-in record (one per registration)</li>
+    <li><code>staff_messages</code> = threaded by staff_id, not registration</li>
+    <li><code>app_notifications</code> = dual audience (admin | staff), keyed by staff_email for staff</li>
+</ul>
+<div class="callout"><strong>Design rule:</strong> Staff screens anchor on <em>person</em> (email/session). Admin screens support context switching between person view and event view.</div>
+
+<h2>3. Current State — Structural Gaps</h2>
+<table>
+    <tr><th>Problem</th><th>Evidence</th><th>Impact</th></tr>
+    <tr><td>Flat admin nav</td><td>22 sidebar items; Finance hides 3 invoice sub-products</td><td>Cognitive overload</td></tr>
+    <tr><td>Split communications</td><td>Notifications + Messages separate nav + badges</td><td>Missed alerts, confused channels</td></tr>
+    <tr><td>Event ops scattered</td><td>Attendance, scan, hours, venues under Events</td><td>Event-day operators hunt across 6 pages</td></tr>
+    <tr><td>Settings sprawl</td><td>14 settings + go-live + backups + CMS under System</td><td>Admin tasks mixed with daily ops</td></tr>
+    <tr><td>Staff hub is tile grid</td><td>staff-app.php lists 6+ equal-weight tiles</td><td>No personalized "my next shift" view</td></tr>
+    <tr><td>Apply is a bridge</td><td>apply-portal.php SSO to another subdomain</td><td>Broken mental model</td></tr>
+    <tr><td>Invisible actions</td><td>~35 POST-only pages not in nav</td><td>Should be modals/drawers, not screens</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2>4. Ideal Information Architecture</h2>
+
+<h3>Admin ERP — 6 modules, 18 nav items max</h3>
+<pre>OPERATIONS (default landing)
+├── Command Center     — role-adaptive dashboard
+├── Inbox              — messages + notifications unified
+├── Ops Checklist      — pre-event readiness
+└── Live Ops           — event-day: scan, attendance, roster
+
+PEOPLE
+├── Registration Queue
+├── Staff Directory
+└── Compliance         — blacklist, PSA flags, incomplete profiles
+
+EVENTS
+├── Event Calendar
+├── Event Detail       — single event hub (tabs, not nav item)
+├── Venues
+└── Work Types
+
+FINANCE
+├── Client Invoicing   — commission invoices
+├── Job Records
+├── Personal Invoices
+└── Exports &amp; Reports
+
+CONTENT &amp; GROWTH (admin only)
+├── Registration Forms
+├── Website CMS
+└── Visitor Analytics
+
+SYSTEM (admin only)
+├── Settings           — tabbed: Site, Email, Integrations, Theme, Security
+├── Team &amp; Access
+├── Go Live / Health
+└── Audit &amp; Backups</pre>
+
+<h3>Staff PWA — 3-tab shell</h3>
+<pre>HOME      — My shifts, next event, quick status
+INBOX     — Messages + notifications (single stream)
+ACCOUNT   — Profile, PSA, bank, sign out</pre>
+<p>Hub tiles (staff-app.php) remain the <strong>logged-out entry</strong>; signed-in users land on Home.</p>
+
+<h3>Public website</h3>
+<pre>DISCOVER  — Home, How it works, Roles, Events showcase
+TRUST     — FAQ, Contact, Privacy
+ACT       — Register (register subdomain)
+RETURN    — Staff app / Sign in (footer CTA)</pre>
+
+<h3>Registration funnel (single path)</h3>
+<pre>Choose role/form → Select venue/events → Personal details → PSA/bank → Confirm → Status link</pre>
+
+<h2>5. Navigation Hierarchy</h2>
+
+<h3>Admin — role-based nav matrix</h3>
+<table>
+    <tr><th>Nav item</th><th>Admin</th><th>Manager</th><th>Staff (venue)</th></tr>
+    <tr><td>Command Center</td><td class="yes">●</td><td class="yes">●</td><td class="yes">● simplified</td></tr>
+    <tr><td>Inbox</td><td class="yes">●</td><td class="yes">●</td><td class="no">—</td></tr>
+    <tr><td>Live Ops</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td></tr>
+    <tr><td>Registration Queue</td><td class="yes">●</td><td class="yes">●</td><td class="no">—</td></tr>
+    <tr><td>Staff Directory</td><td class="yes">●</td><td class="yes">●</td><td class="no">—</td></tr>
+    <tr><td>Events / Finance</td><td class="yes">●</td><td class="yes">●</td><td class="no">—</td></tr>
+    <tr><td>Forms / CMS / System</td><td class="yes">●</td><td class="no">—</td><td class="no">—</td></tr>
+</table>
+
+<h3>Navigation patterns</h3>
+<table>
+    <tr><th>Surface</th><th>Pattern</th><th>Use for</th></tr>
+    <tr><td>Admin</td><td>Persistent sidebar (280px / 80px rail)</td><td>Module switching</td></tr>
+    <tr><td>Admin</td><td>Context header bar</td><td>Event selector, date filter, staff search</td></tr>
+    <tr><td>Admin</td><td>Breadcrumbs</td><td>People → Directory → [Name] → Registration</td></tr>
+    <tr><td>Admin</td><td>Event-scoped sub-nav</td><td>Inside Event Detail: Overview · Roster · Attendance · QR</td></tr>
+    <tr><td>Staff PWA</td><td>Bottom tab bar</td><td>Home · Inbox · Account</td></tr>
+    <tr><td>Staff PWA</td><td>Deep links</td><td>status?token=, notification action_url, check-in QR</td></tr>
+    <tr><td>Public</td><td>Top nav + sticky CTA</td><td>Register for shifts</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2>6. Dashboard Architecture (Command Center)</h2>
+<p>One route (<code>dashboard.php</code>), three role-adaptive layouts.</p>
+
+<h3>Layout zones (all roles)</h3>
+<pre>┌─────────────────────────────────────────────────────────────┐
+│  GREETING + ROLE CONTEXT + PRIMARY CTA (one contextual)     │
+├──────────────┬──────────────┬──────────────┬────────────────┤
+│  KPI 1       │  KPI 2       │  KPI 3       │  KPI 4         │
+├─────────────────────────────────────────────────────────────┤
+│  ATTENTION QUEUE (max 3 cards, prioritized)                 │
+├────────────────────────────┬────────────────────────────────┤
+│  TIMELINE / UPCOMING       │  INBOX PREVIEW (5 items)       │
+├────────────────────────────┴────────────────────────────────┤
+│  QUICK ACTIONS (role-filtered, max 6)                       │
+└─────────────────────────────────────────────────────────────┘</pre>
+
+<h3>Administrator / Manager</h3>
+<table>
+    <tr><th>Zone</th><th>Content</th></tr>
+    <tr><td>Primary CTA</td><td>"Review N pending" OR "Open Live Ops" on event day</td></tr>
+    <tr><td>KPIs</td><td>Pending · Approved today · Check-ins today · Unread inbox</td></tr>
+    <tr><td>Attention queue</td><td>① Pending ② Unread messages ③ Ops checklist ④ PSA expiring</td></tr>
+    <tr><td>Timeline</td><td>Next 5 events with approved/pending/checked-in counts</td></tr>
+    <tr><td>Inbox preview</td><td>Unified messages + system notifications</td></tr>
+</table>
+
+<h3>Staff role (venue operator)</h3>
+<table>
+    <tr><th>Zone</th><th>Content</th></tr>
+    <tr><td>Primary CTA</td><td><strong>Start scanning</strong> → scan-checkin.php</td></tr>
+    <tr><td>KPIs</td><td>Check-ins today · On-site now · Remaining approved</td></tr>
+    <tr><td>Attention queue</td><td>Event selector (today's events only)</td></tr>
+    <tr><td>Quick actions</td><td>Scan · Attendance log · Work hours</td></tr>
+</table>
+
+<h3>Dashboard rules</h3>
+<ol>
+    <li><strong>One primary CTA</strong> — never 4 competing buttons</li>
+    <li><strong>Attention queue is prioritized</strong>, not a flat card grid</li>
+    <li><strong>Event-day mode</strong> auto-surfaces Live Ops when event is within ±2 hours</li>
+    <li><strong>Drill-down only</strong> — dashboard never edits data inline</li>
+</ol>
+
+<h2>7. Notification Center Architecture</h2>
+<p>Ideal model: <strong>one inbox, three delivery channels</strong> (in-app, email, push).</p>
+
+<h3>Notification taxonomy</h3>
+<table>
+    <tr><th>Type</th><th>Audience</th><th>Trigger</th><th>Primary action</th></tr>
+    <tr><td>registration_new</td><td>Admin</td><td>New submission</td><td>Registration detail</td></tr>
+    <tr><td>registration_status</td><td>Staff</td><td>Approve/reject</td><td>status.php?token=</td></tr>
+    <tr><td>event_activated</td><td>Staff</td><td>Event goes live</td><td>Register or status</td></tr>
+    <tr><td>profile_required</td><td>Staff</td><td>Incomplete profile</td><td>staff-profile.php</td></tr>
+    <tr><td>message_reply</td><td>Both</td><td>Thread activity</td><td>Message thread</td></tr>
+    <tr><td>ops_reminder</td><td>Admin</td><td>Daily cron</td><td>Ops checklist item</td></tr>
+    <tr><td>psa_expiry</td><td>Admin</td><td>Apply sync</td><td>Apply PSA compliance</td></tr>
+    <tr><td>checkin_confirm</td><td>Staff</td><td>Self check-in</td><td>Status page</td></tr>
+</table>
+
+<h3>Admin unified inbox</h3>
+<pre>┌─────────────────────────────────────────┐
+│  Inbox              [All|Messages|Alerts]│
+├─────────────────────────────────────────┤
+│  ● Sarah M — "Can I swap shift?"   2m   │  ← message
+│  ● New registration — Nick Cave   14m   │  ← alert
+│  ○ Event activated — Metallica     1h   │  ← read
+└─────────────────────────────────────────┘</pre>
+<ul>
+    <li><strong>Messages tab</strong> = staff_messages threads (staff-inbox.php)</li>
+    <li><strong>Alerts tab</strong> = app_notifications where audience=admin</li>
+    <li><strong>All</strong> = merged timeline; messages rank above read alerts</li>
+    <li><strong>Single sidebar badge</strong> = unread messages + unread alerts</li>
+</ul>
+
+<h3>Staff unified inbox</h3>
+<p>One tab in PWA replacing separate notification and message tiles. Token-based access preserved for unsigned users.</p>
+
+<h3>Delivery rules</h3>
+<table>
+    <tr><th>Channel</th><th>When</th></tr>
+    <tr><td>In-app</td><td>Always</td></tr>
+    <tr><td>Email</td><td>Configurable per type in Settings → Notifications</td></tr>
+    <tr><td>Push</td><td>Staff PWA only; opt-in via push_subscriptions</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2>8. Public Website Architecture</h2>
+
+<h3>Marketing site map</h3>
+<table>
+    <tr><th>Screen</th><th>File</th><th>Purpose</th></tr>
+    <tr><td>Home</td><td>home.php</td><td>Hero, trust, CTA to register</td></tr>
+    <tr><td>How it works</td><td>how-it-works.php</td><td>Apply → approved → check in</td></tr>
+    <tr><td>Roles</td><td>roles.php</td><td>DSP / Static / Steward</td></tr>
+    <tr><td>Events</td><td>events.php</td><td>Showcase active events</td></tr>
+    <tr><td>FAQ</td><td>faq.php</td><td>Self-service support</td></tr>
+    <tr><td>Contact</td><td>contact.php</td><td>Company contact</td></tr>
+    <tr><td>Privacy</td><td>privacy.php</td><td>GDPR / consent</td></tr>
+</table>
+
+<h3>Registration host (register.*)</h3>
+<table>
+    <tr><th>Screen</th><th>File</th><th>Purpose</th></tr>
+    <tr><td>Registration form</td><td>index.php</td><td>Multi-event, form-slug registration</td></tr>
+    <tr><td>Submit handler</td><td>submit.php</td><td>POST processor (not a screen)</td></tr>
+</table>
+
+<h3>Public UX principles</h3>
+<ol>
+    <li>Marketing ≠ Registration — separate URLs</li>
+    <li>One hero CTA on every page: Register</li>
+    <li>Footer: "Already registered? Open staff app"</li>
+    <li>No admin chrome — shared public shell only</li>
+</ol>
+
+<h2>9. Staff PWA Architecture</h2>
+
+<h3>App shell (signed in)</h3>
+<pre>┌──────────────────────────────────────┐
+│  Header: logo · notification badge   │
+├──────────────────────────────────────┤
+│           SCREEN CONTENT             │
+├──────────────────────────────────────┤
+│  [Home]    [Inbox]    [Account]      │
+└──────────────────────────────────────┘</pre>
+
+<h3>Logged out hierarchy</h3>
+<pre>staff-app.php (Hub)
+├── Register → index.php
+├── Staff sign-in → staff-portal.php → staff-profile.php (if incomplete)
+├── My status → status.php (lookup or ?token=)
+├── Messages → staff-messages.php
+└── Notifications → staff-notifications.php</pre>
+
+<h3>Logged in hierarchy</h3>
+<pre>HOME
+├── Next shift card (event, date, status)
+├── Quick actions: Status · Check-in info · Message
+├── Active registrations list
+└── Announcement banner (staff_broadcast)
+
+INBOX
+├── Unified feed (messages + notifications)
+├── Thread view
+└── Notification detail with CTA
+
+ACCOUNT
+├── Profile summary (compact)
+├── Edit profile (?edit=1)
+├── PSA licence update
+└── Sign out</pre>
+
+<h3>PWA feature priorities</h3>
+<table>
+    <tr><th>Feature</th><th>Priority</th></tr>
+    <tr><td>Install prompt</td><td>Keep on hub</td></tr>
+    <tr><td>Service worker (shell cache)</td><td>Home + Inbox + status</td></tr>
+    <tr><td>Push notifications</td><td>Event activation, approval, message reply</td></tr>
+    <tr><td>Offline status view</td><td>Cache last-known status per token</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2>10. Admin Screen Hierarchy (Complete)</h2>
+
+<h3>Level 1 — Sidebar modules</h3>
+<pre>OPERATIONS:  Command Center · Inbox · Ops Checklist · Live Ops
+PEOPLE:      Registration Queue · Staff Directory · Compliance
+EVENTS:      Event Calendar · Venues · Work Types
+FINANCE:     Client Invoicing · Job Records · Personal Invoices · Exports
+CONTENT:     Forms · Website CMS                    (admin only)
+SYSTEM:      Settings · Team Users · Go Live · Audit  (admin only)</pre>
+
+<h3>Level 2 — Detail screens (not in nav)</h3>
+<table>
+    <tr><th>Module</th><th>Screens</th></tr>
+    <tr><td>People</td><td>view-staff.php, staff-edit.php, staff-inbox-thread.php</td></tr>
+    <tr><td>Events</td><td>event-form.php, Event Detail hub, venue-form.php, attendance.php, scan-checkin.php, work-hours.php, print-roster.php</td></tr>
+    <tr><td>Finance</td><td>invoice-form.php, job-record-form.php, personal-invoice-form.php, print-invoice.php</td></tr>
+    <tr><td>Settings</td><td>settings-production.php, settings-email.php, settings-theme.php, settings-security.php, google-sheets-diagnostic.php, visitor-locations.php, geo-audits.php, backups.php</td></tr>
+</table>
+
+<h3>Level 3 — Actions (POST handlers → buttons/modals, never nav)</h3>
+<p>update-status.php, bulk-status.php, save-event.php, toggle-event.php, checkin-action.php, scan-checkin-action.php, ops-checklist-action.php, invoice-action.php, backup-run.php, user-action.php, and ~25 more.</p>
+
+<h2>11. Event Detail Hub (New Conceptual Screen)</h2>
+<p>Biggest IA win: one event command page instead of 8 disconnected links. Implemented as tabs over existing pages.</p>
+<pre>Event: Nick Cave — 10 Jun 2026
+┌────────────────────────────────────────────────────────────┐
+│ [Overview] [Roster] [Attendance] [Hours] [QR] [Sheets]    │
+├────────────────────────────────────────────────────────────┤
+│  Status: Active · Venue: 3Arena · 36 approved / 1 pending│
+│  Staff needed: 40 · Checked in: 0 · Sheet: [linked]      │
+│  [Activate] [Edit] [Print roster]                        │
+├────────────────────────────────────────────────────────────┤
+│  ROSTER TAB      → staff.php?event_id=X                   │
+│  ATTENDANCE TAB  → attendance.php?event_id=X              │
+│  HOURS TAB       → work-hours.php?event_id=X              │
+└────────────────────────────────────────────────────────────┘</pre>
+
+<h2>12. Critical User Journeys</h2>
+
+<h3>A — New staff registration</h3>
+<pre>Marketing home → Register → index.php → submit.php
+  → email → status.php?token= (pending)
+  → [admin approves] → notification + email
+  → status.php (approved) → staff-app.php → install PWA</pre>
+
+<h3>B — Event day operations</h3>
+<pre>Command Center → "Live Ops" CTA
+  → scan-checkin.php → attendance.php (exceptions)
+  → work-hours.php → export-attendance.php</pre>
+
+<h3>C — Pre-event readiness</h3>
+<pre>ops-checklist.php → pending_cleared → staff.php
+  → apply_sync → apply-portal.php
+  → psa_expiry → Apply PSA compliance
+  → sheets_spot_check → google-sheets-diagnostic.php</pre>
+
+<h3>D — Finance month-end</h3>
+<pre>invoices.php → invoice-quick.php → print-invoice.php
+  → job-records.php → export-invoices-month.php</pre>
+
+<h2>13. Global Patterns</h2>
+<table>
+    <tr><th>Pattern</th><th>Admin</th><th>Staff PWA</th></tr>
+    <tr><td>Global search</td><td>Staff name, email, event</td><td>N/A</td></tr>
+    <tr><td>Event filter</td><td>Persistent in People + Live Ops</td><td>"My events" on Home</td></tr>
+    <tr><td>Status chips</td><td>pending / approved / rejected</td><td>Same on status page</td></tr>
+    <tr><td>Empty states</td><td>Actionable CTA</td><td>"No shifts — register"</td></tr>
+    <tr><td>Broadcasts</td><td>Admin flash bar</td><td>staff_broadcast banner</td></tr>
+    <tr><td>Date format</td><td>Irish (DD/MM/YYYY)</td><td>Same</td></tr>
+</table>
+
+<h2>14. Design Principles</h2>
+<ol>
+    <li><strong>Ops-first, finance-second</strong> — Daily users live in Operations + People</li>
+    <li><strong>Event context is king</strong> — Global event selector in admin header</li>
+    <li><strong>Mobile-native staff, desktop-native admin</strong></li>
+    <li><strong>One badge per channel</strong> — Unified inbox badge only</li>
+    <li><strong>Progressive disclosure</strong> — System/CMS hidden until needed</li>
+    <li><strong>Keep premium sidebar</strong> — Regroup items into 6 modules, don't redesign chrome</li>
+</ol>
+
+<h2>15. Implementation Roadmap (UX)</h2>
+<table>
+    <tr><th>Phase</th><th>Focus</th><th>Outcome</th></tr>
+    <tr><td>P1 — Nav regroup</td><td>Sidebar regroup + Finance sub-nav</td><td>Immediate clarity, no new routes</td></tr>
+    <tr><td>P2 — Unified Inbox</td><td>Merge admin notifications + messages</td><td>Single badge, single habit</td></tr>
+    <tr><td>P3 — Event Detail hub</td><td>Tab shell over existing event pages</td><td>Event-scoped ops</td></tr>
+    <tr><td>P4 — Staff Home</td><td>Replace tile grid for signed-in users</td><td>Personalized shift view</td></tr>
+    <tr><td>P5 — Command Center v2</td><td>Role-adaptive dashboard zones</td><td>Right CTA per role per day</td></tr>
+    <tr><td>P6 — Live Ops mode</td><td>Event-day fullscreen scan entry</td><td>Venue operator speed</td></tr>
+</table>
+
+<h3>Screen count summary (target state)</h3>
+<table>
+    <tr><th>Surface</th><th>Current</th><th>Target primary</th><th>Change</th></tr>
+    <tr><td>Admin nav-visible</td><td>22</td><td>18</td><td>−18%</td></tr>
+    <tr><td>Admin total reachable</td><td>109</td><td>~45 screens (+ actions)</td><td>−59% perceived</td></tr>
+    <tr><td>Staff PWA primary</td><td>7 tiles</td><td>3 tabs + 4 drill-downs</td><td>Clearer hierarchy</td></tr>
+    <tr><td>Public marketing</td><td>7</td><td>7</td><td>Unchanged</td></tr>
+    <tr><td>Registration</td><td>2</td><td>1 funnel</td><td>Simplified</td></tr>
+</table>
+
+<div class="callout">
+    <strong>Companion document:</strong> See <code>docs/ADMIN-PAGE-INVENTORY.pdf</code> for the complete file-by-file inventory of all 109 admin PHP pages, database tables, roles, and criticality ratings.
+</div>
+
+<p class="footer-note">Event Staff System — Olasentra — UX Blueprint v1.0 — Confidential internal documentation — Generated 6 June 2026</p>
+
+</body>
+</html>

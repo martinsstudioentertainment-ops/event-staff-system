@@ -126,9 +126,9 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             </label>
         </div>
         <div class="form-group form-group--full">
-            <label class="form-label" for="notify_admin_email">Admin alert email</label>
-            <input class="form-input" type="email" id="notify_admin_email" name="notify_admin_email" value="<?= h($settings['notify_admin_email'] ?? '') ?>" placeholder="Leave blank to use company email">
-            <p class="form-hint">In-app alerts always appear under Admin → Notifications.</p>
+            <label class="form-label" for="notify_admin_email">Admin alert emails</label>
+            <textarea class="form-textarea" id="notify_admin_email" name="notify_admin_email" rows="3" placeholder="you@company.com&#10;supervisor@company.com"><?= h($settings['notify_admin_email'] ?? '') ?></textarea>
+            <p class="form-hint">One or more addresses (comma or new line). All receive registration alerts and optional sign-in alerts. Leave blank to use company email. In-app alerts always appear under Admin → Notifications.</p>
         </div>
         <div class="form-group form-group--full">
             <label class="form-label" for="company_about">About text</label>

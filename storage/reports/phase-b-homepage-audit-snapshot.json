@@ -1,0 +1,18 @@
+﻿{
+    "generated_at":  "2026-06-06T18:21:03.4963630Z",
+    "title":  "Home | Security Update",
+    "url":  "https://admin.olasentra.com/home.php",
+    "checks":  {
+                   "http_ok":  true,
+                   "premium_flag_class":  true,
+                   "home_premium_css":  true,
+                   "home_premium_js":  true,
+                   "hero_section":  true,
+                   "live_events":  true,
+                   "stats_bar":  true,
+                   "data_hp_count":  10,
+                   "staff_portal_cta":  true,
+                   "testimonials":  true,
+                   "register_cta":  16
+               }
+}

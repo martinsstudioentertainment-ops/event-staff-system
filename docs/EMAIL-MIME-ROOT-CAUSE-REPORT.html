@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Email MIME Root Cause Investigation</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+h3{font-size:.98rem;margin-top:1.25rem;color:#334155}
+.meta{color:#64748b;font-size:.9rem}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #fca5a5;background:#fef2f2}
+.verdict.ok{border-color:#6ee7b7;background:#ecfdf5}
+.verdict.warn{border-color:#fcd34d;background:#fffbeb}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.85rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.crit{color:#b91c1c;font-weight:700}
+.high{color:#c2410c;font-weight:600}
+.med{color:#1d4ed8}
+.low{color:#64748b}
+.pass{color:#047857;font-weight:700}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.82em}
+pre{background:#0f172a;color:#e2e8f0;padding:.85rem;border-radius:8px;overflow:auto;font-size:.74rem;white-space:pre-wrap}
+ul.compact li{margin:.3rem 0}
+.note{font-size:.88rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.75rem 1rem;margin:1rem 0}
+</style>
+</head>
+<body>
+
+<h1>Email MIME Root Cause Investigation</h1>
+<p class="meta">Generated 6 June 2026 · Based on <code>docs/EMAIL-REJECTION-TEMPLATE-AUDIT.html</code> · <strong>Investigation only — no code changes</strong> · Awaiting approval before implementation</p>
+
+<div class="verdict"><strong>Exact root cause:</strong> <code>buildEmailMimePayload()</code> in <code>includes/mailer.php</code> intentionally emits a <strong>single-part</strong> message. When <code>$htmlBody</code> is non-empty, it returns only <code>text/html</code> with <code>quoted-printable</code> encoding and <strong>never includes</strong> the <code>$textBody</code> argument. There is no <code>multipart/alternative</code> structure and no MIME boundary. Plain-text is built by every dual-format template but discarded at the MIME layer. Production defect symptoms (raw tags, split words, non-clickable URLs) occur when clients display the QP-encoded HTML part as plain text — not because boundaries are malformed (none exist).</div>
+
+<h2>1. Investigation questions — answers</h2>
+<table>
+<tr><th>#</th><th>Question</th><th>Finding</th></tr>
+<tr><td>1</td><td>Exact MIME structure currently generated?</td><td><strong>Single part.</strong> Either <code>text/html; charset=UTF-8</code> + <code>quoted-printable</code> (when HTML provided) OR <code>text/plain; charset=UTF-8</code> + <code>8bit</code> (plain only). Never multipart.</td></tr>
+<tr><td>2</td><td>Why is plain-text missing?</td><td><code>buildEmailMimePayload()</code> lines 28–34: <code>if ($html !== '') { return html only; }</code> — <code>$textBody</code> parameter is ignored. Intentional per comment: “avoids raw multipart on mobile.”</td></tr>
+<tr><td>3</td><td>SMTP vs PHP <code>mail()</code> difference?</td><td class="pass"><strong>Identical MIME body.</strong> Both call same <code>buildEmailMimePayload($body, $htmlBody)</code>. SMTP adds Date/To/Subject/Message-ID headers; <code>mail()</code> passes subject separately and fewer headers. Content-Type, CTE, and body bytes are the same.</td></tr>
+<tr><td>4</td><td>QP soft breaks from bad boundaries?</td><td class="pass"><strong>No.</strong> No <code>multipart/*</code> boundaries exist. Soft breaks are standard <code>quoted_printable_encode()</code> line wrapping at 76 octets (<code>=\r\n</code>). Defect appears when QP HTML is shown undecoded as text — missing <code>text/plain</code> alternative removes the safe fallback.</td></tr>
+<tr><td>5</td><td>Template impact?</td><td>See §5. HTML+dual-format emails affected; plain-only emails unaffected.</td></tr>
+</table>
+
+<h2>2. Current MIME architecture</h2>
+<pre>sendEmail($pdo, $to, $subject, $body, $htmlBody?)
+    │
+    ├─ transport = log     → logs HTML or plain (no wire MIME)
+    ├─ transport = smtp    → sendSmtpMessage(..., $body, $htmlBody)
+    │                         └─ buildEmailMimePayload($body, $htmlBody)  ← single source of truth
+    └─ transport = php_mail → buildEmailMimePayload($body, $htmlBody)     ← same function
+
+buildEmailMimePayload($textBody, $htmlBody):
+    if trim($htmlBody) != '':
+        return { type: text/html, CTE: quoted-printable, body: QP_encode(html) }
+        // $textBody DISCARDED
+    else:
+        return { type: text/plain, CTE: 8bit, body: $textBody }</pre>
+
+<h3>Source evidence — intentional single-part design</h3>
+<pre>includes/mailer.php lines 21–41:
+
+/**
+ * Build a single-part MIME body (HTML when available — avoids raw multipart on mobile).
+ */
+function buildEmailMimePayload(string $textBody, ?string $htmlBody): array
+{
+    $html = $htmlBody !== null ? trim($htmlBody) : '';
+    if ($html !== '') {
+        return [
+            'content_type'      => 'text/html; charset=UTF-8',
+            'transfer_encoding' => 'quoted-printable',
+            'body'              => quoted_printable_encode(normalizeEmailLines($html)),
+        ];
+    }
+    return [ /* plain only */ ];
+}</pre>
+
+<h2>3. Confirmed wire-format structure</h2>
+<p class="meta">Reproduced via <code>php scripts/audit-email-mime-structure.php</code> → <code>storage/reports/email-mime-root-cause-snapshot.json</code></p>
+
+<h3>3.1 Rejection email (dual-format template, HTML-only wire)</h3>
+<table>
+<tr><th>Property</th><th>Value</th></tr>
+<tr><td>Plain text built</td><td class="pass">Yes (467 bytes)</td></tr>
+<tr><td>HTML built</td><td class="pass">Yes (1200 bytes)</td></tr>
+<tr><td>Plain text on wire</td><td class="crit">No</td></tr>
+<tr><td>HTML on wire</td><td class="pass">Yes (1282 bytes after QP)</td></tr>
+<tr><td>Content-Type</td><td><code>text/html; charset=UTF-8</code></td></tr>
+<tr><td>Content-Transfer-Encoding</td><td><code>quoted-printable</code></td></tr>
+<tr><td>MIME multipart</td><td class="crit">No</td></tr>
+<tr><td>Boundary headers</td><td class="crit">None</td></tr>
+<tr><td>QP soft line breaks</td><td>16</td></tr>
+</table>
+
+<h3>3.2 Reminder email (plain-only template — unaffected)</h3>
+<table>
+<tr><th>Property</th><th>Value</th></tr>
+<tr><td>Content-Type</td><td><code>text/plain; charset=UTF-8</code></td></tr>
+<tr><td>Content-Transfer-Encoding</td><td><code>8bit</code></td></tr>
+<tr><td>QP soft breaks</td><td>0</td></tr>
+</table>
+
+<h2>4. Raw MIME examples</h2>
+
+<h3>4.1 Rejection — full SMTP DATA payload (as sent on production)</h3>
+<pre>Date: Sat, 06 Jun 2026 20:00:00 +0000
+From: "Security Update" &lt;noreply@olasentra.com&gt;
+Reply-To: noreply@olasentra.com
+To: recipient@example.com
+Subject: Security Update - Registration update
+Message-ID: &lt;mime-audit-sample@olasentra.com&gt;
+MIME-Version: 1.0
+X-Mailer: Event-Staff-System
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+&lt;div style=3D"font-family:Segoe UI,Arial,sans-serif;line-height:1.55;color:=
+#111827;max-width:560px;"&gt;&lt;p style=3D"margin:0 0 8px;"&gt;Dear Olayinka,&lt;/p&gt;&lt;b=
+r&gt;&lt;p style=3D"margin:0 0 8px;"&gt;Thank you for your interest. Your staff regi=
+stration was not approved at this time.&lt;/p&gt;&lt;br&gt;…
+&lt;p style=3D"margin:0 0 8px;"&gt;  Contractor listed for this shift: Acme Securi=
+ty (confirm pay and duties with them).&lt;/p&gt;…
+&lt;p&gt;&lt;a href=3D"https://register.olasentra.com/status.php?=
+token=3Dabc123" …&gt;https://register.olasentra.com/status.php?token=3Dabc123&lt;/a&gt;&lt;/p&gt;…
+&lt;a href=3D"…" style=3D"…"&gt;View my status&lt;/a&gt;&lt;/p&gt;&lt;/div&gt;</pre>
+
+<h3>4.2 Rejection — plain text that is built but NOT sent</h3>
+<pre>Dear Olayinka,
+
+Thank you for your interest. Your staff registration was not approved at this time.
+
+* Kings Of Leon - 01/07/2026 - Static Security
+  Contractor listed for this shift: Acme Security (confirm pay and duties with them).
+
+View your registration status anytime:
+https://register.olasentra.com/status.php?token=abc123
+
+Sent by the registration portal only. Pay and duties are agreed with the on-site contractor or event organiser.
+
+Regards,
+Security Update</pre>
+
+<h3>4.3 Rejection — PHP mail() path (same body, fewer headers)</h3>
+<pre>MIME-Version: 1.0
+From: "Security Update" &lt;noreply@olasentra.com&gt;
+Reply-To: noreply@olasentra.com
+X-Mailer: PHP/8.3.30
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+[identical quoted-printable HTML body as SMTP]</pre>
+
+<h3>4.4 Reminder — plain-only SMTP payload (correct for plain templates)</h3>
+<pre>Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Dear Olayinka,
+
+Time: 15:00 - 23:00
+Location: Thomond Park
+Event: Kings Of Leon - 01/07/2026
+Check-in window: 05/07/2026 14:00 - 05/07/2026 23:00
+
+Regards,
+Security Update</pre>
+
+<h3>4.5 Target structure after fix (reference only — not implemented)</h3>
+<pre>MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="=_Olasentra_{random}"
+
+--=_Olasentra_{random}
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Dear Olayinka,
+…plain text…
+
+--=_Olasentra_{random}
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+&lt;div&gt;…html…&lt;/div&gt;
+
+--=_Olasentra_{random}--</pre>
+
+<h2>5. Impact assessment by email type</h2>
+<table>
+<tr><th>Email</th><th>Function / file</th><th>Plain built?</th><th>HTML built?</th><th>Wire format today</th><th>Defect risk</th></tr>
+<tr>
+<td>Registration confirmation</td>
+<td><code>notifyStaffRegistrationSubmitted()</code> — <code>notifications.php</code></td>
+<td class="pass">Yes</td><td class="pass">Yes</td>
+<td>HTML-only QP</td><td class="high">HIGH — same as rejection</td>
+</tr>
+<tr>
+<td>Registration approved / access pass</td>
+<td><code>sendConsolidatedAccessPassEmail()</code> — <code>access-pass-email.php</code></td>
+<td class="pass">Yes</td><td class="pass">Yes (full DOCTYPE)</td>
+<td>HTML-only QP</td><td class="high">HIGH — QR/links rely on HTML render</td>
+</tr>
+<tr>
+<td>Event reminder (daily digest)</td>
+<td><code>sendDailyEventsReminderDigest()</code> — <code>reminders.php</code></td>
+<td class="pass">Yes</td><td class="crit">No</td>
+<td>text/plain 8bit</td><td class="pass">LOW — not affected</td>
+</tr>
+<tr>
+<td>Signup nudge</td>
+<td><code>sendSignupNudgeEmail()</code> — <code>reminders.php</code></td>
+<td class="pass">Yes</td><td class="crit">No</td>
+<td>text/plain 8bit</td><td class="pass">LOW — not affected</td>
+</tr>
+<tr>
+<td>Rejection / not approved</td>
+<td><code>sendConsolidatedRejectionEmail()</code> — <code>notifications.php</code></td>
+<td class="pass">Yes</td><td class="pass">Yes</td>
+<td>HTML-only QP</td><td class="crit">CRITICAL — production defect confirmed</td>
+</tr>
+<tr>
+<td>Admin alert</td>
+<td><code>sendAdminAlertEmail()</code> — <code>notification-center.php</code></td>
+<td class="pass">Yes (strip_tags)</td><td class="pass">Yes</td>
+<td>HTML-only QP</td><td class="high">HIGH</td>
+</tr>
+<tr>
+<td>Check-in confirmation</td>
+<td><code>notifyStaffCheckin()</code> — <code>notifications.php</code></td>
+<td class="pass">Yes</td><td class="crit">No</td>
+<td>text/plain 8bit</td><td class="pass">LOW</td>
+</tr>
+<tr>
+<td>Event broadcast</td>
+<td><code>sendEventStaffBroadcast()</code> — <code>staff-messaging.php</code></td>
+<td class="pass">Yes</td><td class="pass">Yes</td>
+<td>HTML-only QP</td><td class="high">HIGH</td>
+</tr>
+<tr>
+<td>Profile link emails</td>
+<td><code>staff-profile-email.php</code></td>
+<td class="pass">Yes</td><td class="pass">Yes</td>
+<td>HTML-only QP</td><td class="high">HIGH</td>
+</tr>
+<tr>
+<td>Test email</td>
+<td><code>sendTestEmail()</code> — <code>mailer.php</code></td>
+<td class="pass">Yes</td><td class="crit">No</td>
+<td>text/plain 8bit</td><td class="pass">LOW</td>
+</tr>
+</table>
+
+<div class="note"><strong>Why some emails “work” in production:</strong> Clients that fully support <code>text/html</code> and decode quoted-printable render correctly (see rejection audit “correct” screenshots). Reminders never had HTML. Defect is latent on all dual-format emails and surfaces per client settings, security scanners, or plain-text-only views.</div>
+
+<h2>6. QP soft breaks — mechanism (not boundary corruption)</h2>
+<table>
+<tr><th>Hypothesis</th><th>Verdict</th><th>Evidence</th></tr>
+<tr><td>Malformed <code>multipart/alternative</code> boundary</td><td class="pass">Ruled out</td><td>No <code>Content-Type: multipart/*</code> in any path; no boundary parameter in headers</td></tr>
+<tr><td>Missing <code>text/plain</code> part</td><td class="crit">Confirmed</td><td><code>$textBody</code> discarded when HTML present</td></tr>
+<tr><td>QP encode splits words incorrectly</td><td class="pass">Ruled out</td><td><code>quoted_printable_encode()</code> is RFC 2045 compliant; splits at 76 chars with <code>=</code> escape</td></tr>
+<tr><td>Client shows QP HTML as plain text</td><td class="crit">Confirmed</td><td>Matches production symptoms; simulated in rejection audit §12.1</td></tr>
+</table>
+
+<h2>7. Affected files</h2>
+<table>
+<tr><th>File</th><th>Role</th><th>Change needed?</th></tr>
+<tr><td><code>includes/mailer.php</code></td><td><strong>Root:</strong> <code>buildEmailMimePayload()</code>, <code>sendEmail()</code></td><td class="crit">Yes — primary fix target</td></tr>
+<tr><td><code>includes/smtp-mailer.php</code></td><td>Calls <code>buildEmailMimePayload()</code>; no separate MIME logic</td><td class="low">No direct change if mailer fixed</td></tr>
+<tr><td><code>includes/notifications.php</code></td><td>Rejection, confirmation, check-in templates</td><td class="pass">No — templates correct</td></tr>
+<tr><td><code>includes/email-copy.php</code></td><td>HTML line builder</td><td class="pass">No</td></tr>
+<tr><td><code>includes/access-pass-email.php</code></td><td>Approval / access pass</td><td class="pass">No</td></tr>
+<tr><td><code>includes/reminders.php</code></td><td>Plain-only reminders</td><td class="pass">No</td></tr>
+<tr><td><code>includes/notification-center.php</code></td><td>Admin alerts</td><td class="pass">No</td></tr>
+</table>
+
+<h2>8. Safe fix strategy (pending approval)</h2>
+<div class="verdict ok">
+<h3>Recommended approach — single-file MIME fix</h3>
+<ol class="compact">
+<li><strong>Scope:</strong> Modify only <code>buildEmailMimePayload()</code> in <code>includes/mailer.php</code> (and add a small private helper for multipart assembly if needed).</li>
+<li><strong>When both plain and HTML non-empty:</strong> Emit <code>multipart/alternative</code> with unique boundary (e.g. <code>=_Olasentra_</code> + random hex).</li>
+<li><strong>Part order:</strong> <code>text/plain</code> first, <code>text/html</code> second (RFC 2046 — plainer part first for clients that show multipart as text).</li>
+<li><strong>Encodings:</strong> Plain: <code>8bit</code> (UTF-8, normalized LF). HTML: keep <code>quoted-printable</code> or switch to <code>8bit</code> on SMTP UTF-8 paths (either acceptable; QP is not the bug — missing plain part is).</li>
+<li><strong>When HTML empty:</strong> Keep current plain-only path unchanged.</li>
+<li><strong>When HTML only (edge case):</strong> Rare in this codebase; could fall back to HTML-only or synthesize plain via <code>strip_tags</code> — prefer requiring callers to pass plain (all current callers already do).</li>
+<li><strong>Do not change:</strong> Template functions, subjects, copy, SMTP socket logic, admin triggers.</li>
+<li><strong>Verify:</strong> Extend <code>scripts/audit-email-mime-structure.php</code> to assert multipart; re-run <code>scripts/audit-rejection-email-mime.php</code>; production send via <code>cron/email-production-verify.php</code>; manual Gmail/Outlook plain-text + HTML view.</li>
+<li><strong>Deploy:</strong> <code>includes/mailer.php</code> only via <code>deploy.ps1</code> (already in FTP manifest).</li>
+</ol>
+</div>
+
+<h3>Alternative considered — HTML 8bit without multipart</h3>
+<p class="meta">Rejected as primary fix: switching HTML to <code>8bit</code> without adding <code>text/plain</code> would reduce QP artefact visibility but would not fix plain-text-only clients or security scanners that strip HTML. Does not meet RFC best practice.</p>
+
+<h2>9. Rollback strategy</h2>
+<table>
+<tr><th>Step</th><th>Action</th></tr>
+<tr><td>1</td><td>Revert <code>includes/mailer.php</code> to pre-fix version (single git file revert).</td></tr>
+<tr><td>2</td><td>Deploy via <code>deploy.ps1</code> — uploads only changed PHP.</td></tr>
+<tr><td>3</td><td>No database migration, no settings change, no template rollback needed.</td></tr>
+<tr><td>4</td><td>Rollback restores HTML-only single-part behaviour immediately.</td></tr>
+<tr><td>5</td><td>Verify: send test email + one rejection on staging mailbox; confirm Content-Type returns to <code>text/html</code> only.</td></tr>
+</table>
+
+<h2>10. Risk assessment</h2>
+<table>
+<tr><th>Risk</th><th>Likelihood</th><th>Impact</th><th>Mitigation</th></tr>
+<tr><td>Multipart breaks legacy mobile client</td><td class="low">Low</td><td class="med">Medium</td><td>Original comment feared this; modern clients handle multipart/alternative universally. Test iOS Mail + Gmail app before sign-off.</td></tr>
+<tr><td>Message size increase</td><td class="high">Certain</td><td class="low">Low</td><td>~+plain text bytes per email; negligible for current volume.</td></tr>
+<tr><td>SMTP DATA dot-stuffing edge case</td><td class="low">Low</td><td class="med">Medium</td><td>Existing <code>smtpDotStuff()</code> already handles body; boundary lines starting with <code>.</code> are rare with random boundary.</td></tr>
+<tr><td>Regression on plain-only emails</td><td class="low">Low</td><td class="high">High</td><td>Keep <code>html === ''</code> branch identical; add test for reminder MIME unchanged.</td></tr>
+<tr><td>Fix does not reach production</td><td class="med">Medium</td><td class="high">High</td><td>Deploy <code>mailer.php</code> via standard <code>deploy.ps1</code>; confirm file timestamp on server.</td></tr>
+<tr><td>Continued defect if not fixed</td><td class="high">High</td><td class="high">High</td><td>Rejection, confirmation, access pass remain vulnerable per client.</td></tr>
+</table>
+
+<p><strong>Overall fix risk: LOW.</strong> Single-function change, no schema, no template edits, easy rollback. <strong>Not fixing risk: HIGH</strong> for staff-facing transactional emails.</p>
+
+<h2>11. Relationship to prior audits</h2>
+<ul class="compact">
+<li><code>docs/EMAIL-REJECTION-TEMPLATE-AUDIT.html</code> — symptom confirmation, screenshots, template trace.</li>
+<li><code>docs/EMAIL-SYSTEM-AUDIT-REPORT.html</code> — flagged “Single-part only (no multipart/alternative)” at §2 transport layer.</li>
+<li><code>docs/EMAIL-ENCODING-FIX-REPORT.html</code> — ASCII copy fix; does not address MIME structure.</li>
+<li><code>docs/EMAIL-PRODUCTION-VERIFICATION.html</code> — verified encoding in HTML when rendered; did not test plain-text client view.</li>
+</ul>
+
+<h2>12. Approval gate</h2>
+<div class="verdict warn"><strong>Do not implement until approved.</strong> Proposed implementation is limited to <code>includes/mailer.php</code> → <code>buildEmailMimePayload()</code>. After approval: implement, extend audit scripts, deploy, re-verify rejection + confirmation + access pass in Gmail/Outlook plain and HTML views.</div>
+
+<h2>13. Artifacts</h2>
+<table>
+<tr><th>Artifact</th><th>Path</th></tr>
+<tr><td>This report</td><td><code>docs/EMAIL-MIME-ROOT-CAUSE-REPORT.html</code></td></tr>
+<tr><td>MIME snapshot JSON</td><td><code>storage/reports/email-mime-root-cause-snapshot.json</code></td></tr>
+<tr><td>Structure audit script</td><td><code>scripts/audit-email-mime-structure.php</code></td></tr>
+<tr><td>Rejection MIME script</td><td><code>scripts/audit-rejection-email-mime.php</code></td></tr>
+<tr><td>Rejection template audit</td><td><code>docs/EMAIL-REJECTION-TEMPLATE-AUDIT.html</code></td></tr>
+<tr><td>Rendering screenshots</td><td><code>docs/screenshots/email-rejection/*.png</code></td></tr>
+</table>
+
+<pre>php scripts/audit-email-mime-structure.php
+# Rejection: text/html / quoted-printable, Plain in wire: NO, QP soft breaks: 16</pre>
+
+</body>
+</html>

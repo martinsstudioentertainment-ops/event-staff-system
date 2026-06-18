@@ -71,7 +71,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                                 <?php endif; ?>
                             </td>
                             <td><?= (int) ($row['consecutive_no_shows'] ?? 0) ?></td>
-                            <td><?= h(date('d.m.Y H:i', strtotime((string) $row['blacklisted_at']))) ?></td>
+                            <td><?= h(formatSystemDateTime((string) $row['blacklisted_at'], $pdo)) ?></td>
                             <td class="table-actions">
                                 <?php if ($latest): ?>
                                     <a href="view-staff.php?id=<?= (int) $latest['id'] ?>" class="btn btn--small btn--secondary">View</a>

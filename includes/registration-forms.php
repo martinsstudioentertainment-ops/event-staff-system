@@ -389,20 +389,26 @@ function getFormAllowedWorkTypes(array $form): array
     return $filtered;
 }
 
-function formatStaffRoleLabel(string $role, ?PDO $pdo = null): string
+function formatStaffRoleLabel(?string $role, ?PDO $pdo = null): string
 {
+    static $labelByRole = null;
+    static $labelMapPdo = null;
+
     $pdo  = $pdo ?? getDB();
-    $role = normalizeStaffRole($role, $pdo);
+    $role = normalizeStaffRole((string) ($role ?? ''), $pdo);
+    $pdoKey = spl_object_id($pdo);
 
-    foreach (getRegistrationForms($pdo) as $form) {
-        if (normalizeStaffRole((string) ($form['staff_role'] ?? ''), $pdo) === $role) {
-            $label = trim((string) ($form['label'] ?? ''));
-
-            return $label !== '' ? $label : ucfirst(str_replace('_', ' ', $role));
+    if ($labelByRole === null || $labelMapPdo !== $pdoKey) {
+        $labelByRole = [];
+        foreach (getRegistrationForms($pdo) as $form) {
+            $formRole = normalizeStaffRole((string) ($form['staff_role'] ?? ''), $pdo);
+            $label    = trim((string) ($form['label'] ?? ''));
+            $labelByRole[$formRole] = $label !== '' ? $label : ucfirst(str_replace('_', ' ', $formRole));
         }
+        $labelMapPdo = $pdoKey;
     }
 
-    return ucfirst(str_replace('_', ' ', $role));
+    return $labelByRole[$role] ?? ucfirst(str_replace('_', ' ', $role));
 }
 
 function registrationFormStaffRole(string $slug, ?PDO $pdo = null): string

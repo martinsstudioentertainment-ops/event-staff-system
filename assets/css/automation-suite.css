@@ -1,0 +1,113 @@
+/* Operations Automation Suite — extends workforce glass theme */
+
+.auto-page {
+    --auto-accent: #a78bfa;
+    --auto-glass: rgba(15, 23, 42, 0.72);
+    --auto-border: rgba(148, 163, 184, 0.14);
+}
+
+.auto-roster-board {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.auto-roster-column {
+    min-height: 200px;
+    padding: 0.75rem;
+    border-radius: 12px;
+    background: var(--auto-glass);
+    border: 1px solid var(--auto-border);
+}
+
+.auto-roster-column__title {
+    font-size: 0.82rem;
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.5rem;
+    color: var(--text-muted, #94a3b8);
+}
+
+.auto-roster-pool {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    border-radius: 12px;
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px dashed var(--auto-border);
+    min-height: 56px;
+}
+
+.auto-roster-card {
+    padding: 0.45rem 0.65rem;
+    border-radius: 8px;
+    background: rgba(139, 92, 246, 0.15);
+    border: 1px solid rgba(167, 139, 250, 0.35);
+    font-size: 0.78rem;
+    cursor: grab;
+    user-select: none;
+}
+
+.auto-roster-slot {
+    min-height: 64px;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    border-radius: 8px;
+    border: 1px dashed rgba(148, 163, 184, 0.25);
+    background: rgba(15, 23, 42, 0.35);
+}
+
+.auto-roster-slot.is-over {
+    border-color: var(--auto-accent);
+    background: rgba(139, 92, 246, 0.08);
+}
+
+.auto-funnel {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.auto-funnel__step {
+    text-align: center;
+    padding: 0.65rem;
+    border-radius: 10px;
+    background: var(--auto-glass);
+    border: 1px solid var(--auto-border);
+}
+
+.auto-funnel__value {
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.auto-funnel__label {
+    font-size: 0.68rem;
+    color: var(--text-muted, #94a3b8);
+    margin-top: 0.2rem;
+}
+
+.auto-coverage-bar {
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.2);
+    overflow: hidden;
+    margin-top: 0.35rem;
+}
+
+.auto-coverage-bar__fill {
+    height: 100%;
+    background: linear-gradient(90deg, #34d399, #a78bfa);
+    border-radius: 999px;
+}
+
+@media (max-width: 768px) {
+    .auto-roster-board {
+        grid-template-columns: 1fr;
+    }
+}

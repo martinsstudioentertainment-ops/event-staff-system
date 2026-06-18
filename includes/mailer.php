@@ -19,25 +19,85 @@ function normalizeEmailLines(string $body): string
 }
 
 /**
- * Build a single-part MIME body (HTML when available — avoids raw multipart on mobile).
+ * Generate a unique MIME boundary for multipart messages.
+ */
+function generateEmailMimeBoundary(): string
+{
+    return '=_Olasentra_' . bin2hex(random_bytes(12));
+}
+
+/**
+ * Normalize LF / CR to CRLF for 8bit MIME parts.
+ */
+function ensureEmailCrlf(string $body): string
+{
+    return str_replace("\n", "\r\n", str_replace(["\r\n", "\r"], "\n", $body));
+}
+
+/**
+ * Build headers + body for one MIME part.
+ *
+ * @param bool $convertLf When false, body is used as-is (quoted-printable output).
+ */
+function buildEmailMimePart(string $contentType, string $transferEncoding, string $body, bool $convertLf = true): string
+{
+    if ($convertLf) {
+        $body = ensureEmailCrlf($body);
+    }
+
+    return 'Content-Type: ' . $contentType . "\r\n"
+        . 'Content-Transfer-Encoding: ' . $transferEncoding . "\r\n\r\n"
+        . $body;
+}
+
+/**
+ * Build RFC 2046 multipart/alternative or single-part MIME payload.
+ *
+ * When both plain and HTML are present, plain is listed first so text-only clients
+ * receive a clean fallback without quoted-printable HTML artefacts.
  *
  * @return array{content_type: string, transfer_encoding: string, body: string}
  */
 function buildEmailMimePayload(string $textBody, ?string $htmlBody): array
 {
-    $html = $htmlBody !== null ? trim($htmlBody) : '';
+    $text = normalizeEmailLines($textBody);
+    $html = $htmlBody !== null ? normalizeEmailLines(trim($htmlBody)) : '';
+
+    if ($html !== '' && $text !== '') {
+        $boundary  = generateEmailMimeBoundary();
+        $plainPart = buildEmailMimePart('text/plain; charset=UTF-8', '8bit', $text);
+        $htmlPart  = buildEmailMimePart(
+            'text/html; charset=UTF-8',
+            'quoted-printable',
+            quoted_printable_encode($html),
+            false
+        );
+
+        $body = '--' . $boundary . "\r\n"
+            . $plainPart . "\r\n"
+            . '--' . $boundary . "\r\n"
+            . $htmlPart . "\r\n"
+            . '--' . $boundary . "--\r\n";
+
+        return [
+            'content_type'      => 'multipart/alternative; boundary="' . $boundary . '"',
+            'transfer_encoding' => '8bit',
+            'body'              => $body,
+        ];
+    }
+
     if ($html !== '') {
         return [
             'content_type'      => 'text/html; charset=UTF-8',
             'transfer_encoding' => 'quoted-printable',
-            'body'              => quoted_printable_encode(normalizeEmailLines($html)),
+            'body'              => quoted_printable_encode($html),
         ];
     }
 
     return [
         'content_type'      => 'text/plain; charset=UTF-8',
         'transfer_encoding' => '8bit',
-        'body'              => normalizeEmailLines($textBody),
+        'body'              => ensureEmailCrlf($text),
     ];
 }
 
@@ -145,7 +205,8 @@ function sendEmail(PDO $pdo, string $to, string $subject, string $body, ?string 
 
     }
 
-
+    require_once __DIR__ . '/email-layout.php';
+    $htmlBody = finalizeOutboundEmailHtml($pdo, $subject, $htmlBody, $body);
 
     $fromName  = getSetting($pdo, 'mail_from_name', 'Event Staff System');
 
@@ -268,7 +329,7 @@ function sendTestEmail(PDO $pdo, string $to): bool|string
 
     $siteName = getSiteName($pdo);
 
-    $subject  = $siteName . ' — Test Email';
+    $subject  = $siteName . ' - Test Email';
 
     require_once __DIR__ . '/email-copy.php';
 
@@ -283,9 +344,18 @@ function sendTestEmail(PDO $pdo, string $to): bool|string
         getEmailShortFooter($pdo),
     ]);
 
+    require_once __DIR__ . '/email-layout.php';
+    $html = buildEmailMasterLayout(
+        $pdo,
+        'Test email',
+        '<p style="margin:0 0 12px;">This is a test email from <strong>' . emailEsc($siteName) . '</strong>.</p>'
+        . '<p style="margin:0 0 8px;"><strong>Transport:</strong> ' . emailEsc(getMailTransport($pdo)) . '</p>'
+        . '<p style="margin:0 0 8px;"><strong>Sent at:</strong> ' . emailEsc(date('Y-m-d H:i:s')) . '</p>'
+        . '<p style="margin:0;">If you received this, your email settings are working.</p>',
+        ['preheader' => 'Your email settings are working.']
+    );
 
-
-    if (!sendEmail($pdo, $to, $subject, $body)) {
+    if (!sendEmail($pdo, $to, $subject, $body, $html)) {
 
         $detail = getLastSmtpError();
         if ($detail !== '') {

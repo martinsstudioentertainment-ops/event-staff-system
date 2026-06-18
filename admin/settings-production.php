@@ -15,13 +15,17 @@ require_once __DIR__ . '/../includes/google-sheets-sync.php';
 require_once __DIR__ . '/../includes/google-drive-oauth.php';
 require_once __DIR__ . '/../includes/registration-forms.php';
 require_once __DIR__ . '/../includes/staff-profile-gate.php';
+require_once __DIR__ . '/../includes/staff-google-oauth.php';
+require_once __DIR__ . '/../includes/site-urls.php';
+require_once __DIR__ . '/../includes/mobile/schema/mobile-api-schema.php';
 
 requireAdminCapability('settings');
 
 $pdo            = getDB();
+$staffAppUrl    = getRegistrationSiteUrl($pdo) . '/staff-app.php';
 $adminUser      = getAdminUser();
 $postAction     = ($_SERVER['REQUEST_METHOD'] === 'POST') ? (string) ($_POST['action'] ?? '') : '';
-$settingsAction = in_array($postAction, ['commission_rates', 'invoice_payment', 'google_sheets', 'pwa_settings', 'staff_profile_gate'], true)
+$settingsAction = in_array($postAction, ['commission_rates', 'invoice_payment', 'google_sheets', 'pwa_settings', 'mobile_api_settings', 'staff_google_signin', 'staff_google_signin_go_live', 'staff_profile_gate'], true)
     ? $postAction
     : 'system';
 $staffNeedingProfile = countStaffNeedingProfileUpdate($pdo);
@@ -162,7 +166,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <label class="erp-system-status__item">
                     <input type="checkbox" name="admin_2fa_required" value="1"<?= $system['admin_2fa_required'] === '1' ? ' checked' : '' ?>>
                     <span class="erp-system-status__dot"></span>
-                    <span class="erp-system-status__label">2FA</span>
+                    <span class="erp-system-status__label">Login verification code (email)</span>
                 </label>
                 <label class="erp-system-status__item">
                     <input type="checkbox" name="activity_logging_enabled" value="1"<?= $system['activity_logging_enabled'] === '1' ? ' checked' : '' ?>>
@@ -175,6 +179,12 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                     <span class="erp-system-status__label">Weekly auto backup</span>
                 </label>
             </div>
+        </div>
+
+        <div class="form-group form-group--full">
+            <label class="form-label" for="admin_login_otp_email">Admin login verification email</label>
+            <input class="form-input" type="email" id="admin_login_otp_email" name="admin_login_otp_email" value="<?= h(getSetting($pdo, 'admin_login_otp_email', 'olabodeoluwafemi2580@gmail.com')) ?>" placeholder="olabodeoluwafemi2580@gmail.com">
+            <p class="form-hint">6-digit codes are sent here when login verification is enabled. “Trust this browser” uses a 30-day cookie to skip the code on return visits.</p>
         </div>
 
         <div class="form-actions form-actions--end">
@@ -430,6 +440,62 @@ if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
     </form>
 </section>
 
+<section class="card erp-settings-panel" id="staff-google-signin">
+    <div class="card__header">
+        <h2 class="card__title">Staff app — Google (Gmail) sign-in</h2>
+        <p class="card__subtitle" style="margin-top:0.35rem;"><a href="staff-go-live.php"><strong>Easy setup guide (4 steps) →</strong></a></p>
+        <p class="card__subtitle">Uses the same OAuth Client ID / secret as Google Sheets above. Staff sign in with Gmail — free, no extra Google billing. Keeps them signed in on their phone for GPS shift tracking.</p>
+    </div>
+
+    <?php if (isStaffGoogleSigninEnabled($pdo)): ?>
+        <div class="alert alert--success alert--visible">
+            <strong>On.</strong> Staff use <em>Continue with Google</em> on
+            <a href="<?= h($staffAppUrl) ?>" target="_blank" rel="noopener">staff-app.php</a>.
+            <?php if (isStaffGoogleSigninRequired($pdo)): ?>
+                Email + PPS sign-in is hidden (Google only).
+            <?php endif; ?>
+        </div>
+    <?php else: ?>
+        <div class="alert alert--visible" style="background:#f1f5f9;border-color:#cbd5e1;color:#334155;">
+            Off — staff still use email + last 4 of PPS on the staff app.
+        </div>
+    <?php endif; ?>
+
+    <p class="form-hint form-group--full">
+        <strong>Before enabling — Google Cloud Console</strong> (same Web client as admin Sheets): add
+        <code><?= h(staffGoogleOAuthRedirectUri($pdo)) ?></code> under <strong>Authorized redirect URIs</strong>
+        and <code><?= h(rtrim(getRegistrationSiteUrl($pdo), '/')) ?></code> under <strong>Authorized JavaScript origins</strong>.
+    </p>
+
+    <form method="post" class="erp-settings-form">
+        <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+        <input type="hidden" name="action" value="staff_google_signin">
+
+        <label class="form-checkbox" style="margin-bottom:0.75rem;">
+            <input type="checkbox" name="staff_google_signin_enabled" value="1"<?= ($settings['staff_google_signin_enabled'] ?? '0') === '1' ? ' checked' : '' ?>>
+            <span>Enable Google sign-in for staff app</span>
+        </label>
+        <label class="form-checkbox" style="margin-bottom:1rem;">
+            <input type="checkbox" name="staff_google_signin_required" value="1"<?= ($settings['staff_google_signin_required'] ?? '0') === '1' ? ' checked' : '' ?>>
+            <span>Require Google — hide email + PPS form (staff must use Gmail that matches registration)</span>
+        </label>
+        <div class="form-group form-group--full">
+            <label class="form-label" for="staff_google_oauth_redirect_uri">Staff redirect URI override (optional)</label>
+            <input class="form-input" type="text" id="staff_google_oauth_redirect_uri" name="staff_google_oauth_redirect_uri" value="<?= h($settings['staff_google_oauth_redirect_uri'] ?? '') ?>" placeholder="<?= h(staffGoogleOAuthRedirectUri($pdo)) ?>">
+        </div>
+        <div class="form-actions form-actions--end" style="flex-wrap:wrap;gap:0.5rem;">
+            <button type="submit" class="btn btn--primary">Save staff Google sign-in</button>
+            <?php if (isStaffGoogleSigninConfigured($pdo)): ?>
+                <button type="submit" class="btn btn--secondary" formaction="settings-production.php" name="action" value="staff_google_signin_go_live"
+                    onclick="return confirm('Turn ON Gmail sign-in and REQUIRE it for the staff app? Venue QR still uses email + PPS. Add the redirect URI in Google Cloud first.');">
+                    Enable &amp; require Gmail (go live)
+                </button>
+            <?php endif; ?>
+            <a href="staff-google-signin-diagnostic.php" class="btn btn--secondary">Diagnostic</a>
+        </div>
+    </form>
+</section>
+
 <section class="card erp-settings-panel" id="staff-profile-gate">
     <div class="card__header">
         <h2 class="card__title">Staff profile update (mobile app)</h2>
@@ -439,7 +505,7 @@ if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
     <?php if ($profileGateOn): ?>
         <div class="alert alert--warning alert--visible">
             <strong>Active.</strong> <?= (int) $staffNeedingProfile ?> staff member(s) still need to update their profile on
-            <a href="../staff-app.php" target="_blank" rel="noopener">staff-app.php</a>.
+            <a href="<?= h($staffAppUrl) ?>" target="_blank" rel="noopener">staff-app.php</a>.
         </div>
     <?php else: ?>
         <div class="alert alert--visible" style="background:#f1f5f9;border-color:#cbd5e1;color:#334155;">
@@ -467,10 +533,83 @@ if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
     </form>
 </section>
 
+<section class="card erp-settings-panel" id="mobile-api">
+    <div class="card__header">
+        <h2 class="card__title">Mobile API (Native Android)</h2>
+        <p class="card__subtitle">REST API at <code>/api/mobile/v1/</code> for the future native staff app. Web staff app (PWA/TWA) is unchanged.</p>
+    </div>
+
+    <?php if (mobileApiIsEnabled($pdo)): ?>
+        <div class="alert alert--success alert--visible">
+            <strong>Enabled.</strong> Auth endpoints accept requests when JWT secret is set.
+            OpenAPI: <code>docs/api/mobile/openapi.yaml</code>
+        </div>
+    <?php else: ?>
+        <div class="alert alert--visible" style="background:#f1f5f9;border-color:#cbd5e1;color:#334155;">
+            Disabled — <code>GET /api/mobile/v1/config</code> still works; auth returns 503 until enabled.
+        </div>
+    <?php endif; ?>
+
+    <p class="form-hint form-group--full">
+        JWT secret:
+        <?php if (trim($settings['mobile_jwt_secret'] ?? '') !== ''): ?>
+            <strong>Configured</strong> (<?= h(substr($settings['mobile_jwt_secret'], 0, 8)) ?>…)
+        <?php else: ?>
+            <strong>Not set</strong> — generate before enabling auth.
+        <?php endif; ?>
+        · Base URL: <code><?= h(rtrim(getRegistrationSiteUrl($pdo), '/')) ?>/api/mobile/v1</code>
+    </p>
+
+    <form method="post" class="erp-settings-form">
+        <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+        <input type="hidden" name="action" value="mobile_api_settings">
+
+        <label class="form-checkbox" style="margin-bottom:0.75rem;">
+            <input type="checkbox" name="mobile_api_enabled" value="1"<?= ($settings['mobile_api_enabled'] ?? '0') === '1' ? ' checked' : '' ?>>
+            <span>Enable Mobile API (auth, shifts, check-in — Sprint 1+: auth only until later sprints)</span>
+        </label>
+
+        <div class="form-group">
+            <label class="form-label" for="mobile_min_app_version">Minimum app version</label>
+            <input class="form-input" type="text" id="mobile_min_app_version" name="mobile_min_app_version" value="<?= h($settings['mobile_min_app_version'] ?? '1.0.0') ?>" maxlength="20">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="mobile_jwt_access_ttl">Access token TTL (seconds)</label>
+            <input class="form-input" type="number" id="mobile_jwt_access_ttl" name="mobile_jwt_access_ttl" value="<?= h($settings['mobile_jwt_access_ttl'] ?? '900') ?>" min="60" max="3600">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="mobile_jwt_refresh_days">Refresh token lifetime (days)</label>
+            <input class="form-input" type="number" id="mobile_jwt_refresh_days" name="mobile_jwt_refresh_days" value="<?= h($settings['mobile_jwt_refresh_days'] ?? '90') ?>" min="1" max="365">
+        </div>
+
+        <div class="form-group form-group--full">
+            <label class="form-label" for="fcm_project_id">Firebase project ID (Sprint 5+)</label>
+            <input class="form-input" type="text" id="fcm_project_id" name="fcm_project_id" value="<?= h($settings['fcm_project_id'] ?? '') ?>" placeholder="olasentra-staff">
+        </div>
+
+        <div class="form-group form-group--full">
+            <label class="form-label" for="fcm_service_account_path">FCM service account path on server</label>
+            <input class="form-input" type="text" id="fcm_service_account_path" name="fcm_service_account_path" value="<?= h($settings['fcm_service_account_path'] ?? '') ?>" placeholder="storage/firebase/service-account.json">
+            <p class="form-hint">Do not commit this file. Upload via FTP/cPanel separately.</p>
+        </div>
+
+        <div class="form-actions form-actions--end" style="flex-wrap:wrap;gap:0.5rem;">
+            <button type="submit" class="btn btn--primary">Save Mobile API settings</button>
+            <a href="mobile-api-qa.php" class="btn btn--secondary">Mobile API QA (temporary)</a>
+            <button type="submit" name="generate_mobile_jwt_secret" value="1" class="btn btn--secondary"
+                onclick="return confirm('Generate a new JWT secret? All existing mobile tokens will stop working.');">
+                Generate JWT secret
+            </button>
+        </div>
+    </form>
+</section>
+
 <section class="card erp-settings-panel" id="pwa-push">
     <div class="card__header">
         <h2 class="card__title">PWA &amp; push notifications</h2>
-        <p class="card__subtitle">Staff install the app from <a href="../staff-app.php" target="_blank" rel="noopener">staff-app.php</a>. Push alerts when registration is approved (requires HTTPS + composer).</p>
+        <p class="card__subtitle">Staff install the app from <a href="<?= h($staffAppUrl) ?>" target="_blank" rel="noopener">staff-app.php</a>. Push alerts when registration is approved (requires HTTPS + composer).</p>
     </div>
 
     <form method="post" class="erp-settings-form">

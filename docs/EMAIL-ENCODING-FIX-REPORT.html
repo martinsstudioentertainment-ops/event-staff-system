@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Email Encoding Fix — Implementation Report</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+.meta{color:#64748b;font-size:.9rem}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #6ee7b7;background:#ecfdf5}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.85rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.pass{color:#047857;font-weight:700}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.82em}
+pre{background:#0f172a;color:#e2e8f0;padding:.85rem;border-radius:8px;overflow:auto;font-size:.78rem}
+ul.compact li{margin:.3rem 0}
+</style>
+</head>
+<body>
+
+<h1>Email Encoding Fix — Implementation Report</h1>
+<p class="meta">Generated 6 June 2026 · Scope: ASCII-safe email copy + admin alert P0 fix · Deployed to production · No DB / wizard / Phase B changes</p>
+
+<div class="verdict"><strong>Status: COMPLETE</strong> — Email paths now use ASCII <code>-</code> and <code>|</code> instead of en dash, em dash, and middle dot. Website/UI formatters unchanged. Automated verification PASS. Production FTP upload confirmed for all email modules.</div>
+
+<h2>1. Problem recap</h2>
+<p>Production showed <code>15:00 €" 23:00</code> — UTF-8 en dash bytes (<code>E2 80 93</code>) misread as Windows-1252. Root cause: <code>formatEventTimeRangeLabel()</code> at <code>events-repository.php:578</code> used in email bodies without ASCII-safe output.</p>
+
+<h2>2. Solution</h2>
+<ul class="compact">
+<li>New email-only helpers in <code>includes/email-copy.php</code> wrap UI formatters and normalize punctuation via <code>emailAsciiSafe()</code>.</li>
+<li>All outbound email templates switched to <code>*ForEmail()</code> helpers and ASCII literals in subjects/bodies.</li>
+<li><code>buildStaffEmailHtmlFromLines()</code> applies <code>emailAsciiSafe()</code> as a safety net on each line.</li>
+<li><code>sendAdminAlertEmail()</code> fixed — passes <code>$pdo</code> and plain + HTML parts to <code>sendEmail()</code>.</li>
+<li>UI functions <code>formatEventTimeRangeLabel()</code>, <code>formatEventLabel()</code>, <code>formatEventLocationLabel()</code> <strong>unchanged</strong>.</li>
+</ul>
+
+<h3>ASCII mapping (email only)</h3>
+<table>
+<tr><th>Unicode</th><th>Email replacement</th></tr>
+<tr><td>U+2013 en dash <code>–</code></td><td><code>-</code></td></tr>
+<tr><td>U+2014 em dash <code>—</code></td><td><code>-</code></td></tr>
+<tr><td>U+00B7 middle dot <code>·</code></td><td><code>|</code></td></tr>
+<tr><td>U+2022 bullet <code>•</code></td><td><code>*</code></td></tr>
+</table>
+
+<h2>3. Files modified</h2>
+<table>
+<tr><th>File</th><th>Change</th></tr>
+<tr><td><code>includes/email-copy.php</code></td><td>Added <code>emailAsciiSafe()</code>, <code>formatEventTimeRangeLabelForEmail()</code>, <code>formatEventLabelForEmail()</code>, <code>formatEventLocationLabelForEmail()</code>, <code>formatEmailEventNameDateCell()</code>; ASCII <code>getEmailShortIntro()</code>; HTML line safety net</td></tr>
+<tr><td><code>includes/access-pass-email.php</code></td><td>Email formatters, ASCII subjects, HTML event cell uses <code>|</code></td></tr>
+<tr><td><code>includes/notifications.php</code></td><td>Registration, rejection, check-in emails — ASCII subjects and bodies</td></tr>
+<tr><td><code>includes/reminders.php</code></td><td>Daily reminder + signup nudge — ASCII subjects, formatters, check-in window dash</td></tr>
+<tr><td><code>includes/staff-messaging.php</code></td><td>Event broadcast — ASCII subject, formatters, admin rich-text sanitized</td></tr>
+<tr><td><code>includes/staff-profile-email.php</code></td><td>Profile link + re-verify — ASCII subjects and sign-offs</td></tr>
+<tr><td><code>includes/event-staff-alerts.php</code></td><td>Split in-app title (Unicode) vs email title (ASCII)</td></tr>
+<tr><td><code>includes/notification-center.php</code></td><td><strong>P0:</strong> <code>sendAdminAlertEmail()</code> correct <code>sendEmail($pdo, …)</code> signature</td></tr>
+<tr><td><code>includes/mailer.php</code></td><td>Test email subject ASCII dash</td></tr>
+<tr><td><code>scripts/verify-email-encoding.php</code></td><td>New verification script (not deployed to FTP)</td></tr>
+<tr><td><code>scripts/upload-to-server.ps1</code></td><td>Added <code>mailer.php</code>, <code>smtp-mailer.php</code>, <code>staff-messaging.php</code>, <code>daily-reminders.php</code>, <code>staff-message.php</code> to deploy manifest</td></tr>
+</table>
+
+<p class="meta"><strong>Not modified (UI preserved):</strong> <code>includes/events-repository.php</code>, <code>includes/staff-repository.php</code> core formatters.</p>
+
+<h2>4. Before / after examples</h2>
+<table>
+<tr><th>Context</th><th>Before</th><th>After</th></tr>
+<tr><td>Time range (email)</td><td><code>15:00 – 23:00</code></td><td><code>15:00 - 23:00</code></td></tr>
+<tr><td>Time range (UI)</td><td><code>15:00 – 23:00</code></td><td><code>15:00 – 23:00</code> (unchanged)</td></tr>
+<tr><td>Event label (email)</td><td><code>Longitude 2026 — 05/07/2026</code></td><td><code>Longitude 2026 - 05/07/2026</code></td></tr>
+<tr><td>Location (email)</td><td><code>Aviva Stadium · D04 K5F9</code></td><td><code>Aviva Stadium | D04 K5F9</code></td></tr>
+<tr><td>Access pass HTML event row</td><td><code>Event · 05/07/2026</code></td><td><code>Event | 05/07/2026</code></td></tr>
+<tr><td>Approval subject</td><td><code>Olasentra — Registration confirmed</code></td><td><code>Olasentra - Registration confirmed</code></td></tr>
+<tr><td>Rejection list item</td><td><code>• Longitude 2026 — 05/07/2026 — Door</code></td><td><code>* Longitude 2026 - 05/07/2026 - Door</code></td></tr>
+<tr><td>Check-in window (reminder)</td><td><code>05/07/2026 14:00 – 05/07/2026 23:00</code></td><td><code>05/07/2026 14:00 - 05/07/2026 23:00</code></td></tr>
+<tr><td>Admin alert email</td><td>Broken <code>sendEmail($to, …)</code> — never sent</td><td><code>sendEmail($pdo, $to, $subject, $plain, $html)</code></td></tr>
+</table>
+
+<h3>Byte evidence (email time range)</h3>
+<pre>Before hex: 31353a303020e280932032333a3030  (contains E2 80 93)
+After hex:  31353a3030202d2032333a3030      (ASCII 2d hyphen only)</pre>
+
+<h2>5. Verification</h2>
+
+<h3>5.1 Automated local checks</h3>
+<p>Command: <code>php scripts/verify-email-encoding.php</code></p>
+<p>Result: <strong class="pass">PASS</strong> — JSON: <code>storage/reports/email-encoding-verify-latest.json</code></p>
+<table>
+<tr><th>Check</th><th>Result</th></tr>
+<tr><td>UI formatters still contain Unicode</td><td class="pass">PASS</td></tr>
+<tr><td>Email formatters ASCII-only</td><td class="pass">PASS</td></tr>
+<tr><td>MIME plain body <code>Reporting time: 15:00 - 23:00</code></td><td class="pass">PASS</td></tr>
+<tr><td>HTML QP body has no <code>=E2=80=93</code></td><td class="pass">PASS</td></tr>
+</table>
+
+<h3>5.2 Production deploy</h3>
+<p>FTP upload via <code>deploy.ps1</code> + follow-up <code>scripts/upload-to-server.ps1</code> (exit 0).</p>
+<p>Confirmed uploaded paths:</p>
+<ul class="compact">
+<li><code>includes/email-copy.php</code></li>
+<li><code>includes/mailer.php</code></li>
+<li><code>includes/smtp-mailer.php</code></li>
+<li><code>includes/access-pass-email.php</code></li>
+<li><code>includes/notifications.php</code></li>
+<li><code>includes/reminders.php</code></li>
+<li><code>includes/staff-messaging.php</code></li>
+<li><code>includes/staff-profile-email.php</code></li>
+<li><code>includes/event-staff-alerts.php</code></li>
+<li><code>includes/notification-center.php</code></li>
+<li><code>cron/daily-reminders.php</code></li>
+<li><code>admin/staff-message.php</code></li>
+</ul>
+
+<h3>5.3 Production test emails</h3>
+<p>Live SMTP send from this environment requires admin mailbox credentials (not stored in repo). Recommended manual confirmation on production:</p>
+<ol class="compact">
+<li><strong>Settings → Email → Send test email</strong> — subject should show <code>{site} - Test Email</code> (ASCII hyphen).</li>
+<li><strong>Approve a test registration</strong> — access pass should show <code>Reporting time: HH:MM - HH:MM</code> and <code>Event | date</code> in HTML.</li>
+<li><strong>Trigger check-in notification</strong> (if enabled) — plain body <code>Reporting time: 15:00 - 23:00</code>.</li>
+<li><strong>New registration with admin alert on</strong> — admin inbox receives HTML alert (previously failed silently).</li>
+</ol>
+<p class="meta">After you run a test approval on production, grep the received email source for <code>E2 80 93</code> or visible <code>€"</code> — should be absent in time lines.</p>
+
+<h2>6. Email templates updated (summary)</h2>
+<table>
+<tr><th>Template</th><th>ASCII fix applied</th></tr>
+<tr><td>E01 Registration received</td><td class="pass">Yes</td></tr>
+<tr><td>E02/E03 Access pass / QR</td><td class="pass">Yes</td></tr>
+<tr><td>E04 Rejection</td><td class="pass">Yes</td></tr>
+<tr><td>E05 Daily reminder</td><td class="pass">Yes</td></tr>
+<tr><td>E06 Signup nudge</td><td class="pass">Yes</td></tr>
+<tr><td>E07 Check-in confirmation</td><td class="pass">Yes</td></tr>
+<tr><td>E08 Event broadcast</td><td class="pass">Yes</td></tr>
+<tr><td>E09 New event alert</td><td class="pass">Yes (email title only)</td></tr>
+<tr><td>E10/E11 Profile emails</td><td class="pass">Yes</td></tr>
+<tr><td>E12 Admin registration alert</td><td class="pass">Yes (send fix + ASCII subject prefix)</td></tr>
+<tr><td>E13 Test email</td><td class="pass">Yes</td></tr>
+</table>
+
+<h2>7. Out of scope (unchanged)</h2>
+<ul class="compact">
+<li>Database schema / migrations</li>
+<li>Registration wizard UI copy</li>
+<li>Phase B homepage</li>
+<li>In-app notification titles (still use em dash where appropriate, e.g. <code>New shift —</code>)</li>
+<li><code>getPortalLegalNotice()</code> website-only Unicode</li>
+</ul>
+
+</body>
+</html>

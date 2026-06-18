@@ -3,9 +3,15 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/apply-csrf.php';
 require_once __DIR__ . '/includes/apply-urls.php';
+
+applyInitSecureSession();
+$applyCsrfToken = applyCsrfToken();
 require_once __DIR__ . '/includes/google-sheets-sync.php';
 require_once __DIR__ . '/includes/main-admin-bridge.php';
+require_once __DIR__ . '/includes/legacy-public-redirect.php';
+apply_redirect_legacy_public_surface('legacy-apply-form');
 
 $success = '';
 $error   = '';
@@ -154,7 +160,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
         }
 
-        run_apply_google_sheets_sync($pdo, getMainAdminPdo());
+        try {
+            run_apply_google_sheets_sync($pdo, getMainAdminPdo());
+        } catch (Throwable $e) {
+            error_log('[ApplySync] index registration: ' . $e->getMessage());
+        }
 
         header(
 
@@ -332,6 +342,8 @@ h1{
 
 <form method="POST">
 
+<input type="hidden" id="apply_csrf_token" name="apply_csrf_token" value="<?= htmlspecialchars($applyCsrfToken, ENT_QUOTES, 'UTF-8') ?>">
+
 <input type="text"
        id="last_name"
        name="last_name"
@@ -417,7 +429,7 @@ async function checkExistingStaff() {
     const phone =
         document.getElementById('phone').value.trim();
 
-    if (email === '' && phone === '') {
+    if (email === '' || phone === '') {
 
         return;
     }
@@ -430,6 +442,8 @@ async function checkExistingStaff() {
             + encodeURIComponent(email)
             + '&mobile='
             + encodeURIComponent(phone)
+            + '&csrf_token='
+            + encodeURIComponent(document.getElementById('apply_csrf_token').value)
         );
 
         const data = await response.json();

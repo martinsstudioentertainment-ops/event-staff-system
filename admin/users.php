@@ -69,7 +69,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                                     <td><?= h($user['username']) ?></td>
                                     <td><span class="erp-role-badge erp-role-badge--<?= h($user['role']) ?>"><?= h(formatAdminRoleLabel($user['role'])) ?></span></td>
                                     <td><?= (int) $user['is_active'] ? 'Active' : 'Inactive' ?></td>
-                                    <td><?= !empty($user['last_login_at']) ? h(date('d.m.Y H:i', strtotime($user['last_login_at']))) : '—' ?></td>
+                                    <td><?= !empty($user['last_login_at']) ? h(formatSystemDateTime((string) $user['last_login_at'], $pdo)) : '—' ?></td>
                                     <td>
                                         <div class="action-group">
                                             <a href="users.php?edit=<?= (int) $user['id'] ?>" class="btn btn--secondary btn--sm">Edit</a>

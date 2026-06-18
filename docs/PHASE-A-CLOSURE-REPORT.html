@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase A Closure Report — Registration Wizard v2</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#111}
+h1{font-size:1.6rem} h2{font-size:1.15rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+h3{font-size:1rem;margin-top:1.25rem}
+.meta{color:#64748b;font-size:.9rem}
+.badge{display:inline-block;padding:.25rem .75rem;border-radius:6px;font-weight:700}
+.badge.pass{background:#dcfce7;color:#166534}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.86rem}
+th,td{border:1px solid #cbd5e1;padding:.4rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+code,pre{background:#f1f5f9;padding:.1rem .35rem;border-radius:3px;font-size:.84em}
+pre{padding:.75rem;overflow-x:auto;line-height:1.4}
+.verdict{margin:1.5rem 0;padding:1rem 1.15rem;border-radius:10px;border:1px solid #6ee7b7;background:#ecfdf5}
+ul.compact li{margin:.25rem 0}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+@media(max-width:800px){.cols{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<h1>Phase A Closure Report</h1>
+<p class="meta">Registration Wizard v2 | Closed 2026-06-06 | Production: <a href="https://register.olasentra.com">register.olasentra.com</a></p>
+
+<div class="verdict">
+<strong>Phase A status: COMPLETE</strong> — Sub-phases A.1–A.7 delivered. Live production verification passed (see <a href="WIZARD-LIVE-VERIFICATION-REPORT.html">WIZARD-LIVE-VERIFICATION-REPORT.html</a>). Mobile QA passed with 0 FAIL (<a href="PHASE-A7-MOBILE-QA-REPORT.html">PHASE-A7-MOBILE-QA-REPORT.html</a>). <code>feature_registration_wizard_v2</code> is <strong>ON</strong> in production. Ready for Phase A sign-off; do not start Phase B until approved.
+</div>
+
+<h2>Phase summary</h2>
+<table>
+<thead><tr><th>Sub-phase</th><th>Scope</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>A.1–A.2</td><td>8-step wizard shell, navigation, validation gate</td><td class="badge pass">Done</td></tr>
+<tr><td>A.3</td><td>Returning user, profile status, funnel analytics</td><td class="badge pass">Done</td></tr>
+<tr><td>A.4</td><td>UTF-8, Step 8 review, contact/payroll polish</td><td class="badge pass">Done</td></tr>
+<tr><td>A.5</td><td>E2E submit, error restore, success panel</td><td class="badge pass">Done</td></tr>
+<tr><td>A.6</td><td>Autosave visibility, resume UX</td><td class="badge pass">Done</td></tr>
+<tr><td>Live gate</td><td>Flag enable, production wizard UI proof</td><td class="badge pass">Done</td></tr>
+<tr><td>A.7</td><td>Mobile/tablet QA (4 viewports)</td><td class="badge pass">Done</td></tr>
+</tbody>
+</table>
+
+<h2>A.7 scores (production)</h2>
+<table>
+<tr><th>Metric</th><th>Score</th><th>Notes</th></tr>
+<tr><td>Mobile UX</td><td><strong>91</strong></td><td>11/11 core flows PASS on 390–412px</td></tr>
+<tr><td>Tablet UX</td><td><strong>92</strong></td><td>768px portrait + 1024px landscape captured</td></tr>
+<tr><td>Accessibility</td><td><strong>95</strong></td><td>ARIA progress, live regions, 44px targets; focus ring gap</td></tr>
+<tr><td>Performance</td><td><strong>88</strong></td><td>~81.7KB wizard JS+CSS; sendBeacon analytics</td></tr>
+</table>
+
+<h2>Feature flags</h2>
+<table>
+<thead><tr><th>Flag</th><th>Default</th><th>Production</th><th>Effect</th></tr></thead>
+<tbody>
+<tr><td><code>feature_registration_wizard_v2</code></td><td>OFF (0)</td><td><strong>ON (1)</strong></td><td>8-step wizard on index.php; legacy form when OFF</td></tr>
+</tbody>
+</table>
+<p>Toggle: <a href="https://admin.olasentra.com/feature-flags.php">Admin → Feature flags</a> or <code>cron/wizard-flag-toggle.php?key=…&amp;action=enable|disable|status</code></p>
+
+<h2>Analytics events</h2>
+<p>File-based funnel in <code>storage/analytics/registration-funnel/</code> (no DB schema). Active when wizard flag ON.</p>
+<table>
+<thead><tr><th>Event</th><th>Trigger</th></tr></thead>
+<tbody>
+<tr><td><code>registration_started</code></td><td>Wizard page load (once per session)</td></tr>
+<tr><td><code>step_reached</code></td><td>Each step navigation (payload: <code>step</code> 1–8)</td></tr>
+<tr><td><code>registration_submitted</code></td><td>Form submit / post-success redirect</td></tr>
+<tr><td><code>registration_abandoned</code></td><td>beforeunload / tab hidden (payload: <code>last_step</code>)</td></tr>
+<tr><td><code>event_selected</code></td><td>Shift checkbox checked (payload: <code>event_id</code>, <code>event_name</code>)</td></tr>
+<tr><td><code>returning_user_detected</code></td><td>Email lookup returns existing profile</td></tr>
+<tr><td><code>profile_prefilled</code></td><td>At least one field auto-filled</td></tr>
+<tr><td><code>resume_selected</code></td><td>User taps Resume application</td></tr>
+<tr><td><code>new_application_started</code></td><td>User taps Start fresh</td></tr>
+<tr><td><code>duplicate_application_prevented</code></td><td>Already registered for selected event</td></tr>
+</tbody>
+</table>
+<p><strong>Client-only (not persisted):</strong> <code>server_error_restore</code> — fired on validation error restore; not in server whitelist (see defects).</p>
+<p>Dashboard: <code>includes/admin/registration-funnel-widget.php</code> on admin dashboard when flag ON.</p>
+
+<h2>Rollback process</h2>
+<ol>
+<li><strong>Instant (no deploy):</strong> Admin → Feature flags → uncheck Registration wizard v2 → Save. Next page load serves legacy single-page form.</li>
+<li><strong>Ops URL:</strong> <code>GET /cron/wizard-flag-toggle.php?key=REMINDER_CRON_KEY&amp;action=disable</code></li>
+<li><strong>Verify rollback:</strong> <code>powershell -File scripts\verify-wizard-production.ps1</code> expects <code>data-wizard-mode="0"</code></li>
+<li><strong>Data:</strong> No migrations — autosave is localStorage only; analytics files optional to archive</li>
+<li><strong>Re-enable:</strong> Same paths with <code>action=enable</code> or checkbox ON</li>
+</ol>
+
+<h2>Files created (Phase A)</h2>
+<div class="cols">
+<div>
+<h3>Application code</h3>
+<ul class="compact">
+<li><code>assets/css/registration-wizard.css</code></li>
+<li><code>assets/js/registration-wizard.js</code></li>
+<li><code>assets/js/registration-wizard-validation.js</code></li>
+<li><code>assets/js/registration-wizard-autosave.js</code></li>
+<li><code>assets/js/registration-wizard-returning.js</code></li>
+<li><code>assets/js/registration-wizard-review.js</code></li>
+<li><code>assets/js/registration-wizard-psa.js</code></li>
+<li><code>assets/js/registration-wizard-analytics.js</code></li>
+<li><code>assets/js/registration-wizard-server-restore.js</code></li>
+<li><code>includes/public/registration-wizard-shell.php</code></li>
+<li><code>includes/public/registration-success-panel.php</code></li>
+<li><code>includes/registration-analytics.php</code></li>
+<li><code>includes/registration-returning-profile.php</code></li>
+<li><code>api/registration-analytics-event.php</code></li>
+<li><code>cron/wizard-flag-toggle.php</code></li>
+<li><code>wizard-screenshot-preview.php</code></li>
+<li><code>status-screenshot-preview.php</code></li>
+</ul>
+</div>
+<div>
+<h3>Admin, scripts, docs</h3>
+<ul class="compact">
+<li><code>admin/feature-flags.php</code></li>
+<li><code>includes/admin/registration-funnel-widget.php</code></li>
+<li><code>scripts/e2e-registration-wizard-test.php</code></li>
+<li><code>scripts/verify-wizard-production.ps1</code></li>
+<li><code>scripts/wizard-go-live-verify.ps1</code></li>
+<li><code>scripts/capture-production-wizard-screenshots.ps1</code></li>
+<li><code>scripts/verify-phase-a4.ps1</code> … <code>a7.ps1</code></li>
+<li><code>scripts/run-phase-a7-qa.ps1</code></li>
+<li><code>scripts/capture-phase-a7-screenshots.ps1</code></li>
+<li><code>scripts/generate-phase-a7-report.ps1</code></li>
+<li><code>docs/PHASE-A*.html</code> (A.2–A.7 packages &amp; reports)</li>
+<li><code>docs/WIZARD-LIVE-VERIFICATION-REPORT.html</code></li>
+<li><code>docs/WIZARD-PRODUCTION-INVESTIGATION.html</code></li>
+<li><code>docs/screenshots/a7-mobile-qa/</code> (36 PNGs)</li>
+<li><code>docs/screenshots/wizard-live-production/</code></li>
+</ul>
+</div>
+</div>
+
+<h2>Files modified (Phase A)</h2>
+<ul class="compact">
+<li><code>index.php</code> — wizard gating, step panels, script/CSS includes, analytics session</li>
+<li><code>status.php</code> — registration success confirmation panel</li>
+<li><code>includes/feature-flags.php</code> — <code>feature_registration_wizard_v2</code> definition</li>
+<li><code>api/registrant-lookup.php</code> — returning profile lookup for Step 3</li>
+<li><code>includes/public/staff-public-shell.php</code> — wizard page body classes (minor)</li>
+<li><code>scripts/upload-to-server.ps1</code> — wizard bundle + ops files in FTP list</li>
+</ul>
+<p><strong>Explicitly unchanged per Phase A rules:</strong> <code>submit.php</code> (no wizard coupling), no registration DB schema migrations.</p>
+
+<h2>Known technical debt</h2>
+<ul>
+<li>All wizard JS loaded on Step 1 (~82KB) — defer review/PSA modules until step reached</li>
+<li>Analytics stored as JSON files — no admin export UI beyond funnel widget</li>
+<li>Screenshot preview frames used for steps 2–8 QA (live index hides inactive steps)</li>
+<li>Returning lookup depends on <code>api/registrant-lookup.php</code> rate limits not documented</li>
+<li><code>server_error_restore</code> analytics event not whitelisted server-side</li>
+</ul>
+
+<h2>Known defects (non-blocking)</h2>
+<table>
+<thead><tr><th>Severity</th><th>Defect</th><th>Recommended fix</th></tr></thead>
+<tbody>
+<tr><td>Low</td><td>Dual step labelling (shell name + section h3)</td><td>Hide redundant h3 on mobile or unify copy</td></tr>
+<tr><td>Low</td><td>Progress dots <code>aria-hidden</code></td><td>Expose step position to assistive tech</td></tr>
+<tr><td>Low</td><td>No <code>:focus-visible</code> on wizard controls</td><td>Add focus ring in registration-wizard.css</td></tr>
+<tr><td>Low</td><td>Coordinator banner pushes wizard below fold</td><td>Collapsible notice on registration route</td></tr>
+<tr><td>Info</td><td>PSA photos not in localStorage draft</td><td>Documented in resume prompt (by design)</td></tr>
+</tbody>
+</table>
+
+<h2>Production monitoring recommendations</h2>
+<table>
+<thead><tr><th>Check</th><th>Frequency</th><th>Action</th></tr></thead>
+<tbody>
+<tr><td><code>scripts/verify-wizard-production.ps1</code></td><td>Daily / post-deploy</td><td>Alert if <code>data-wizard-mode≠1</code> when flag should be ON</td></tr>
+<tr><td><code>scripts/e2e-registration-wizard-test.php --url=…</code></td><td>Weekly</td><td>Full submit.php path + PSA API</td></tr>
+<tr><td>Admin funnel widget KPIs</td><td>Weekly review</td><td>Drop-off at steps 2, 7, 8; returning vs new ratio</td></tr>
+<tr><td><code>storage/analytics/registration-funnel/summary.json</code></td><td>Weekly backup</td><td>Include in weekly settings backup job</td></tr>
+<tr><td>Flag state in <code>system_settings</code></td><td>On incident</td><td>Compare with admin feature-flags UI</td></tr>
+<tr><td>Error logs for <code>registration-analytics-event.php</code> 403</td><td>Ad hoc</td><td>Expected for probes without CSRF; spike = misconfig</td></tr>
+</tbody>
+</table>
+
+<h2>Sign-off checklist</h2>
+<ul>
+<li><a href="PHASE-A7-MOBILE-QA-REPORT.html">Phase A.7 Mobile QA Report</a> — PASS (0 FAIL, 3 WARN)</li>
+<li><a href="WIZARD-LIVE-VERIFICATION-REPORT.html">Live production verification</a> — PASS</li>
+<li><a href="PHASE-A5-VERIFICATION-REPORT.html">Phase A.5 E2E verification</a> — PASS</li>
+<li>Production flag ON — confirmed 2026-06-06</li>
+</ul>
+
+<p class="meta">Re-run A.7: <code>powershell -ExecutionPolicy Bypass -File scripts\run-phase-a7-qa.ps1</code></p>
+
+</body>
+</html>

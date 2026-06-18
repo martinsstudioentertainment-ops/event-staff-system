@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A.3 Screenshot — Profile Status Card</title>
+<link rel="stylesheet" href="_preview-styles.css">
+<link rel="stylesheet" href="../../../assets/css/registration-wizard.css">
+<style>
+.status-showcase { display: flex; flex-direction: column; gap: 12px; padding: 12px 0; }
+.status-showcase .reg-profile-card { margin: 0; }
+.status-showcase__label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; color: #64748b; margin: 0 0 -6px; }
+</style>
+</head>
+<body>
+<div class="preview-frame preview-frame--detail">
+<h2 style="font-size:1rem;margin:0 0 12px">Profile Status Card — all states</h2>
+<div class="status-showcase">
+<p class="status-showcase__label">Complete</p>
+<div class="reg-profile-card" style="padding:0.85rem">
+<div class="reg-profile-card__status-row" style="margin:0"><span class="reg-profile-card__status-label">Profile status</span><span class="reg-profile-card__status reg-profile-card__status--complete">Complete</span></div>
+</div>
+<p class="status-showcase__label">Incomplete</p>
+<div class="reg-profile-card" style="padding:0.85rem">
+<div class="reg-profile-card__status-row" style="margin:0"><span class="reg-profile-card__status-label">Profile status</span><span class="reg-profile-card__status reg-profile-card__status--incomplete">Incomplete</span></div>
+</div>
+<p class="status-showcase__label">PSA Missing</p>
+<div class="reg-profile-card" style="padding:0.85rem">
+<div class="reg-profile-card__status-row" style="margin:0"><span class="reg-profile-card__status-label">Profile status</span><span class="reg-profile-card__status reg-profile-card__status--psa-missing">PSA Missing</span></div>
+</div>
+<p class="status-showcase__label">PSA Expiring</p>
+<div class="reg-profile-card" style="padding:0.85rem">
+<div class="reg-profile-card__status-row" style="margin:0"><span class="reg-profile-card__status-label">Profile status</span><span class="reg-profile-card__status reg-profile-card__status--psa-expiring">PSA Expiring</span></div>
+</div>
+<p class="status-showcase__label">Review Required</p>
+<div class="reg-profile-card" style="padding:0.85rem">
+<div class="reg-profile-card__status-row" style="margin:0"><span class="reg-profile-card__status-label">Profile status</span><span class="reg-profile-card__status reg-profile-card__status--review-required">Review Required</span></div>
+</div>
+<hr style="border:none;border-top:1px solid #e2e8f0;margin:8px 0">
+<div class="reg-profile-card">
+<p class="reg-profile-card__welcome">Welcome Back</p>
+<p class="reg-profile-card__lead"><strong>Existing profile found</strong> — empty fields were filled automatically. Your edits are never overwritten.</p>
+<div class="reg-profile-card__grid">
+<div class="reg-profile-card__metric"><span class="reg-profile-card__metric-val">78%</span><span class="reg-profile-card__metric-label">Profile complete</span></div>
+<div class="reg-profile-card__metric"><span class="reg-profile-card__metric-val">2</span><span class="reg-profile-card__metric-label">Events applied</span></div>
+</div>
+<div class="reg-profile-card__status-row">
+<span class="reg-profile-card__status-label">Profile status</span>
+<span class="reg-profile-card__status reg-profile-card__status--psa-expiring">PSA Expiring</span>
+</div>
+<p class="reg-profile-card__compliance"><strong>Compliance:</strong> PSA expiring within 30 days · Application(s) awaiting organiser review</p>
+<div class="reg-profile-card__events-wrap">
+<p class="reg-profile-card__events-title">Events already applied for</p>
+<ul class="reg-profile-card__events"><li>Electric Picnic 2026 · 5 Sep 2026 <span class="reg-profile-card__event-status">(Pending)</span></li></ul>
+</div>
+<p class="reg-profile-card__platform">Olasentra connects people with opportunities. Employment, pay, contracts and working conditions are handled by employers and event organisers.</p>
+</div>
+</div>
+</div>
+</body>
+</html>

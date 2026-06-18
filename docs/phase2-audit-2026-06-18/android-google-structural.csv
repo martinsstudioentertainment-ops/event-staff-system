@@ -1,0 +1,5 @@
+"check","path","exists","bytes","status","notes"
+"google-services.json (staff)","android/olasentra-staff/app/google-services.json","True","1150","PASS","Present"
+"google-services.json (fresh)","android/olasentra-fresh/app/google-services.json","True","683","PASS","Present"
+"build.gradle.kts (fresh)","android/olasentra-fresh/app/build.gradle.kts","True","3969","PASS","Present"
+"local.properties.example","android/olasentra-fresh/local.properties.example","True","80","WARNING","File too small"

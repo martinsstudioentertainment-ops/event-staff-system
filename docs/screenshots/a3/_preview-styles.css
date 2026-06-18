@@ -1,0 +1,50 @@
+/* Screenshot preview — mirrors registration wizard + public shell */
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: #f1f5f9;
+    color: #0f172a;
+    -webkit-font-smoothing: antialiased;
+}
+.preview-frame {
+    margin: 0 auto;
+    background: #fff;
+    min-height: 100vh;
+    box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.06);
+}
+.preview-frame--mobile { max-width: 390px; }
+.preview-frame--tablet { max-width: 768px; }
+.preview-frame--detail { max-width: 390px; padding: 16px; background: #f8fafc; }
+.staff-public-hero { padding: 1rem 1rem 0.5rem; }
+.staff-public-hero__eyebrow { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #6366f1; margin: 0 0 0.25rem; }
+.staff-public-hero__title { font-size: 1.25rem; font-weight: 800; margin: 0 0 0.35rem; line-height: 1.2; }
+.staff-public-hero__lead { font-size: 0.82rem; color: #64748b; margin: 0; line-height: 1.45; }
+.staff-public-card { padding: 0 1rem 1.25rem; }
+.form-label { display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 0.3rem; }
+.form-input, .form-select {
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 1rem;
+    min-height: 44px;
+}
+.form-hint { font-size: 0.72rem; color: #64748b; margin: 0.3rem 0 0; }
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.65rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+}
+.btn--primary { background: #6366f1; color: #fff; }
+.btn--secondary { background: #e2e8f0; color: #334155; }
+.form-group { margin-bottom: 0.85rem; }
+.form-group--full { grid-column: 1 / -1; }
+.reg-wizard__step-title { margin: 0 0 0.75rem; font-size: 1.05rem; font-weight: 700; }

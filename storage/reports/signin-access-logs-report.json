@@ -1,0 +1,17 @@
+﻿{
+    "date":  "10/Jun/2026",
+    "total_hits":  0,
+    "unique_ips":  0,
+    "get_page_loads":  0,
+    "post_submit_attempts":  0,
+    "note":  "Access logs show IPs only â€” not staff names. POST = someone submitted email/PPS form.",
+    "unique_ip_list":  [
+
+                       ],
+    "post_requests":  [
+
+                      ],
+    "get_sample":  [
+
+                   ]
+}

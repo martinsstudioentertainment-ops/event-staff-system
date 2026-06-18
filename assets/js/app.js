@@ -299,8 +299,10 @@
         const checkedShifts = shiftList
             ? shiftList.querySelectorAll('input[name="event_ids[]"]:checked:not(:disabled)')
             : [];
-        if (!shiftList || checkedShifts.length === 0) {
-            showFieldError('event_ids', 'Please tick at least one shift you want to work.');
+        const joinWaitlist = document.getElementById('join_waiting_list');
+        const waitlistOk = joinWaitlist && joinWaitlist.checked;
+        if ((!shiftList || checkedShifts.length === 0) && !waitlistOk) {
+            showFieldError('event_ids', 'Please tick at least one shift, or join the waiting list.');
             isValid = false;
         }
 
@@ -379,9 +381,14 @@
 
         if (flash === 'success') {
             const count = parseInt(document.body.dataset.registeredCount || '1', 10);
-            const message = count === 1
-                ? 'Registration submitted successfully for 1 event! Your application is pending approval.'
-                : 'Registration submitted successfully for ' + count + ' events! Your applications are pending approval.';
+            const autoApproved = parseInt(document.body.dataset.autoApprovedCount || '0', 10) > 0;
+            const message = autoApproved
+                ? (count === 1
+                    ? 'Registration submitted successfully for 1 event! Your application has been approved.'
+                    : 'Registration submitted successfully for ' + count + ' events! Your applications have been approved.')
+                : (count === 1
+                    ? 'Registration submitted successfully for 1 event! Your application is pending approval.'
+                    : 'Registration submitted successfully for ' + count + ' events! Your applications are pending approval.');
             showAlert(message, 'success');
         } else if (flash === 'db') {
             showAlert('We could not save your registration. Please try again in a few minutes.', 'error');
@@ -529,12 +536,23 @@
     }
 
     async function initRegistrationForm() {
-        const form = document.getElementById('registration-form');
+        const shiftList = document.getElementById('shift-picker-list');
         if (typeof initShiftSelection === 'function') {
-            await initShiftSelection();
+            try {
+                await initShiftSelection();
+            } catch (err) {
+                console.error('[EventStaff] Shift picker failed:', err);
+                if (shiftList) {
+                    shiftList.innerHTML = '<p class="form-hint shift-picker-list--error">Could not load shifts. Please refresh the page.</p>';
+                }
+            }
         } else if (typeof initVenueEventSelection === 'function') {
             await initVenueEventSelection();
+        } else if (shiftList && shiftList.textContent.indexOf('Loading shifts') !== -1) {
+            shiftList.innerHTML = '<p class="form-hint shift-picker-list--error">Could not load shifts. Please refresh the page.</p>';
         }
+
+        const form = document.getElementById('registration-form');
         if (!form) return;
 
         function syncRoleFromFormSlug() {
@@ -585,11 +603,27 @@
                     return;
                 }
                 form.dataset.submitting = '1';
-                var regSubmitBtn = form.querySelector('[type="submit"]');
+                var regSubmitBtn = form.querySelector('[type="submit"]') || document.getElementById('reg-wizard-submit');
+                var submitLabel = regSubmitBtn ? (regSubmitBtn.textContent || 'Submit registration') : 'Submit registration';
                 if (regSubmitBtn) {
                     regSubmitBtn.disabled = true;
                     regSubmitBtn.textContent = 'Submitting…';
                 }
+                window.setTimeout(function () {
+                    if (form.dataset.submitting !== '1') {
+                        return;
+                    }
+                    form.dataset.submitting = '';
+                    if (regSubmitBtn) {
+                        regSubmitBtn.disabled = false;
+                        regSubmitBtn.textContent = submitLabel;
+                    }
+                    var alertEl = document.getElementById('form-alert');
+                    if (alertEl) {
+                        alertEl.textContent = 'Submission is taking longer than expected. Please check your connection and try again.';
+                        alertEl.className = 'alert alert--error alert--visible';
+                    }
+                }, 90000);
                 return;
             }
 

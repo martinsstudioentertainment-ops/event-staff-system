@@ -24,5 +24,6 @@ try {
         ]
     );
 } catch (PDOException $e) {
-    die('Event Database connection failed: ' . $e->getMessage());
+    error_log('[ApplyBridge] eventstaff-database: ' . $e->getMessage());
+    $eventPdo = null;
 }

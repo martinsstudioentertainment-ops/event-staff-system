@@ -33,7 +33,8 @@
         }
 
         if (!override.checked) {
-            amount.value = formatMoney(parseNum(hoursBilled.value) * parseNum(rate.value));
+            var lineTotal = Math.round(parseNum(hoursBilled.value) * parseNum(rate.value) * 100) / 100;
+            amount.value = lineTotal.toFixed(2);
         }
 
         return parseNum(amount.value);

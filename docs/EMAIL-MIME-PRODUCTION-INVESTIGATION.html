@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Email MIME — Production Investigation</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+h3{font-size:.98rem;margin-top:1.25rem;color:#334155}
+.meta{color:#64748b;font-size:.9rem}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #fca5a5;background:#fef2f2}
+.verdict.ok{border-color:#6ee7b7;background:#ecfdf5}
+.verdict.warn{border-color:#fcd34d;background:#fffbeb}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.85rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.pass{color:#047857;font-weight:700}.fail{color:#b91c1c;font-weight:700}.high{color:#c2410c;font-weight:600}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.82em}
+pre{background:#0f172a;color:#e2e8f0;padding:.85rem;border-radius:8px;overflow:auto;font-size:.74rem;white-space:pre-wrap}
+.shots{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0}
+.shot{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#f8fafc}
+.shot img{width:100%;display:block}
+.shot figcaption{padding:.5rem .65rem;font-size:.78rem;background:#fff;border-top:1px solid #e2e8f0}
+ul.compact li{margin:.3rem 0}
+.note{font-size:.88rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.75rem 1rem}
+</style>
+</head>
+<body>
+
+<h1>Email MIME — Production Investigation</h1>
+<p class="meta">Generated 6 June 2026 · Live defect reported · <strong>Audit only — no code changes</strong> · Supersedes pass/fail interpretation in <code>docs/EMAIL-MIME-FIX-REPORT.html</code> for SMTP-delivered mail</p>
+
+<div class="verdict"><strong>Why production still looks broken:</strong> The <code>buildEmailMimePayload()</code> multipart fix <em>is present in repo and was deployed</em>, but <strong>production uses SMTP transport</strong>, and <code>smtpDotStuff()</code> in <code>includes/smtp-mailer.php</code> <strong>corrupts every CRLF</strong> in the MIME body (<code>\r\n</code> → <code>\r\r\n</code>) before DATA transmission. That breaks <code>multipart/alternative</code> parsing in clients. Users then see raw inner MIME headers (<code>Content-Type:</code>, <code>Content-Transfer-Encoding:</code>), quoted-printable HTML (<code>=3D</code>, <code>&lt;div&gt;</code>, <code>&lt;br&gt;</code>), and non-clickable links — matching live screenshots.</div>
+
+<h2>1. Live symptoms (user-reported)</h2>
+<ul class="compact">
+<li>Raw HTML visible in message body</li>
+<li><code>Content-Type</code> and <code>Content-Transfer-Encoding</code> lines visible <em>inside</em> the email body</li>
+<li><code>&lt;div&gt;</code>, <code>&lt;p&gt;</code>, <code>&lt;br&gt;</code> tags visible</li>
+<li><code>=3D</code> quoted-printable artefacts and soft-break word splits</li>
+<li>Broken formatting and non-clickable links</li>
+</ul>
+
+<div class="shots">
+<figure class="shot" style="grid-column:1/-1">
+<img src="screenshots/email-production/registration-received-gmail-broken-2026-06-06.png" alt="Live production — Registration Received in Gmail">
+<figcaption><strong>Live production (6 Jun 2026)</strong> — “Registration Received” from <code>noreply@olasentra.com</code>. Inner part headers (<code>Content-Type:</code>, <code>Content-Transfer-Encoding: quoted-printable</code>) appear <em>inside</em> the message body, plus raw <code>&lt;div&gt;</code>/<code>&lt;p&gt;</code> and <code>=3D</code> artefacts. This signature matches SMTP <code>smtpDotStuff()</code> CRLF corruption breaking <code>multipart/alternative</code> parsing — not the original builder-only defect.</figcaption>
+</figure>
+<figure class="shot">
+<img src="screenshots/email-rejection/rejection-broken-gmail.png" alt="Earlier defect pattern — QP HTML as plain text">
+<figcaption><strong>Earlier pattern</strong> — QP HTML shown undecoded (pre-multipart fix). Similar visual result; live mail additionally leaks inner MIME headers.</figcaption>
+</figure>
+<figure class="shot">
+<img src="screenshots/email-rejection/rejection-html-gmail.png" alt="Expected HTML render">
+<figcaption><strong>Expected</strong> — HTML decoded and rendered. Requires intact multipart boundaries on the SMTP wire.</figcaption>
+</figure>
+</div>
+
+<h2>2. Investigation questions</h2>
+<table>
+<tr><th>Question</th><th>Answer</th></tr>
+<tr><td>Was the root cause in EMAIL-MIME-ROOT-CAUSE-REPORT correct?</td><td class="pass"><strong>Yes</strong> — single-part HTML-only MIME discarded plain text. That caused QP HTML shown as plain text.</td></tr>
+<tr><td>Was the multipart fix implemented?</td><td class="pass"><strong>Yes</strong> — <code>buildEmailMimePayload()</code> in <code>includes/mailer.php</code> emits <code>multipart/alternative</code> when both plain + HTML exist.</td></tr>
+<tr><td>Was it deployed?</td><td class="pass"><strong>Yes</strong> — <code>deploy.ps1</code> uploads <code>includes/mailer.php</code> (confirmed 6 June 2026). Production cron <code>email-production-verify.php</code> uses same file via <code>sendEmail()</code>.</td></tr>
+<tr><td>Is deployed code executed on production sends?</td><td class="pass"><strong>Yes</strong> — production verify reports <code>transport: smtp</code>. All <code>sendEmail()</code> paths call <code>sendSmtpMessage()</code> when SMTP is configured.</td></tr>
+<tr><td>Why do prior reports show PASS?</td><td class="high">Verification tested <code>buildEmailMimePayload()</code> output <em>before</em> <code>smtpDotStuff()</code>. No test parsed the post-SMTP wire payload in a real client inbox.</td></tr>
+<tr><td>Is there a bypass path?</td><td class="fail"><strong>SMTP dot-stuffing layer</strong> — not a separate mailer. All dual-format templates still call <code>sendEmail()</code> → <code>sendSmtpMessage()</code> → <code>smtpDotStuff()</code>. No PHPMailer / apply-site duplicate mailer found.</td></tr>
+</table>
+
+<h2>3. Exact root cause (current production)</h2>
+
+<h3>3.1 Layer 1 — original defect (fixed in builder)</h3>
+<pre>Before fix: buildEmailMimePayload() returned text/html + quoted-printable only
+→ Plain-text clients showed undecoded HTML (rejection-broken-gmail.png)</pre>
+
+<h3>3.2 Layer 2 — active production defect (SMTP wire corruption)</h3>
+<pre>sendSmtpMessage() in includes/smtp-mailer.php:
+
+  $mime = buildEmailMimePayload($body, $htmlBody);   // ✅ multipart correct
+  $payload = headers + "\r\n\r\n" + $mime['body'];   // body already uses \r\n
+  $payload = smtpDotStuff($payload);                 // ❌ corrupts line endings
+
+smtpDotStuff():
+  $payload = str_replace("\n", "\r\n", $payload);
+
+For a string already using CRLF, each \n in \r\n is expanded → \r\r\n
+Result: 47 corrupted line endings in a typical rejection message (audit run)</pre>
+
+<h3>3.3 Why clients show MIME headers in the body</h3>
+<p>When boundary lines and part headers are separated by <code>\r\r\n</code> instead of RFC 2046 <code>\r\n</code>, many clients (Gmail Android, Outlook, Apple Mail) <strong>fail to parse multipart</strong> and display the entire DATA payload as a single plain-text blob — including:</p>
+<ul class="compact">
+<li><code>Content-Type: text/plain; charset=UTF-8</code></li>
+<li><code>Content-Transfer-Encoding: 8bit</code></li>
+<li><code>Content-Type: text/html; charset=UTF-8</code></li>
+<li>Quoted-printable HTML body with <code>=3D</code></li>
+</ul>
+
+<h3>3.4 PHP mail() path (not production default)</h3>
+<p><code>sendEmail()</code> php_mail branch calls <code>buildEmailMimePayload()</code> directly without <code>smtpDotStuff()</code>. If transport were switched to php_mail, multipart would likely parse correctly — but production verify confirms <strong>SMTP</strong>.</p>
+
+<h2>4. Code paths reviewed</h2>
+<table>
+<tr><th>File</th><th>Role</th><th>Finding</th></tr>
+<tr><td><code>includes/mailer.php</code></td><td><code>buildEmailMimePayload()</code>, <code>sendEmail()</code></td><td>Multipart builder correct. Routes SMTP vs php_mail.</td></tr>
+<tr><td><code>includes/smtp-mailer.php</code></td><td><code>sendSmtpMessage()</code>, <code>smtpDotStuff()</code></td><td class="fail"><strong>Defect:</strong> double-CR corruption on CRLF payloads.</td></tr>
+<tr><td><code>includes/notifications.php</code></td><td>Rejection, confirmation</td><td>Uses <code>sendEmail($text, $html)</code> — hits SMTP path.</td></tr>
+<tr><td><code>includes/access-pass-email.php</code></td><td>Access pass</td><td>Same.</td></tr>
+<tr><td><code>includes/reminders.php</code></td><td>Event reminder</td><td>Plain-only — less affected (no inner MIME headers), still gets CRLF corruption.</td></tr>
+<tr><td><code>includes/event-staff-alerts.php</code></td><td>Admin alert</td><td>Dual-format via SMTP.</td></tr>
+</table>
+
+<h2>5. Wire-format evidence</h2>
+<p>Audit: <code>php scripts/audit-smtp-mime-wire.php</code> → <code>storage/reports/smtp-mime-wire-audit-latest.json</code></p>
+<pre>mime_builder.is_multipart: true
+smtp_dotstuff.double_cr_before_lf_after: 47
+smtp_dotstuff.corruption_detected: true
+
+Wire sample after smtpDotStuff:
+--=_Olasentra_…\r\r\n
+Content-Type: text/plain; charset=UTF-8\r\r\n
+Content-Transfer-Encoding: 8bit\r\r\n
+…
+--=_Olasentra_…\r\r\n
+Content-Type: text/html …</pre>
+
+<h2>6. Prior reports vs live behaviour</h2>
+<table>
+<tr><th>Report / test</th><th>What it proved</th><th>What it did NOT prove</th></tr>
+<tr><td><code>EMAIL-MIME-ROOT-CAUSE-REPORT</code></td><td>Builder discarded plain text</td><td>SMTP wire integrity</td></tr>
+<tr><td><code>verify-email-mime.php</code> 12/12 PASS</td><td><code>buildEmailMimePayload()</code> structure</td><td>Post-<code>smtpDotStuff</code> client rendering</td></tr>
+<tr><td><code>verify-email-production.php</code> 5/5 PASS</td><td>SMTP accept + template encoding scan</td><td>Inbox rendering on Gmail/Outlook/Apple</td></tr>
+<tr><td><code>EMAIL-MIME-FIX-REPORT</code> screenshots</td><td>HTML/ plain previews from generated HTML files</td><td>Actual received SMTP messages</td></tr>
+</table>
+
+<h2>7. Recommended fix (awaiting approval)</h2>
+<ol class="compact">
+<li><strong>P0:</strong> Fix <code>smtpDotStuff()</code> to normalize line endings before dot-stuffing:<br>
+<code>$payload = str_replace(["\r\n","\r"], "\n", $payload);</code><br>
+<code>$payload = str_replace("\n", "\r\n", $payload);</code></li>
+<li><strong>P0:</strong> Add <code>scripts/verify-smtp-mime-wire.php</code> asserting zero <code>\r\r\n</code> after dot-stuff; fail CI if corruption detected.</li>
+<li><strong>P1:</strong> Extend production verify to fetch/log first KB of sent MIME from SMTP debug or IMAP test inbox and assert parseable multipart.</li>
+<li><strong>P1:</strong> Capture real inbox screenshots after fix on Gmail Android, Outlook, Apple Mail.</li>
+</ol>
+
+<h2>8. Rollback plan</h2>
+<ol class="compact">
+<li>Revert <code>includes/mailer.php</code> only → restores single-part HTML defect (worse for plain clients).</li>
+<li>Do <strong>not</strong> rollback without also fixing <code>smtpDotStuff()</code> — SMTP corruption affects plain-only mail too.</li>
+<li>Safe rollback target: pre-multipart mailer + fixed smtpDotStuff (if fix applied separately).</li>
+<li>Redeploy: <code>powershell -ExecutionPolicy Bypass -File .\deploy.ps1</code></li>
+</ol>
+
+<h2>9. Templates affected on production SMTP</h2>
+<table>
+<tr><th>Template</th><th>Dual-format?</th><th>SMTP path?</th><th>Live defect expected?</th></tr>
+<tr><td>Registration confirmation</td><td>Yes</td><td>Yes</td><td class="fail">Yes</td></tr>
+<tr><td>Registration approved</td><td>Yes</td><td>Yes</td><td class="fail">Yes</td></tr>
+<tr><td>Access pass</td><td>Yes</td><td>Yes</td><td class="fail">Yes</td></tr>
+<tr><td>Event reminder</td><td>Plain only</td><td>Yes</td><td class="high">Partial (CRLF corruption; no inner headers)</td></tr>
+<tr><td>Rejection email</td><td>Yes</td><td>Yes</td><td class="fail">Yes — matches screenshot evidence</td></tr>
+<tr><td>Admin alert</td><td>Yes</td><td>Yes</td><td class="fail">Yes</td></tr>
+</table>
+
+<p class="meta">Related: <code>docs/EMAIL-MIME-ROOT-CAUSE-REPORT.html</code> · <code>docs/EMAIL-MIME-FIX-REPORT.html</code> · <code>scripts/audit-smtp-mime-wire.php</code></p>
+
+</body>
+</html>

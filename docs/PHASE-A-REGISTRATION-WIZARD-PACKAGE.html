@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Phase A — Registration Wizard v2 Implementation Package</title>
+<style>
+@page { size: A4; margin: 11mm 10mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 8.5pt; line-height: 1.4; color: #0f172a; margin: 0; padding: 14px; }
+.cover { page-break-after: always; text-align: center; padding: 44px 24px; background: #030712; color: #f8fafc; margin: -14px -14px 0; min-height: 96vh; display: flex; flex-direction: column; justify-content: center; }
+.cover h1 { font-size: 20pt; margin: 0 0 8px; }
+.cover p { font-size: 9.5pt; color: #c7d2fe; margin: 5px 0; }
+.cover .meta { color: #64748b; margin-top: 28px; font-size: 8.5pt; }
+h1 { font-size: 15pt; color: #1e1b4b; margin: 0 0 6px; }
+h2 { font-size: 11pt; margin: 16px 0 6px; padding: 5px 10px; background: #030712; color: #fff; border-radius: 4px; page-break-after: avoid; }
+h3 { font-size: 9.5pt; margin: 10px 0 4px; color: #4338ca; page-break-after: avoid; }
+h4 { font-size: 8.5pt; margin: 7px 0 3px; color: #6366f1; }
+.meta { font-size: 7.5pt; color: #64748b; margin-bottom: 8px; }
+table { width: 100%; border-collapse: collapse; margin: 5px 0 8px; font-size: 7pt; }
+th { background: #1e293b; color: #f8fafc; text-align: left; padding: 3px 5px; }
+td { border-bottom: 1px solid #e2e8f0; padding: 3px 5px; vertical-align: top; }
+tr:nth-child(even) td { background: #f8fafc; }
+ul, ol { margin: 4px 0 7px; padding-left: 16px; }
+li { margin: 2px 0; }
+pre { background: #0f172a; color: #e2e8f0; padding: 7px 9px; font-size: 6.5pt; border-radius: 4px; white-space: pre-wrap; margin: 5px 0; }
+.callout { border-left: 3px solid #6366f1; background: #eef2ff; padding: 7px 9px; margin: 7px 0; font-size: 8pt; }
+.callout.ok { border-color: #22c55e; background: #f0fdf4; }
+.callout.warn { border-color: #f59e0b; background: #fff7ed; }
+.callout.crit { border-color: #ef4444; background: #fef2f2; }
+.page-break { page-break-before: always; }
+code { font-size: 6.5pt; background: #f1f5f9; padding: 1px 3px; border-radius: 2px; }
+.wire { background: #f8fafc; border: 1px dashed #94a3b8; padding: 10px; margin: 8px 0; font-family: Consolas, monospace; font-size: 6.5pt; line-height: 1.35; white-space: pre; }
+.phase { font-weight: 700; color: #4338ca; }
+.approve { border: 2px solid #22c55e; padding: 10px; margin: 12px 0; background: #f0fdf4; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+<p>Olasentra · Event Operations Command Platform</p>
+<h1>Phase A Implementation Package</h1>
+<p>Registration Wizard v2 · Apply Secure Admin Roadmap</p>
+<p class="meta">Master Implementation Directive · 6 June 2026<br>Status: <strong>AWAITING APPROVAL — NO CODE UNTIL SIGNED OFF</strong><br>Supersedes prior session instructions · Phases B–I blocked until Phase A approved</p>
+</div>
+
+<h1>Phase A — Registration Wizard v2</h1>
+<p class="meta"><strong>Platform:</strong> P02 Registration Portal · <code>register.olasentra.com</code> · <strong>Flag:</strong> <code>feature_registration_wizard_v2</code> · <strong>Constraint:</strong> No DB changes · <code>submit.php</code> contract unchanged</p>
+
+<div class="callout crit"><strong>Gate:</strong> This document is the implementation package required by the Master Implementation Directive. Do not begin Phases B–I or write wizard code until this package is explicitly approved.</div>
+
+<h2>1. Directive alignment</h2>
+<table>
+<tr><th>Requirement</th><th>Package response</th></tr>
+<tr><td>Multi-step wizard</td><td>8 steps with progress bar + step labels</td></tr>
+<tr><td>Progress indicator</td><td>Sticky header: Step N of 8 + % complete + step names</td></tr>
+<tr><td>Auto-save</td><td>localStorage draft (Phase A.1); no server draft API</td></tr>
+<tr><td>Mobile-first</td><td>Single-column, thumb-zone CTAs, camera-first PSA capture</td></tr>
+<tr><td>Event-first onboarding</td><td>Step 2 = shift selection (before personal details)</td></tr>
+<tr><td>submit.php compatibility</td><td>Single hidden form; all <code>name</code> attrs unchanged</td></tr>
+<tr><td>No DB changes</td><td>Zero migrations; flag in <code>system_settings</code> only</td></tr>
+<tr><td>Feature flag</td><td><code>feature_registration_wizard_v2</code> — default OFF</td></tr>
+<tr><td>Live production rules</td><td>Backup → cleanup audit → deploy → verify → rollback</td></tr>
+</table>
+
+<h2>2. Current state (baseline)</h2>
+<table>
+<tr><th>Item</th><th>Current</th><th>Score</th></tr>
+<tr><td>Layout</td><td>Single page, 20+ fields, events at bottom</td><td>—</td></tr>
+<tr><td>Shift gate</td><td>Locked until PSA photos + all fields complete</td><td>—</td></tr>
+<tr><td>Returning user</td><td><code>api/registrant-lookup.php</code> + <code>returning-registrant.js</code></td><td>—</td></tr>
+<tr><td>Shift picker</td><td><code>events.js</code> + <code>registration-shift-gate.js</code></td><td>—</td></tr>
+<tr><td>Server handler</td><td><code>submit.php</code> → <code>validateRegistration()</code> + PSA + blacklist</td><td>—</td></tr>
+<tr><td>Registration UX score</td><td>Conversion 52 · Mobile 58 · Speed 48</td><td><strong>67 overall</strong></td></tr>
+<tr><td>Target post-Phase A</td><td>—</td><td><strong>90+</strong></td></tr>
+</table>
+
+<h3>2.1 Known pain points (fix in Phase A)</h3>
+<table>
+<tr><th>ID</th><th>Issue</th><th>Wizard fix</th></tr>
+<tr><td>R1</td><td>Events at bottom — users never see value</td><td>Step 2 event-first</td></tr>
+<tr><td>R2</td><td>Shift locked until full form</td><td>Unlock shift browse in Step 2; compliance gate at Step 8</td></tr>
+<tr><td>R3</td><td>Single-page cognitive overload</td><td>8 focused steps</td></tr>
+<tr><td>R4</td><td>No progress indicator</td><td>Sticky progress bar</td></tr>
+<tr><td>R5</td><td>No auto-save</td><td>localStorage draft</td></tr>
+<tr><td>R7</td><td>Clear form button risks data loss</td><td>Replace with "Start over" confirm modal</td></tr>
+<tr><td>R10</td><td>Visual gap vs premium homepage</td><td>Wizard shell matches premium dark tokens</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2>3. Architecture</h2>
+
+<h3>3.1 Flag-gated parallel UI (no route changes)</h3>
+<pre>index.php
+  ├─ feature_registration_wizard_v2 OFF → existing single-page form (unchanged)
+  └─ feature_registration_wizard_v2 ON  → wizard shell + same &lt;form id="registration-form"&gt;
+
+submit.php          → UNCHANGED (same POST field names, CSRF, validation)
+api/registrant-lookup.php → UNCHANGED
+events.js           → REUSED (shift picker logic)
+returning-registrant.js → EXTENDED (wizard step awareness)
+registration-shift-gate.js → ADAPTED (wizard: gate at submit, not step 2)</pre>
+
+<h3>3.2 New files (proposed)</h3>
+<table>
+<tr><th>File</th><th>Purpose</th></tr>
+<tr><td><code>assets/css/registration-wizard.css</code></td><td>Wizard shell, progress, step panels, mobile</td></tr>
+<tr><td><code>assets/js/registration-wizard.js</code></td><td>Step navigation, validation per step, progress</td></tr>
+<tr><td><code>assets/js/registration-wizard-autosave.js</code></td><td>localStorage draft read/write/restore</td></tr>
+<tr><td><code>includes/public/registration-wizard-shell.php</code></td><td>PHP partial: progress bar + step containers</td></tr>
+</table>
+
+<h3>3.3 Modified files (proposed)</h3>
+<table>
+<tr><th>File</th><th>Change</th></tr>
+<tr><td><code>index.php</code></td><td>Load wizard shell when flag ON; wrap fields in step panels</td></tr>
+<tr><td><code>includes/feature-flags.php</code></td><td>Add <code>feature_registration_wizard_v2</code> definition</td></tr>
+<tr><td><code>registration-shift-gate.js</code></td><td>Wizard mode: do not lock Step 2 picker</td></tr>
+<tr><td><code>returning-registrant.js</code></td><td>On lookup success, jump to appropriate step</td></tr>
+<tr><td><code>scripts/upload-to-server.ps1</code></td><td>Include new assets</td></tr>
+</table>
+
+<h3>3.4 Explicitly NOT changed</h3>
+<ul>
+<li><code>submit.php</code> — zero edits</li>
+<li><code>includes/validation.php</code> — zero edits</li>
+<li><code>registrationFormReadyForShiftSelection()</code> — server rule preserved</li>
+<li>Database schema — no migrations</li>
+<li>Routes — <code>index.php</code> and <code>submit.php</code> URLs unchanged</li>
+</ul>
+
+<h2>4. Wizard flow — 8 steps</h2>
+
+<table>
+<tr><th>Step</th><th>Name</th><th>Fields / UI</th><th>Validation (client)</th><th>Server fields</th></tr>
+<tr><td>1</td><td>Welcome</td><td>Trust strip, open events count, role select (if not locked link)</td><td><code>form_slug</code> if applicable</td><td><code>form_slug</code>, <code>staff_role</code></td></tr>
+<tr><td>2</td><td>Pick your gigs</td><td><strong>Shift picker</strong> — events.js list, venue, summary</td><td>≥1 <code>event_ids[]</code></td><td><code>event_ids[]</code>, <code>venue_id</code></td></tr>
+<tr><td>3</td><td>Email</td><td>Email + returning-user banner</td><td>Valid email</td><td><code>email</code></td></tr>
+<tr><td>4</td><td>About you</td><td>Surname, first name, address, eircode, DOB, gender</td><td>All required personal fields</td><td>personal block</td></tr>
+<tr><td>5</td><td>Contact</td><td>Mobile (phone-input component)</td><td>Mobile valid</td><td><code>mobile</code></td></tr>
+<tr><td>6</td><td>Payroll</td><td>PPS, IBAN + trust messaging</td><td>Format checks</td><td><code>pps_number</code>, <code>bank_iban</code></td></tr>
+<tr><td>7</td><td>PSA compliance</td><td>Licence, expiry, front/back camera capture</td><td>Files or existing staff images</td><td>PSA fields + files</td></tr>
+<tr><td>8</td><td>Review &amp; submit</td><td>Summary cards, privacy consent, Submit</td><td>Consent + full client validation</td><td><code>privacy_consent</code></td></tr>
+</table>
+
+<div class="callout warn"><strong>Server shift gate (unchanged):</strong> <code>submit.php</code> still calls <code>registrationFormReadyForShiftSelection()</code> before accepting event selections. Wizard UX allows browsing shifts in Step 2; if user skips compliance and submits, server returns same validation error and wizard restores Step 7 with errors.</div>
+
+<h3>4.1 Mobile wireframe — Step 2 (event-first)</h3>
+<div class="wire">┌─────────────────────────────┐
+│ ●○○○○○○○  Step 2 of 8       │
+│ Pick your gigs              │
+├─────────────────────────────┤
+│ 3 events open near you      │
+│                             │
+│ ┌─────────────────────────┐ │
+│ │ ☑ Sat 14 Jun · Croke Pk │ │
+│ │   DSP · 18:00–23:00     │ │
+│ └─────────────────────────┘ │
+│ ┌─────────────────────────┐ │
+│ │ ☐ Sun 15 Jun · Aviva    │ │
+│ └─────────────────────────┘ │
+│                             │
+│ 1 shift selected            │
+├─────────────────────────────┤
+│ [← Back]      [Continue →]  │
+└─────────────────────────────┘</div>
+
+<h3>4.2 Mobile wireframe — Step 8 (review)</h3>
+<div class="wire">┌─────────────────────────────┐
+│ ●●●●●●●○  Step 8 of 8       │
+│ Review &amp; submit             │
+├─────────────────────────────┤
+│ Shifts (1)          [Edit]  │
+│ Croke Park · Sat 14 Jun     │
+│                             │
+│ Contact             [Edit]  │
+│ jane@example.com            │
+│                             │
+│ PSA                 [Edit]  │
+│ EM123456/00 · expires 2028  │
+│                             │
+│ ☐ Privacy consent           │
+├─────────────────────────────┤
+│ [Submit registration]       │
+└─────────────────────────────┘</div>
+
+<div class="page-break"></div>
+
+<h2>5. POST field contract (frozen)</h2>
+<p>Wizard must submit identical field names. Source of truth: <code>assets/js/registration-fields.js</code> + <code>index.php</code>.</p>
+<table>
+<tr><th>Field</th><th>Type</th><th>Step</th></tr>
+<tr><td><code>csrf_token</code></td><td>hidden</td><td>form root</td></tr>
+<tr><td><code>form_slug</code></td><td>select/hidden</td><td>1</td></tr>
+<tr><td><code>staff_role</code></td><td>hidden</td><td>1</td></tr>
+<tr><td><code>event_ids[]</code></td><td>checkbox hidden inputs</td><td>2</td></tr>
+<tr><td><code>venue_id</code></td><td>hidden</td><td>2</td></tr>
+<tr><td><code>email</code></td><td>email</td><td>3</td></tr>
+<tr><td><code>surname</code>, <code>first_name</code>, <code>full_address</code>, <code>eircode</code>, <code>date_of_birth</code>, <code>gender</code></td><td>text/date/radio</td><td>4</td></tr>
+<tr><td><code>mobile</code> (+ phone component hidden parts)</td><td>tel</td><td>5</td></tr>
+<tr><td><code>pps_number</code>, <code>bank_iban</code></td><td>text</td><td>6</td></tr>
+<tr><td><code>psa_licence</code>, <code>psa_expiry_date</code>, <code>psa_front_image</code>, <code>psa_back_image</code></td><td>text/date/file</td><td>7</td></tr>
+<tr><td><code>privacy_consent</code></td><td>checkbox</td><td>8</td></tr>
+</table>
+
+<h2>6. Auto-save design</h2>
+<table>
+<tr><th>Item</th><th>Spec</th></tr>
+<tr><td>Storage key</td><td><code>olasentra_reg_draft_{form_slug}</code></td></tr>
+<tr><td>Scope</td><td>All text/select/radio/checkbox fields + selected event IDs</td></tr>
+<tr><td>Excluded</td><td>File inputs (PSA images) — browser security</td></tr>
+<tr><td>Trigger</td><td>Debounced 800ms on change + on step transition</td></tr>
+<tr><td>Restore</td><td>On load: banner "Resume where you left off?" with Discard / Continue</td></tr>
+<tr><td>Clear</td><td>On successful submit redirect; on "Start over" confirm</td></tr>
+<tr><td>Expiry</td><td>7 days TTL in stored JSON</td></tr>
+</table>
+
+<h2>7. JavaScript behaviour</h2>
+
+<h3>7.1 Step engine (<code>registration-wizard.js</code>)</h3>
+<ul>
+<li>Panels: <code>.reg-wizard__step[data-step="N"]</code> — only one visible</li>
+<li>Navigation: Back / Continue; Enter key advances when valid</li>
+<li>Per-step validators map to existing field IDs and error spans</li>
+<li>Review step builds read-only summary from live DOM values</li>
+<li>Edit links on review jump to step N without losing data</li>
+<li>Preserves <code>window.SERVER_FORM_ERRORS</code> mapping on validation redirect</li>
+</ul>
+
+<h3>7.2 Shift picker integration</h3>
+<ul>
+<li>Reuse <code>events.js</code> unchanged — mount target remains <code>#shift-picker-list</code></li>
+<li>Wizard Step 2 shows picker immediately (no shift-gate lock in wizard mode)</li>
+<li><code>registration-shift-gate.js</code> checks <code>data-wizard-mode="1"</code> on body → skip lock UI</li>
+<li>Server-side gate on submit unchanged</li>
+</ul>
+
+<h3>7.3 Returning registrant</h3>
+<ul>
+<li>Email step triggers existing lookup debounce</li>
+<li>If <code>found: true</code> + <code>profile_complete</code>: prefill Steps 4–7, show "Welcome back" chip</li>
+<li>If incomplete profile: banner + link to <code>staff-profile.php</code></li>
+<li>Auto-advance suggestion: complete profiles skip to Step 2 if events empty, else Step 8 review</li>
+</ul>
+
+<h2>8. Visual design</h2>
+<table>
+<tr><th>Token</th><th>Value</th><th>Notes</th></tr>
+<tr><td>Background</td><td><code>#030712</code></td><td>Align with premium homepage</td></tr>
+<tr><td>Card</td><td>Glass <code>rgba(15,23,42,0.85)</code></td><td>Existing staff-public-card base</td></tr>
+<tr><td>Accent</td><td><code>#7c3aed</code> / <code>#6366f1</code></td><td>Purple gradient CTAs</td></tr>
+<tr><td>Progress</td><td>Filled dots + bar</td><td>Accessible labels</td></tr>
+<tr><td>Typography</td><td>System UI stack</td><td>Min 16px inputs (iOS zoom prevention)</td></tr>
+</table>
+<p>Load <code>registration-wizard.css</code> only when flag ON. Legacy <code>registration-compact.css</code> remains for flag OFF.</p>
+
+<div class="page-break"></div>
+
+<h2>9. Implementation phases &amp; effort</h2>
+<table>
+<tr><th>Sub-phase</th><th>Work</th><th>Days</th><th>Deploy</th></tr>
+<tr><td class="phase">A.0</td><td>Add flag to <code>feature-flags.php</code>; wire <code>index.php</code> branch (OFF = legacy)</td><td>0.5</td><td>Yes — safe, invisible</td></tr>
+<tr><td class="phase">A.1</td><td>Wizard shell CSS + progress + step panels (empty)</td><td>1</td><td>Flag OFF</td></tr>
+<tr><td class="phase">A.2</td><td>Step 1–2: welcome + event-first shift picker</td><td>2</td><td>Flag OFF</td></tr>
+<tr><td class="phase">A.3</td><td>Steps 3–5: email, personal, contact + returning user</td><td>2</td><td>Flag OFF</td></tr>
+<tr><td class="phase">A.4</td><td>Steps 6–7: payroll + PSA camera UX</td><td>2</td><td>Flag OFF</td></tr>
+<tr><td class="phase">A.5</td><td>Step 8 review + submit + server error restore</td><td>1.5</td><td>Flag OFF</td></tr>
+<tr><td class="phase">A.6</td><td>Auto-save localStorage</td><td>1</td><td>Flag OFF</td></tr>
+<tr><td class="phase">A.7</td><td>QA mobile (iOS Safari, Android Chrome) + a11y</td><td>1.5</td><td>—</td></tr>
+<tr><td class="phase">A.8</td><td>Enable flag ON production + 24h monitor</td><td>0.5</td><td>Flag ON</td></tr>
+<tr><td colspan="2"><strong>Total</strong></td><td><strong>~12 days</strong></td><td></td></tr>
+</table>
+
+<h2>10. Deployment &amp; rollback</h2>
+<pre>Every sub-phase deploy:
+  [0/5] pre-deploy backup (storage/backups/pre-deploy-*.zip)
+  [1/5] cleanup audit (storage/reports/cleanup-latest.json)
+  [2/5] git push
+  [3/5] FTP register + admin assets
+  [4/5] apply site (if apply files touched)
+  [5/5] verification checklist (below)
+
+Rollback (instant):
+  1. Admin → Feature flags → feature_registration_wizard_v2 OFF
+  2. Or restore pre-deploy zip
+  3. No DB rollback needed</pre>
+
+<h2>11. Verification checklist (Phase A.8)</h2>
+<table>
+<tr><th>#</th><th>Test</th><th>Pass criteria</th></tr>
+<tr><td>1</td><td>Flag OFF</td><td>Legacy single-page form identical to today</td></tr>
+<tr><td>2</td><td>New registrant full flow</td><td>submit.php success → status page</td></tr>
+<tr><td>3</td><td>Returning email</td><td>Prefill + additional event registration</td></tr>
+<tr><td>4</td><td>Locked form link (?form=dsp)</td><td>Role locked, wizard works</td></tr>
+<tr><td>5</td><td>One shift per day rule</td><td>Client + server rejection unchanged</td></tr>
+<tr><td>6</td><td>PSA images required</td><td>Server rejects if missing</td></tr>
+<tr><td>7</td><td>Auto-save</td><td>Refresh mid-flow → restore banner works</td></tr>
+<tr><td>8</td><td>Mobile 375px</td><td>No horizontal scroll; CTAs reachable</td></tr>
+<tr><td>9</td><td>CSRF expiry</td><td>Graceful error → same as legacy</td></tr>
+<tr><td>10</td><td>Blacklist email</td><td>Server rejection unchanged</td></tr>
+</table>
+
+<h2>12. Cleanup policy (Phase A)</h2>
+<p>Before Phase A.8 flag ON, run cleanup audit. Expected categories:</p>
+<table>
+<tr><th>Category</th><th>Expected items</th></tr>
+<tr><td>Safe to remove</td><td>None auto-deleted — report only</td></tr>
+<tr><td>Review required</td><td>Empty dirs (e.g. <code>uploads/psa</code>)</td></tr>
+<tr><td>Do not remove</td><td><code>registration-compact.css</code> (legacy fallback), all JS modules</td></tr>
+</table>
+
+<h2>13. Success criteria</h2>
+<table>
+<tr><th>Metric</th><th>Current</th><th>Target</th></tr>
+<tr><td>Registration UX score</td><td>67</td><td>90+</td></tr>
+<tr><td>Mobile UX</td><td>58</td><td>90+</td></tr>
+<tr><td>Step 2 reach rate (analytics)</td><td>N/A</td><td>&gt;85% of starts</td></tr>
+<tr><td>Form completion rate</td><td>baseline TBD</td><td>+20% vs legacy (30-day)</td></tr>
+<tr><td>Median completion time</td><td>baseline TBD</td><td>−25% vs legacy</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2>14. Approval checklist</h2>
+<div class="approve">
+<p><strong>Sign-off required before coding:</strong></p>
+<ol>
+<li>8-step flow and event-first Step 2 approved</li>
+<li>Server shift gate unchanged — UX-only unlock in wizard</li>
+<li>localStorage auto-save (no server draft) approved</li>
+<li>Visual alignment with premium homepage approved</li>
+<li>12-day effort estimate accepted</li>
+<li>Rollback via flag OFF accepted</li>
+</ol>
+<p>Reply <strong>"Approved — proceed Phase A"</strong> to begin sub-phase A.0.</p>
+</div>
+
+<!-- PART B: APPLY SECURE ADMIN ROADMAP -->
+
+<div class="page-break"></div>
+
+<h1>Part B — Apply Secure Admin Roadmap</h1>
+<p class="meta"><strong>Platform:</strong> P03 Apply Secure Admin · <code>apply.olasentra.com</code> · <strong>Rule:</strong> Remains separate from P04 Operations ERP · <strong>Status:</strong> Roadmap only — not in Phase A scope</p>
+
+<div class="callout"><strong>Purpose:</strong> Recruitment &amp; Compliance Command Center — hiring pipeline, PSA verification, compliance risk, recruitment analytics. Does NOT merge into <code>admin.olasentra.com</code>.</div>
+
+<h2>B.1 Current Apply Admin surface</h2>
+<table>
+<tr><th>Page</th><th>Function today</th></tr>
+<tr><td><code>admin/applicants.php</code></td><td>Applicant list</td></tr>
+<tr><td><code>admin/view-staff.php</code></td><td>Staff detail view</td></tr>
+<tr><td><code>admin/edit-staff.php</code></td><td>Edit applicant</td></tr>
+<tr><td><code>admin/psa-compliance.php</code></td><td>PSA compliance table</td></tr>
+<tr><td><code>admin/payroll.php</code></td><td>Payroll export</td></tr>
+<tr><td><code>admin/sync-sheets.php</code></td><td>Google Sheets sync</td></tr>
+<tr><td><code>admin/dashboard.php</code></td><td>Basic dashboard</td></tr>
+</table>
+<p><strong>Current score estimate:</strong> 62/100 · <strong>Target:</strong> 90+</p>
+
+<h2>B.2 Proposed modules (Phases AA–AG)</h2>
+<table>
+<tr><th>Phase</th><th>Module</th><th>Key features</th><th>Flag (proposed)</th><th>Effort</th></tr>
+<tr><td>AA</td><td>Recruitment pipeline</td><td>Kanban: Applied → Verifying → Approved → On hold → Rejected</td><td><code>feature_apply_pipeline</code></td><td>2 wk</td></tr>
+<tr><td>AB</td><td>Verification queue</td><td>PSA + ID review queue, assign reviewer, SLA timers</td><td><code>feature_apply_verification_queue</code></td><td>1.5 wk</td></tr>
+<tr><td>AC</td><td>PSA expiry board</td><td>30/60/90-day expiry lanes, bulk reminders</td><td><code>feature_apply_psa_board</code></td><td>1 wk</td></tr>
+<tr><td>AD</td><td>Compliance dashboard</td><td>Missing docs, expired PSA, incomplete profiles %</td><td><code>feature_apply_compliance_dash</code></td><td>1.5 wk</td></tr>
+<tr><td>AE</td><td>Risk alerts</td><td>Blacklist hits, duplicate PPS, suspicious patterns</td><td><code>feature_apply_risk_alerts</code></td><td>1 wk</td></tr>
+<tr><td>AF</td><td>Recruitment analytics</td><td>Funnel, time-to-approve, source-by-form-slug</td><td><code>feature_apply_analytics</code></td><td>1.5 wk</td></tr>
+<tr><td>AG</td><td>Activity feed</td><td>Cross-applicant timeline (registrations, status changes)</td><td><code>feature_apply_activity_feed</code></td><td>1 wk</td></tr>
+</table>
+
+<h2>B.3 Integration with P04 (bridge only)</h2>
+<ul>
+<li>Existing <code>apply/admin/includes/main-admin-bridge.php</code> — keep SSO + staff sync</li>
+<li>New registrations from P02 still land in main DB; Apply Admin reads via bridge</li>
+<li>No shared nav shell — separate login, separate deploy target (<code>/apply/admin</code>)</li>
+<li>Ops ERP links out to Apply Admin for recruitment tasks (deep links, not merge)</li>
+</ul>
+
+<h2>B.4 Apply Admin success criteria</h2>
+<table>
+<tr><th>Metric</th><th>Target</th></tr>
+<tr><td>Apply Admin UX score</td><td>90+</td></tr>
+<tr><td>Verification queue SLA visibility</td><td>100% of pending items dated</td></tr>
+<tr><td>PSA expiry proactive coverage</td><td>Alert 30 days before expiry</td></tr>
+<tr><td>Recruitment funnel reporting</td><td>Weekly export + dashboard</td></tr>
+</table>
+
+<h2>B.5 Sequencing relative to Master Directive</h2>
+<table>
+<tr><th>Order</th><th>Phase</th><th>When</th></tr>
+<tr><td>1</td><td>A — Registration Wizard</td><td>Now (after package approval)</td></tr>
+<tr><td>2</td><td>B — Homepage polish</td><td>After A live</td></tr>
+<tr><td>3</td><td>C — Design system</td><td>Parallel ok after A.0</td></tr>
+<tr><td>4</td><td>D–I — ERP features</td><td>Per master directive</td></tr>
+<tr><td>5</td><td>AA–AG — Apply Admin</td><td>After Phase A + C (shared ops-ui.css)</td></tr>
+</table>
+
+<h2>15. Master directive phase lock</h2>
+<table>
+<tr><th>Phase</th><th>Name</th><th>Status</th></tr>
+<tr><td>A</td><td>Registration Wizard v2</td><td><strong>Package ready — await approval</strong></td></tr>
+<tr><td>B</td><td>Homepage polish</td><td>Blocked</td></tr>
+<tr><td>C</td><td>Design system (ops-ui.css)</td><td>Blocked</td></tr>
+<tr><td>D</td><td>Command Center</td><td>Blocked</td></tr>
+<tr><td>E</td><td>Unified Inbox</td><td>Blocked</td></tr>
+<tr><td>F</td><td>Auto Approval</td><td>Blocked</td></tr>
+<tr><td>G</td><td>Staff Intelligence</td><td>Blocked</td></tr>
+<tr><td>H</td><td>System Health Center</td><td>Blocked</td></tr>
+<tr><td>I</td><td>AI Operations Assistant</td><td>Blocked</td></tr>
+</table>
+
+<p class="meta" style="margin-top:20px;border-top:1px solid #e2e8f0;padding-top:8px;">
+Olasentra · Phase A Implementation Package · 6 June 2026<br>
+PDF: <code>docs/PHASE-A-REGISTRATION-WIZARD-PACKAGE.pdf</code><br>
+Regenerate: <code>powershell -ExecutionPolicy Bypass -File .\scripts\generate-phase-a-package-pdf.ps1</code>
+</p>
+
+</body>
+</html>

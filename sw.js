@@ -1,19 +1,20 @@
 /**
  * Event Staff System — Service worker (PWA: offline shell + asset cache)
  */
-const CACHE_NAME = 'event-staff-v5';
+const CACHE_NAME = 'event-staff-v9-pwa-ios-fix';
 const OFFLINE_URL = './offline.php';
+const OFFLINE_CHECKIN_QUEUE = 'staff-offline-checkins-v1';
 
 const CORE_ASSETS = [
     './offline.php',
     './staff-app.php',
     './assets/css/staff-app.css',
+    './assets/css/staff-app-v2.css',
     './assets/css/pwa-install.css',
     './assets/css/variables.css',
     './assets/theme.css.php',
     './assets/css/style.css',
     './assets/css/mobile.css',
-    './assets/css/pwa-install.css',
     './assets/js/mobile.js',
     './assets/js/pwa.js',
     './assets/js/pwa-install.js',
@@ -87,6 +88,8 @@ self.addEventListener('notificationclick', function (event) {
         })
     );
 });
+
+// Background sync for offline check-in disabled (Sprint 6.5)
 
 self.addEventListener('fetch', function (event) {
     if (event.request.method !== 'GET') {

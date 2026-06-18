@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Returning User Registration Audit</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1080px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+.meta{color:#64748b;font-size:.9rem}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #6ee7b7;background:#ecfdf5}
+.verdict.warn{border-color:#fcd34d;background:#fffbeb}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.88rem}
+th,td{border:1px solid #cbd5e1;padding:.5rem .65rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.pass{color:#047857;font-weight:700}.fail{color:#b91c1c;font-weight:700}.warn{color:#b45309;font-weight:700}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.85em}
+ul.compact li{margin:.35rem 0}
+</style>
+</head>
+<body>
+<h1>Returning User Registration Audit</h1>
+<p class="meta">Generated 6 June 2026 | Production: <a href="https://register.olasentra.com/index.php">register.olasentra.com</a> | Wizard <code>feature_registration_wizard_v2</code> ON</p>
+
+<div class="verdict"><strong>Functional verdict: PASS</strong> — Returning staff with a complete profile can pick a new event, enter email, and proceed through Steps 4–7 without re-entering personal, mobile, payroll, or PSA text fields. Existing PSA uploads are recognised server-side (upload inputs not required). Automated run: <strong>5.1 seconds</strong> to event selection + lookup + field verification (well under 60s target).</div>
+
+<div class="verdict warn"><strong>UX gaps (non-blocking):</strong> PSA Step 7 still displays “No photo selected” and Step 8 review shows “Not attached” even when photos are on file. Behaviour is correct for submit; copy should say “On file” for returning users.</div>
+
+<h2>Test profile</h2>
+<table>
+<tr><th>Item</th><th>Value</th></tr>
+<tr><td>Email</td><td><code>e2e-wizard-20260606164932@olasentra-e2e.test</code></td></tr>
+<tr><td>Profile</td><td>E2ETest Wizard — DSP, 100% complete, PSA on file</td></tr>
+<tr><td>Prior registration</td><td>Event #7 Katy Perry (approved)</td></tr>
+<tr><td>API</td><td><code>api/registrant-lookup.php</code> — <code>found: true</code>, <code>profile_complete: true</code></td></tr>
+</table>
+
+<h2>Test flow (as requested)</h2>
+<ol class="compact">
+<li>Open wizard (Step 1)</li>
+<li>Step 2 — select an open event (not already registered)</li>
+<li>Step 3 — enter returning email → profile lookup + <code>smartPrefill()</code></li>
+<li>Verify Steps 4–7 fields populated; validate each step can Continue</li>
+</ol>
+<p class="meta">Script: <code>scripts/verify-returning-registration.php</code> · JSON: <code>storage/reports/returning-registration-audit-latest.json</code></p>
+
+<h2>Verification checklist</h2>
+<table>
+<thead><tr><th>Check</th><th>Result</th><th>Wizard value</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>Personal details auto-filled</td><td class="pass">PASS</td><td>Surname, first name, address, eircode, DOB, gender</td><td>All match API profile</td></tr>
+<tr><td>Mobile auto-filled</td><td class="pass">PASS</td><td><code>871234567</code> (national) / E.164 in hidden field</td><td><code>setPhoneInputValue()</code> via lookup</td></tr>
+<tr><td>PPS auto-filled</td><td class="pass">PASS</td><td><code>1234567AB</code></td><td>From registration + staff row</td></tr>
+<tr><td>IBAN auto-filled</td><td class="pass">PASS</td><td><code>IE29AIBK93115212345678</code></td><td>From registration + staff row</td></tr>
+<tr><td>PSA licence auto-filled</td><td class="pass">PASS</td><td><code>EM123456/78</code></td><td>From staff row</td></tr>
+<tr><td>PSA expiry auto-filled</td><td class="pass">PASS</td><td><code>2028-06-06</code></td><td>From staff row</td></tr>
+<tr><td>Existing PSA uploads recognised</td><td class="pass">PASS</td><td><code>psa_front_image.required=false</code>, <code>psa_back_image.required=false</code></td><td><code>has_psa_front/back</code> from API; <code>validateRegistrationPsa()</code> accepts existing staff files on submit</td></tr>
+<tr><td>Continue without re-entering data (Steps 4–7)</td><td class="pass">PASS</td><td>Validation steps 4, 5, 6, 7 all <code>true</code></td><td>Step 8 fails until privacy consent checked — expected</td></tr>
+<tr><td>Welcome back card</td><td class="pass">PASS</td><td><code>#reg-returning-panel</code> visible</td><td>100% complete · 1 event applied</td></tr>
+<tr><td>Profile lookup on email</td><td class="pass">PASS</td><td><code>RegistrationWizardReturning.getLastPayload().found</code></td><td>Debounced input + blur on Step 3</td></tr>
+</tbody>
+</table>
+
+<h2>Step validation (automated)</h2>
+<table>
+<tr><th>Step</th><th>Valid?</th><th>Meaning</th></tr>
+<tr><td>2 — Your gigs</td><td class="pass">Yes</td><td>Event selected</td></tr>
+<tr><td>3 — Email</td><td class="pass">Yes</td><td>Valid email present</td></tr>
+<tr><td>4 — About you</td><td class="pass">Yes</td><td>Prefilled personal fields + gender</td></tr>
+<tr><td>5 — Contact</td><td class="pass">Yes</td><td>Mobile prefilled</td></tr>
+<tr><td>6 — Payroll</td><td class="pass">Yes</td><td>PPS + IBAN prefilled</td></tr>
+<tr><td>7 — PSA</td><td class="pass">Yes</td><td>Licence + expiry prefilled; uploads not required</td></tr>
+<tr><td>8 — Review</td><td class="warn">No</td><td>Privacy consent checkbox not ticked (user must confirm — not a prefill defect)</td></tr>
+</table>
+
+<h2>Defects</h2>
+<table>
+<thead><tr><th>ID</th><th>Severity</th><th>Description</th><th>File(s)</th><th>Blocks 60s goal?</th></tr></thead>
+<tbody>
+<tr><td>R-1</td><td>Low (UX)</td><td>PSA Step 7 status text shows “No photo selected” when <code>has_psa_front/back</code> is true — returning users may think re-upload is mandatory</td><td><code>registration-wizard-psa.js</code>, <code>registration-wizard-returning.js</code></td><td>No — validation passes</td></tr>
+<tr><td>R-2</td><td>Low (UX)</td><td>Step 8 review summary shows PSA photos as “Not attached” when files exist on server (no new file in input)</td><td><code>registration-wizard-review.js</code> <code>psaPhotoStatus()</code></td><td>No — submit uses existing staff PSA paths</td></tr>
+</tbody>
+</table>
+<p><strong>No functional prefill defects found.</strong> No profile field that exists in <code>registrant-lookup.php</code> was left blank in the wizard after lookup.</p>
+
+<h2>Returning user ideal path (confirmed achievable)</h2>
+<ol class="compact">
+<li><strong>Pick event</strong> — Step 2 (skip already-registered cards)</li>
+<li><strong>Confirm details</strong> — Step 3 email triggers lookup; Steps 4–7 are pre-filled — tap Continue through</li>
+<li><strong>Submit</strong> — Step 8 tick privacy consent → Submit</li>
+</ol>
+<p><strong>Target completion time:</strong> Automated instrumentation measured <strong>5.1s</strong> for steps 1→3 + prefill verification. A human returning user tapping Continue through prefilled steps should comfortably finish in <strong>under 60 seconds</strong> excluding deliberate review time.</p>
+
+<h2>Architecture notes (for future fixes)</h2>
+<ul class="compact">
+<li>Prefill: <code>assets/js/registration-wizard-returning.js</code> → <code>smartPrefill()</code> (empty fields only; never overwrites user edits)</li>
+<li>API: <code>api/registrant-lookup.php</code> merges latest <code>staff_registrations</code> row + <code>staff</code> row for PPS/IBAN/PSA</li>
+<li>PSA optional: <code>psa_front_image.required = !profile.has_psa_front</code> — functional recognition</li>
+<li>Submit: <code>validateRegistrationPsa()</code> in <code>includes/staff-psa.php</code> accepts existing staff images without re-upload</li>
+</ul>
+
+<h2>Recommended follow-up (optional, not implemented)</h2>
+<ul class="compact">
+<li>R-1: After lookup, set PSA status to “On file — no re-upload needed” when <code>has_psa_*</code> is true</li>
+<li>R-2: In review summary, show “On file” when uploads not required and staff has images</li>
+</ul>
+
+<p class="meta">Related: <a href="STEP2-EVENT-SELECTION-ROOT-CAUSE-REPORT.html">Step 2 selection fix</a> · <a href="PHASE-B-HOMEPAGE-AUDIT.html">Phase B homepage audit</a></p>
+</body>
+</html>

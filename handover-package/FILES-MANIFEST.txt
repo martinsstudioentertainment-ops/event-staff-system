@@ -1,0 +1,30 @@
+﻿OLASENTRA HANDOVER FILE MANIFEST - 2026-06-14 evening (v1.0.15 update)
+
+NOTE: Live Android APK is on server (24.4 MB):
+  https://register.olasentra.com/staff-app-download.php
+  → olasentra-staff-v1.0.15.apk
+  Refresh android-apk\ in this folder from a fresh build if copying offline.
+
+android-apk\app-production-debug-v1.0.10.apk              24,250,127 bytes  (older — replace)
+branding\app-logo.png                                         44,330 bytes
+branding\dashboard-logo.png                                   44,330 bytes
+branding\login-logo.png                                       44,330 bytes
+branding\olasentra-logo-master.png                            44,330 bytes
+branding\olasentra-whatsapp-share.png                         68,039 bytes
+branding\splash-logo.png                                      44,330 bytes
+FILES-MANIFEST.txt                                                57 bytes
+HANDOVER-COMPLETE.txt                                         24,686 bytes
+local-secrets\config.php                                       1,790 bytes
+local-secrets\database.php                                       862 bytes
+local-secrets\deploy.local.ps1                                   545 bytes
+local-secrets\deploy.local.ps1.example                           987 bytes
+local-secrets\eventstaff-database.php                            615 bytes
+local-secrets\google-services.json                               685 bytes
+local-secrets\local.properties                                   363 bytes
+local-secrets\service-account.json                             2,418 bytes
+scripts-reference\deploy.ps1                                   1,757 bytes
+scripts-reference\deploy-olasentra-branding.ps1                2,852 bytes
+scripts-reference\generate-branding-assets.php                 7,062 bytes
+scripts-reference\push.ps1                                       107 bytes
+scripts-reference\upload-one.ps1                                 465 bytes
+SETUP-NEW-PC.txt                                               2,212 bytes

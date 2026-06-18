@@ -1,0 +1,74 @@
+{
+    "generated_at": "2026-06-06T20:40:44+00:00",
+    "all_pass": true,
+    "dual_mime": {
+        "content_type": "multipart/alternative; boundary=\"=_Olasentra_e3482c2ffaf74a3d0cdcb837\"",
+        "transfer_encoding": "8bit",
+        "body_length": 1884,
+        "plain_extracted": "Dear Test,\n\nThank you for your interest. Your staff registration was not approved at this time.\n\n* Kings Of Leon - 01/07/2026 - Static Security\n  Contractor listed for this shift: Acme Security (confirm pay and duties with them).\n\nView your registration status anytime:\nhttps://register.olasentra.com/status.php?token=test\n\nSent by the registration portal only.\n\nRegards,\nSecurity Update",
+        "html_decoded_sample": "<div style=\"font-family:Segoe UI,Arial,sans-serif;line-height:1.55;color:#111827;max-width:560px;\"><p style=\"margin:0 0 8px;\">Dear Test,</p><br><p style=\"margin:0 0 8px;\">Thank you for your interest. Your staff registration was not approved at this time.</p><br><p style=\"margin:0 0 8px;\">* Kings Of Leon - 01/07/2026 - Static Security</p><p style=\"margin:0 0 8px;\">  Contractor listed for this shift: Acme Security (confirm pay and duties with them).</p><br><p style=\"margin:0 0 8px;\">View your regi",
+        "mime_sample": "--=_Olasentra_e3482c2ffaf74a3d0cdcb837\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDear Test,\r\n\r\nThank you for your interest. Your staff registration was not approved at this time.\r\n\r\n* Kings Of Leon - 01/07/2026 - Static Security\r\n  Contractor listed for this shift: Acme Security (confirm pay and duties with them).\r\n\r\nView your registration status anytime:\r\nhttps://register.olasentra.com/status.php?token=test\r\n\r\nSent by the registration portal only.\r\n\r\nRegards,\r\nSecurity Update\r\n--=_Olasentra_e3482c2ffaf74a3d0cdcb837\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<div style=3D\"font-family:Segoe UI,Arial,sans-serif;line-height:1.55;color:=\r\n#111827;max-width:560px;\"><p style=3D\"margin:0 0 8px;\">Dear Test,</p><br><p=\r\n style=3D\"margin:0 0 8px;\">Thank you for your interest. Your staff registra=\r\ntion was not approved"
+    },
+    "checks": [
+        {
+            "check": "Dual-format uses multipart/alternative",
+            "pass": true,
+            "detail": "multipart/alternative; boundary=\"=_Olasentra_e3482c2ffaf74a3d0cdcb837\""
+        },
+        {
+            "check": "Dual-format outer CTE is 8bit",
+            "pass": true,
+            "detail": "8bit"
+        },
+        {
+            "check": "Plain part present in wire MIME",
+            "pass": true,
+            "detail": "length 387"
+        },
+        {
+            "check": "Plain part matches source text",
+            "pass": true,
+            "detail": "extracted plain equals template plain"
+        },
+        {
+            "check": "Plain part has no HTML tags",
+            "pass": true,
+            "detail": "Dear Test,\n\nThank you for your interest. Your staff registration was not approved at this time.\n\n* Kings Of Leon - 01/07/2026 - Static Security\n  Contractor listed for this shift: Acme Security (confirm pay and duties with them).\n\nView your registration status anytime:\nhttps://register.olasentra.com/status.php?token=test\n\nSent by the registration portal only.\n\nRegards,\nSecurity Update"
+        },
+        {
+            "check": "Plain part has intact words (Contractor, Security, listed, Sent)",
+            "pass": true,
+            "detail": ""
+        },
+        {
+            "check": "HTML part decodes and contains clickable link",
+            "pass": true,
+            "detail": "<div style=\"font-family:Segoe UI,Arial,sans-serif;line-height:1.55;color:#111827;max-width:560px;\"><p style=\"margin:0 0 8px;\">Dear Test,</p><br><p style=\"margin:0 0 8px;\">Thank you for your interest. "
+        },
+        {
+            "check": "HTML QP isolated inside html part (plain not QP-wrapped)",
+            "pass": true,
+            "detail": ""
+        },
+        {
+            "check": "Plain-only unchanged (text/plain 8bit)",
+            "pass": true,
+            "detail": "text/plain; charset=UTF-8"
+        },
+        {
+            "check": "Reminder plain-only unaffected",
+            "pass": true,
+            "detail": "text/plain; charset=UTF-8"
+        },
+        {
+            "check": "HTML-only fallback when plain empty",
+            "pass": true,
+            "detail": "text/html; charset=UTF-8"
+        },
+        {
+            "check": "Boundary markers well-formed",
+            "pass": true,
+            "detail": "boundary prefix _Olasentra_"
+        }
+    ]
+}

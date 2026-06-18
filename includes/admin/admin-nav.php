@@ -10,9 +10,11 @@ function getErpSettingsNavItems(): array
         ['key' => 'branding', 'label' => 'Branding',    'url' => 'website-global.php',       'icon' => 'branding', 'cap' => 'settings'],
         ['key' => 'ui',       'label' => 'UI controls', 'url' => 'settings-theme.php',     'icon' => 'ui',       'cap' => 'settings'],
         ['key' => 'system',   'label' => 'System',      'url' => 'settings-production.php', 'icon' => 'system',   'cap' => 'settings'],
+        ['key' => 'mobile',   'label' => 'Mobile app',  'url' => 'settings-mobile-portal.php', 'icon' => 'general', 'cap' => 'settings'],
+        ['key' => 'preference-locations', 'label' => 'Preference locations', 'url' => 'settings-preference-locations.php', 'icon' => 'geo', 'cap' => 'settings'],
         ['key' => 'email',    'label' => 'Email',       'url' => 'settings-email.php',       'icon' => 'email',    'cap' => 'settings'],
         ['key' => 'security', 'label' => 'Security',    'url' => 'settings-security.php',    'icon' => 'security', 'cap' => 'settings'],
-        ['key' => 'backup',   'label' => 'Backup',      'url' => 'backups.php',              'icon' => 'backup',   'cap' => 'backups'],
+        ['key' => 'backup',   'label' => 'Backup',      'url' => 'backup-center.php',        'icon' => 'backup',   'cap' => 'backups'],
     ];
 }
 
@@ -109,6 +111,8 @@ function getAdminExportNavItems(): array
     return [
         ['key' => 'staff',      'label' => 'Staff CSV',      'url' => 'export-staff.php'],
         ['key' => 'attendance', 'label' => 'Attendance CSV', 'url' => 'export-attendance.php'],
+        ['key' => 'signins',    'label' => 'Event sign-ins', 'url' => 'export-event-signins.php'],
+        ['key' => 'work-hours', 'label' => 'Work hours', 'url' => 'work-hours.php'],
     ];
 }
 

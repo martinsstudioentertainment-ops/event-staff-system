@@ -49,9 +49,13 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <div class="toolbar toolbar--compact">
             <a href="export-invoices-month.php?<?= h($queryBase) ?>" class="btn btn--secondary">Export month CSV</a>
             <a href="print-invoices-month.php?<?= h($queryBase) ?>" class="btn btn--secondary" target="_blank" rel="noopener">Print month summary</a>
+            <a href="personal-invoices.php" class="btn btn--secondary">Personal invoices</a>
+            <a href="job-records.php" class="btn btn--secondary">Staff job records</a>
             <a href="invoice-import.php" class="btn btn--secondary">Import spreadsheet</a>
             <a href="invoice-quick.php" class="btn btn--secondary">Quick invoice</a>
-            <a href="invoice-form.php" class="btn btn--primary">New invoice</a>
+            <a href="personal-invoice-form.php" class="btn btn--primary">+ Personal invoice</a>
+            <a href="job-record-form.php" class="btn btn--secondary">+ Staff job record</a>
+            <a href="invoice-form.php" class="btn btn--secondary">From event sign-ins</a>
         </div>
     </div>
 
@@ -66,7 +70,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <option value="">All events</option>
                 <?php foreach ($events as $event): ?>
                     <option value="<?= (int) $event['id'] ?>"<?= $eventId === (int) $event['id'] ? ' selected' : '' ?>>
-                        <?= h($event['name'] . ' — ' . date('d.m.Y', strtotime($event['event_date']))) ?>
+                        <?= h($event['name'] . ' — ' . formatEventDateLabel((string) $event['event_date'])) ?>
                     </option>
                 <?php endforeach; ?>
             </select>

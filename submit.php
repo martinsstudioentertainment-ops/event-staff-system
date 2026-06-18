@@ -25,6 +25,10 @@ require_once __DIR__ . '/includes/google-sheets-sync.php';
 require_once __DIR__ . '/includes/staff-registration-schema.php';
 require_once __DIR__ . '/includes/status-repository.php';
 require_once __DIR__ . '/includes/staff-psa.php';
+require_once __DIR__ . '/includes/staff-profile-gate.php';
+require_once __DIR__ . '/includes/registration-post-save.php';
+require_once __DIR__ . '/includes/staff-allocation.php';
+require_once __DIR__ . '/includes/staff-google-oauth.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -66,7 +70,44 @@ if ($formSlug !== '') {
 $data['staff_role']     = normalizeStaffRole((string) ($data['staff_role'] ?? ''));
 $data['date_of_birth']  = normalizeDateOfBirthForDb((string) ($data['date_of_birth'] ?? ''));
 prepareMobileFromRequest($data);
-$errors                 = validateRegistration($data);
+$waitlistMode = isWaitlistRegistrationRequest($data);
+
+try {
+    $pdoGoogleCheck = getDB();
+    if (isRegistrationGoogleRequired($pdoGoogleCheck)) {
+        $verifiedGoogleCheck = normalizeRegistrationEmail((string) ($_POST['registration_verified_google_email'] ?? ''));
+        if ($verifiedGoogleCheck === '') {
+            $verifiedGoogleCheck = getRegistrationVerifiedGoogleEmail() ?? '';
+        }
+        if ($verifiedGoogleCheck === '') {
+            $_SESSION['registration_google_error'] = 'Verify your email first (Continue with Google or email verification code).';
+            $_SESSION['registration_errors']       = ['email' => 'Verify your email before submitting.'];
+            $_SESSION['registration_old']          = $_POST;
+            header('Location: index.php?error=validation');
+            exit;
+        }
+    }
+} catch (Throwable $e) {
+    // validated below
+}
+
+$verifiedGoogle = normalizeRegistrationEmail((string) ($_POST['registration_verified_google_email'] ?? ''));
+if ($verifiedGoogle === '') {
+    $verifiedGoogle = getRegistrationVerifiedGoogleEmail() ?? '';
+}
+if ($verifiedGoogle !== '') {
+    $submittedEmail = normalizeRegistrationEmail((string) ($data['email'] ?? ''));
+    if ($submittedEmail === '') {
+        $data['email'] = $verifiedGoogle;
+    } elseif ($submittedEmail !== $verifiedGoogle) {
+        $_SESSION['registration_errors'] = ['email' => 'Email must match the address you verified.'];
+        $_SESSION['registration_old']      = $data;
+        header('Location: ' . registrationFormRedirectPath(['error' => 1], $formSlug));
+        exit;
+    }
+}
+
+$errors   = $waitlistMode ? validateWaitlistRegistration($data) : validateRegistration($data);
 $eventIds = normalizeEventIds($data);
 
 $existingStaff = null;
@@ -77,6 +118,12 @@ try {
     $existingStaff = null;
 }
 $errors = array_merge($errors, validateRegistrationPsa($data, $existingStaff, $_FILES));
+
+if (empty($errors) && ($eventIds !== [] || $waitlistMode)) {
+    if (!registrationFormReadyForShiftSelection($data, $_FILES, $existingStaff)) {
+        $errors['form'] = 'Complete all personal, financial, and PSA details (including card photos) before selecting shifts.';
+    }
+}
 
 if (empty($errors)) {
     try {
@@ -101,22 +148,48 @@ if (empty($errors)) {
 
         $pdo = getDB();
 
+        if ($waitlistMode && $eventIds === []) {
+            $email = normalizeRegistrationEmail((string) ($data['email'] ?? ''));
+            $waitlistResult = saveWaitlistRegistration($pdo, $data, $_FILES);
+            if (!($waitlistResult['ok'] ?? false)) {
+                $errors['form'] = (string) ($waitlistResult['error'] ?? 'Could not save waiting list registration.');
+            } else {
+                $allocationType = normalizeWaitlistAllocationType($data);
+                $message = buildWaitlistSuccessMessage($allocationType, (int) ($data['preferred_event_id'] ?? 0));
+                $_SESSION['registration_status_message'] = $message;
+                $redirectUrl = getRegistrationStatusUrlAfterSave($pdo, [], $email);
 
+                if (isAjaxRequest()) {
+                    registrationFlushResponse('', [
+                        'success'    => true,
+                        'message'    => $message,
+                        'count'      => 0,
+                        'waitlist'   => true,
+                        'status_url' => $redirectUrl,
+                    ]);
+                    exit;
+                }
 
-        $invalidIds = getInvalidEventIds($pdo, $eventIds);
-
-        if ($invalidIds !== []) {
-
-            $errors['event_ids'] = 'One or more selected shifts are no longer open (event finished, full, or date passed).';
-
+                registrationFlushResponse($redirectUrl);
+                exit;
+            }
         } else {
+        $split       = splitEventIdsByAvailability($pdo, $eventIds);
+        $closedIds   = $split['closed'];
+        $fullIds     = $split['full'];
+        $availableIds = $split['available'];
+
+        if ($closedIds !== []) {
+            $errors['event_ids'] = 'One or more selected shifts are no longer open (event finished or date passed).';
+        } else {
+            $eventIds = $availableIds;
 
             $formDef = null;
             if ($formSlug !== '') {
                 $formDef = getRegistrationForm($pdo, $formSlug);
             }
 
-            if ($formDef !== null) {
+            if ($formDef !== null && $eventIds !== []) {
                 $ineligible = getIneligibleEventIdsForForm($pdo, $eventIds, $formDef);
                 if ($ineligible !== []) {
                     $errors['event_ids'] = 'One or more selected shifts are not available on this registration form.';
@@ -127,23 +200,32 @@ if (empty($errors)) {
 
             $email       = normalizeRegistrationEmail((string) ($data['email'] ?? ''));
 
-            $duplicates  = getAlreadyRegisteredEvents($pdo, $email, $eventIds);
+            $duplicates  = $eventIds !== [] ? getAlreadyRegisteredEvents($pdo, $email, $eventIds) : [];
 
             $duplicateIds = array_map(static fn(array $row): int => (int) $row['event_id'], $duplicates);
 
             $newEventIds  = array_values(array_filter(
-
                 $eventIds,
-
                 static fn(int $id): bool => !in_array($id, $duplicateIds, true)
-
             ));
 
+            $waitlistSaved = 0;
+            foreach ($fullIds as $fullEventId) {
+                $waitData = $data;
+                $waitData['preferred_event_id'] = $fullEventId;
+                if (!registrationExistsForEmail($pdo, $email, $fullEventId)) {
+                    $wl = saveWaitlistRegistration($pdo, $waitData, $_FILES);
+                    if ($wl['ok'] ?? false) {
+                        $waitlistSaved++;
+                    }
+                }
+            }
 
+            if ($newEventIds === [] && $waitlistSaved === 0 && $fullIds === []) {
 
-            if ($newEventIds === []) {
-
-                $errors['event_ids'] = formatDuplicateEventsMessage($duplicates);
+                $errors['event_ids'] = $duplicates !== []
+                    ? formatDuplicateEventsMessage($duplicates)
+                    : 'Please select at least one shift or event.';
                 $statusUrl = getRegistrationStatusUrlAfterSave($pdo, [], $email);
                 $_SESSION['registration_status_message'] = $errors['event_ids'];
 
@@ -159,98 +241,62 @@ if (empty($errors)) {
                 header('Location: ' . $statusUrl);
                 exit;
 
+            } elseif ($newEventIds === [] && $waitlistSaved > 0) {
+
+                $message = buildWaitlistSuccessMessage(normalizeWaitlistAllocationType($data), (int) ($fullIds[0] ?? 0));
+                if ($duplicates !== []) {
+                    $message .= ' Already registered (skipped): ' . implode(', ', array_map(static fn(array $row): string => formatEventLabel($row), $duplicates)) . '.';
+                }
+                $_SESSION['registration_status_message'] = $message;
+                $redirectUrl = getRegistrationStatusUrlAfterSave($pdo, [], $email);
+
+                if (isAjaxRequest()) {
+                    registrationFlushResponse('', [
+                        'success'    => true,
+                        'message'    => $message,
+                        'count'      => 0,
+                        'waitlist'   => true,
+                        'status_url' => $redirectUrl,
+                    ]);
+                    exit;
+                }
+
+                registrationFlushResponse($redirectUrl);
+                exit;
+
             } else {
 
-                $ids = saveRegistrations($pdo, $data, $newEventIds, $_FILES);
-
-                try {
-                    notifyStaffRegistrationSubmitted($pdo, $data, $newEventIds, $ids);
-                } catch (Throwable $notifyErr) {
-                    error_log('[EventStaff] Registration email failed: ' . $notifyErr->getMessage());
-                }
-
-                try {
-                    require_once __DIR__ . '/includes/notification-center.php';
-                    $staffName = trim((string) ($data['first_name'] ?? '') . ' ' . (string) ($data['surname'] ?? ''));
-                    foreach ($ids as $regId) {
-                        $row = getStaffRegistrationById($pdo, (int) $regId);
-                        if ($row === null) {
-                            continue;
-                        }
-                        notifyAdminNewRegistration(
-                            $pdo,
-                            $staffName !== '' ? $staffName : 'New applicant',
-                            $email,
-                            (int) $regId,
-                            formatEventLabel($row)
-                        );
-                    }
-                } catch (Throwable $adminNotifyErr) {
-                    error_log('[EventStaff] Admin notification failed: ' . $adminNotifyErr->getMessage());
-                }
-
-                try {
-                    $sheetStats = syncRegistrationsToGoogleSheets($pdo, $ids);
-                    if ($sheetStats['failed'] > 0) {
-                        error_log('[EventStaff] Google Sheets sync failed for ' . $sheetStats['failed'] . ' registration(s). See storage/logs/google-sheets.log');
-                    }
-                } catch (Throwable $sheetErr) {
-                    error_log('[EventStaff] Google Sheets sync error: ' . $sheetErr->getMessage());
-                }
+                $ids = $newEventIds !== [] ? saveRegistrations($pdo, $data, $newEventIds, $_FILES) : [];
 
                 $count = count($ids);
-
-
-
-                $message = $count === 1
-
-                    ? 'Registration submitted successfully for 1 event! Your application is pending approval.'
-
-                    : 'Registration submitted successfully for ' . $count . ' events! Your applications are pending approval.';
-
-
-
-                if ($duplicates !== []) {
-
-                    $message .= ' Already registered (skipped): ' . implode(', ', array_map(
-
-                        static fn(array $row): string => formatEventLabel($row),
-
-                        $duplicates
-
-                    )) . '.';
-
+                $message = buildRegistrationSuccessMessage($count, 0, $duplicates);
+                if ($waitlistSaved > 0) {
+                    $message .= ' You were also added to the waiting list for ' . $waitlistSaved . ' full shift(s).';
                 }
-
-
 
                 $_SESSION['registration_status_message'] = $message;
                 $redirectUrl = getRegistrationStatusUrlAfterSave($pdo, $ids, $email);
 
                 if (isAjaxRequest()) {
-
-                    jsonResponse([
-
+                    registrationFlushResponse('', [
                         'success'    => true,
-
-                        'message'    => (string) $_SESSION['registration_status_message'],
-
+                        'message'    => $message,
                         'count'      => $count,
-
                         'status_url' => $redirectUrl,
-
                     ]);
-
+                    runRegistrationPostSaveSafely($pdo, $data, $ids, $newEventIds, $email);
+                    exit;
                 }
 
-                header('Location: ' . $redirectUrl);
-
+                registrationFlushResponse($redirectUrl);
+                runRegistrationPostSaveSafely($pdo, $data, $ids, $newEventIds, $email);
                 exit;
 
             }
 
             }
 
+        }
         }
 
     } catch (PDOException $e) {
@@ -291,7 +337,9 @@ if (empty($errors)) {
 
 
 
-            header('Location: ' . registrationFormRedirectPath(['error' => 'db'], $formSlug));
+            if (!headers_sent()) {
+                header('Location: ' . registrationFormRedirectPath(['error' => 'db'], $formSlug));
+            }
 
             exit;
 
@@ -313,7 +361,9 @@ if (empty($errors)) {
             ], 500);
         }
 
-        header('Location: ' . registrationFormRedirectPath(['error' => 'db'], $formSlug));
+        if (!headers_sent()) {
+            header('Location: ' . registrationFormRedirectPath(['error' => 'db'], $formSlug));
+        }
         exit;
 
     }

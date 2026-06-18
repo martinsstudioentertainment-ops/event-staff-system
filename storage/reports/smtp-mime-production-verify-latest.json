@@ -1,0 +1,29 @@
+{
+    "generated_at": "2026-06-06T21:15:06+00:00",
+    "wire_local_pass": true,
+    "wire_production_pass": true,
+    "production_send_pass": true,
+    "to": "[REDACTED]",
+    "transport": "smtp",
+    "templates_sent": {
+        "registration_confirmation": true,
+        "registration_approved": true,
+        "access_pass": true,
+        "rejection_email": true,
+        "admin_alert": true
+    },
+    "previews": 15,
+    "inbox_manual_required": true,
+    "inbox_note": "Confirm fresh messages in info@olasentra.com Gmail (web + Android) and Outlook — no inner Content-Type lines, no =3D, links clickable.",
+    "prod_wire_audit": {
+        "ok": true,
+        "generated_at": "2026-06-06T21:14:37+00:00",
+        "server": "production",
+        "fix_status": "fixed",
+        "legacy_double_cr": 29,
+        "current_double_cr": 0,
+        "is_multipart": true
+    },
+    "automated_pass": true,
+    "full_pass": false
+}

@@ -4,6 +4,8 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/staff-repository.php';
 require_once __DIR__ . '/../includes/attendance-repository.php';
+require_once __DIR__ . '/../includes/attendance-roster-helpers.php';
+require_once __DIR__ . '/../includes/work-hours-repository.php';
 require_once __DIR__ . '/../includes/staff-pass.php';
 require_once __DIR__ . '/../includes/maps.php';
 
@@ -20,6 +22,8 @@ if ($eventId <= 0 || !$event) {
 }
 
 $list      = getAttendanceList($pdo, $eventId);
+$rosterGroups = groupAttendanceRosterRows($list);
+$group     = $rosterGroups[0] ?? ['checked_in' => [], 'waiting' => []];
 $stats     = getAttendanceStats($pdo, $eventId);
 $roleCounts = countRolesInList($list);
 $siteName  = getSiteName($pdo);
@@ -76,6 +80,7 @@ $mapsUrl   = $venue
         <span><strong>Approved:</strong> <?= (int) $stats['approved'] ?></span>
         <span><strong>Checked in:</strong> <?= (int) $stats['checked_in'] ?></span>
         <span><strong>Waiting:</strong> <?= (int) $stats['missing'] ?></span>
+        <span><strong>No show:</strong> <?= (int) ($stats['no_show'] ?? 0) ?></span>
         <?php if ($stats['staff_needed'] !== null): ?>
             <span><strong>Staff needed:</strong> <?= (int) $stats['staff_needed'] ?> (<?= (int) $stats['spaces_remaining'] ?> left)</span>
         <?php endif; ?>
@@ -96,27 +101,66 @@ $mapsUrl   = $venue
                 <th>Status</th>
                 <th>Check-in</th>
                 <th>Time</th>
+                <th>Hours</th>
                 <th>In</th>
             </tr>
         </thead>
         <tbody>
             <?php if ($list === []): ?>
-                <tr><td colspan="10">No approved staff for this event.</td></tr>
+                <tr><td colspan="11">No approved staff for this event.</td></tr>
             <?php else: ?>
-                <?php foreach ($list as $i => $row): ?>
+                <?php
+                $rowNum = 0;
+                $renderRosterPrintRow = static function (array $row) use (&$rowNum, $event): void {
+                    $rowNum++;
+                    ?>
                     <tr>
-                        <td><?= $i + 1 ?></td>
+                        <td><?= $rowNum ?></td>
                         <td><?= h(formatStaffPassId((int) $row['id'], (string) $event['event_date'])) ?></td>
                         <td><?= h($row['first_name'] . ' ' . $row['surname']) ?></td>
                         <td><?= h(formatRoleLabel($row['staff_role'])) ?></td>
                         <td><?= h($row['email']) ?></td>
                         <td><?= h($row['mobile']) ?></td>
-                        <td><?= (int) $row['is_checked_in'] === 1 ? 'Signed in' : 'Waiting' ?></td>
+                        <td><?php
+                            if (isAttendanceRosterCheckedIn($row)) {
+                                echo 'Signed in';
+                            } elseif (isAttendanceMarkedNoShow($row)) {
+                                echo 'No show';
+                            } else {
+                                echo 'Waiting';
+                            }
+                        ?></td>
                         <td><?= (int) $row['is_checked_in'] === 1 ? 'Yes' : 'No' ?></td>
                         <td><?= $row['checked_in_at'] ? h(date('H:i', strtotime($row['checked_in_at']))) : '—' ?></td>
+                        <td><?= h(formatAttendanceRosterHours($row)) ?></td>
                         <td><span class="check-box" aria-hidden="true"></span></td>
                     </tr>
-                <?php endforeach; ?>
+                    <?php
+                };
+                ?>
+
+                <?php if ($group['checked_in'] !== []): ?>
+                    <?php if ($group['waiting'] !== []): ?>
+                        <tr><td colspan="11" style="background:#f8fafc;font-weight:600;">Checked in</td></tr>
+                    <?php endif; ?>
+                    <?php foreach ($group['checked_in'] as $row): ?>
+                        <?php $renderRosterPrintRow($row); ?>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+
+                <?php if ($group['waiting'] !== []): ?>
+                    <tr><td colspan="11" style="background:#f8fafc;font-weight:600;border-top:1px dashed #cbd5e1;">Not yet arrived</td></tr>
+                    <?php foreach ($group['waiting'] as $row): ?>
+                        <?php $renderRosterPrintRow($row); ?>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+
+                <?php if (($group['no_show'] ?? []) !== []): ?>
+                    <tr><td colspan="11" style="background:#fef2f2;font-weight:600;border-top:1px dashed #cbd5e1;">No show</td></tr>
+                    <?php foreach ($group['no_show'] as $row): ?>
+                        <?php $renderRosterPrintRow($row); ?>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             <?php endif; ?>
         </tbody>
     </table>

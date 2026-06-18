@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wizard Production Investigation — register.olasentra.com</title>
+<style>
+body { font-family: system-ui, sans-serif; max-width: 960px; margin: 2rem auto; line-height: 1.55; color: #111; }
+h1 { font-size: 1.5rem; }
+h2 { font-size: 1.1rem; margin-top: 2rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.3rem; }
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.88rem; }
+th, td { border: 1px solid #cbd5e1; padding: 0.5rem 0.65rem; text-align: left; vertical-align: top; }
+th { background: #f1f5f9; }
+.pass { color: #047857; font-weight: 700; }
+.fail { color: #b91c1c; font-weight: 700; }
+.warn { color: #b45309; font-weight: 700; }
+.rca { background: #fff7ed; border: 1px solid #fdba74; border-radius: 10px; padding: 1rem 1.15rem; margin: 1.25rem 0; }
+.fix { background: #eff6ff; border: 1px solid #93c5fd; border-radius: 10px; padding: 1rem 1.15rem; margin: 1.25rem 0; }
+.screens { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+.screens figure { margin: 0; }
+.screens img { width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; }
+.screens figcaption { font-size: 0.75rem; color: #64748b; margin-top: 0.35rem; }
+code { background: #f1f5f9; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85em; }
+ol { padding-left: 1.25rem; }
+@media (max-width: 700px) { .screens { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<h1>Registration wizard — production investigation</h1>
+<p><strong>Site:</strong> <a href="https://register.olasentra.com/index.php">register.olasentra.com</a> · <strong>Date:</strong> 6 June 2026</p>
+
+<h2>1. Current value of <code>feature_registration_wizard_v2</code></h2>
+<table>
+<tr><th>Source</th><th>Value</th><th>Status</th></tr>
+<tr><td>Production HTML (<code>data-wizard-mode</code>)</td><td><strong>0</strong> (OFF)</td><td class="fail">FAIL — wizard not active</td></tr>
+<tr><td>Analytics API proxy</td><td><code>{"ok":false,"message":"Analytics disabled."}</code></td><td class="fail">FAIL — confirms flag OFF</td></tr>
+<tr><td>Code default (<code>includes/feature-flags.php</code>)</td><td><code>default => '0'</code></td><td class="pass">Expected when not enabled in admin</td></tr>
+<tr><td>Stored DB value (inferred)</td><td><strong>0</strong> or unset (falls back to default)</td><td class="fail">Not enabled in <code>system_settings</code></td></tr>
+</table>
+<p>The flag is read at runtime in <code>index.php</code> line 137: <code>isFeatureEnabled($pdo, 'feature_registration_wizard_v2')</code>.</p>
+
+<h2>2. Is <code>index.php</code> rendering wizard mode?</h2>
+<table>
+<tr><th>Check</th><th>Production</th><th>Expected when flag ON</th></tr>
+<tr><td><code>data-wizard-mode</code></td><td class="fail">"0"</td><td>"1"</td></tr>
+<tr><td><code>registration-page--wizard</code> body class</td><td class="fail">Absent</td><td>Present</td></tr>
+<tr><td><code>registration-wizard.css</code> in HTML</td><td class="fail">Not linked</td><td>Linked</td></tr>
+<tr><td>Wizard JS bundle in HTML</td><td class="fail">Not loaded</td><td>8+ scripts</td></tr>
+<tr><td><code>reg-wizard__step</code> panels</td><td class="fail">0 found</td><td>8 panels</td></tr>
+<tr><td><code>renderRegistrationWizardShell()</code></td><td class="fail">Skipped (<code>$wizardV2Enabled</code> false)</td><td>Progress bar + Step 1 of 8</td></tr>
+</table>
+<p><strong>Conclusion:</strong> <code>index.php</code> is correctly rendering <strong>legacy mode</strong> because the feature flag is OFF. The wizard code path is not executed.</p>
+
+<h2>3. Wizard assets on server (direct URL probe)</h2>
+<table>
+<tr><th>Asset</th><th>HTTP</th><th>Size</th></tr>
+<tr><td>assets/css/registration-wizard.css</td><td class="pass">200</td><td>19,487 bytes</td></tr>
+<tr><td>assets/js/registration-wizard.js</td><td class="pass">200</td><td>7,023 bytes</td></tr>
+<tr><td>assets/js/registration-wizard-autosave.js</td><td class="pass">200</td><td>9,974 bytes</td></tr>
+<tr><td>assets/js/registration-wizard-validation.js</td><td class="pass">200</td><td>7,747 bytes</td></tr>
+<tr><td>assets/js/registration-wizard-returning.js</td><td class="pass">200</td><td>17,184 bytes</td></tr>
+<tr><td>assets/js/registration-wizard-review.js</td><td class="pass">200</td><td>11,868 bytes</td></tr>
+<tr><td>assets/js/registration-wizard-psa.js</td><td class="pass">200</td><td>2,316 bytes</td></tr>
+<tr><td>assets/js/registration-wizard-server-restore.js</td><td class="pass">200</td><td>3,632 bytes</td></tr>
+<tr><td>assets/js/registration-wizard-analytics.js</td><td class="pass">200</td><td>4,414 bytes</td></tr>
+</table>
+<p><strong>Conclusion:</strong> All wizard assets are deployed and reachable. <strong>No 404 errors</strong> on static files. They are simply not included in the HTML while the flag is OFF.</p>
+
+<h2>4. Screenshots</h2>
+<div class="screens">
+<figure>
+<img src="screenshots/wizard-investigation/production-legacy-mobile.png" alt="Production legacy form">
+<figcaption><strong>Live production today</strong> — legacy single-page form (flag OFF)</figcaption>
+</figure>
+<figure>
+<img src="screenshots/wizard-investigation/expected-step1-progress-bar.png" alt="Expected Step 1 wizard">
+<figcaption><strong>Expected UI when flag ON</strong> — Step 1 of 8 + progress bar (styled preview)</figcaption>
+</figure>
+</div>
+<p class="warn"><strong>Note:</strong> A live production screenshot showing Step 1 of 8 is not possible until <code>feature_registration_wizard_v2</code> is turned ON. The right panel shows the verified wizard UI with full CSS stack.</p>
+
+<h2>5. Root cause analysis</h2>
+<div class="rca">
+<p><strong>Root cause:</strong> The registration wizard was intentionally shipped behind the <code>feature_registration_wizard_v2</code> feature flag, which remains <strong>OFF</strong> on production.</p>
+<ul>
+<li>Phases A.0–A.6 deployed wizard <strong>code and assets</strong> with flag OFF per the master plan (rollback-safe rollout).</li>
+<li>Phase <strong>A.8</strong> in the roadmap is the planned go-live step: enable flag ON + 24h monitor.</li>
+<li>A.5 E2E tests validated the <strong>submit path</strong> (shared by legacy and wizard); they did not require the wizard UI to be visible.</li>
+<li>Production behaviour is <strong>correct per design</strong> — not a missing deploy or broken assets.</li>
+</ul>
+<p><strong>Not the cause:</strong> Missing FTP files (assets return 200), broken <code>index.php</code> branching, or CSS 404s.</p>
+</div>
+
+<h2>6. How to activate the wizard on production</h2>
+<div class="fix">
+<ol>
+<li>Log in to <strong>Admin</strong> → <a href="https://admin.olasentra.com/feature-flags.php">Feature flags</a> (super-admin required).</li>
+<li>Find <code>feature_registration_wizard_v2</code> — <strong>Registration wizard v2</strong>.</li>
+<li>Check the box to <strong>ON</strong> and click <strong>Save flags</strong>.</li>
+<li>Hard-refresh <a href="https://register.olasentra.com/index.php">register.olasentra.com</a> (or open in private window).</li>
+<li>Verify: <code>data-wizard-mode="1"</code>, progress bar “Step 1 of 8”, wizard CSS/JS in page source.</li>
+</ol>
+<p>Rollback: uncheck the flag → Save → legacy form restores immediately (no deploy).</p>
+<p>Verify script: <code>powershell -File scripts\verify-wizard-production.ps1</code> (must show 0 FAIL after enable).</p>
+</div>
+
+<h2>7. Gate before A.7 / A.8</h2>
+<table>
+<tr><th>Requirement</th><th>Status</th></tr>
+<tr><td>Wizard code deployed</td><td class="pass">PASS</td></tr>
+<tr><td>Wizard assets HTTP 200</td><td class="pass">PASS</td></tr>
+<tr><td>Flag enabled on production</td><td class="fail">BLOCKED — admin action required</td></tr>
+<tr><td>Live Step 1 of 8 visible</td><td class="fail">BLOCKED — depends on flag ON</td></tr>
+</table>
+
+</body>
+</html>

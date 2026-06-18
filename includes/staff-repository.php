@@ -26,17 +26,139 @@ function getDashboardStats(PDO $pdo): array
         }
     };
 
-    $pendingRegistrations = $safeCount("SELECT COUNT(*) FROM staff_registrations WHERE status = 'pending'");
+    $pendingRegistrations  = countPendingRegistrations($pdo);
+    $totalRegistrations    = $safeCount('SELECT COUNT(*) FROM staff_registrations');
+    $approvedRegistrations = $safeCount("SELECT COUNT(*) FROM staff_registrations WHERE status = 'approved'");
 
     return [
-        'total_staff'           => $safeCount('SELECT COUNT(*) FROM staff_registrations'),
+        'total_staff'           => $totalRegistrations,
+        'total_registrations'   => $totalRegistrations,
+        'unique_staff'          => $safeCount('SELECT COUNT(*) FROM staff WHERE is_blacklisted = 0'),
         'pending'               => $pendingRegistrations,
         'pending_registrations' => $pendingRegistrations,
-        'approved'              => $safeCount("SELECT COUNT(*) FROM staff_registrations WHERE status = 'approved'"),
+        'approved'              => $approvedRegistrations,
+        'approved_registrations'=> $approvedRegistrations,
         'rejected'              => $safeCount("SELECT COUNT(*) FROM staff_registrations WHERE status = 'rejected'"),
         'events'                => $safeCount('SELECT COUNT(*) FROM events WHERE is_active = 1'),
         'today_checkins'        => $todayCheckins,
     ];
+}
+
+function pendingRegistrationStatusSql(string $alias = ''): string
+{
+    $col = ($alias !== '' ? $alias . '.' : '') . 'status';
+
+    return "LOWER(TRIM({$col})) = 'pending'";
+}
+
+function countPendingRegistrations(PDO $pdo): int
+{
+    try {
+        return (int) $pdo->query(
+            'SELECT COUNT(*) FROM staff_registrations WHERE ' . pendingRegistrationStatusSql()
+        )->fetchColumn();
+    } catch (Throwable $e) {
+        error_log('[EventStaff] countPendingRegistrations: ' . $e->getMessage());
+
+        return 0;
+    }
+}
+
+/**
+ * @param array<int, array<string, mixed>> $rows
+ * @return array<int, array<string, mixed>>
+ */
+function attachRegistrationEventLabels(PDO $pdo, array $rows): array
+{
+    if ($rows === []) {
+        return [];
+    }
+
+    $eventIds = array_values(array_unique(array_filter(array_map(
+        static fn (array $row): int => (int) ($row['event_id'] ?? 0),
+        $rows
+    ))));
+
+    $events = [];
+    if ($eventIds !== []) {
+        try {
+            $placeholders = implode(',', array_fill(0, count($eventIds), '?'));
+            $stmt         = $pdo->prepare("SELECT id, name, event_date FROM events WHERE id IN ({$placeholders})");
+            $stmt->execute($eventIds);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $event) {
+                $events[(int) ($event['id'] ?? 0)] = $event;
+            }
+        } catch (Throwable $e) {
+            error_log('[EventStaff] attachRegistrationEventLabels: ' . $e->getMessage());
+        }
+    }
+
+    foreach ($rows as &$row) {
+        $eventId = (int) ($row['event_id'] ?? 0);
+        $event   = $events[$eventId] ?? null;
+        $row['event_name'] = is_array($event) ? (string) ($event['name'] ?? '(Unknown event)') : '(Unknown event)';
+        $row['event_date'] = is_array($event) ? ($event['event_date'] ?? null) : null;
+    }
+    unset($row);
+
+    return $rows;
+}
+
+/**
+ * Reliable pending list — SELECT * avoids missing-column failures on older production schemas.
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function fetchPendingRegistrations(PDO $pdo, int $limit = 500): array
+{
+    $limit = max(1, min($limit, 500));
+
+    try {
+        $rows = $pdo->query(
+            'SELECT * FROM staff_registrations
+             WHERE ' . pendingRegistrationStatusSql() . "
+             ORDER BY created_at DESC
+             LIMIT {$limit}"
+        )->fetchAll(PDO::FETCH_ASSOC);
+
+        return attachRegistrationEventLabels($pdo, is_array($rows) ? $rows : []);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] fetchPendingRegistrations: ' . $e->getMessage());
+    }
+
+    try {
+        $rows = $pdo->query(
+            'SELECT id, surname, first_name, email, mobile, staff_role, status, event_id, created_at
+             FROM staff_registrations
+             WHERE ' . pendingRegistrationStatusSql() . "
+             ORDER BY id DESC
+             LIMIT {$limit}"
+        )->fetchAll(PDO::FETCH_ASSOC);
+
+        return attachRegistrationEventLabels($pdo, is_array($rows) ? $rows : []);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] fetchPendingRegistrations fallback: ' . $e->getMessage());
+
+        return [];
+    }
+}
+
+/**
+ * Pending registrations for admin lists (same query path as dashboard preview).
+ *
+ * @param array<string, mixed> $filters
+ * @return array<int, array<string, mixed>>
+ */
+function getPendingStaffRegistrations(PDO $pdo, array $filters, ?int $limit = null, int $offset = 0): array
+{
+    $rows = fetchPendingRegistrations($pdo, 500);
+    $rows = filterPendingRegistrationRows($rows, $filters);
+
+    if ($limit === null) {
+        return $rows;
+    }
+
+    return array_slice($rows, max(0, $offset), max(1, $limit));
 }
 
 /**
@@ -44,14 +166,68 @@ function getDashboardStats(PDO $pdo): array
  */
 function getRecentPendingRegistrations(PDO $pdo, int $limit = 5): array
 {
-    $sql = "SELECT sr.*, e.name AS event_name, e.event_date
-            FROM staff_registrations sr
-            " . staffRegistrationsEventsJoin() . "
-            WHERE sr.status = 'pending'
-            ORDER BY sr.created_at DESC
-            LIMIT " . max(1, min($limit, 20));
+    return getPendingStaffRegistrations($pdo, [
+        'q'        => '',
+        'status'   => 'pending',
+        'role'     => '',
+        'event_id' => 0,
+        'email'    => '',
+    ], max(1, min($limit, 500)), 0);
+}
 
-    return $pdo->query($sql)->fetchAll();
+/**
+ * Filter pending rows in PHP (same dataset as dashboard preview).
+ *
+ * @param array<int, array<string, mixed>> $rows
+ * @param array<string, mixed> $filters
+ * @return array<int, array<string, mixed>>
+ */
+function filterPendingRegistrationRows(array $rows, array $filters): array
+{
+    $needle  = strtolower(trim((string) ($filters['q'] ?? '')));
+    $role    = trim((string) ($filters['role'] ?? ''));
+    $role    = $role !== '' ? normalizeStaffRole($role) : '';
+    $eventId = (int) ($filters['event_id'] ?? 0);
+    $email   = strtolower(trim((string) ($filters['email'] ?? '')));
+
+    if ($needle === '' && $role === '' && $eventId === 0 && $email === '') {
+        return $rows;
+    }
+
+    $knownRoles = $role !== '' ? getKnownStaffRoles() : [];
+
+    return array_values(array_filter(
+        $rows,
+        static function (array $row) use ($needle, $role, $eventId, $email, $knownRoles): bool {
+            if ($email !== '' && strtolower(trim((string) ($row['email'] ?? ''))) !== $email) {
+                return false;
+            }
+
+            if ($eventId > 0 && (int) ($row['event_id'] ?? 0) !== $eventId) {
+                return false;
+            }
+
+            if ($role !== '' && in_array($role, $knownRoles, true)) {
+                if (normalizeStaffRole((string) ($row['staff_role'] ?? '')) !== $role) {
+                    return false;
+                }
+            }
+
+            if ($needle === '') {
+                return true;
+            }
+
+            $haystack = strtolower(implode(' ', array_filter([
+                (string) ($row['surname'] ?? ''),
+                (string) ($row['first_name'] ?? ''),
+                (string) ($row['email'] ?? ''),
+                (string) ($row['mobile'] ?? ''),
+                (string) ($row['psa_licence'] ?? ''),
+            ], static fn (string $part): bool => $part !== '')));
+
+            return str_contains($haystack, $needle);
+        }
+    ));
 }
 
 /**
@@ -59,7 +235,7 @@ function getRecentPendingRegistrations(PDO $pdo, int $limit = 5): array
  */
 function getUpcomingEventsSummary(PDO $pdo, int $limit = 5): array
 {
-    $sql = "SELECT e.id, e.name, e.event_date,
+    $sql = "SELECT e.id, e.name, e.event_date, e.location, e.staff_needed,
                    COUNT(sr.id) AS registration_count,
                    SUM(CASE WHEN sr.status = 'approved' THEN 1 ELSE 0 END) AS approved_count,
                    SUM(CASE WHEN sr.status = 'pending' THEN 1 ELSE 0 END) AS pending_count
@@ -70,7 +246,15 @@ function getUpcomingEventsSummary(PDO $pdo, int $limit = 5): array
             ORDER BY e.event_date ASC, e.name ASC
             LIMIT " . max(1, min($limit, 20));
 
-    return $pdo->query($sql)->fetchAll();
+    $rows = $pdo->query($sql)->fetchAll();
+    foreach ($rows as &$row) {
+        $needed = (int) ($row['staff_needed'] ?? 0);
+        $approved = (int) ($row['approved_count'] ?? 0);
+        $row['coverage_gap'] = $needed > 0 ? max(0, $needed - $approved) : 0;
+    }
+    unset($row);
+
+    return $rows;
 }
 
 /**
@@ -84,9 +268,11 @@ function getStaffFiltersFromRequest(?array $source = null): array
 {
     $source ??= $_GET;
 
+    $status = strtolower(trim((string) ($source['status'] ?? '')));
+
     return [
         'q'        => trim((string) ($source['q'] ?? '')),
-        'status'   => trim((string) ($source['status'] ?? '')),
+        'status'   => in_array($status, ['pending', 'approved', 'rejected'], true) ? $status : '',
         'role'     => trim((string) ($source['role'] ?? '')),
         'event_id' => (int) ($source['event_id'] ?? 0),
         'email'    => trim((string) ($source['email'] ?? '')),
@@ -111,13 +297,14 @@ function buildStaffWhereClause(array $filters): array
     }
 
     if (in_array($filters['status'], ['pending', 'approved', 'rejected'], true)) {
-        $where[] = 'sr.status = :status';
+        $where[] = 'LOWER(TRIM(sr.status)) = :status';
         $params['status'] = $filters['status'];
     }
 
-    if (in_array(normalizeStaffRole($filters['role']), getKnownStaffRoles(), true)) {
+    $roleFilter = trim((string) ($filters['role'] ?? ''));
+    if ($roleFilter !== '' && in_array(normalizeStaffRole($roleFilter), getKnownStaffRoles(), true)) {
         $where[] = 'sr.staff_role = :role';
-        $params['role'] = normalizeStaffRole($filters['role']);
+        $params['role'] = normalizeStaffRole($roleFilter);
     }
 
     if ($filters['event_id'] > 0) {
@@ -143,6 +330,15 @@ function staffRegistrantEmailGroupExpr(string $alias = 'sr'): string
     $prefix = $alias !== '' ? $alias . '.' : '';
 
     return 'LOWER(TRIM(COALESCE(' . $prefix . 'email, \'\')))';
+}
+
+/** One row per person; registrations without email stay separate (not merged into one bucket). */
+function staffRegistrantGroupKeyExpr(string $alias = 'sr'): string
+{
+    $prefix = $alias !== '' ? $alias . '.' : '';
+    $email  = staffRegistrantEmailGroupExpr($alias);
+
+    return "CASE WHEN TRIM(COALESCE({$prefix}email, '')) != '' THEN {$email} ELSE CONCAT('reg:', {$prefix}id) END";
 }
 
 function staffRegistrationStatusSqlLiteral(string $status): string
@@ -234,6 +430,23 @@ function getStaffRegistrations(PDO $pdo, array $filters, ?int $limit = null, int
 }
 
 /**
+ * Total rows for the staff list (drives pagination).
+ * When an event is selected, one row per signup — use a direct registration count.
+ *
+ * @param array<string, mixed> $filters
+ */
+function countStaffListTotal(PDO $pdo, array $filters): int
+{
+    if ((int) ($filters['event_id'] ?? 0) > 0) {
+        return countStaffRegistrations($pdo, $filters);
+    }
+
+    $grouped = countUniqueStaffRegistrants($pdo, $filters);
+
+    return $grouped > 0 ? $grouped : countStaffRegistrations($pdo, $filters);
+}
+
+/**
  * Unique registrants (one row per email) matching filters.
  *
  * @param array<string, mixed> $filters
@@ -241,7 +454,7 @@ function getStaffRegistrations(PDO $pdo, array $filters, ?int $limit = null, int
 function countUniqueStaffRegistrants(PDO $pdo, array $filters): int
 {
     [$where, $params, $having, $statusFilter] = buildStaffGroupedListClauses($filters);
-    $emailGroup = staffRegistrantEmailGroupExpr('sr');
+    $emailGroup = staffRegistrantGroupKeyExpr('sr');
     $statusReg  = '';
     if ($statusFilter !== '') {
         $statusLit = staffRegistrationStatusSqlLiteral($statusFilter);
@@ -251,7 +464,6 @@ function countUniqueStaffRegistrants(PDO $pdo, array $filters): int
     $sql = "SELECT COUNT(*) FROM (
                 SELECT {$emailGroup} AS email_key{$statusReg}
                 FROM staff_registrations sr
-                " . staffRegistrationsEventsJoin() . "
                 WHERE {$where}
                 GROUP BY {$emailGroup}
                 {$having}
@@ -276,7 +488,7 @@ function countUniqueStaffRegistrants(PDO $pdo, array $filters): int
 function getUniqueStaffRegistrants(PDO $pdo, array $filters, ?int $limit = null, int $offset = 0): array
 {
     [$where, $params, $having, $statusFilter] = buildStaffGroupedListClauses($filters);
-    $emailGroup = staffRegistrantEmailGroupExpr('sr');
+    $emailGroup = staffRegistrantGroupKeyExpr('sr');
     $statusReg  = '';
     if ($statusFilter !== '') {
         $statusLit = staffRegistrationStatusSqlLiteral($statusFilter);
@@ -293,7 +505,6 @@ function getUniqueStaffRegistrants(PDO $pdo, array $filters, ?int $limit = null,
                 SUM(CASE WHEN sr.status = 'rejected' THEN 1 ELSE 0 END) AS rejected_count,
                 MAX(sr.created_at) AS last_registered
             FROM staff_registrations sr
-            " . staffRegistrationsEventsJoin() . "
             WHERE {$where}
             GROUP BY {$emailGroup}
             {$having}
@@ -510,14 +721,16 @@ function markRowsExported(PDO $pdo, array $ids): void
     $stmt->execute(array_values($ids));
 }
 
-function formatRoleLabel(string $role): string
+function formatRoleLabel(?string $role): string
 {
-    return formatStaffRoleLabel($role);
+    return formatStaffRoleLabel((string) ($role ?? ''));
 }
 
-function formatStatusLabel(string $status): string
+function formatStatusLabel(?string $status): string
 {
-    return ucfirst($status);
+    $status = trim((string) ($status ?? ''));
+
+    return $status !== '' ? ucfirst($status) : '';
 }
 
 /**
@@ -568,10 +781,10 @@ function registrantPrimaryStatus(array $row): string
 
 function formatEventLabel(array $row): string
 {
-    $date = $row['event_date'] ?? '';
-    if ($date !== '') {
-        $date = date('d.m.Y', strtotime((string) $date));
-    }
+    require_once __DIR__ . '/events-repository.php';
+    $date = !empty($row['event_date'])
+        ? formatEventDateLabel((string) $row['event_date'])
+        : '';
 
     return trim(($row['event_name'] ?? '') . ($date ? ' — ' . $date : ''));
 }
@@ -713,9 +926,14 @@ function getStaffRegistrationById(PDO $pdo, int $id): ?array
  */
 function getStaffRegistrationsByEmail(PDO $pdo, string $email): array
 {
-    $sql = 'SELECT sr.*, e.name AS event_name, e.event_date
+    $sql = 'SELECT sr.*, e.name AS event_name, e.event_date, e.start_time, e.end_time,
+                   e.checkin_open_time, e.checkin_close_time,
+                   a.id AS attendance_id, a.checked_in_at, a.checked_out_at,
+                   a.hours_worked, a.attendance_status,
+                   CASE WHEN a.id IS NULL THEN 0 ELSE 1 END AS is_checked_in
             FROM staff_registrations sr
             ' . staffRegistrationsEventsJoin() . '
+            LEFT JOIN attendance a ON a.registration_id = sr.id
             WHERE sr.email = :email
             ORDER BY e.event_date ASC, sr.created_at DESC';
 
@@ -724,7 +942,12 @@ function getStaffRegistrationsByEmail(PDO $pdo, string $email): array
 
     $rows = $stmt->fetchAll() ?: [];
 
-    return array_map(static fn(array $row): array => mergeRegistrationWithStaff($pdo, $row), $rows);
+    return array_map(static function (array $row) use ($pdo): array {
+        $row = mergeRegistrationWithStaff($pdo, $row);
+        $row = mergeRegistrationWithEvent($pdo, $row);
+
+        return $row;
+    }, $rows);
 }
 
 /**
@@ -785,6 +1008,53 @@ function syncStaffPersonalDataToRegistrations(PDO $pdo, int $staffId, array $dat
     } catch (PDOException $e) {
         error_log('[EventStaff] syncStaffPersonalDataToRegistrations: ' . $e->getMessage());
     }
+}
+
+/**
+ * Correct staff portal sign-in email and keep registrations in sync.
+ *
+ * @throws InvalidArgumentException
+ */
+function changeStaffEmail(PDO $pdo, int $staffId, string $newEmail): string
+{
+    $newEmail = strtolower(trim($newEmail));
+    if ($staffId < 1) {
+        throw new InvalidArgumentException('Invalid staff ID.');
+    }
+    if ($newEmail === '' || !filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
+        throw new InvalidArgumentException('Enter a valid email address.');
+    }
+
+    $staff = getStaffById($pdo, $staffId);
+    if (!$staff) {
+        throw new InvalidArgumentException('Staff member not found.');
+    }
+
+    $oldEmail = strtolower(trim((string) ($staff['email'] ?? '')));
+    if ($oldEmail === $newEmail) {
+        return $oldEmail;
+    }
+
+    $existing = getStaffByEmail($pdo, $newEmail);
+    if ($existing !== null && (int) $existing['id'] !== $staffId) {
+        throw new InvalidArgumentException('Another staff profile already uses this email.');
+    }
+
+    $pdo->prepare('UPDATE staff SET email = :email, updated_at = CURRENT_TIMESTAMP WHERE id = :id')
+        ->execute(['email' => $newEmail, 'id' => $staffId]);
+
+    if ($oldEmail !== '') {
+        $pdo->prepare('UPDATE staff_registrations SET email = :new_email WHERE LOWER(email) = :old_email')
+            ->execute(['new_email' => $newEmail, 'old_email' => $oldEmail]);
+    }
+
+    require_once __DIR__ . '/staff-registration-schema.php';
+    if (staffRegistrationColumnExists($pdo, 'staff_id')) {
+        $pdo->prepare('UPDATE staff_registrations SET email = :new_email WHERE staff_id = :staff_id')
+            ->execute(['new_email' => $newEmail, 'staff_id' => $staffId]);
+    }
+
+    return $oldEmail;
 }
 
 /**
@@ -1093,6 +1363,8 @@ function ensureStaffRecordForEmail(PDO $pdo, string $email): ?int
             'pps_number'    => (string) ($reg['pps_number'] ?? ''),
             'bank_iban'     => (string) ($reg['bank_iban'] ?? ''),
             'staff_role'    => (string) ($reg['staff_role'] ?? 'steward'),
+            'psa_licence'   => (string) ($reg['psa_licence'] ?? ''),
+            'psa_expiry_date' => (string) ($reg['psa_expiry_date'] ?? ''),
         ]);
         if ($staffId > 0) {
             linkStaffIdToRegistrationsByEmail($pdo, $email, $staffId);
@@ -1148,6 +1420,13 @@ function buildStaffDirectoryWhereClause(array $filters): array
     if (isset($filters['blacklisted'])) {
         $where[] = 's.is_blacklisted = :blacklisted';
         $params['blacklisted'] = $filters['blacklisted'] ? 1 : 0;
+    }
+
+    $profile = trim((string) ($filters['profile'] ?? ''));
+    if ($profile === 'complete' || $profile === 'incomplete') {
+        require_once __DIR__ . '/staff-onboarding.php';
+        $profileSql = staffOnboardingCompleteSqlCondition('s');
+        $where[]    = $profile === 'complete' ? $profileSql : 'NOT ' . $profileSql;
     }
 
     return [implode(' AND ', $where), $params];
@@ -1363,7 +1642,7 @@ function isStaffProfileComplete(PDO $pdo, int $staffId): bool
  * Mark staff profile as completed.
  * @return bool
  */
-function markStaffProfileCompleted(PDO $pdo, int $staffId): bool
+function markStaffProfileCompleted(PDO $pdo, int $staffId, bool $runPostJobs = true): bool
 {
     $staff = getStaffById($pdo, $staffId);
     $wasComplete = $staff !== null && (int) ($staff['profile_completed'] ?? 0) === 1;
@@ -1379,12 +1658,10 @@ function markStaffProfileCompleted(PDO $pdo, int $staffId): bool
         return false;
     }
 
-    if ($ok && !$wasComplete) {
-        require_once __DIR__ . '/staff-onboarding.php';
-        autoApprovePendingRegistrationsForStaff($pdo, $staffId);
-    }
-
-    if ($ok) {
+    if ($ok && !$wasComplete && $runPostJobs) {
+        require_once __DIR__ . '/status-change-post-save.php';
+        runProfileCompletionPostJobs($pdo, $staffId);
+    } elseif ($ok && $runPostJobs) {
         try {
             require_once __DIR__ . '/apply-remote-sync.php';
             triggerApplyPortalSyncAsync($pdo, true);

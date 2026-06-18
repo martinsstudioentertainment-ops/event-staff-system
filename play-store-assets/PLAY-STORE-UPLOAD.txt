@@ -1,0 +1,56 @@
+OLASENTRA STAFF — GOOGLE PLAY UPLOAD (v1.0.15)
+==============================================
+Updated: 15 June 2026
+
+APP DETAILS
+-----------
+  App name (listing):     Olasentra Staff  (public brand: Olasentra)
+  Package name:           com.olasentra.staff
+  Version name:           1.0.15
+  Version code:           15
+  Min SDK:                26
+  Target SDK:             35
+
+AAB FILE (after successful build)
+---------------------------------
+  play-store-assets/olasentra-staff-v1.0.15.aab
+
+BUILD COMMAND
+-------------
+  cd d:\event-staff-system
+  powershell -ExecutionPolicy Bypass -File .\scripts\build-play-aab.ps1 -Version 1.0.15
+
+RELEASE SIGNING KEY (generated on this PC — KEEP PRIVATE)
+---------------------------------------------------------
+  Keystore:   android/olasentra-staff/olasentra-staff-release.jks
+  Passwords:  play-store-assets/PLAY-STORE-SIGNING-KEY.txt
+
+  IMPORTANT: If you already created a Play Console app with a different upload key
+  on your old PC, copy THAT .jks file here instead. You cannot mix upload keys.
+
+GOOGLE PLAY CONSOLE STEPS
+-------------------------
+  1. https://play.google.com/console
+  2. Create app (if first time) → Business app
+  3. App signing: choose "Google Play App Signing" (recommended)
+  4. Upload AAB under Testing → Internal testing (recommended first)
+  5. Complete: Store listing, Content rating, Data safety, Privacy policy
+     (see play-store-assets/LISTING.md)
+  6. Add testers by email for internal track
+
+LIVE APK (staff direct install — NOT for Play upload)
+-----------------------------------------------------
+  https://register.olasentra.com/staff-app-download.php
+
+STATUS ON THIS PC (15 Jun 2026)
+-------------------------------
+  - Release keystore: CREATED
+  - v1.0.15 APK re-signed with release key: play-store-assets/build-aab/olasentra-staff-v1.0.15-signed.apk
+  - AAB build: BLOCKED — some Android source files were corrupted (null bytes).
+    Run build-play-aab.ps1 after source recovery completes.
+
+GOOGLE SIGN-IN FOR RELEASE
+--------------------------
+  Register RELEASE SHA-1 in Google Cloud Console (not just debug):
+  keytool -list -v -keystore android/olasentra-staff/olasentra-staff-release.jks -alias olasentra-staff
+  Docs: docs/android/GOOGLE-SIGNIN-SHA1.md

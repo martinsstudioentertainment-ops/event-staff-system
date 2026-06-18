@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPS Phase 1.5 — Implementation Report</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+.meta{color:#64748b;font-size:.9rem}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #6ee7b7;background:#ecfdf5}
+.warn{margin:1.25rem 0;padding:1rem;border-radius:10px;border:1px solid #fcd34d;background:#fffbeb}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.85rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.pass{color:#047857;font-weight:700}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.82em}
+pre{background:#0f172a;color:#e2e8f0;padding:.85rem;border-radius:8px;font-size:.74rem;white-space:pre-wrap}
+ul.compact li{margin:.3rem 0}
+</style>
+</head>
+<body>
+
+<h1>GPS Attendance Phase 1.5 — GPS Enforcement Hardening</h1>
+<p class="meta">Generated 7 June 2026 · Behind <code>feature_gps_attendance_v2</code> only · Payroll unchanged · Legacy paths preserved when flag OFF</p>
+
+<div class="verdict"><strong>Status: IMPLEMENTED</strong> — Mandatory GPS verification for venue sign-in when flag ON. Admin scan/manual check-in blocked. Token QR check-in redirects to venue sign-in. Activation requires fresh in-zone GPS proof (≤15 min). Sign-in buttons disabled until location verified.</div>
+
+<h2>1. Requirements delivered</h2>
+<table>
+<tr><th>Requirement</th><th>Implementation</th></tr>
+<tr><td>GPS permission mandatory</td><td><code>validateGpsForCheckin()</code> rejects missing coords; JS shows BR message</td></tr>
+<tr><td>Valid lat/lng mandatory</td><td>Server validation on every <code>recordCheckin()</code> when flag ON</td></tr>
+<tr><td>Accuracy threshold</td><td><code>gps_max_accuracy_m</code> setting (default 100 m)</td></tr>
+<tr><td>Sign-in disabled until verified</td><td><code>event-sign-location.js</code> — <code>disabled</code> on submit buttons until zone + accuracy pass</td></tr>
+<tr><td>Clear error messages</td><td><code>getGpsRequiredMessage()</code> + accuracy/zone messages</td></tr>
+<tr><td>Activation in-zone proof</td><td><code>canActivateWithGpsProof()</code> + <code>api/attendance-gps-ping.php</code></td></tr>
+<tr><td>Flag OFF unchanged</td><td>All new logic gated by <code>isGpsAttendanceV2Enabled()</code></td></tr>
+</table>
+
+<h2>2. Files created</h2>
+<ul class="compact">
+<li><code>includes/attendance-gps-phase15.php</code></li>
+<li><code>includes/attendance-gps-phase15-schema.php</code></li>
+<li><code>api/attendance-gps-ping.php</code></li>
+<li><code>database/migrate-phase53-gps-attendance-phase15.sql</code></li>
+<li><code>database/rollback-phase53-gps-attendance-phase15.sql</code></li>
+<li><code>scripts/verify-gps-phase15.php</code></li>
+<li><code>scripts/rollback-gps-phase15.ps1</code></li>
+</ul>
+
+<h2>3. Files modified</h2>
+<table>
+<tr><th>File</th><th>Change</th></tr>
+<tr><td><code>includes/attendance-repository.php</code></td><td>GPS validation in <code>recordCheckin()</code> + eligibility accuracy param</td></tr>
+<tr><td><code>includes/attendance-gps-phase1.php</code></td><td>Activation requires GPS proof; BR hibernation message</td></tr>
+<tr><td><code>includes/event-sign-flow.php</code></td><td>GPS data attributes; disabled buttons</td></tr>
+<tr><td><code>assets/js/event-sign-location.js</code></td><td>Disabled buttons, accuracy gate, pre-check ping loop</td></tr>
+<tr><td><code>check-in.php</code></td><td>Token check-in blocked when flag ON → venue link</td></tr>
+<tr><td><code>admin/checkin-action.php</code></td><td>Manual admin check-in blocked when flag ON</td></tr>
+<tr><td><code>admin/scan-checkin-action.php</code></td><td>QR scan check-in blocked when flag ON</td></tr>
+<tr><td><code>includes/database-migrations.php</code></td><td>Register phase 53</td></tr>
+</table>
+
+<h2>4. Database changes</h2>
+<pre>ALTER TABLE attendance
+  ADD last_gps_lat DECIMAL(10,7) NULL,
+  ADD last_gps_lng DECIMAL(10,7) NULL,
+  ADD last_gps_accuracy_m SMALLINT UNSIGNED NULL,
+  ADD last_gps_at DATETIME NULL;</pre>
+<p>System setting (optional): <code>gps_max_accuracy_m</code> default <code>100</code>.</p>
+
+<h2>5. Verification</h2>
+<pre>php scripts/verify-gps-phase15.php
+# Production web:
+# https://admin.olasentra.com/scripts/verify-gps-phase15.php?key=REMINDER_CRON_KEY</pre>
+<table>
+<tr><th>Test</th><th>Flag ON</th><th>Flag OFF</th></tr>
+<tr><td>Venue sign-in without GPS</td><td>Button disabled; no attendance row</td><td>Legacy behaviour</td></tr>
+<tr><td>Venue sign-in outside 1000 m</td><td>Blocked server-side</td><td>Legacy 100 m</td></tr>
+<tr><td>Venue sign-in poor accuracy</td><td>Blocked if &gt; threshold</td><td>N/A</td></tr>
+<tr><td>Token check-in (staff QR page)</td><td>Blocked + venue link</td><td>Works</td></tr>
+<tr><td>Admin scan / manual</td><td>Error message</td><td>Works</td></tr>
+<tr><td>Pre-check activation at start</td><td>Only if GPS ping fresh + in zone</td><td>N/A</td></tr>
+</table>
+
+<h2>6. Rollback plan</h2>
+<ol class="compact">
+<li><strong>L0 (instant):</strong> <code>feature_gps_attendance_v2 = 0</code> in Admin → Feature flags.</li>
+<li><strong>L1 (schema):</strong> <code>database/rollback-phase53-gps-attendance-phase15.sql</code></li>
+<li><strong>L2 (code):</strong> <code>scripts/rollback-gps-phase15.ps1</code> + redeploy prior build if needed.</li>
+</ol>
+<div class="warn">Phase 1.5 does not alter payroll calculations or remove Phase 1 columns. Rollback flag OFF restores admin scan, token check-in, and legacy radius immediately.</div>
+
+<h2>7. Mobile verification checklist</h2>
+<ul class="compact">
+<li>iPhone Safari: deny location → BR message, disabled sign-in</li>
+<li>Android Chrome: grant location inside zone → buttons enable</li>
+<li>Poor GPS indoors → accuracy error, buttons stay disabled</li>
+<li>Pre-checked-in: page open at event start → ping activates when in zone</li>
+</ul>
+
+<p class="meta">Next: verify on production, then proceed to Phase 2 (heartbeat monitoring) per master program.</p>
+</body>
+</html>

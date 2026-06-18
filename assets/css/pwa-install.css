@@ -1,4 +1,10 @@
 /* PWA install banner + staff app hub */
+.admin-shell .pwa-install {
+    left: max(0.75rem, env(safe-area-inset-left));
+    right: max(0.75rem, env(safe-area-inset-right));
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
 .pwa-install {
     position: fixed;
     bottom: 0;
@@ -189,6 +195,17 @@ button.staff-app__install-pill:active {
     font-size: 0.875rem;
     line-height: 1.5;
     color: #475569;
+}
+
+.pwa-install-modal__note {
+    margin: 0 0 1rem;
+    padding: 0.65rem 0.75rem;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: #92400e;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-radius: 10px;
 }
 
 .pwa-install-modal__steps {

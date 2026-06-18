@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Returning User Fast-Track — Design Report</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+h3{font-size:.98rem;margin-top:1.25rem;color:#334155}
+.meta{color:#64748b;font-size:.9rem}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #fcd34d;background:#fffbeb}
+.verdict.ok{border-color:#6ee7b7;background:#ecfdf5}
+.verdict.warn{border-color:#93c5fd;background:#eff6ff}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.85rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.pass{color:#047857;font-weight:700}.fail{color:#b91c1c;font-weight:700}.partial{color:#b45309;font-weight:700}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.82em}
+pre{background:#0f172a;color:#e2e8f0;padding:.85rem;border-radius:8px;overflow:auto;font-size:.74rem;white-space:pre-wrap}
+.flow{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:1rem;margin:1rem 0;font-family:ui-monospace,monospace;font-size:.82rem}
+ul.compact li{margin:.35rem 0}
+.note{font-size:.88rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.75rem 1rem}
+</style>
+</head>
+<body>
+
+<h1>Returning User Fast-Track — Implementation Design Report</h1>
+<p class="meta">Generated 7 June 2026 · Production: <a href="https://register.olasentra.com/index.php">register.olasentra.com</a> · <strong>Planning only — no implementation in this deliverable</strong></p>
+
+<div class="verdict warn">
+<strong>Executive summary:</strong> A <em>partial</em> fast-track is already deployed behind <code>feature_registration_wizard_v2</code>, but it does <strong>not</strong> match the approved 3-step target (events → confirm profile → submit). Complete-profile users still pass through Welcome and Email before shift pick, with consent on the shift step and no dedicated masked profile summary. Several P0 UX defects (duplicate nav, “None selected”) are <strong>largely addressed</strong> in code; the remaining work is a <strong>fast-track v2 step remap</strong> plus hardening of event persistence and autosave/restore paths. <strong>No server schema changes required.</strong>
+</div>
+
+<h2>1. Requirements vs current production behaviour</h2>
+
+<table>
+<tr><th>Requirement</th><th>Target experience</th><th>Current state (codebase)</th><th>Status</th></tr>
+<tr>
+  <td>1 — Fast-track flow</td>
+  <td>Step 1: Select events<br>Step 2: Confirm profile summary (masked payroll, PSA status, consent)<br>Step 3: Submit</td>
+  <td>Physical steps: Welcome (1) → Email (3) → Pick shift (2) with inline consent → Submit from step 2.<br>Display chrome remaps to 3 labels but order is Welcome → Email → Pick shift.<br>Steps 4–7 skipped; Step 8 review never shown.</td>
+  <td class="partial">Partial — wrong order, no profile summary step</td>
+</tr>
+<tr>
+  <td>2 — Events persist after lookup</td>
+  <td>Selections survive email/profile lookup</td>
+  <td><code>handleShiftSelectionAfterLookup()</code> redirects to step 2 if selection lost; <code>setRegisteredEventIds()</code> greys out already-registered cards. Picking an event <em>before</em> email that becomes “already registered” still clears effective selection.</td>
+  <td class="partial">Mostly fixed; pre-email selection edge case remains</td>
+</tr>
+<tr>
+  <td>3 — No “None selected” on review</td>
+  <td>Review never shows empty shift list</td>
+  <td>Full wizard: gates before step 8 + submit handler redirect. Fast-track: avoids step 8 entirely. Draft/resume restore to step 8 can still bypass gates.</td>
+  <td class="partial">Fixed for happy path; restore bypass risk</td>
+</tr>
+<tr>
+  <td>4 — No duplicate Continue + Submit</td>
+  <td>Single nav row: Back + one primary action</td>
+  <td>Single <code>#reg-wizard-nav</code>; <code>registration-page--wizard-submit-mode</code> hides Continue when Submit shown; legacy <code>#reg-wizard-nav-submit</code> suppressed.</td>
+  <td class="pass">Addressed in current code</td>
+</tr>
+<tr>
+  <td>5 — New applicants: full 8-step</td>
+  <td>Unchanged linear wizard</td>
+  <td><code>setFastTrack(false)</code> when lookup not found; incomplete profiles never activate fast-track.</td>
+  <td class="pass">Correct</td>
+</tr>
+<tr>
+  <td>6 — Incomplete profiles</td>
+  <td>Completion flow, not fast-track</td>
+  <td><code>profile_complete === false</code> → full wizard; welcome card explains missing details; validation on steps 4–7 enforced.</td>
+  <td class="pass">Correct</td>
+</tr>
+</table>
+
+<h2>2. Current architecture (as implemented)</h2>
+
+<h3>2.1 Physical wizard steps (DOM)</h3>
+<pre>index.php data-step order in markup:
+  1 Welcome / role
+  3 Email (+ returning panel)
+  4 About you
+  5 Contact
+  6 Payroll
+  7 PSA
+  2 Your gigs (shift picker)
+  8 Review + consent home</pre>
+
+<h3>2.2 Fast-track activation</h3>
+<ul class="compact">
+<li><code>api/registrant-lookup.php</code> returns <code>profile_complete</code> via <code>staffNeedsProfileForm()</code>.</li>
+<li><code>registration-wizard-returning.js</code> calls <code>RegistrationWizard.setFastTrack(true)</code> when complete; auto-advances from step 3 → step 2 after email lookup.</li>
+<li><code>registration-wizard.js</code> uses <code>FAST_TRACK_LABELS</code> remap and skips steps 4–7; submit on physical step 2.</li>
+<li>Consent checkbox is moved into <code>#reg-fast-track-consent-mount</code> on the shift step.</li>
+<li>No pickable shifts → <code>Return to home</code> instead of Submit (recent addition).</li>
+</ul>
+
+<h3>2.3 Server submit path</h3>
+<ul class="compact">
+<li><code>submit.php</code> loads <code>$existingStaff</code> by email; PSA validation and <code>registrationFormReadyForShiftSelection()</code> accept on-file PSA images from staff row.</li>
+<li>Hidden prefilled fields (PPS, IBAN, address, etc.) are posted even when steps 4–7 are skipped — <strong>server already supports fast-track submit without UI traversal</strong>.</li>
+<li>Duplicate event IDs filtered server-side; all-duplicate selection returns error + status redirect.</li>
+</ul>
+
+<h2>3. Target fast-track design (recommended v2)</h2>
+
+<div class="flow">GATE (compact, not counted in user-facing 3 steps)
+  Role + email on Welcome OR dedicated email micro-step
+  → registrant-lookup
+  → if profile_complete: enter FAST_TRACK_V2
+
+FAST_TRACK_V2 Step 1 — Select event(s)     [physical step 2]
+  Shift picker only; email shown read-only chip
+  Continue requires ≥1 pickable selected shift
+
+FAST_TRACK_V2 Step 2 — Confirm profile       [new summary panel; physical step 8 shell OR inline on step 2]
+  Name, mobile, address (not full re-entry)
+  PSA status badge (on file / expiring / missing)
+  PPS + IBAN masked (reuse maskPps / maskIban from review.js)
+  Privacy consent checkbox
+  Continue → Step 3
+
+FAST_TRACK_V2 Step 3 — Submit                [same panel or lightweight confirm]
+  Back + Submit registration only
+  No Continue button</div>
+
+<h3>3.1 Why keep a hidden “gate” before events?</h3>
+<p class="note">Returning detection requires email before <code>registered_event_ids</code> can grey out cards. The approved UX puts events first <em>visually</em>, but email must be resolved first. Recommended compromise: after role selection, collect email on Welcome (single field) → immediate lookup → if complete, <strong>first user-facing fast-track screen is events</strong> (user perceives 3 steps, not Welcome+Email+Events).</p>
+
+<h3>3.2 Profile summary panel (new)</h3>
+<ul class="compact">
+<li>Add <code>renderFastTrackProfileSummary()</code> in <code>registration-wizard-review.js</code> (mask helpers already exist).</li>
+<li>Prefer server-provided masked payroll in lookup API (<code>masked_pps</code>, <code>masked_iban</code>) so raw values are not re-exposed in DOM for returning users.</li>
+<li>Include link: “Update profile” → <code>staff-profile.php</code> (explicit opt-in; no inline edit in wizard).</li>
+<li>Move consent from shift footer to summary step (requirement #1).</li>
+</ul>
+
+<h3>3.3 Step map change (registration-wizard.js)</h3>
+<pre>// Proposed FAST_TRACK_V2 physical step sequence
+resolveNextStep fast-track:
+  gate complete → 2 (events)
+  2 → summaryStep (new: 8 panel read-only OR dedicated data-step="9" mount)
+  summaryStep → submit mode on same step OR advance to submit-only chrome
+
+FAST_TRACK_LABELS user-facing:
+  1: "Your gigs"
+  2: "Confirm profile"
+  3: "Submit"</pre>
+
+<h2>4. Requirement verification plan</h2>
+
+<table>
+<tr><th>#</th><th>Verification</th><th>Method</th></tr>
+<tr><td>2</td><td>Events persist after lookup</td><td>Automated: select event → enter returning email → assert checkbox still checked OR user warned and returned to step 2. Update <code>scripts/verify-returning-registration.php</code> flow order.</td></tr>
+<tr><td>3</td><td>No “None selected” path</td><td>Assert fast-track never mounts step 8 <code>render()</code> full review; block <code>REG_WIZARD_RESTORE_STEP=8</code> when fast-track active; assert review text never contains “None selected” / “Action required”.</td></tr>
+<tr><td>4</td><td>Single nav action</td><td>DOM assert: when Submit visible, <code>#reg-wizard-next</code> hidden; regression CSS test for <code>registration-page--wizard-submit-mode</code>.</td></tr>
+<tr><td>5</td><td>New user 8-step</td><td>Unknown email → <code>fastTrackActive === false</code>; progress shows 8 steps; must pass steps 4–7 validation.</td></tr>
+<tr><td>6</td><td>Incomplete profile</td><td>Lookup returns <code>profile_complete: false</code> → full wizard; PSA file inputs required where missing.</td></tr>
+</table>
+
+<h2>5. Impact assessment</h2>
+
+<h3>5.1 Production impact</h3>
+<table>
+<tr><th>Area</th><th>Impact</th><th>Risk</th></tr>
+<tr><td>End users (returning complete)</td><td>Shorter, clearer 3-step path; fewer abandoned registrations</td><td class="pass">Low — positive</td></tr>
+<tr><td>End users (new / incomplete)</td><td>No change if gating preserved</td><td class="pass">Low</td></tr>
+<tr><td>submit.php / database</td><td>No schema change; same POST shape</td><td class="pass">Low</td></tr>
+<tr><td>Analytics funnel</td><td>Step names/count change for returning cohort; update <code>registration-analytics.php</code> mapping</td><td class="partial">Medium</td></tr>
+<tr><td>Autosave / resume</td><td>Drafts saved at old step numbers may restore wrong screen</td><td class="partial">Medium — needs fast-track-aware restore</td></tr>
+<tr><td>Cached assets</td><td>Users on old JS until hard refresh / CDN TTL</td><td class="partial">Medium — deploy + cache bust</td></tr>
+</table>
+
+<h3>5.2 Architectural concerns (review before coding)</h3>
+<ul class="compact">
+<li><strong>Email vs events ordering:</strong> True “events first” without any email gate is impossible without weakening duplicate-registration protection. Mitigation: one-field email on Welcome, then user-visible fast-track starts at events.</li>
+<li><strong>Dual step maps:</strong> Maintaining 8-step full wizard + fast-track v2 remap increases complexity. Mitigation: centralise step routing in <code>registration-wizard.js</code> with explicit <code>FLOW_FULL</code> / <code>FLOW_FAST_V2</code> tables.</li>
+<li><strong>Security of masked fields:</strong> Client-side masking is display-only; server must not echo full PPS/IBAN in lookup JSON for returning users if summary is shown before submit.</li>
+<li><strong>Profile rollout flag:</strong> <code>staff_profile_update_required</code> may force incomplete state even when user believes profile complete — fast-track must respect <code>staffNeedsProfileForm()</code> (already does).</li>
+</ul>
+
+<h2>6. Files affected (implementation scope)</h2>
+
+<table>
+<tr><th>File</th><th>Change</th></tr>
+<tr><td><code>assets/js/registration-wizard.js</code></td><td>FAST_TRACK_V2 step routing, chrome labels, submit placement on step 3</td></tr>
+<tr><td><code>assets/js/registration-wizard-returning.js</code></td><td>Gate email → lookup → enter fast-track at events; remove auto-advance 3→2-only logic</td></tr>
+<tr><td><code>assets/js/registration-wizard-review.js</code></td><td><code>renderFastTrackProfileSummary()</code>; masked display; move consent rendering</td></tr>
+<tr><td><code>assets/js/registration-wizard-validation.js</code></td><td>Step-scoped validation for summary (consent) vs events (shift pick)</td></tr>
+<tr><td><code>assets/js/registration-wizard-autosave.js</code></td><td>Fast-track step labels; restore guard</td></tr>
+<tr><td><code>assets/js/events.js</code></td><td>Event persistence hooks after lookup (optional: defer picker build until post-lookup)</td></tr>
+<tr><td><code>assets/css/registration-wizard.css</code></td><td>Summary panel, fast-track step-3 submit chrome</td></tr>
+<tr><td><code>includes/public/registration-wizard-shell.php</code></td><td>Progress dots / labels for 3-step fast-track</td></tr>
+<tr><td><code>index.php</code></td><td>Mount point for fast-track profile summary (if new container)</td></tr>
+<tr><td><code>api/registrant-lookup.php</code></td><td>Optional: server-masked payroll fields + PSA status summary</td></tr>
+<tr><td><code>scripts/verify-returning-registration.php</code></td><td>Update expected flow assertions</td></tr>
+<tr><td><code>scripts/verify-returning-shift-p0.php</code></td><td>“None selected” regression checks</td></tr>
+</table>
+
+<p><strong>Not required:</strong> <code>submit.php</code> schema migrations, new feature flag (can extend existing <code>feature_registration_wizard_v2</code>), screenshot assets.</p>
+
+<h2>7. Rollback plan</h2>
+
+<ol>
+<li><strong>Immediate (no deploy):</strong> Disable wizard flag via <code>admin/feature-flags.php</code> or <code>cron/wizard-flag-toggle.php</code> → legacy non-wizard form.</li>
+<li><strong>Fast-track only:</strong> In <code>registration-wizard-returning.js</code>, force <code>setFastTrack(false)</code> for all users (one-line hotfix) — restores full 8-step for everyone while keeping wizard v2 shell.</li>
+<li><strong>Full revert:</strong> Git revert commits touching wizard JS/CSS/shell; redeploy via <code>deploy.ps1</code>; purge CDN/browser cache.</li>
+<li><strong>Data:</strong> No DB rollback needed — changes are client flow only.</li>
+<li><strong>Verification after rollback:</strong> New user completes 8 steps; returning user can still register via full wizard; submit.php acceptance unchanged.</li>
+</ol>
+
+<h2>8. Recommended implementation approach</h2>
+
+<h3>Phase A — Align fast-track with approved 3-step UX (P0)</h3>
+<ol>
+<li>Refactor fast-track step map to user-facing: Events → Confirm → Submit.</li>
+<li>Implement profile summary panel with masked payroll and PSA status badge.</li>
+<li>Move consent to confirm step; Submit only on step 3.</li>
+<li>Keep Welcome+email as pre-fast-track gate (single screen, not counted in progress).</li>
+</ol>
+
+<h3>Phase B — Hardening (P1)</h3>
+<ol>
+<li>Defer shift picker initialisation until after successful lookup OR rebuild selection from <code>dataset.selected</code> after <code>refreshShiftPicker</code>.</li>
+<li>Block autosave restore to step 8 when <code>isFastTrack()</code>.</li>
+<li>Add server-masked fields to lookup API.</li>
+<li>Update automated verification scripts.</li>
+</ol>
+
+<h3>Phase C — Deploy &amp; monitor</h3>
+<ol>
+<li>Deploy behind existing <code>feature_registration_wizard_v2</code> (already on production).</li>
+<li>Watch <code>registration-analytics</code> for <code>returning_fast_track</code>, drop-off at new step 2, duplicate_application_prevented.</li>
+<li>Hard-refresh guidance for testers after FTP deploy.</li>
+</ol>
+
+<h2>9. Decision</h2>
+
+<div class="verdict ok">
+<strong>Proceed with implementation?</strong> Yes — no blocking architectural concerns, but <strong>do not treat current fast-track as complete</strong>. Implement as <strong>fast-track v2 step remap</strong> per Section 3. Estimated touch: ~10 files, client-side only, low server risk. Recommend Phase A first, then Phase B hardening before marketing the flow to returning users.
+</div>
+
+<p class="meta">Related prior audit: <code>docs/RETURNING-USER-WIZARD-INVESTIGATION.html</code> (pre–fast-track v1; partially superseded by this report).</p>
+
+</body>
+</html>

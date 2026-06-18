@@ -3,12 +3,13 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/staff-repository.php';
+require_once __DIR__ . '/../includes/attendance-roster-helpers.php';
 
 requireAdminCapability('attendance');
 
 $pdo     = getDB();
 $eventId = (int) ($_GET['event_id'] ?? 0);
-$events  = getEventsForFilter($pdo);
+$events  = getEventsForAttendanceFilter($pdo);
 $event   = $eventId > 0 ? getEventById($pdo, $eventId) : null;
 
 $pageTitle  = 'Scan check-in';
@@ -32,7 +33,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <option value="">All events (any pass)</option>
                 <?php foreach ($events as $ev): ?>
                     <option value="<?= (int) $ev['id'] ?>"<?= $eventId === (int) $ev['id'] ? ' selected' : '' ?>>
-                        <?= h($ev['name'] . ' — ' . date('d.m.Y', strtotime($ev['event_date']))) ?>
+                        <?= h($ev['name'] . ' — ' . formatEventDateLabel((string) $ev['event_date'])) ?>
                     </option>
                 <?php endforeach; ?>
             </select>

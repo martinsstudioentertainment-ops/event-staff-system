@@ -8,6 +8,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/../includes/main-admin-bridge.php';
 require_once __DIR__ . '/../includes/apply-sso.php';
+require_once __DIR__ . '/../includes/apply-urls.php';
 
 if (function_exists('tryApplyAdminCookieLogin') === false) {
     function tryApplyAdminCookieLogin(): bool
@@ -45,6 +46,10 @@ if (tryApplyAdminCookieLogin()) {
 $error  = '';
 $return = trim((string) ($_GET['return'] ?? ''));
 
+if (isset($_GET['timeout'])) {
+    $error = 'Your session expired after 5 minutes of inactivity. Please sign in again.';
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $result = attemptMainAdminLogin(
         (string) ($_POST['username'] ?? ''),
@@ -52,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     );
 
     if ($result['ok']) {
-        $target = $return !== '' && str_starts_with($return, '/') ? $return : 'dashboard.php';
+        $target = $return !== '' ? apply_safe_redirect_path($return) : 'dashboard.php';
         header('Location: ' . $target);
         exit;
     }
@@ -82,10 +87,10 @@ $mainAdminUrl = 'https://admin.olasentra.com';
             --danger: #ef4444;
             --danger-soft: rgba(239, 68, 68, 0.12);
             --warn: #f59e0b;
-            --accent: #3b82f6;
+            --accent: #6366f1;
             --input-bg: #111827;
             --input-border: rgba(148, 163, 184, 0.22);
-            --scan: rgba(239, 68, 68, 0.04);
+            --scan: rgba(99, 102, 241, 0.05);
         }
 
         * { box-sizing: border-box; }
@@ -99,8 +104,8 @@ $mainAdminUrl = 'https://admin.olasentra.com';
             background:
                 linear-gradient(var(--scan) 1px, transparent 1px),
                 linear-gradient(90deg, var(--scan) 1px, transparent 1px),
-                radial-gradient(ellipse 70% 50% at 50% -20%, rgba(239, 68, 68, 0.14), transparent 55%),
-                radial-gradient(ellipse 40% 30% at 100% 100%, rgba(59, 130, 246, 0.08), transparent),
+                radial-gradient(ellipse 70% 50% at 50% -20%, rgba(99, 102, 241, 0.16), transparent 55%),
+                radial-gradient(ellipse 40% 30% at 100% 100%, rgba(239, 68, 68, 0.06), transparent),
                 var(--bg);
             background-size: 24px 24px, 24px 24px, auto, auto, auto;
         }
@@ -172,7 +177,7 @@ $mainAdminUrl = 'https://admin.olasentra.com';
             left: 0;
             right: 0;
             height: 3px;
-            background: linear-gradient(90deg, #b91c1c, #ef4444, #b91c1c);
+            background: linear-gradient(90deg, #6366f1, #ef4444, #6366f1);
         }
 
         .secure-card__header {
@@ -356,7 +361,7 @@ $mainAdminUrl = 'https://admin.olasentra.com';
             </div>
             <h1 class="secure-card__title" id="login-title">Apply Admin</h1>
             <p class="secure-card__subtitle">Staff profiles, PSA compliance &amp; payroll data</p>
-            <span class="secure-card__zone">Security level: high</span>
+            <span class="secure-card__zone">Premium UI X · Security level: high</span>
         </header>
 
         <?php if ($error !== ''): ?>
@@ -388,7 +393,7 @@ $mainAdminUrl = 'https://admin.olasentra.com';
             Signed in on main admin?
             <a href="<?= htmlspecialchars($mainAdminUrl, ENT_QUOTES, 'UTF-8') ?>/apply-portal.php">Enter via ERP console</a>
         </p>
-        <p class="secure-id">ZONE-APPLY-ADMIN · apply.olasentra.com</p>
+        <p class="secure-id">ZONE-APPLY-ADMIN · Premium UI X · apply.olasentra.com</p>
     </section>
 </div>
 </body>

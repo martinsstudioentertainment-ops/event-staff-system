@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Phase A.4 — Verification Report</title>
+<style>
+:root { --pass: #15803d; --fail: #b91c1c; --warn: #c2410c; --pend: #64748b; }
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 10pt; padding: 22px 30px; max-width: 980px; line-height: 1.45; color: #0f172a; }
+h1 { font-size: 20pt; margin: 0 0 4px; }
+.meta { color: #64748b; font-size: 9pt; margin-bottom: 18px; }
+h2 { font-size: 12pt; background: #030712; color: #fff; padding: 7px 12px; margin: 22px 0 12px; border-radius: 4px; }
+h3 { font-size: 10.5pt; margin: 14px 0 6px; }
+table { width: 100%; border-collapse: collapse; font-size: 9pt; margin: 10px 0 16px; }
+th, td { border-bottom: 1px solid #e2e8f0; padding: 7px 9px; text-align: left; vertical-align: top; }
+th { background: #1e293b; color: #fff; }
+.pass { color: var(--pass); font-weight: 700; }
+.fail { color: var(--fail); font-weight: 700; }
+.warn { color: var(--warn); font-weight: 700; }
+.pend { color: var(--pend); font-weight: 700; }
+.verdict { font-size: 13pt; font-weight: 800; padding: 14px 18px; border-radius: 10px; margin: 16px 0; background: #ecfdf5; border: 2px solid #22c55e; color: #15803d; }
+.gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0 18px; }
+.gallery a { font-size: 8pt; text-decoration: none; color: #0f172a; }
+.gallery img { width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; }
+ul { margin: 8px 0; padding-left: 1.2rem; }
+code { background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-size: 8.5pt; }
+</style>
+</head>
+<body>
+
+<h1>Phase A.4 — Verification Report</h1>
+<p class="meta">
+<strong>Date:</strong> 6 June 2026 ·
+<strong>Scope:</strong> Steps 5-8 polish, A.3 observation fixes ·
+<strong>Flag:</strong> <code>feature_registration_wizard_v2</code> ·
+<strong>Automated checks:</strong> 20 PASS / 0 FAIL / 1 WARN ·
+<strong>UX screenshots:</strong> <code>docs/screenshots/a4-verification/styled/</code> (full CSS via HTTP)
+</p>
+<p style="font-size:9pt;color:#64748b">Prior unstyled PNGs in <code>mobile/</code>, <code>tablet/</code>, <code>desktop/</code> are deprecated — see <a href="SCREENSHOT-CSS-INVESTIGATION.html">SCREENSHOT-CSS-INVESTIGATION.html</a>.</p>
+
+<div class="verdict">
+RECOMMENDATION: <strong>Proceed to Phase A.5</strong><br>
+<span style="font-size:10pt;font-weight:600">Complete one live end-to-end submission on staging (flag ON) before Phase A.8 go-live.</span>
+</div>
+
+<h2>1. PASS / FAIL summary</h2>
+<table>
+<tr><th>Area</th><th>Check</th><th>Result</th><th>Evidence</th></tr>
+<tr><td>Encoding</td><td>No UTF-8 mojibake in wizard files</td><td class="pass">PASS</td><td><code>scripts/verify-phase-a4.ps1</code></td></tr>
+<tr><td>Encoding</td><td>Content-Type charset=UTF-8</td><td class="pass">PASS</td><td><code>index.php</code> header</td></tr>
+<tr><td>Step 5</td><td>Contact reassurance panel displays</td><td class="pass">PASS</td><td>Markup + screenshots</td></tr>
+<tr><td>Step 6</td><td>Payroll platform disclaimer</td><td class="pass">PASS</td><td><code>reg-wizard__payroll-notice</code></td></tr>
+<tr><td>Step 7</td><td>PSA upload status + camera capture</td><td class="pass">PASS</td><td><code>registration-wizard-psa.js</code></td></tr>
+<tr><td>Step 8</td><td>Review summary populated</td><td class="pass">PASS</td><td><code>registration-wizard-review.js</code></td></tr>
+<tr><td>Step 8</td><td>IBAN masking (****last4)</td><td class="pass">PASS</td><td>Unit test: IE29...5678</td></tr>
+<tr><td>Step 8</td><td>PPS masking (***last2)</td><td class="pass">PASS</td><td>Unit test: 1234567AB</td></tr>
+<tr><td>Navigation</td><td>Progress bar all steps</td><td class="pass">PASS</td><td>ARIA progressbar in shell</td></tr>
+<tr><td>Navigation</td><td>Back / Continue</td><td class="pass">PASS</td><td><code>registration-wizard.js</code></td></tr>
+<tr><td>Draft</td><td>Autosave + resume draft</td><td class="pass">PASS</td><td><code>registration-wizard-autosave.js</code></td></tr>
+<tr><td>Flag</td><td>Wizard gated on flag ON</td><td class="pass">PASS</td><td><code>$wizardV2Enabled</code> branches</td></tr>
+<tr><td>Flag</td><td>Legacy form unchanged (flag OFF)</td><td class="pass">PASS</td><td><code>data-wizard-mode=0</code>, hidden wizard actions</td></tr>
+<tr><td>Production</td><td>submit.php unchanged</td><td class="warn">WARN</td><td>Uncommitted local diff (pre-existing); no A.4 edits</td></tr>
+<tr><td>Submission</td><td>Full registration E2E</td><td class="pend">MANUAL</td><td>Requires staging test with flag ON + test email</td></tr>
+<tr><td>Submission</td><td>Data stored correctly</td><td class="pend">MANUAL</td><td>Verify in admin staff view after E2E</td></tr>
+<tr><td>Submission</td><td>No PHP errors on submit</td><td class="pend">MANUAL</td><td>Check server error log post-E2E</td></tr>
+<tr><td>Submission</td><td>No JS console errors</td><td class="pend">MANUAL</td><td>DevTools on all 8 steps (flag ON)</td></tr>
+</table>
+
+<h2>2. Mobile screenshots (390px) - styled</h2>
+<div class="gallery">
+<a href="screenshots/a4-verification/styled/mobile/step-05-contact.png"><img src="screenshots/a4-verification/styled/mobile/step-05-contact.png" alt="Step 5 mobile"><br>Step 5 Contact</a>
+<a href="screenshots/a4-verification/styled/mobile/step-06-payroll.png"><img src="screenshots/a4-verification/styled/mobile/step-06-payroll.png" alt="Step 6 mobile"><br>Step 6 Payroll</a>
+<a href="screenshots/a4-verification/styled/mobile/step-07-psa.png"><img src="screenshots/a4-verification/styled/mobile/step-07-psa.png" alt="Step 7 mobile"><br>Step 7 PSA</a>
+<a href="screenshots/a4-verification/styled/mobile/step-08-review.png"><img src="screenshots/a4-verification/styled/mobile/step-08-review.png" alt="Step 8 mobile"><br>Step 8 Review</a>
+</div>
+
+<h2>3. Tablet screenshots (768px) - styled</h2>
+<div class="gallery">
+<a href="screenshots/a4-verification/styled/tablet/step-05-contact.png"><img src="screenshots/a4-verification/styled/tablet/step-05-contact.png" alt="Step 5 tablet"><br>Step 5 Contact</a>
+<a href="screenshots/a4-verification/styled/tablet/step-06-payroll.png"><img src="screenshots/a4-verification/styled/tablet/step-06-payroll.png" alt="Step 6 tablet"><br>Step 6 Payroll</a>
+<a href="screenshots/a4-verification/styled/tablet/step-07-psa.png"><img src="screenshots/a4-verification/styled/tablet/step-07-psa.png" alt="Step 7 tablet"><br>Step 7 PSA</a>
+<a href="screenshots/a4-verification/styled/tablet/step-08-review.png"><img src="screenshots/a4-verification/styled/tablet/step-08-review.png" alt="Step 8 tablet"><br>Step 8 Review</a>
+</div>
+
+<h2>4. Desktop screenshots (1200px) - styled</h2>
+<div class="gallery">
+<a href="screenshots/a4-verification/styled/desktop/step-05-contact.png"><img src="screenshots/a4-verification/styled/desktop/step-05-contact.png" alt="Step 5 desktop"><br>Step 5 Contact</a>
+<a href="screenshots/a4-verification/styled/desktop/step-06-payroll.png"><img src="screenshots/a4-verification/styled/desktop/step-06-payroll.png" alt="Step 6 desktop"><br>Step 6 Payroll</a>
+<a href="screenshots/a4-verification/styled/desktop/step-07-psa.png"><img src="screenshots/a4-verification/styled/desktop/step-07-psa.png" alt="Step 7 desktop"><br>Step 7 PSA</a>
+<a href="screenshots/a4-verification/styled/desktop/step-08-review.png"><img src="screenshots/a4-verification/styled/desktop/step-08-review.png" alt="Step 8 desktop"><br>Step 8 Review</a>
+</div>
+
+<h2>5. Feature flag verification</h2>
+<h3>Flag ON (<code>feature_registration_wizard_v2</code>)</h3>
+<ul>
+<li><span class="pass">PASS</span> — <code>registration-page--wizard</code> body class applied</li>
+<li><span class="pass">PASS</span> — <code>data-wizard-mode="1"</code> enables wizard JS modules only</li>
+<li><span class="pass">PASS</span> — 8-step shell, contact panel, payroll notice, PSA cards, review summary loaded</li>
+<li><span class="pass">PASS</span> — Legacy inline submit hidden; wizard submit nav on Step 8</li>
+</ul>
+<h3>Flag OFF</h3>
+<ul>
+<li><span class="pass">PASS</span> — <code>wiz_step_open/close</code> no-ops; single-page form DOM unchanged</li>
+<li><span class="pass">PASS</span> — Wizard CSS/JS not included in page output</li>
+<li><span class="pass">PASS</span> — <code>returning-registrant.js</code> handles legacy prefill (not wizard returning module)</li>
+</ul>
+
+<h2>6. Submission testing</h2>
+<p>End-to-end submission was <strong>not executed in this automated run</strong> (requires live DB, PSA images, and open events). Recommended staging checklist:</p>
+<ol>
+<li>Enable flag on staging · use fresh test email</li>
+<li>Complete all 8 steps · attach PSA test images · select one open event</li>
+<li>Submit · confirm redirect/success message</li>
+<li>Admin → verify staff row, event registration, PSA files</li>
+<li>Browser console: zero errors across wizard navigation</li>
+<li>Server: no new PHP warnings in error log</li>
+</ol>
+
+<h2>7. Remaining defects</h2>
+<table>
+<tr><th>ID</th><th>Severity</th><th>Issue</th><th>Target phase</th></tr>
+<tr><td>D1</td><td>Low</td><td>PSA back upload shows native file picker styling until file selected (front shows ready state in demo only)</td><td>A.5 / polish</td></tr>
+<tr><td>D2</td><td>Low</td><td>Review summary event names depend on shift picker DOM; empty if events not loaded before Step 8</td><td>A.5 server-error restore</td></tr>
+<tr><td>D3</td><td>Info</td><td><code>submit.php</code> has uncommitted local changes unrelated to A.4 - confirm before any submit-path work</td><td>Pre-A.5 hygiene</td></tr>
+<tr><td>D4</td><td>Info</td><td>Live E2E submission not run in this report - required before A.8 go-live</td><td>Staging QA</td></tr>
+</table>
+
+<h2>8. Phase A.5 recommendation</h2>
+<p><strong>Begin Phase A.5.</strong> Automated and visual verification for A.4 scope is complete. Phase A.5 should deliver:</p>
+<ul>
+<li>Server error restore on review step (return to Step 8 with field errors)</li>
+<li>Review summary refresh when events load asynchronously</li>
+<li>Staging E2E submission sign-off</li>
+</ul>
+
+<p><strong>Artifacts:</strong></p>
+<ul>
+<li>Screenshots: <code>docs/screenshots/a4-verification/</code></li>
+<li>Automated results: <code>docs/screenshots/a4-verification/verify-results.json</code></li>
+<li>Re-run: <code>scripts/verify-phase-a4.ps1</code> · <code>scripts/capture-a4-verification-screenshots.ps1</code></li>
+<li>Implementation: <code>docs/PHASE-A4-IMPLEMENTATION-PACKAGE.html</code></li>
+</ul>
+
+</body>
+</html>

@@ -7,12 +7,16 @@ require_once __DIR__ . '/includes/staff-repository.php';
 require_once __DIR__ . '/includes/attendance-repository.php';
 require_once __DIR__ . '/includes/status-repository.php';
 require_once __DIR__ . '/includes/validation.php';
+require_once __DIR__ . '/includes/system-settings.php';
 require_once __DIR__ . '/includes/public/staff-public-shell.php';
+require_once __DIR__ . '/includes/public/registration-success-panel.php';
 require_once __DIR__ . '/includes/staff-psa.php';
 require_once __DIR__ . '/includes/staff-profile-gate.php';
 require_once __DIR__ . '/includes/staff-portal-session.php';
 require_once __DIR__ . '/includes/notification-center.php';
 require_once __DIR__ . '/includes/components/whatsapp-join.php';
+require_once __DIR__ . '/includes/staff-portal-dashboard.php';
+require_once __DIR__ . '/includes/components/staff-status-dashboard.php';
 
 $pdo      = getDB();
 require_once __DIR__ . '/includes/staff-registration-schema.php';
@@ -100,7 +104,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['status_psa_update']))
         }
 
         if ($staffRecord !== null && staffNeedsProfileForm($pdo, $staffRecord)) {
-            establishStaffPortalSession($staffRecord);
+            require_once __DIR__ . '/includes/staff-portal-remember.php';
+            establishStaffPortalSessionWithRemember($pdo, $staffRecord);
             $_SESSION['staff_profile_return'] = 'status.php?token=' . urlencode($token);
             header('Location: staff-profile.php');
             exit;
@@ -110,7 +115,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['status_psa_update']))
 
 enforceStaffProfileGate($pdo, ['staff-profile.php', 'staff-portal.php', 'status.php']);
 
-$assetBase = '';
+$assetBase      = '';
+$portalStaff    = getStaffFromPortalSession($pdo);
+$statusFilter   = strtolower(trim((string) ($_GET['filter'] ?? '')));
+if ($statusFilter === 'all' || $statusFilter === 'total') {
+    $statusFilter = '';
+}
+$statusMetrics  = [];
+$displayRows    = $rows;
+if ($rows !== []) {
+    $statusMetrics = computeStaffStatusMetricsFromRows($rows);
+    $displayRows   = filterStaffStatusRows($rows, $statusFilter);
+}
+$profilePageUrl = $portalStaff !== null ? 'staff-profile.php?edit=1' : 'staff-portal.php';
 require_once __DIR__ . '/includes/theme.php';
 $themeColor = getThemeColor($pdo);
 ?>
@@ -119,23 +136,29 @@ $themeColor = getThemeColor($pdo);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>My Registration Status | <?= h($siteName) ?></title>
+    <title>My Status | <?= h($siteName) ?></title>
     <?php include __DIR__ . '/includes/pwa-head.php'; ?>
     <link rel="stylesheet" href="assets/css/notifications.css">
+    <link rel="stylesheet" href="assets/css/staff-status-dashboard.css">
 </head>
-<body class="staff-public-shell staff-public-shell--event-ops staff-public-shell--narrow login-page staff-mobile-page" data-pwa-install="1">
+<body class="staff-public-shell staff-public-shell--event-ops staff-public-shell--narrow login-page staff-mobile-page" data-pwa-install="1" <?= renderStaffPortalBodyAttributes($portalStaff, $pdo) ?>>
     <?php renderStaffPublicBackground(true); ?>
-    <?php renderStaffPublicHeader($pdo, $siteName, ['home_url' => 'staff-app.php']); ?>
+    <?php renderStaffPublicHeader($pdo, $siteName, ['home_url' => 'staff-app.php', 'portal_staff' => $portalStaff]); ?>
+    <?php renderStaffFlashBroadcast($pdo); ?>
 
     <main class="login-page__wrap staff-public-main">
         <section class="card login-card staff-public-card">
             <div class="card__header">
-                <h1 class="card__title">My Registration</h1>
-                <p class="card__subtitle"><?= h($siteName) ?></p>
+                <h1 class="card__title">My status</h1>
+                <p class="card__subtitle">Applications, shifts &amp; check-in</p>
             </div>
 
             <?php if ($successMsg !== ''): ?>
                 <div class="alert alert--success alert--visible"><?= h($successMsg) ?></div>
+            <?php endif; ?>
+
+            <?php if ($successMsg !== '' && !$showLookup && $rows !== []): ?>
+                <?php renderRegistrationSuccessPanel($rows); ?>
             <?php endif; ?>
 
             <?php if ($showLookup): ?>
@@ -167,50 +190,14 @@ $themeColor = getThemeColor($pdo);
                 <p class="login-card__hint">New here? <a href="index.php">Register for an event</a></p>
             <?php else: ?>
                 <?php $person = $rows[0]; ?>
-                <?php if ($staffRecord !== null): ?>
-                    <?php include __DIR__ . '/includes/status-psa-form.php'; ?>
-                <?php endif; ?>
-
-                <dl class="detail-list detail-list--compact">
-                    <div class="detail-list__row"><dt>Name</dt><dd><?= h($person['first_name'] . ' ' . $person['surname']) ?></dd></div>
-                    <div class="detail-list__row"><dt>Email</dt><dd><?= h($person['email']) ?></dd></div>
-                </dl>
-
-                <h2 class="form-section-title">Your Events</h2>
-                <div class="status-list">
-                    <?php foreach ($rows as $row): ?>
-                        <article class="status-card">
-                            <div class="status-card__header">
-                                <strong><?= h(formatEventLabel($row)) ?></strong>
-                                <span class="badge badge--<?= h($row['status']) ?>"><?= h(formatStatusLabel($row['status'])) ?></span>
-                            </div>
-                            <p class="status-card__meta">Role: <?= h(formatRoleLabel($row['staff_role'])) ?></p>
-                            <?php if ($row['status'] === 'approved'): ?>
-                                <?php if ((int) $row['is_checked_in'] === 1): ?>
-                                    <p class="status-card__meta">Checked in <?= h(date('d.m.Y H:i', strtotime($row['checked_in_at']))) ?></p>
-                                <?php else: ?>
-                                    <?php
-                                    $checkinToken = ensureCheckinToken($pdo, (int) $row['id']);
-                                    $checkinUrl   = $checkinToken ? getCheckinUrl($checkinToken, $pdo) : '';
-                                    ?>
-                                    <?php if ($checkinUrl !== ''): ?>
-                                        <a href="<?= h($checkinUrl) ?>" class="btn btn--primary btn--block">Check In for This Event</a>
-                                    <?php endif; ?>
-                                <?php endif; ?>
-                            <?php elseif ($row['status'] === 'pending'): ?>
-                                <p class="status-card__meta">Awaiting admin approval.</p>
-                            <?php else: ?>
-                                <p class="status-card__meta">This registration was not approved.</p>
-                            <?php endif; ?>
-                        </article>
-                    <?php endforeach; ?>
-                </div>
+                <?php renderStaffStatusMetricsDashboard($token, $statusMetrics, $statusFilter); ?>
+                <?php renderStaffStatusApplicationsList($displayRows, $pdo, $token, $statusFilter); ?>
 
                 <?php
                 $personEmail = strtolower(trim((string) ($person['email'] ?? '')));
                 $notifUnread = $personEmail !== '' ? countUnreadStaffNotifications($pdo, $personEmail) : 0;
                 ?>
-                <?php if ($notifUnread > 0 || $personEmail !== ''): ?>
+                <?php if ($personEmail !== ''): ?>
                     <p style="margin-top:1rem">
                         <a href="staff-notifications.php?token=<?= h($token) ?>" class="btn btn--secondary btn--block">
                             Notifications<?= $notifUnread > 0 ? ' (' . (int) $notifUnread . ' new)' : '' ?>
@@ -219,6 +206,31 @@ $themeColor = getThemeColor($pdo);
                 <?php endif; ?>
 
                 <?php renderWhatsappGroupCard($pdo, 'compact'); ?>
+
+                <details class="status-dash__account">
+                    <summary>Account &amp; profile details</summary>
+                    <div class="status-dash__account-body">
+                        <dl class="detail-list detail-list--compact">
+                            <div class="detail-list__row"><dt>Name</dt><dd><?= h($person['first_name'] . ' ' . $person['surname']) ?></dd></div>
+                            <div class="detail-list__row"><dt>Email</dt><dd><?= h($person['email']) ?></dd></div>
+                        </dl>
+                        <p style="margin-top:0.75rem">
+                            <a href="<?= h($profilePageUrl) ?>" class="btn btn--secondary btn--sm">Manage profile</a>
+                        </p>
+                        <?php if ($staffRecord !== null): ?>
+                            <?php
+                            $staff = $staffRecord;
+                            $psaFlash = $successMsg;
+                            $hidePsaAfterRegistration = $successMsg !== '' && isStaffPsaComplete($staff);
+                            if ($hidePsaAfterRegistration) {
+                                echo '<p class="status-psa-on-file" role="status">Your PSA licence details are on file from registration.</p>';
+                            } else {
+                                include __DIR__ . '/includes/status-psa-form.php';
+                            }
+                            ?>
+                        <?php endif; ?>
+                    </div>
+                </details>
             <?php endif; ?>
 
             <p class="login-card__hint"><a href="staff-app.php">← Staff app home</a></p>
@@ -231,6 +243,9 @@ $themeColor = getThemeColor($pdo);
     $enablePwaInstall = true;
     $enablePwaPush    = !$showLookup && $rows !== [];
     include __DIR__ . '/includes/pwa-scripts.php';
+    if ($portalStaff !== null) {
+        renderStaffPortalSessionIdleScript($pdo, $portalStaff);
+    }
     ?>
 </body>
 </html>

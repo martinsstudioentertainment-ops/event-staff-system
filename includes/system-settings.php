@@ -4,6 +4,7 @@ require_once __DIR__ . '/settings-repository.php';
 require_once __DIR__ . '/world-currencies.php';
 require_once __DIR__ . '/world-locales.php';
 require_once __DIR__ . '/world-timezones.php';
+require_once __DIR__ . '/date-format.php';
 
 /** @return array<string, string> */
 function getSystemLayoutModeOptions(): array
@@ -24,12 +25,7 @@ function getSystemCurrencyOptions(): array
 /** @return array<string, string> */
 function getSystemDateFormatOptions(): array
 {
-    return [
-        'd/m/Y' => 'd/m/Y (31/12/2026)',
-        'm/d/Y' => 'm/d/Y (12/31/2026)',
-        'Y-m-d' => 'Y-m-d (2026-12-31)',
-        'd.m.Y' => 'd.m.Y (31.12.2026)',
-    ];
+    return getDisplayDateFormatOptions();
 }
 
 /** @return array<string, string> */
@@ -89,7 +85,7 @@ function normalizeSystemCurrency(string $value): string
 
 function normalizeSystemDateFormat(string $value): string
 {
-    return array_key_exists($value, getSystemDateFormatOptions()) ? $value : 'd/m/Y';
+    return normalizeDisplayDateFormat($value);
 }
 
 function normalizeSystemLanguage(string $value): string
@@ -152,6 +148,7 @@ function saveSystemSettings(PDO $pdo, array $input): void
         'system_language'            => normalizeSystemLanguage(trim((string) ($input['language'] ?? 'en'))),
         'maintenance_mode'           => !empty($input['maintenance_mode']) ? '1' : '0',
         'admin_2fa_required'         => !empty($input['admin_2fa_required']) ? '1' : '0',
+        'admin_login_otp_email'      => strtolower(trim((string) ($input['admin_login_otp_email'] ?? ''))),
         'activity_logging_enabled'   => !empty($input['activity_logging_enabled']) ? '1' : '0',
         'auto_backup_enabled'        => !empty($input['auto_backup_enabled']) ? '1' : '0',
     ]);
@@ -195,30 +192,12 @@ function getSystemCurrency(?PDO $pdo = null): string
 
 function formatSystemDate(string $date, ?PDO $pdo = null): string
 {
-    if ($date === '') {
-        return '';
-    }
-
-    $timestamp = strtotime($date);
-    if ($timestamp === false) {
-        return $date;
-    }
-
-    return date(getSystemDateFormat($pdo), $timestamp);
+    return formatDisplayDate($date, $pdo);
 }
 
 function formatSystemDateTime(string $datetime, ?PDO $pdo = null): string
 {
-    if ($datetime === '') {
-        return '';
-    }
-
-    $timestamp = strtotime($datetime);
-    if ($timestamp === false) {
-        return $datetime;
-    }
-
-    return date(getSystemDateFormat($pdo) . ' H:i', $timestamp);
+    return formatDisplayDateTime($datetime, $pdo);
 }
 
 function formatSystemCurrencyAmount(float $amount, ?PDO $pdo = null): string

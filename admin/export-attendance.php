@@ -33,7 +33,7 @@ if (isset($_GET['event_id'])) {
             $row['email'],
             formatRoleLabel($row['staff_role']),
             formatEventLabel($row),
-            (int) $row['is_checked_in'] === 1 ? 'Checked In' : 'Waiting',
+            isAttendanceRosterCheckedIn($row) ? 'Checked In' : (isAttendanceMarkedNoShow($row) ? 'No show' : 'Waiting'),
             $row['checked_in_at'] ?? '',
             $row['checked_in_method'] ?? '',
         ]);
@@ -69,7 +69,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <option value="">All events</option>
                 <?php foreach ($events as $event): ?>
                     <option value="<?= (int) $event['id'] ?>">
-                        <?= h($event['name'] . ' — ' . date('d.m.Y', strtotime($event['event_date']))) ?>
+                        <?= h($event['name'] . ' — ' . formatEventDateLabel((string) $event['event_date'])) ?>
                     </option>
                 <?php endforeach; ?>
             </select>

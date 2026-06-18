@@ -1,0 +1,268 @@
+﻿{
+    "ok": true,
+    "generated_at_utc": "2026-06-07T21:44:37+00:00",
+    "source": "live_production_server",
+    "vault_bridge": {
+        "connected": true,
+        "config_path": "\/home\/olastofx\/apply\/admin\/config\/database.php",
+        "candidates": [
+            "\/home\/olastofx\/public_html\/apply\/admin\/config\/database.php",
+            "\/home\/olastofx\/apply\/admin\/config\/database.php"
+        ],
+        "vault_rows": 64
+    },
+    "integrity_score": {
+        "score": 90,
+        "grade": "A",
+        "factors": [
+            "2 duplicate phone groups (main ERP)",
+            "2 duplicate name+DOB profiles"
+        ]
+    },
+    "vault_health": {
+        "score": 100,
+        "issues": [],
+        "metrics": {
+            "total": 64,
+            "missing_email": 0,
+            "missing_phone": 0,
+            "missing_psa": 13,
+            "duplicate_phone": 0,
+            "duplicate_psa": 0,
+            "invalid_phone": 0
+        }
+    },
+    "counts": {
+        "duplicate_phones_main": 2,
+        "duplicate_phones_vault": 0,
+        "duplicate_psa_vault": 0,
+        "duplicate_staff_profiles": 2,
+        "duplicate_emails_main": 0,
+        "orphan_types": 0,
+        "inactive_types": 0,
+        "test_accounts": 6,
+        "merge_recommendations": 2,
+        "blank_phones_vault": 0,
+        "invalid_phones_vault": 0
+    },
+    "trust_quality": {
+        "distorted": true,
+        "issues": [
+            "2 duplicate name+DOB staff profiles may split trust history"
+        ],
+        "duplicate_staff_groups": 2,
+        "multi_reg_same_event": 0
+    },
+    "orphaned": [],
+    "inactive": [],
+    "duplicate_phones_main": [
+        {
+            "phone": "+353871234567",
+            "count": 4,
+            "staff_ids": [
+                77,
+                78,
+                79,
+                80
+            ],
+            "names": "Wizard E2ETest | Wizard E2ETest | Wizard E2ETest | Wizard E2ETest",
+            "emails": "e2e-wizard-20260606162455@olasentra-e2e.test | e2e-wizard-20260606164202@olasentra-e2e.test | e2e-wizard-20260606164932@olasentra-e2e.test | e2e-live-wizard-20260606182111@olasentra-e2e.test",
+            "recommended": 77
+        },
+        {
+            "phone": "+353894861266",
+            "count": 2,
+            "staff_ids": [
+                70,
+                71
+            ],
+            "names": "Amit Kataria | Amit Kataria",
+            "emails": "amitkataria9409@gmail.com | amitkataria9408@gmail.com",
+            "recommended": 70
+        }
+    ],
+    "duplicate_phones_vault": [],
+    "duplicate_psa_vault": [],
+    "duplicate_staff_profiles": [
+        {
+            "name": "wizard e2etest",
+            "dob": "1990-06-15",
+            "count": 4,
+            "staff_ids": [
+                77,
+                78,
+                79,
+                80
+            ],
+            "emails": "e2e-wizard-20260606162455@olasentra-e2e.test | e2e-wizard-20260606164202@olasentra-e2e.test | e2e-wizard-20260606164932@olasentra-e2e.test | e2e-live-wizard-20260606182111@olasentra-e2e.test",
+            "recommended": 77
+        },
+        {
+            "name": "amit kataria",
+            "dob": "1994-05-30",
+            "count": 2,
+            "staff_ids": [
+                70,
+                71
+            ],
+            "emails": "amitkataria9409@gmail.com | amitkataria9408@gmail.com",
+            "recommended": 70
+        }
+    ],
+    "duplicate_emails_main": [],
+    "test_accounts": [
+        {
+            "source": "main_staff",
+            "staff_id": 80,
+            "email": "e2e-live-wizard-20260606182111@olasentra-e2e.test",
+            "name": "Wizard E2ETest",
+            "registrations": 1,
+            "attendance": 0,
+            "notifications": 1,
+            "messages": 0
+        },
+        {
+            "source": "main_staff",
+            "staff_id": 79,
+            "email": "e2e-wizard-20260606164932@olasentra-e2e.test",
+            "name": "Wizard E2ETest",
+            "registrations": 1,
+            "attendance": 0,
+            "notifications": 1,
+            "messages": 0
+        },
+        {
+            "source": "main_staff",
+            "staff_id": 78,
+            "email": "e2e-wizard-20260606164202@olasentra-e2e.test",
+            "name": "Wizard E2ETest",
+            "registrations": 1,
+            "attendance": 0,
+            "notifications": 1,
+            "messages": 0
+        },
+        {
+            "source": "main_staff",
+            "staff_id": 77,
+            "email": "e2e-wizard-20260606162455@olasentra-e2e.test",
+            "name": "Wizard E2ETest",
+            "registrations": 1,
+            "attendance": 0,
+            "notifications": 1,
+            "messages": 0
+        },
+        {
+            "source": "apply_vault",
+            "vault_id": 58,
+            "email": "amitkataria9409@gmail.com",
+            "name": "Amit Kataria",
+            "psa": "EM217046\/26"
+        },
+        {
+            "source": "apply_vault",
+            "vault_id": 64,
+            "email": "e2e-wizard-20260606162455@olasentra-e2e.test",
+            "name": "Wizard E2ETest",
+            "psa": "EM123456\/78"
+        }
+    ],
+    "merge_recommendations": [
+        {
+            "key": "main_phone_a9f20e013e17aab71f8e35fb0c84605f",
+            "type": "main_phone",
+            "label": "Duplicate phone (main): +353871234567",
+            "record_a": {
+                "id": "77",
+                "first_name": "Wizard",
+                "surname": "E2ETest",
+                "email": "e2e-wizard-20260606162455@olasentra-e2e.test",
+                "mobile": "+353871234567",
+                "psa_licence": "EM123456\/78",
+                "created_at": "2026-06-06 12:25:00"
+            },
+            "record_b": {
+                "id": "78",
+                "first_name": "Wizard",
+                "surname": "E2ETest",
+                "email": "e2e-wizard-20260606164202@olasentra-e2e.test",
+                "mobile": "+353871234567",
+                "psa_licence": "EM123456\/78",
+                "created_at": "2026-06-06 12:42:07"
+            },
+            "recommended": 77,
+            "context": {
+                "registrations": 4,
+                "attendance": 0,
+                "messages": 0,
+                "notifications": 4
+            }
+        },
+        {
+            "key": "main_phone_049702b0fd7de8a4c60c7d0c7b32325d",
+            "type": "main_phone",
+            "label": "Duplicate phone (main): +353894861266",
+            "record_a": {
+                "id": "70",
+                "first_name": "Amit",
+                "surname": "Kataria",
+                "email": "amitkataria9409@gmail.com",
+                "mobile": "+353894861266",
+                "psa_licence": "EM217046\/26",
+                "created_at": "2026-06-05 06:55:11"
+            },
+            "record_b": {
+                "id": "71",
+                "first_name": "Amit",
+                "surname": "Kataria",
+                "email": "amitkataria9408@gmail.com",
+                "mobile": "+353894861266",
+                "psa_licence": "EM217046\/26",
+                "created_at": "2026-06-05 07:03:56"
+            },
+            "recommended": 70,
+            "context": {
+                "registrations": 2,
+                "attendance": 0,
+                "messages": 0,
+                "notifications": 6
+            }
+        }
+    ],
+    "cleanup_plan": {
+        "phase1": {
+            "title": "Phase 1 — Safe fixes (no deletions)",
+            "items": [
+                "Normalize phone numbers on import",
+                "Use import pre-check before sync",
+                "Improve skip messages with owner names",
+                "Fix orphaned staff_id links (manual)"
+            ]
+        },
+        "phase2": {
+            "title": "Phase 2 — Recommended merges (admin approval required)",
+            "items": [
+                "Duplicate phone (main): +353871234567 → keep ID 77",
+                "Duplicate phone (main): +353894861266 → keep ID 70"
+            ]
+        },
+        "phase3": {
+            "title": "Phase 3 — Test account removal (explicit approval)",
+            "items": [
+                "e2e-live-wizard-20260606182111@olasentra-e2e.test (main_staff)",
+                "e2e-wizard-20260606164932@olasentra-e2e.test (main_staff)",
+                "e2e-wizard-20260606164202@olasentra-e2e.test (main_staff)",
+                "e2e-wizard-20260606162455@olasentra-e2e.test (main_staff)",
+                "amitkataria9409@gmail.com (apply_vault)",
+                "e2e-wizard-20260606162455@olasentra-e2e.test (apply_vault)"
+            ]
+        },
+        "phase4": {
+            "title": "Phase 4 — Data normalization",
+            "items": [
+                "Reconcile vault phone conflicts with main ERP canonical mobile",
+                "Clear test PSA placeholders in vault",
+                "Re-run trust score refresh after approved merges"
+            ]
+        }
+    }
+}

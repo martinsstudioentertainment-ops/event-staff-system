@@ -14,6 +14,69 @@ function psaImageFileAcceptAttribute(): string
     return 'image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,image/*';
 }
 
+/**
+ * Google Sheets / exports — blank until staff enter a real licence.
+ */
+function exportPsaLicenceForSheet(?string $licence): string
+{
+    $licence = trim((string) $licence);
+
+    if ($licence === '' || str_starts_with($licence, 'TEMP-PSA-')) {
+        return '';
+    }
+
+    return $licence;
+}
+
+function isStoredPsaImagePath(?string $path): bool
+{
+    $path = trim((string) $path);
+
+    return $path !== '' && $path !== 'pending-upload';
+}
+
+function normalizePsaImageStoredPath(string $path): string
+{
+    $path = trim(str_replace('\\', '/', $path));
+    if (!isStoredPsaImagePath($path)) {
+        return '';
+    }
+
+    return str_starts_with($path, '/') ? $path : '/' . $path;
+}
+
+/**
+ * Public URL for a PSA image path stored on the main ERP site (register/admin subdomain).
+ */
+function psaImagePublicUrl(string $storedPath, ?PDO $pdo = null): string
+{
+    if (!isStoredPsaImagePath($storedPath)) {
+        return '';
+    }
+
+    if (preg_match('#^https?://#i', $storedPath) === 1) {
+        return $storedPath;
+    }
+
+    require_once __DIR__ . '/site-urls.php';
+
+    return getRegistrationSiteUrl($pdo) . normalizePsaImageStoredPath($storedPath);
+}
+
+/**
+ * Absolute filesystem path for a main-site stored PSA image (admin UI file_exists checks).
+ */
+function psaImageFilesystemPath(string $storedPath): string
+{
+    if (!isStoredPsaImagePath($storedPath)) {
+        return '';
+    }
+
+    $relative = ltrim(normalizePsaImageStoredPath($storedPath), '/');
+
+    return dirname(__DIR__) . '/' . $relative;
+}
+
 function ensureStaffPsaSchema(PDO $pdo): void
 {
     static $ready = false;
@@ -291,7 +354,7 @@ function processStaffPsaFileUploadsWithErrors(int $staffId, array $files): array
  * @param array<string, mixed> $files
  * @return array<string, string> Field errors (empty on success)
  */
-function saveStaffPsaFromForm(PDO $pdo, int $staffId, array $data, array $files): array
+function saveStaffPsaFromForm(PDO $pdo, int $staffId, array $data, array $files, bool $runProfilePostJobs = true): array
 {
     if ($staffId < 1) {
         return [];
@@ -325,7 +388,7 @@ function saveStaffPsaFromForm(PDO $pdo, int $staffId, array $data, array $files)
     if (updateStaffProfile($pdo, $staffId, $update)) {
         $staff = getStaffById($pdo, $staffId);
         if ($staff !== null && isStaffOnboardingComplete($staff)) {
-            markStaffProfileCompleted($pdo, $staffId);
+            markStaffProfileCompleted($pdo, $staffId, $runProfilePostJobs);
         }
     }
 

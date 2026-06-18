@@ -6,6 +6,8 @@ require_once __DIR__ . '/events-repository.php';
 require_once __DIR__ . '/attendance-repository.php';
 require_once __DIR__ . '/rich-text.php';
 require_once __DIR__ . '/email-copy.php';
+require_once __DIR__ . '/email-layout.php';
+require_once __DIR__ . '/email-branding.php';
 
 /**
  * @return array{sent: int, failed: int, total: int}
@@ -17,19 +19,19 @@ function sendEventStaffBroadcast(PDO $pdo, int $eventId, string $subject, string
         return ['sent' => 0, 'failed' => 0, 'total' => 0];
     }
 
-    $subject = trim($subject);
+    $subject = emailAsciiSafe(trim($subject));
     if ($subject === '') {
-        $subject = getSiteName($pdo) . ' — ' . (string) $event['name'];
+        $subject = getSiteName($pdo) . ' - ' . (string) $event['name'];
     }
 
-    $bodyHtml = renderRichText($htmlMessage);
+    $bodyHtml = emailAsciiSafe(renderRichText($htmlMessage));
     if ($bodyHtml === '') {
         $bodyHtml = '<p>Please see the details below for your upcoming event assignment.</p>';
     }
 
     $siteName = getSiteName($pdo);
-    $location = formatEventLocationLabel($event);
-    $times    = formatEventTimeRangeLabel($event);
+    $location = formatEventLocationLabelForEmail($event);
+    $times    = formatEventTimeRangeLabelForEmail($event);
     $date     = formatEventDateLabel((string) $event['event_date']);
 
     $linksHtml = '';
@@ -48,10 +50,14 @@ function sendEventStaffBroadcast(PDO $pdo, int $eventId, string $subject, string
         }
     }
 
-    $eventBlockHtml = '<p><strong>Event:</strong> ' . htmlspecialchars((string) $event['name'], ENT_QUOTES, 'UTF-8') . '<br>'
-        . '<strong>Date:</strong> ' . htmlspecialchars($date, ENT_QUOTES, 'UTF-8') . '<br>'
-        . '<strong>Time:</strong> ' . htmlspecialchars($times, ENT_QUOTES, 'UTF-8') . '<br>'
-        . '<strong>Location:</strong> ' . htmlspecialchars($location, ENT_QUOTES, 'UTF-8') . '</p>';
+    $eventBlockHtml = buildEmailEventCard($pdo, [
+        'event_name' => (string) $event['name'],
+        'date'       => $date,
+        'times'      => $times,
+        'location'   => $location,
+        'pay_rate'   => formatEmailPayRateLabelOptional($pdo, $event),
+        'hours'      => formatEmailShiftHoursLabel($event),
+    ]);
 
     $eventBlockText = "Event: {$event['name']}\nDate: {$date}\nTime: {$times}\nLocation: {$location}\n";
 
@@ -72,12 +78,10 @@ function sendEventStaffBroadcast(PDO $pdo, int $eventId, string $subject, string
             $personalLinksText = "\nYour personal check-in link:\n{$checkinUrl}\n";
         }
 
-        $html = $greetingHtml . $bodyHtml . $eventBlockHtml . $linksHtml . $personalLinksHtml
-            . '<p style="font-size:11px;color:#64748b;margin-top:16px;">' . htmlspecialchars(getEmailShortFooter($pdo), ENT_QUOTES, 'UTF-8') . '</p>'
-            . '<p>— ' . htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8') . '</p>';
+        $html = $greetingHtml . $bodyHtml . $eventBlockHtml . $linksHtml . $personalLinksHtml;
 
-        $text = $greetingText . plainTextFromRich($htmlMessage, 5000) . "\n\n" . $eventBlockText . $linksText . $personalLinksText
-            . "\n\n" . getEmailShortFooter($pdo) . "\n\n— {$siteName}\n";
+        $text = $greetingText . emailAsciiSafe(plainTextFromRich($htmlMessage, 5000)) . "\n\n" . $eventBlockText . $linksText . $personalLinksText
+            . "\n\n" . getEmailShortFooter($pdo) . "\n\n- {$siteName}\n";
 
         if (sendEmail($pdo, (string) $row['email'], $subject, $text, $html)) {
             $sent++;

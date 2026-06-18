@@ -1,0 +1,67 @@
+OLASENTRA — QUICK SETUP ON A NEW PC
+====================================
+Date: 14 June 2026 (v1.0.15 update)
+
+STEP 1 — GET THE CODE
+---------------------
+Option A (best — keeps uncommitted work):
+  Copy entire folder from USB/cloud:
+    d:\event-staff-system  →  new drive\event-staff-system
+
+Option B (git only — may miss recent FTP-only changes):
+  git clone https://github.com/martinsstudioentertainment-ops/event-staff-system.git
+  Then merge/copy changed files from full folder backup if you have one.
+
+STEP 2 — COPY SECRETS FROM THIS HANDOVER FOLDER
+------------------------------------------------
+From: handover-package\local-secrets\  (or Desktop\Olasentra-Personal-Handover\local-secrets\)
+To:   matching paths inside your project root
+
+  deploy.local.ps1                          → project root
+  config.php                                → project root (optional for local dev)
+  service-account.json                      → storage/google/
+  database.php                              → apply/admin/config/
+  eventstaff-database.php                   → apply/admin/config/
+  google-services.json                      → android/olasentra-staff/app/
+  local.properties                          → android/olasentra-staff/
+
+STEP 3 — INSTALL SOFTWARE
+-------------------------
+  [ ] Git
+  [ ] PHP 8+ with GD extension
+  [ ] PowerShell (Windows built-in)
+  [ ] Android Studio + JDK 17 (only if building mobile app)
+  [ ] Cursor IDE (optional)
+
+STEP 4 — VERIFY
+---------------
+  cd D:\event-staff-system
+  php -v
+  git status
+  git remote -v
+
+STEP 5 — DEPLOY PHP (when ready)
+--------------------------------
+  powershell -ExecutionPolicy Bypass -File .\deploy.ps1
+
+STEP 6 — ANDROID (when ready)
+-----------------------------
+  cd android\olasentra-staff
+  .\gradlew.bat :app:assembleProductionDebug --no-daemon
+
+  Deploy APK to production:
+  powershell -ExecutionPolicy Bypass -File .\scripts\deploy-android-apk.ps1 -Version 1.0.15
+
+  Or install live APK (no build needed):
+  https://register.olasentra.com/staff-app-download.php
+
+STEP 7 — PRODUCTION HEALTH CHECK
+--------------------------------
+  Open in browser:
+  https://register.olasentra.com/api/probe-staff-full-verify.php?key=email-encoding-verify-20260606
+
+  Expect: all checks passed
+
+  Test email OTP: Sign in with Email using a staff address on file (Gmail or non-Gmail).
+
+READ FULL DETAILS IN: HANDOVER-COMPLETE.txt

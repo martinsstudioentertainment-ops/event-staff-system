@@ -1,0 +1,667 @@
+================================================================================
+  OLASENTRA / EVENT STAFF SYSTEM — COMPLETE PROJECT HANDOVER
+  Personal handover document — Sunday 14 June 2026 (evening update)
+  Prepared from: d:\event-staff-system
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+1.  Executive summary
+2.  What this system is
+3.  Live URLs and environments
+4.  Repository and workspace
+5.  Project timeline (beginning → today)
+6.  Architecture overview
+7.  Deployment (how to push changes)
+8.  Local-only files (MUST copy to new PC)
+9.  Android native app
+10. Branding and logos (latest)
+11. Key admin / cron / probe tools
+12. Test accounts and production data notes
+13. Issues fixed in recent sessions
+14. Current git state
+15. Continue on another PC — step by step
+16. Critical rules (never break)
+17. Contacts and support checklist
+18. File index in this handover folder
+
+================================================================================
+1. EXECUTIVE SUMMARY
+================================================================================
+
+Olasentra (formerly "Event Staff System") is a PHP/MySQL staff management
+platform for event security staffing in Ireland. It handles:
+
+  - Public marketing site
+  - Staff registration (Google Sign-In)
+  - Staff web app / PWA (dashboard, shifts, GPS check-in)
+  - Admin ERP (events, staff directory, attendance, payroll, comms hub)
+  - Apply portal (apply.olasentra.com)
+  - Native Android staff app (Kotlin/Compose, v1.0.15)
+  - Mobile REST API (register.olasentra.com/api/mobile/v1)
+  - Email OTP sign-in (Gmail and non-Gmail staff)
+  - Google Sheets sync, email notifications, WhatsApp group links
+
+Production is hosted on cPanel (FTP) with one shared MySQL database.
+Code is on GitHub; deploy = git push + FTP upload.
+
+Status as of 14 June 2026 (evening):
+  - Production verified (35/35 staff probe checks passed)
+  - Mobile API enabled, Google sign-in enabled, email OTP enabled, GPS v2 enabled
+  - Branding updated (purple shield "O" logo) on web, WhatsApp, PWA, mobile
+  - Android APK v1.0.15 live (Master UI, email OTP, Settings, high-contrast auth)
+  - Payroll tile hidden in Android app + admin sidebar (backend payroll preserved)
+  - Local workspace has many uncommitted changes (deployed via FTP + APK deploy script)
+
+================================================================================
+2. WHAT THIS SYSTEM IS
+================================================================================
+
+PRODUCT NAME (public):     Olasentra Security Updates
+INTERNAL / REPO NAME:      event-staff-system
+COMPANY:                   Olasentra / Event Staff Ireland operations
+
+USER ROLES:
+  - Public visitors       → Marketing homepage
+  - Staff                 → register.olasentra.com (Google OR email OTP login)
+  - Managers / admins     → admin.olasentra.com (username/password ERP)
+  - Apply portal admins   → apply.olasentra.com/admin
+
+CORE FEATURES (all must be preserved):
+  - Staff registration + approval workflow
+  - Google OAuth (staff + admin integrations)
+  - GPS attendance v2 + QR check-in
+  - Event management, shift assignment
+  - Dashboard analytics, exports, reports
+  - Payroll functionality
+  - Communication hub + branded HTML emails
+  - Notifications (web + FCM push on Android)
+  - PWA install + mobile portal config API
+  - Google Sheets export/sync
+  - Settings, permissions, audit log, backups
+
+================================================================================
+3. LIVE URLS AND ENVIRONMENTS
+================================================================================
+
+MAIN SITES
+----------
+  Marketing:        https://olasentra.com/
+  Staff register:   https://register.olasentra.com/
+  Staff web app:    https://register.olasentra.com/staff-app.php
+  Admin ERP:        https://admin.olasentra.com/
+  Admin login:      https://admin.olasentra.com/login.php
+  Apply portal:     https://apply.olasentra.com/
+  Apply admin:      https://apply.olasentra.com/admin/login.php
+  Staff Android APK: https://register.olasentra.com/staff-app-download.php
+
+API
+---
+  Mobile API base:  https://register.olasentra.com/api/mobile/v1
+  Mobile config:    https://register.olasentra.com/api/mobile/v1/config
+  Auth OTP send:    POST /api/mobile/v1/auth/otp/send
+  Auth OTP verify:  POST /api/mobile/v1/auth/otp/verify
+  PWA manifest:     https://register.olasentra.com/manifest.php
+  OG / WhatsApp:    https://register.olasentra.com/og-image.php
+
+HOSTING
+-------
+  Provider:         cPanel shared hosting (olasentra.com)
+  FTP server:       ftp.olasentra.com
+  FTP user:         olastofx
+  Main doc root:    /public_html          → admin.olasentra.com + register
+  Apply doc root:   /apply/admin          → apply.olasentra.com/admin
+
+DATABASE (shared across all sites)
+----------------------------------
+  Host:             localhost (on server)
+  Database name:    olastofx_eventstaff
+  DB user:          olastofx_dbuser
+  (Password in config.php on server — see local-secrets folder)
+
+GITHUB
+------
+  Repository:       https://github.com/martinsstudioentertainment-ops/event-staff-system.git
+  Default branch:   main
+
+================================================================================
+4. REPOSITORY AND WORKSPACE
+================================================================================
+
+LOCAL WORKSPACE (this PC):
+  Path:             d:\event-staff-system
+  (Previous PC path: e:\event-staff-system — same repo, different drive letter)
+
+IMPORTANT: Workspace is NOT fully synced with git. Many fixes were deployed
+via FTP (deploy.ps1 / upload-one.ps1) without being committed. Always treat
+the local folder as the source of truth for PHP changes until committed.
+
+TOP-LEVEL FOLDERS
+-----------------
+  admin/            Admin ERP PHP pages
+  api/              REST endpoints (mobile v1, probes, PWA icon)
+  apply/            Apply portal (separate subdomain tree)
+  android/          Native Android app (olasentra-staff) + TWA stub
+  assets/           CSS, JS, icons (incl. PWA icons)
+  cron/             Scheduled jobs + one-time bootstrap scripts
+  database/         SQL migrations and guides
+  docs/             Architecture, sprint reports, API docs
+  includes/         Core PHP libraries (auth, mail, GPS, mobile services)
+  scripts/          PowerShell deploy, FTP, backup, branding tools
+  storage/          Runtime uploads, branding, logs, Google service account
+  play-store-assets/ Google Play listing materials
+
+KEY CONFIG FILES (local — gitignored)
+-------------------------------------
+  config.php                    Production DB + site URLs (server copy differs)
+  deploy.local.ps1              FTP password + deploy targets
+  storage/google/service-account.json   Google Sheets OAuth
+  apply/admin/config/database.php         Apply portal DB
+  apply/admin/config/eventstaff-database.php
+  android/olasentra-staff/app/google-services.json   Firebase
+  android/olasentra-staff/local.properties             Android SDK + OAuth client
+
+================================================================================
+5. PROJECT TIMELINE (BEGINNING → TODAY)
+================================================================================
+
+PHASE 1 — FOUNDATION (early 2026)
+----------------------------------
+  - Built PHP/MySQL event staff registration system
+  - Admin ERP for events, staff, attendance, exports
+  - Subdomain architecture: register.olasentra.com for staff, admin separate
+  - Google Sign-In for staff portal
+  - Deploy tooling: deploy.ps1 (git push + FTP to main + apply sites)
+  - GitHub repo: martinsstudioentertainment-ops/event-staff-system
+
+PHASE 2 — MOBILE & EXPANSION
+----------------------------
+  - Mobile REST API v1 under /api/mobile/v1
+  - Native Android app (Kotlin, Jetpack Compose, MVVM, Hilt, Room)
+  - Modules: core, data, domain, feature:* (auth, dashboard, gps, etc.)
+  - Google Sign-In + JWT auth on mobile
+  - GPS attendance read-only then v2 live check-in
+  - PWA support (manifest, service worker, install prompts)
+  - Apply portal at apply.olasentra.com
+  - Phone E.164 normalization, notifications, comms hub
+  - Branded HTML email system upgrade
+  - Google Sheets integration for event data
+
+PHASE 3 — CORRUPTION & RECOVERY (12 June 2026)
+----------------------------------------------
+  CRITICAL EVENT: Mass file wipe at 2026-06-12 17:56:13
+    - 263 files became 0 bytes locally
+    - Included Android sources, PHP includes, docs, scripts
+    - Git had only partial history; many files were never committed
+    - Production FTP copies remained INTACT
+
+  Recovery phases executed:
+    Phase 1: Git restore (39 tracked files from HEAD)
+    Phase 2: FTP download of production PHP (read-only)
+    Phase 3: Agent transcript replay (294 writes + 318 search-replace ops)
+    Phase 3K/3L: Recovery audit and execution plan
+    Result: Android compileProductionDebugKotlin BUILD SUCCESSFUL
+
+  RULE during recovery: No deploy, no upload, no APK rebuild until verified
+
+PHASE 4 — PRODUCTION STABILISATION (12–13 June 2026)
+----------------------------------------------------
+  Staff login / dashboard failures across web, PWA, Android:
+
+  Fixes deployed:
+    - isStoredPsaImagePath() missing → dashboard API 500
+      File: includes/staff-psa.php
+    - renderStaffPortalBodyAttributes() missing → staff-app.php HTTP 500
+      File: includes/staff-portal-session.php
+    - mobile_api_enabled = false → Android/iOS 503
+      Fix: cron/mobile-api-pre-phase2-bootstrap.php
+    - Post-registration Android loop back to login
+      Fix: Android v1.0.9 auto Google sign-in after submit
+    - Remember-me cookie not restored on staff web home
+      Fix: staff-app.php restoreStaffPortalFromRememberCookie()
+    - resetCheckinForRegistration() missing
+      File: includes/attendance-repository.php + cron/reset-staff-checkins.php
+
+  Verification probe created:
+    api/probe-staff-full-verify.php?key=...
+    Result: 35/35 checks passed (~2026-06-13 12:10 UTC)
+
+PHASE 5 — TEST ACCOUNTS & DATA OPS (13 June 2026)
+-------------------------------------------------
+  martinsstudioentertainment@gmail.com
+    - Purged and re-registered (staff ID 113)
+    - Approved for Kings Of Leon + Kodaleone events
+
+  olabodeoluwafemi25800@gmail.com
+    - Staff ID 106, approved Kingfishr (event 2)
+    - Pre-test check-in cleared for fresh GPS check-in
+
+  Purge tool: cron/purge-test-registrant.php?key=...
+
+PHASE 6 — BRANDING UPDATE (12–13 June 2026, completed 14 June 2026)
+--------------------------------------------------------------------
+  New logo: Purple rounded square, shield with white "O"
+
+  Assets generated and deployed:
+    storage/branding/olasentra-logo-master.png       (company logo)
+    storage/branding/olasentra-whatsapp-share.png    (1200×630 WhatsApp card)
+    storage/branding/mobile/app-logo.png             (mobile portal)
+    storage/branding/mobile/splash-logo.png
+    storage/branding/mobile/login-logo.png
+    storage/branding/mobile/dashboard-logo.png
+    assets/icons/pwa/icon-*.png                      (PWA icons)
+    Android launcher icons (mipmap + adaptive foreground bitmap)
+
+  Scripts:
+    php scripts/generate-branding-assets.php
+    powershell -File scripts/deploy-olasentra-branding.ps1
+    https://register.olasentra.com/cron/apply-olasentra-branding.php?key=...
+
+  Android v1.0.10 (versionCode 11) built with new launcher icon
+  APK: android/olasentra-staff/app/build/outputs/apk/production/debug/
+       app-production-debug.apk
+
+PHASE 7 — ANDROID MASTER UI + EMAIL OTP (14 June 2026)
+-------------------------------------------------------
+  Goal: Orange/navy staff portal UX, email sign-in for non-Gmail staff, Settings,
+        same staff profile whether signing in with Google or email OTP.
+
+  v1.0.11–v1.0.13 (Master UI Phase 1):
+    - Welcome flow, 12-tile Overview dashboard, bottom nav (Home · Shifts · Scan ·
+      Messages · Menu), PortalDashboardHeader, badge counts, orange/navy theme
+    - Auth error messaging, splash/login branding improvements
+
+  v1.0.14 (Phase 2 — deployed):
+    - Email OTP backend: MobileOtpService.php, MobileEmailOtpAuthService.php
+    - Registration OTP APIs: api/registration-email-otp-send.php, verify.php
+    - Mobile routes: auth/otp/send, auth/otp/verify, me/password (change password)
+    - Android: EmailSignInScreen, OtpVerificationScreen, RegistrationEmailScreen
+    - Settings: Edit Profile, Change Password (existing settings retained)
+    - Notifications screen redesign (dark navy cards, orange accents)
+    - Payroll tile removed from Android Overview + admin sidebar prep link
+      (payroll backend/admin pages still exist — not deleted)
+
+  v1.0.15 (14 June 2026 — LIVE):
+    - Email OTP fixes: lowercase email normalization, email_otp_enabled default true
+      in app until config loads, clearer STAFF_NOT_FOUND errors (no Google bias)
+    - ensureMobileOtpSchema() on api/mobile/index.php boot (creates OTP table)
+    - High-contrast auth UI (AuthUiComponents.kt): orange + dark navy text
+      applied to Welcome, Login, Email sign-in, OTP verify, Registration email
+    - Copy updated: Google OR staff email → same profile when email matches record
+    - Non-Gmail staff explicitly supported (Outlook, Yahoo, company email, etc.)
+    - versionName 1.0.15, versionCode 15
+    - Deployed via: scripts/deploy-android-apk.ps1 -Version 1.0.15
+    - Live download: https://register.olasentra.com/staff-app-download.php
+
+  Auth model (IMPORTANT):
+    - Google sign-in (auth/google) and email OTP (auth/otp/verify) both call
+      getStaffByEmail() and issue the same JWT via mobileAuthServiceIssueTokens()
+    - Staff email must exist on approved staff record in DB for OTP to work
+    - staff_google_signin_required setting does NOT block email OTP (only PPS login)
+
+  Key Android paths (auth/settings):
+    feature/auth/ui/EmailSignInScreen.kt, OtpVerificationScreen.kt, LoginScreen.kt
+    feature/auth/ui/WelcomeScreen.kt, RegistrationEmailScreen.kt
+    feature/profile/ui/SettingsScreen.kt, EditProfileScreen.kt, ChangePasswordScreen.kt
+    core/ui/components/AuthUiComponents.kt
+    data/repository/AuthRepositoryImpl.kt
+
+  Key PHP paths (OTP):
+    includes/mobile/services/MobileOtpService.php
+    includes/mobile/services/MobileEmailOtpAuthService.php
+    includes/mobile/services/MobileConfigService.php  (email_otp_enabled, email_signin_enabled)
+    includes/mobile/mobile-router.php
+    api/mobile/index.php
+
+  Google Sign-In SHA-1 (this PC debug keystore):
+    3E:2B:29:32:9C:8A:40:49:09:8D:64:68:19:F4:76:B3:CF:1E:FA:16
+    Docs: docs/android/GOOGLE-SIGNIN-SHA1.md
+    Error [16] Account reauth failed → add SHA-1 in Google Cloud Console for
+    package com.olasentra.staff
+
+  Known deploy note:
+    deploy.ps1 pre-deploy backup can fail on Windows with deep android/build/ paths.
+    Use scripts/upload-one.ps1 or direct FTP for single PHP files if backup fails.
+
+================================================================================
+6. ARCHITECTURE OVERVIEW
+================================================================================
+
+WEB (PHP)
+---------
+  config.php              Bootstrap, DB, constants
+  includes/               Shared business logic
+    auth.php              Admin + staff sessions
+    staff-portal-session.php   Staff web app session/idle
+    brand-logo.php        Company logo + WhatsApp share image
+    settings-repository.php    Key-value settings in DB
+    mobile/services/      MobilePortalConfigService.php
+    attendance-repository.php  Check-in/out data access
+    mailer.php / smtp-mailer.php   Email sending
+  admin/                  Manager ERP UI
+  staff-app.php           Staff PWA portal entry
+  index.php               Registration form (register subdomain)
+  og-image.php            Social share image (1200×630 JPEG)
+  manifest.php            PWA manifest
+
+MOBILE API
+----------
+  Base: /api/mobile/v1/
+  Auth:
+    - Google ID token → JWT (auth/google)
+    - Email OTP → JWT (auth/otp/send + auth/otp/verify)
+    - Both resolve staff via getStaffByEmail() — same profile when email matches
+  Config endpoint exposes branding URLs, feature flags, maintenance mode
+  Key settings (in DB):
+    mobile_api_enabled
+    google_signin_enabled
+    email_otp_enabled / email_signin_enabled
+    gps_attendance_v2_enabled
+
+ANDROID
+-------
+  Path: android/olasentra-staff/
+  Gradle: assembleProductionDebug / assembleProductionRelease
+  API: https://register.olasentra.com/api/mobile/v1
+  Version: 1.0.15 (versionCode 15)
+  Download: https://register.olasentra.com/staff-app-download.php
+  Firebase: google-services.json (FCM push)
+  Sign-in: Google OR email OTP (non-Gmail supported)
+  UI: Orange/navy portal theme, bottom nav, Welcome → Login/Register flows
+
+DEPLOY PIPELINE
+---------------
+  deploy.ps1:
+    [0] pre-deploy-backup.ps1
+    [1] cleanup-audit.ps1
+    [2] git push origin main
+    [3] upload-to-server.ps1  → admin.olasentra.com (/public_html)
+    [4] upload-apply-site.ps1 → apply.olasentra.com (/apply/admin)
+
+  NEVER overwrite on FTP upload:
+    config.php (production DB credentials)
+    storage/google/service-account.json
+    apply/admin/config/database.php
+    apply/admin/config/eventstaff-database.php
+
+================================================================================
+7. DEPLOYMENT (HOW TO PUSH CHANGES)
+================================================================================
+
+ONE COMMAND (always use after PHP production changes):
+  cd d:\event-staff-system
+  powershell -ExecutionPolicy Bypass -File .\deploy.ps1
+
+ANDROID APK DEPLOY (after building):
+  cd d:\event-staff-system
+  powershell -ExecutionPolicy Bypass -File .\scripts\deploy-android-apk.ps1 -Version 1.0.15
+  (Uploads APK to storage/mobile/android/, updates portal version label, verifies download)
+
+ONE-TIME SETUP (new PC):
+  1. Copy deploy.local.ps1.example → deploy.local.ps1
+  2. Set FtpPassword from cPanel → FTP Accounts
+  3. Or set env var EVENT_STAFF_FTP_PASSWORD
+
+SELECTIVE UPLOAD (single file):
+  powershell -File .\scripts\upload-one.ps1 -Local "path" -Remote "remote/path"
+
+BRANDING ONLY:
+  php scripts/generate-branding-assets.php
+  powershell -File .\scripts\deploy-olasentra-branding.ps1
+
+ANDROID BUILD:
+  cd android\olasentra-staff
+  .\gradlew.bat :app:assembleProductionDebug --no-daemon
+
+After Google Sheets / OAuth scope changes:
+  Re-connect Google account in Admin → Settings
+
+================================================================================
+8. LOCAL-ONLY FILES (MUST COPY TO NEW PC)
+================================================================================
+
+These are gitignored. Without them you cannot deploy or build Android.
+
+  FILE                                          PURPOSE
+  ----                                          -------
+  deploy.local.ps1                              FTP credentials
+  config.php                                    Local dev DB (optional; server has own)
+  storage/google/service-account.json           Google Sheets API
+  apply/admin/config/database.php               Apply DB credentials
+  apply/admin/config/eventstaff-database.php    Apply ↔ main DB link
+  apply/admin/config/sso.local.php              Apply SSO (if used)
+  android/olasentra-staff/app/google-services.json   Firebase
+  android/olasentra-staff/local.properties      SDK path + GOOGLE_WEB_CLIENT_ID
+
+Copies of these (where they exist on this PC) are in:
+  Olasentra-Personal-Handover\local-secrets\
+
+WARNING: local-secrets folder contains passwords. Keep private. Do not commit
+to git or upload to public cloud unencrypted.
+
+================================================================================
+9. ANDROID NATIVE APP
+================================================================================
+
+Location:     android/olasentra-staff/
+Requirements: Android Studio Ladybug+, JDK 17, SDK 35
+
+Setup on new PC:
+  1. Clone repo + copy local-secrets files into place
+  2. Open android/olasentra-staff in Android Studio
+  3. Sync Gradle
+  4. Run productionDebug
+
+Latest release (14 June 2026 evening):
+  versionName: 1.0.15
+  versionCode: 15
+  Live APK:    https://register.olasentra.com/staff-app-download.php
+  Local build: android/olasentra-staff/app/build/outputs/apk/production/debug/
+               app-production-debug.apk
+  Staged copy: storage/mobile/android/olasentra-staff-v1.0.15.apk (after deploy script)
+
+Staff install / sign-in instructions:
+  - Install v1.0.15 from staff-app-download.php (uninstall old app if needed)
+  - Sign in with Google OR Sign in with Email (same profile when email matches)
+  - Non-Gmail staff: use Sign in with Email with address on staff record
+  - GPS on, at venue, pull to refresh after login
+  - If Google fails with [16]: register debug SHA-1 (see docs/android/GOOGLE-SIGNIN-SHA1.md)
+
+Auth screens (v1.0.15):
+  Welcome → Sign in → Login (Google + Email buttons) OR Email OTP flow
+  Menu → Settings → Edit Profile / Change Password
+
+Launcher icons updated in:
+  android/olasentra-staff/app/src/main/res/drawable-nodpi/
+  android/olasentra-staff/app/src/main/res/mipmap-*/
+
+================================================================================
+10. BRANDING AND LOGOS (LATEST)
+================================================================================
+
+Design: Purple squircle, shield with white "O"
+
+  Company logo:    storage/branding/olasentra-logo-master.png
+  WhatsApp share:  storage/branding/olasentra-whatsapp-share.png (1200×630)
+  Mobile logos:    storage/branding/mobile/*.png
+  PWA icons:       assets/icons/pwa/icon-*.png
+
+Live URLs:
+  https://register.olasentra.com/storage/branding/olasentra-logo-master.png
+  https://register.olasentra.com/storage/branding/olasentra-whatsapp-share.png
+
+Admin: Settings → Branding (website-global.php)
+Mobile portal logos: Admin → Mobile Portal
+
+Regenerate after logo change:
+  php scripts/generate-branding-assets.php
+  powershell -File scripts/deploy-olasentra-branding.ps1
+
+Copies in this handover: branding\ subfolder
+
+================================================================================
+11. KEY ADMIN / CRON / PROBE TOOLS
+================================================================================
+
+CRON KEY (fallback when reminder_cron_key not set):
+  email-encoding-verify-20260606
+  (Also check Admin → Email for reminder_cron_key in DB)
+
+USEFUL CRON URLS (append ?key=...):
+  cron/apply-olasentra-branding.php         Apply logo settings
+  cron/mobile-api-pre-phase2-bootstrap.php  Enable mobile API + JWT
+  cron/purge-test-registrant.php            Remove test staff by email
+  cron/reset-staff-checkins.php             Clear check-in history for staff
+  cron/daily-reminders.php                  Email reminders
+  cron/production-truth-verify.php          Production sanity check
+
+PROBES:
+  api/probe-staff-full-verify.php           Full staff stack (35 checks)
+  api/probe-ping.php                        Basic ping
+
+Example:
+  https://register.olasentra.com/api/probe-staff-full-verify.php?key=email-encoding-verify-20260606
+
+================================================================================
+12. TEST ACCOUNTS AND PRODUCTION DATA NOTES
+================================================================================
+
+  martinsstudioentertainment@gmail.com  Staff ID 113 (re-registered Jun 2026)
+  olabodeoluwafemi25800@gmail.com       Staff ID 106 (Kingfishr event)
+
+  Staff must sign in with the email address on their staff record.
+  Google sign-in uses the Google account email; email OTP uses typed address.
+  Both paths load the same profile when the email matches.
+  Admin login is separate (admin.olasentra.com) — not staff Google/email login.
+
+Do NOT purge production staff without explicit approval.
+Use cron/purge-test-registrant.php only for confirmed test accounts.
+
+================================================================================
+13. ISSUES FIXED IN RECENT SESSIONS
+================================================================================
+
+  ISSUE                              CAUSE                    FIX
+  -----                              -----                    ---
+  Blank dashboard / "Never synced"   Missing PSA helpers      staff-psa.php
+  staff-app.php HTTP 500             Missing portal render fns staff-portal-session.php
+  Android login 503                  mobile_api_enabled false bootstrap cron
+  Post-reg → login screen            No auto sign-in          Android 1.0.9 auth flow
+  Remember-me not working            Cookie not restored      staff-app.php
+  Check-in reset missing             Missing repository fn    attendance-repository.php
+  WhatsApp logo squashed             Wrong OG image size      brand-logo + share assets
+  All platforms broken Jun 13        Combined above           All deployed to production
+  Email OTP not visible / failing    Faint UI, config default AuthUiComponents + v1.0.15
+  Non-Gmail staff blocked on Google  No email OTP path        Email OTP auth (v1.0.14–15)
+  Google vs email different profile  Separate lookup paths    Same getStaffByEmail() + JWT
+  Android auth text too faint        Light grey onSurface     Orange + dark navy (v1.0.15)
+  Payroll shown in staff app         UX decision              Hidden tile/sidebar (not deleted)
+
+================================================================================
+14. CURRENT GIT STATE (14 June 2026 evening)
+================================================================================
+
+  Remote:   origin → github.com/martinsstudioentertainment-ops/event-staff-system
+  Branch:   main (tracking origin/main)
+
+  Latest commit on origin (unchanged — Android v1.0.11–1.0.15 NOT committed yet):
+    9fdd79e Fix apply admin htaccess/global.css and extend FTP bundle
+    5cb860d Add notifications, apply portal, phone E.164, deploy tooling
+    d16b886 Fix apply site FTP paths
+    2771772 Skip blocked .sh FTP uploads
+    5311fa5 Unify push-to-server deploy.ps1
+
+  IMPORTANT: Massive local changes exist (admin/, includes/mobile/, android/, api/mobile/,
+  email OTP services, AuthUiComponents, Settings screens, etc.) deployed via FTP and
+  deploy-android-apk.ps1 but NOT committed to git. Before switching PCs:
+    - Copy entire d:\event-staff-system folder to external drive (recommended)
+    - Or git add + commit + push when ready (user must request commits explicitly)
+
+================================================================================
+15. CONTINUE ON ANOTHER PC — STEP BY STEP
+================================================================================
+
+  A. COPY TO NEW PC (choose one or both):
+     1. Full folder:  d:\event-staff-system  (recommended — has all uncommitted work)
+     2. This handover: handover-package\  (inside repo) or Desktop copy if exported
+     3. Git clone:     git clone https://github.com/martinsstudioentertainment-ops/event-staff-system.git
+
+  B. INSTALL TOOLS:
+     - PHP 8.x with GD extension
+     - Git
+     - PowerShell
+     - Android Studio + JDK 17 (for mobile work)
+     - Cursor IDE (optional)
+
+  C. RESTORE SECRETS (from local-secrets\ folder):
+     Copy each file to matching path in project root (see section 8)
+
+  D. VERIFY:
+     php -v
+     php -r "echo extension_loaded('gd')?'GD ok':'GD missing';"
+     git status
+
+  E. DEPLOY TEST:
+     powershell -File .\deploy.ps1
+     (only after deploy.local.ps1 is configured)
+
+  F. ANDROID:
+     Copy google-services.json + local.properties
+     cd android\olasentra-staff
+     .\gradlew.bat assembleProductionDebug
+
+  G. PRODUCTION CHECK:
+     Open probe URL (section 11) — expect all checks pass
+
+See also: SETUP-NEW-PC.txt in this folder (quick checklist)
+
+================================================================================
+16. CRITICAL RULES (NEVER BREAK)
+================================================================================
+
+  - Never remove existing functionality, routes, auth, GPS, QR, payroll, PWA
+  - Never overwrite production config.php or service-account.json on FTP
+  - Always run deploy.ps1 after PHP production changes before telling users to test
+  - admin.olasentra.com is master; Android is API client only
+  - Staff use Google Sign-In OR email OTP on Android — NOT admin password
+  - Email OTP requires staff email on approved record (Gmail or non-Gmail)
+  - Google and email OTP must resolve to the same staff profile (same email in DB)
+  - Do not force-push main without explicit approval
+  - Do not commit deploy.local.ps1, config.php, or service-account.json to git
+
+================================================================================
+17. CONTACTS AND SUPPORT CHECKLIST
+================================================================================
+
+When staff report issues, check in order:
+  1. probe-staff-full-verify.php (all green?)
+  2. Same email as staff record? (Google OR email OTP — must match DB exactly)
+  3. Non-Gmail? → use Sign in with Email, not Google
+  4. mobile_api_enabled + google_signin_enabled + email_otp_enabled in settings?
+  5. OTP not arriving? → check spam; verify email on staff profile in admin
+  6. GPS enabled on phone, at venue?
+  7. App version ≥ 1.0.15 (email OTP + contrast fixes)?
+  8. Google [16] error? → SHA-1 in Google Cloud Console (docs/android/GOOGLE-SIGNIN-SHA1.md)
+  9. Clear app storage / reinstall APK from staff-app-download.php if config stale
+
+When deploying:
+  1. pre-deploy-backup runs automatically
+  2. git push then FTP both sites
+  3. Re-test staff-app.php and mobile /config endpoint
+  4. After OAuth scope change → reconnect Google in Settings
+
+================================================================================
+18. FILE INDEX IN THIS HANDOVER FOLDER
+================================================================================
+
+  HANDOVER-COMPLETE.txt     ← This document (open in Notepad)
+  SETUP-NEW-PC.txt          ← Quick checklist for new machine
+  FILES-MANIFEST.txt        ← List of all copied files + sizes
+  local-secrets\            ← Gitignored credentials (KEEP PRIVATE)
+  branding\                 ← Logo PNG copies
+  android-apk\              ← Staff APK (refresh from live build — v1.0.15 on server)
+  scripts-reference\        ← Key deploy script copies (+ deploy-android-apk.ps1 in repo)
+
+================================================================================
+END OF HANDOVER — Olasentra Event Staff System — 14 June 2026 (v1.0.15 update)
+================================================================================

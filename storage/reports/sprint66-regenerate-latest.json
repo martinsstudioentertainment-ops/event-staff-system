@@ -1,0 +1,57 @@
+﻿{
+    "ok": true,
+    "exit_code": 0,
+    "generated_at": "2026-06-07T21:44:38+00:00",
+    "cli_output": "Sprint 6.6 reports written to docs\/\n  - DATA-INTEGRITY-AUDIT-REPORT.html\n  - TEST-DATA-INVENTORY-REPORT.html\n  - PHONE-DUPLICATE-REPORT.html\n  - PSA-INTEGRITY-REPORT.html\n  - IMPORT-STABILIZATION-REPORT.html\n  - VAULT-HEALTH-REPORT.html\n  - TRUST-SCORE-DATA-QUALITY-REPORT.html\n  - PRODUCTION-CLEANUP-PLAN.html\n\nIntegrity score: 90% (grade A)\nVault health: 100%\nTest accounts: 6\nMerge recommendations: 2",
+    "reports": [
+        {
+            "file": "DATA-INTEGRITY-AUDIT-REPORT.html",
+            "exists": true,
+            "bytes": 1672
+        },
+        {
+            "file": "TEST-DATA-INVENTORY-REPORT.html",
+            "exists": true,
+            "bytes": 1816
+        },
+        {
+            "file": "PHONE-DUPLICATE-REPORT.html",
+            "exists": true,
+            "bytes": 1091
+        },
+        {
+            "file": "PSA-INTEGRITY-REPORT.html",
+            "exists": true,
+            "bytes": 1024
+        },
+        {
+            "file": "IMPORT-STABILIZATION-REPORT.html",
+            "exists": true,
+            "bytes": 1227
+        },
+        {
+            "file": "VAULT-HEALTH-REPORT.html",
+            "exists": true,
+            "bytes": 1132
+        },
+        {
+            "file": "TRUST-SCORE-DATA-QUALITY-REPORT.html",
+            "exists": true,
+            "bytes": 901
+        },
+        {
+            "file": "PRODUCTION-CLEANUP-PLAN.html",
+            "exists": true,
+            "bytes": 2157
+        }
+    ],
+    "vault_bridge": {
+        "connected": true,
+        "config_path": "\/home\/olastofx\/apply\/admin\/config\/database.php",
+        "candidates": [
+            "\/home\/olastofx\/public_html\/apply\/admin\/config\/database.php",
+            "\/home\/olastofx\/apply\/admin\/config\/database.php"
+        ],
+        "vault_rows": 64
+    }
+}

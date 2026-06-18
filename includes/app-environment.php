@@ -70,6 +70,24 @@ function guardDevOnlyEndpoint(string $message = 'This tool is disabled in produc
 const ADMIN_LOGIN_MAX_ATTEMPTS = 5;
 const ADMIN_LOGIN_LOCK_MINUTES = 15;
 
+/** Idle timeout before automatic sign-out (staff portal). */
+const APP_SESSION_IDLE_TTL = 300;
+
+/** Admin panel idle timeout before automatic sign-out (10 minutes). */
+const ADMIN_SESSION_IDLE_TTL = 600;
+
+function touchSessionActivity(string $key = 'app_session_last_activity'): void
+{
+    $_SESSION[$key] = time();
+}
+
+function sessionIdleExpired(string $key = 'app_session_last_activity', int $ttl = APP_SESSION_IDLE_TTL): bool
+{
+    $last = (int) ($_SESSION[$key] ?? 0);
+
+    return $last > 0 && (time() - $last) > $ttl;
+}
+
 function adminLoginLockKey(): string
 {
     return 'admin_login_' . md5((string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));

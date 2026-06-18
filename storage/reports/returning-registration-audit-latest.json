@@ -1,0 +1,126 @@
+{
+    "generated_at": "2026-06-06T20:25:03+00:00",
+    "base_url": "https://register.olasentra.com",
+    "test_email": "e2e-wizard-20260606164932@olasentra-e2e.test",
+    "api_profile": {
+        "surname": "E2ETest",
+        "first_name": "Wizard",
+        "full_address": "1 Test Street, Dublin",
+        "eircode": "D02 X285",
+        "mobile": "+353871234567",
+        "date_of_birth": "1990-06-15",
+        "gender": "prefer_not_to_say",
+        "staff_role": "dsp",
+        "form_slug": "dsp",
+        "location_lat": "",
+        "location_lng": "",
+        "pps_number": "1234567AB",
+        "bank_iban": "IE29AIBK93115212345678",
+        "psa_licence": "EM123456/78",
+        "psa_expiry_date": "2028-06-06",
+        "has_psa_front": true,
+        "has_psa_back": true
+    },
+    "event_selected": true,
+    "profile_lookup": true,
+    "welcome_card_shown": true,
+    "field_checks": {
+        "Personal \u2014 surname": {
+            "api_value": "E2ETest",
+            "wizard_value": "E2ETest",
+            "pass": true
+        },
+        "Personal \u2014 first name": {
+            "api_value": "Wizard",
+            "wizard_value": "Wizard",
+            "pass": true
+        },
+        "Personal \u2014 address": {
+            "api_value": "1 Test Street, Dublin",
+            "wizard_value": "1 Test Street, Dublin",
+            "pass": true
+        },
+        "Personal \u2014 eircode": {
+            "api_value": "D02 X285",
+            "wizard_value": "D02 X285",
+            "pass": true
+        },
+        "Personal \u2014 date of birth": {
+            "api_value": "1990-06-15",
+            "wizard_value": "1990-06-15",
+            "pass": true
+        },
+        "Personal \u2014 gender": {
+            "api_value": "prefer_not_to_say",
+            "wizard_value": "prefer_not_to_say",
+            "pass": true
+        },
+        "Mobile": {
+            "api_value": "+353871234567",
+            "wizard_value": "871234567",
+            "pass": true
+        },
+        "Payroll \u2014 PPS": {
+            "api_value": "1234567AB",
+            "wizard_value": "1234567AB",
+            "pass": true
+        },
+        "Payroll \u2014 IBAN": {
+            "api_value": "IE29AIBK93115212345678",
+            "wizard_value": "IE29AIBK93115212345678",
+            "pass": true
+        },
+        "PSA \u2014 licence": {
+            "api_value": "EM123456/78",
+            "wizard_value": "EM123456/78",
+            "pass": true
+        },
+        "PSA \u2014 expiry": {
+            "api_value": "2028-06-06",
+            "wizard_value": "2028-06-06",
+            "pass": true
+        },
+        "PSA uploads recognised (not required)": {
+            "api_value": "has_psa_front=true, has_psa_back=true",
+            "wizard_value": "front_required=false, back_required=false",
+            "pass": true
+        },
+        "R-1 Step 7 PSA status (front)": {
+            "api_value": "on file",
+            "wizard_value": "\u2713 PSA front photo already on file",
+            "pass": true
+        },
+        "R-1 Step 7 PSA status (back)": {
+            "api_value": "on file",
+            "wizard_value": "\u2713 PSA back photo already on file",
+            "pass": true
+        },
+        "R-2 Step 8 review (front)": {
+            "api_value": "On file expected",
+            "wizard_value": "On file present in review",
+            "pass": true
+        },
+        "R-2 Step 8 review (back)": {
+            "api_value": "On file expected",
+            "wizard_value": "On file present in review",
+            "pass": true
+        }
+    },
+    "step_validation": {
+        "step_2": true,
+        "step_3": true,
+        "step_4": true,
+        "step_5": true,
+        "step_6": true,
+        "step_7": true,
+        "step_8": false
+    },
+    "can_continue_without_reentry": false,
+    "elapsed_seconds": 5.7,
+    "under_60_second_target": true,
+    "defects": [],
+    "r1_pass": true,
+    "r2_pass": true,
+    "review_excerpt": "Review your application\n\nCheck everything below before you submit. Olasentra is a registration and opportunity platform only - not your employer, payroll provider, or contracting party.\n\nROLE\nApplying as\nStatic Security\nSELECTED OPPORTUNITIES\nShift\nNick Cave\nCONTACT\nEmail\ne2e-wizard-20260606164932@olasentra-e2e.test\nPERSONAL DETAILS\nName\nWizard E2ETest\nDate of birth\n1990-06-15\nGender\nPrefer not to say\nCONTACT DETAILS\nAddress\n1 Test Street, Dublin\nEircode\nD02 X285\nMobile\n+353871234567\nPAYROLL (FO",
+    "verdict": "PASS"
+}

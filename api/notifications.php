@@ -16,13 +16,18 @@ header('Cache-Control: no-store');
 $audience = trim((string) ($_GET['audience'] ?? ''));
 
 if ($audience === 'admin') {
-    if (!isAdminLoggedIn()) {
-        http_response_code(401);
-        echo json_encode(['ok' => false, 'error' => 'Unauthorized']);
+    requireAdminApiSession();
+
+    try {
+        $pdo = getDB();
+    } catch (Throwable $e) {
+        error_log('[NotificationsAPI] admin DB: ' . $e->getMessage());
+        http_response_code(503);
+        echo json_encode(['ok' => false, 'error' => 'Service unavailable']);
         exit;
     }
 
-    $unread = countUnreadAdminNotifications(getDB());
+    $unread = countUnreadAdminNotifications($pdo);
 
     echo json_encode([
         'ok'     => true,
@@ -32,7 +37,15 @@ if ($audience === 'admin') {
 }
 
 if ($audience === 'staff') {
-    $pdo   = getDB();
+    try {
+        $pdo = getDB();
+    } catch (Throwable $e) {
+        error_log('[NotificationsAPI] staff DB: ' . $e->getMessage());
+        http_response_code(503);
+        echo json_encode(['ok' => false, 'error' => 'Service unavailable']);
+        exit;
+    }
+
     $email = '';
 
     $token = trim((string) ($_GET['token'] ?? ''));

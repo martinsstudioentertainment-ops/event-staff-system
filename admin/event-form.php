@@ -5,7 +5,10 @@ require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/venues-repository.php';
 require_once __DIR__ . '/../includes/work-types-repository.php';
 require_once __DIR__ . '/../includes/maps.php';
+require_once __DIR__ . '/../includes/attendance-gps-phase1.php';
+require_once __DIR__ . '/../includes/feature-flags.php';
 require_once __DIR__ . '/../includes/google-sheets-sync.php';
+require_once __DIR__ . '/../includes/event-complete-purge.php';
 
 requireAdminCapability('events');
 
@@ -27,6 +30,16 @@ unset($_SESSION['event_form_errors'], $_SESSION['event_form_old']);
 
 $mapsKey = getGoogleMapsApiKey($pdo);
 $mapsOn  = googleMapsEnabled($pdo);
+$gpsV2On = isGpsAttendanceV2Enabled($pdo);
+$signinRadiusValue = $isEdit && isset($event['signin_radius_m']) && (int) $event['signin_radius_m'] > 0
+    ? (int) $event['signin_radius_m']
+    : ($gpsV2On ? EVENT_SIGNIN_RADIUS_DEFAULT_M : EVENT_SIGNIN_RADIUS_LEGACY_M);
+if (isset($old['signin_radius_m']) && trim((string) $old['signin_radius_m']) !== '') {
+    $signinRadiusValue = (int) $old['signin_radius_m'];
+}
+$radiusLabel = $gpsV2On
+    ? formatEventSigninRadiusLabel(['signin_radius_m' => $signinRadiusValue], $pdo)
+    : EVENT_SIGNIN_RADIUS_LEGACY_M . ' m';
 
 function eventOld(array $old, ?array $event, string $key, string $default = ''): string
 {
@@ -37,8 +50,9 @@ function eventOld(array $old, ?array $event, string $key, string $default = ''):
         if ($key === 'event_date') {
             return h((string) $event['event_date']);
         }
-        if ($key === 'start_time' || $key === 'end_time') {
-            return h(substr((string) $event[$key], 0, 5));
+        if (in_array($key, ['start_time', 'end_time', 'checkin_open_time', 'checkin_close_time'], true)) {
+            $raw = (string) $event[$key];
+            return $raw !== '' ? h(substr($raw, 0, 5)) : h($default);
         }
         return h((string) $event[$key]);
     }
@@ -55,7 +69,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     <div class="card__header card__header--row">
         <div>
             <h2 class="card__title"><?= $isEdit ? 'Edit Event' : 'Add New Event' ?></h2>
-            <p class="card__subtitle">Venue Eircode and GPS are required — venue sign-in works within 100m.</p>
+            <p class="card__subtitle">Venue Eircode and GPS are required — venue sign-in works within <?= h($radiusLabel) ?>.</p>
         </div>
         <a href="events.php" class="btn btn--secondary">← Back to Events</a>
     </div>
@@ -196,7 +210,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                     <button type="button" class="btn btn--secondary" id="venue_eircode_lookup">Look up GPS</button>
                 <?php endif; ?>
             </div>
-            <p class="form-hint">Required. GPS is set from this Eircode — venue sign-in only works within 100 metres.</p>
+            <p class="form-hint">Required. GPS is set from this Eircode — venue sign-in only works within <?= h($radiusLabel) ?>.</p>
             <p class="form-hint" id="venue_gps_status" hidden></p>
         </div>
 
@@ -209,7 +223,30 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <?php endif; ?>
             <input type="hidden" id="venue_lat" name="venue_lat" value="<?= eventOld($old, $event, 'venue_lat') ?>">
             <input type="hidden" id="venue_lng" name="venue_lng" value="<?= eventOld($old, $event, 'venue_lng') ?>">
-            <input type="hidden" name="signin_radius_m" value="100">
+            <?php if ($gpsV2On): ?>
+                <div class="form-group" style="margin-top:0.75rem;">
+                    <label class="form-label form-label--required" for="signin_radius_m">Sign-in radius (metres)</label>
+                    <input
+                        class="form-input"
+                        type="number"
+                        id="signin_radius_m"
+                        name="signin_radius_m"
+                        min="<?= (int) EVENT_SIGNIN_RADIUS_MIN_M ?>"
+                        max="<?= (int) EVENT_SIGNIN_RADIUS_MAX_M ?>"
+                        step="1"
+                        value="<?= (int) $signinRadiusValue ?>"
+                        required
+                        style="max-width:12rem;"
+                    >
+                    <p class="form-hint">
+                        How far from the map pin staff can sign in and stay on shift. Default <?= (int) EVENT_SIGNIN_RADIUS_DEFAULT_M ?> m (1 km).
+                        Allowed range <?= (int) EVENT_SIGNIN_RADIUS_MIN_M ?>–<?= (int) EVENT_SIGNIN_RADIUS_MAX_M ?> m.
+                        After attendance is active, staff are <strong>signed out automatically</strong> if they leave this radius (GPS monitoring on the sign-in page).
+                    </p>
+                </div>
+            <?php else: ?>
+                <input type="hidden" name="signin_radius_m" value="<?= (int) EVENT_SIGNIN_RADIUS_LEGACY_M ?>">
+            <?php endif; ?>
             <?php if (!$mapsOn): ?>
                 <div class="form-grid" style="margin-top:0.75rem;">
                     <div class="form-group">
@@ -227,7 +264,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                     <p class="event-venue-map__placeholder" style="padding:1rem;color:#64748b;">Map preview requires Google Maps API key.</p>
                 <?php endif; ?>
             </div>
-            <p class="form-hint">Confirm the pin at the staff entrance. Sign-in radius is fixed at 100m from this point.</p>
+            <p class="form-hint">Confirm the pin at the staff entrance. Staff must be within <?= h($radiusLabel) ?> of this point to sign in<?= $gpsV2On ? ' — edit the radius above if the venue needs a different distance' : '' ?>.</p>
         </div>
 
         <div class="form-group">
@@ -244,8 +281,31 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <div class="form-group">
             <label class="form-label form-label--required" for="end_time">End Time</label>
             <input class="form-input" type="time" id="end_time" name="end_time" value="<?= eventOld($old, $event, 'end_time', '23:00') ?>" required>
-            <p class="form-hint">Check-in opens 1 hour before start and closes 1 hour after end.</p>
         </div>
+
+        <div class="form-group">
+            <label class="form-label" for="checkin_open_time">Sign-in opens</label>
+            <input class="form-input" type="time" id="checkin_open_time" name="checkin_open_time" value="<?= eventOld($old, $event, 'checkin_open_time') ?>">
+            <p class="form-hint">When staff can start venue QR sign-in on event day. Leave blank = 1 hour before shift start.</p>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="checkin_close_time">Sign-in closes</label>
+            <input class="form-input" type="time" id="checkin_close_time" name="checkin_close_time" value="<?= eventOld($old, $event, 'checkin_close_time') ?>">
+            <p class="form-hint">Last time staff can sign in. Leave blank = 1 hour after shift end.</p>
+        </div>
+
+        <?php if ($event): ?>
+            <?php
+            require_once __DIR__ . '/../includes/attendance-repository.php';
+            $previewWindow = getEventCheckinWindow($event);
+            ?>
+            <p class="form-hint form-group--full">
+                Current sign-in window for this event:
+                <strong><?= h(formatCheckinWindowRangeLabel($previewWindow)) ?></strong>
+                <?= $previewWindow['uses_custom_times'] ? '(custom times)' : '(default: 1h before start / 1h after end)' ?>
+            </p>
+        <?php endif; ?>
 
         <div class="form-group">
             <label class="form-label">Registration form</label>
@@ -278,6 +338,52 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <button type="submit" class="btn btn--primary"><?= $isEdit ? 'Save Changes' : 'Create Event' ?></button>
         </div>
     </form>
+
+    <?php if ($isEdit && $event !== null): ?>
+        <?php
+        require_once __DIR__ . '/../includes/event-cancel-registrations.php';
+        $cancelCounts = countEventRegistrationsEligibleForCancel($pdo, (int) $event['id']);
+        ?>
+        <section class="card" id="cancel-event-shifts" style="margin-top:1.5rem;border-color:var(--warning, #d97706);">
+            <div class="card__header">
+                <h2 class="card__title" style="color:var(--warning, #d97706);">Cancel all shifts for this event</h2>
+                <p class="card__subtitle">
+                    Rejects every <strong>approved</strong> (<?= (int) $cancelCounts['approved'] ?>) and <strong>pending</strong> (<?= (int) $cancelCounts['pending'] ?>) registration,
+                    deactivates the event, and emails each person (HTML email with your cancellation reason) plus an in-app alert.
+                    Use this when the whole event is cancelled (e.g. weather, client change).
+                </p>
+            </div>
+            <form method="post" action="cancel-event-registrations.php" class="form-grid settings-form" onsubmit="return confirm('Cancel ALL shifts for this event? <?= (int) $cancelCounts['total'] ?> staff will be notified.');">
+                <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                <input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>">
+                <input type="hidden" name="redirect" value="event-form.php?id=<?= (int) $event['id'] ?>">
+                <div class="form-group form-group--full">
+                    <label class="form-label form-label--required" for="cancel_reason">Reason (audit log)</label>
+                    <textarea class="form-textarea" id="cancel_reason" name="reason" rows="2" required placeholder="e.g. Event cancelled — venue unavailable"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn--danger"<?= (int) $cancelCounts['total'] === 0 ? ' disabled' : '' ?>>Cancel all shifts &amp; notify staff</button>
+                </div>
+            </form>
+        </section>
+        <?php $deleteImpact = countEventPurgeImpact($pdo, (int) $event['id']); ?>
+        <section class="card" id="delete-event" style="margin-top:1.5rem;border-color:var(--danger, #dc2626);">
+            <div class="card__header">
+                <h2 class="card__title" style="color:var(--danger, #dc2626);">Delete event permanently</h2>
+                <p class="card__subtitle">
+                    Removes this event from the database and all related history:
+                    <?= (int) $deleteImpact['registrations'] ?> registration(s),
+                    <?= (int) $deleteImpact['attendance'] ?> attendance record(s),
+                    <?= (int) $deleteImpact['invoices'] ?> commission invoice(s),
+                    sign-in logs, roster slots, waitlist entries, and in-app notifications.
+                    Staff profiles are kept. This cannot be undone.
+                </p>
+            </div>
+            <div class="form-group form-group--full form-actions">
+                <a href="delete-event.php?id=<?= (int) $event['id'] ?>&amp;redirect=event-form.php" class="btn btn--secondary" style="border-color:#dc2626;color:#dc2626;">Delete event permanently</a>
+            </div>
+        </section>
+    <?php endif; ?>
 </section>
 
 <script>window.GOOGLE_MAPS_API_KEY = <?= json_encode($mapsKey, JSON_THROW_ON_ERROR) ?>;</script>

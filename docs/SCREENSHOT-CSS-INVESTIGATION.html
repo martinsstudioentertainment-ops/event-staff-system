@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Screenshot CSS Investigation</title>
+<style>
+body { font-family: "Segoe UI", sans-serif; font-size: 10pt; padding: 22px 28px; max-width: 820px; line-height: 1.5; }
+h1 { font-size: 18pt; } h2 { font-size: 11pt; background: #030712; color: #fff; padding: 6px 12px; margin: 18px 0 10px; }
+table { width: 100%; border-collapse: collapse; font-size: 9pt; margin: 10px 0; }
+th, td { border-bottom: 1px solid #e2e8f0; padding: 7px 9px; text-align: left; vertical-align: top; }
+th { background: #1e293b; color: #fff; }
+.pass { color: #15803d; font-weight: 700; }
+.fail { color: #b91c1c; font-weight: 700; }
+code { background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<h1>Screenshot CSS Investigation</h1>
+<p><strong>Date:</strong> 6 June 2026 · <strong>Issue:</strong> Prior UX screenshots rendered as unstyled HTML</p>
+
+<h2>Findings</h2>
+<table>
+<tr><th>Question</th><th>Result</th><th>Detail</th></tr>
+<tr><td>1. Is registration-wizard.css loading?</td><td class="pass">YES (when served over HTTP)</td><td>Local probe: 16,509 bytes · Production: <code>https://register.olasentra.com/assets/css/registration-wizard.css</code> HTTP 200 (16,513 bytes)</td></tr>
+<tr><td>2. Are asset paths correct?</td><td class="fail">NO (old generator)</td><td>Preview HTML in <code>docs/screenshots/a4-verification/html/</code> used <code>../../../assets/...</code> from <code>html/</code> subfolder (resolves to <code>docs/assets/</code>, not project root). <code>_preview-styles.css</code> linked from wrong directory.</td></tr>
+<tr><td>3. Is CSS deployed to production?</td><td class="pass">YES</td><td>Listed in <code>scripts/upload-to-server.ps1</code> · live URL returns 200</td></tr>
+<tr><td>4. Is screenshot generator loading CSS?</td><td class="fail">NO (old approach)</td><td>Edge <code>file://</code> captures with broken relative paths + only 2 of 8 stylesheets (missing <code>public-front.css</code>, <code>registration-compact.css</code>, <code>style.css</code>, fonts, event-ops theme)</td></tr>
+</table>
+
+<h2>Root cause</h2>
+<p>Prior captures used static HTML files with incorrect relative CSS paths and an incomplete stylesheet stack. The real registration page loads 8+ CSS files via <code>includes/pwa-head.php</code> plus wizard/compact CSS. Unstyled screenshots validated markup only, not UX.</p>
+
+<h2>Fix</h2>
+<ul>
+<li><code>wizard-screenshot-preview.php</code> - localhost-only preview with full production CSS stack over HTTP</li>
+<li><code>scripts/capture-wizard-screenshots-styled.ps1</code> - PHP built-in server + Edge headless against <code>http://127.0.0.1:8765/</code></li>
+<li>Styled outputs: <code>docs/screenshots/a4-verification/styled/{mobile,tablet,desktop}/</code></li>
+</ul>
+
+<h2>Regenerate styled screenshots</h2>
+<pre>powershell -ExecutionPolicy Bypass -File .\scripts\capture-wizard-screenshots-styled.ps1</pre>
+
+<p><strong>Use <code>styled/</code> folder for UX approval.</strong> Legacy unstyled PNGs in parent folders are deprecated.</p>
+</body>
+</html>

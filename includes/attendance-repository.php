@@ -6,6 +6,7 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/maps.php';
 require_once __DIR__ . '/events-repository.php';
+require_once __DIR__ . '/event-checkin-window-schema.php';
 
 const CHECKIN_WINDOW_HOURS = 1;
 
@@ -24,7 +25,8 @@ function parseEventDateTime(string $date, string $time): ?DateTime
 }
 
 /**
- * Check-in opens 1 hour before event start and closes 1 hour after event end.
+ * Sign-in window: per-event checkin_open_time / checkin_close_time when set,
+ * otherwise opens 1 hour before start and closes 1 hour after end.
  *
  * @return array{
  *     opens_at: DateTime,
@@ -32,12 +34,47 @@ function parseEventDateTime(string $date, string $time): ?DateTime
  *     event_start: DateTime,
  *     event_end: DateTime,
  *     status: 'before'|'open'|'after',
- *     is_open: bool
+ *     is_open: bool,
+ *     uses_custom_times: bool
  * }
  */
 function getEventCheckinWindow(array $event): array
 {
+    try {
+        return getEventCheckinWindowInner($event);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] getEventCheckinWindow: ' . $e->getMessage());
+        $now = new DateTime('now');
+
+        return [
+            'opens_at'          => (clone $now)->modify('-1 hour'),
+            'closes_at'         => (clone $now)->modify('+12 hours'),
+            'event_start'       => $now,
+            'event_end'         => (clone $now)->modify('+8 hours'),
+            'status'            => 'open',
+            'is_open'           => true,
+            'uses_custom_times' => false,
+        ];
+    }
+}
+
+/**
+ * @return array{
+ *     opens_at: DateTime,
+ *     closes_at: DateTime,
+ *     event_start: DateTime,
+ *     event_end: DateTime,
+ *     status: 'before'|'open'|'after',
+ *     is_open: bool,
+ *     uses_custom_times: bool
+ * }
+ */
+function getEventCheckinWindowInner(array $event): array
+{
     $date      = (string) ($event['event_date'] ?? '');
+    if ($date === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        $date = date('Y-m-d');
+    }
     $startTime = (string) ($event['event_start_time'] ?? $event['start_time'] ?? '09:00:00');
     $endTime   = (string) ($event['event_end_time'] ?? $event['end_time'] ?? '23:00:00');
 
@@ -45,8 +82,25 @@ function getEventCheckinWindow(array $event): array
     $eventEnd   = parseEventDateTime($date, $endTime) ?? new DateTime($date . ' 23:00:00');
     $tz         = $eventStart->getTimezone();
 
-    $opensAt = (clone $eventStart)->modify('-' . CHECKIN_WINDOW_HOURS . ' hour');
-    $closesAt = (clone $eventEnd)->modify('+' . CHECKIN_WINDOW_HOURS . ' hour');
+    $customOpen  = trim((string) ($event['checkin_open_time'] ?? ''));
+    $customClose = trim((string) ($event['checkin_close_time'] ?? ''));
+    $usesCustom  = $customOpen !== '' || $customClose !== '';
+
+    if ($customOpen !== '') {
+        $opensAt = parseEventDateTime($date, $customOpen) ?? (clone $eventStart)->modify('-' . CHECKIN_WINDOW_HOURS . ' hour');
+    } else {
+        $opensAt = (clone $eventStart)->modify('-' . CHECKIN_WINDOW_HOURS . ' hour');
+    }
+
+    if ($customClose !== '') {
+        $closesAt = parseEventDateTime($date, $customClose) ?? (clone $eventEnd)->modify('+' . CHECKIN_WINDOW_HOURS . ' hour');
+        if ($closesAt <= $opensAt) {
+            $closesAt = $closesAt->modify('+1 day');
+        }
+    } else {
+        $closesAt = (clone $eventEnd)->modify('+' . CHECKIN_WINDOW_HOURS . ' hour');
+    }
+
     $now     = new DateTime('now', $tz);
 
     if ($now < $opensAt) {
@@ -58,13 +112,25 @@ function getEventCheckinWindow(array $event): array
     }
 
     return [
-        'opens_at'    => $opensAt,
-        'closes_at'   => $closesAt,
-        'event_start' => $eventStart,
-        'event_end'   => $eventEnd,
-        'status'      => $status,
-        'is_open'     => $status === 'open',
+        'opens_at'            => $opensAt,
+        'closes_at'           => $closesAt,
+        'event_start'         => $eventStart,
+        'event_end'           => $eventEnd,
+        'status'              => $status,
+        'is_open'             => $status === 'open',
+        'uses_custom_times'   => $usesCustom,
     ];
+}
+
+function formatCheckinWindowRangeLabel(array $window): string
+{
+    require_once __DIR__ . '/system-settings.php';
+
+    $timeFormat = getSystemDateFormat() . ' H:i';
+
+    return $window['opens_at']->format($timeFormat)
+        . ' – '
+        . $window['closes_at']->format($timeFormat);
 }
 
 function formatCheckinWindowMessage(array $window): string
@@ -86,7 +152,7 @@ function formatCheckinWindowMessage(array $window): string
 }
 
 /**
- * @return array{lat: float, lng: float}|null
+ * @return array{lat: float, lng: float, accuracy_m: ?int}|null
  */
 function parseSigninCoordinates(array $input): ?array
 {
@@ -101,10 +167,18 @@ function parseSigninCoordinates(array $input): ?array
         return null;
     }
 
-    return ['lat' => $lat, 'lng' => $lng];
+    $accuracy = null;
+    if (isset($input['sign_accuracy_m']) && $input['sign_accuracy_m'] !== '') {
+        $raw = (int) round((float) $input['sign_accuracy_m']);
+        if ($raw >= 0 && $raw <= 65535) {
+            $accuracy = $raw;
+        }
+    }
+
+    return ['lat' => $lat, 'lng' => $lng, 'accuracy_m' => $accuracy];
 }
 
-function isWithinEventVenue(array $event, float $lat, float $lng): bool
+function isWithinEventVenue(array $event, float $lat, float $lng, ?PDO $pdo = null): bool
 {
     $venue = getEventVenueCoordinates($event);
 
@@ -114,7 +188,7 @@ function isWithinEventVenue(array $event, float $lat, float $lng): bool
 
     $distance = haversineDistanceMeters($venue['lat'], $venue['lng'], $lat, $lng);
 
-    return $distance <= (float) getEventSigninRadiusMeters($event);
+    return $distance <= (float) getEventSigninRadiusMeters($event, $pdo);
 }
 
 /**
@@ -129,15 +203,23 @@ function isWithinEventVenue(array $event, float $lat, float $lng): bool
  *     message: string
  * }
  */
-function getEventSigninEligibility(array $event, ?float $userLat, ?float $userLng, bool $requireVenue = true): array
+function getEventSigninEligibility(array $event, ?float $userLat, ?float $userLng, bool $requireVenue = true, ?PDO $pdo = null, ?int $accuracyM = null): array
 {
+    if ($pdo === null && function_exists('getDB')) {
+        try {
+            $pdo = getDB();
+        } catch (Throwable $e) {
+            $pdo = null;
+        }
+    }
+
     $window          = getEventCheckinWindow($event);
     $venueConfigured = eventVenueIsConfigured($event);
     $timeOpen        = $window['is_open'];
     $atVenue         = false;
 
     if ($userLat !== null && $userLng !== null && $venueConfigured) {
-        $atVenue = isWithinEventVenue($event, $userLat, $userLng);
+        $atVenue = isWithinEventVenue($event, $userLat, $userLng, $pdo);
     }
 
     if (!$requireVenue) {
@@ -185,13 +267,50 @@ function getEventSigninEligibility(array $event, ?float $userLat, ?float $userLn
     }
 
     if ($userLat === null || $userLng === null) {
+        $gpsMsg = 'Allow location access on your phone to sign in at the venue.';
+        if ($pdo !== null) {
+            require_once __DIR__ . '/attendance-gps-phase1.php';
+            if (isGpsAttendanceV2Enabled($pdo)) {
+                require_once __DIR__ . '/attendance-gps-phase15.php';
+                $gpsMsg = getGpsRequiredMessage();
+            }
+        }
+
         return [
             'allowed'          => false,
             'time_open'        => true,
             'at_venue'         => false,
             'venue_configured' => true,
             'window'           => $window,
-            'message'          => 'Allow location access on your phone to sign in at the venue.',
+            'message'          => $gpsMsg,
+        ];
+    }
+
+    if ($pdo !== null && isGpsAttendanceV2Enabled($pdo) && $requireVenue) {
+        require_once __DIR__ . '/attendance-gps-phase15.php';
+        $gpsCheck = validateGpsForCheckin($pdo, $event, [
+            'lat'        => $userLat,
+            'lng'        => $userLng,
+            'accuracy_m' => $accuracyM,
+        ]);
+        if (!$gpsCheck['ok']) {
+            return [
+                'allowed'          => false,
+                'time_open'        => true,
+                'at_venue'         => false,
+                'venue_configured' => true,
+                'window'           => $window,
+                'message'          => $gpsCheck['message'],
+            ];
+        }
+
+        return [
+            'allowed'          => true,
+            'time_open'        => true,
+            'at_venue'         => true,
+            'venue_configured' => true,
+            'window'           => $window,
+            'message'          => 'You are at the venue. You can sign in now.',
         ];
     }
 
@@ -297,7 +416,9 @@ function getApprovedRegistrationByEmailForEvent(PDO $pdo, string $email, int $ev
         return null;
     }
 
-    return mergeRegistrationWithEvent($pdo, $row);
+    $row = mergeRegistrationWithEvent($pdo, $row);
+
+    return mergeRegistrationWithStaff($pdo, $row);
 }
 
 function generateCheckinToken(): string
@@ -407,7 +528,16 @@ function parseCheckinTokenFromScan(string $raw): ?string
 function hasCheckedIn(PDO $pdo, int $registrationId): bool
 {
     try {
-        $stmt = $pdo->prepare('SELECT id FROM attendance WHERE registration_id = :id LIMIT 1');
+        $stmt = $pdo->prepare(
+            "SELECT id FROM attendance
+             WHERE registration_id = :id
+               AND COALESCE(attendance_status, 'active') NOT IN ('no_show')
+               AND (
+                    checked_in_at IS NOT NULL
+                    OR LOWER(COALESCE(attendance_status, 'active')) IN ('active', 'pre_checked_in')
+               )
+             LIMIT 1"
+        );
         $stmt->execute(['id' => $registrationId]);
 
         return (bool) $stmt->fetchColumn();
@@ -416,6 +546,141 @@ function hasCheckedIn(PDO $pdo, int $registrationId): bool
 
         return false;
     }
+}
+
+/**
+ * @param array<string, mixed>|null $row
+ */
+function isAttendanceRosterCheckedIn(?array $row): bool
+{
+    if ($row === null) {
+        return false;
+    }
+
+    $status = strtolower(trim((string) ($row['attendance_status'] ?? '')));
+    if ($status === ATTENDANCE_STATUS_NO_SHOW) {
+        return false;
+    }
+
+    if ((int) ($row['is_checked_in'] ?? 0) === 1) {
+        return true;
+    }
+
+    return $status === ATTENDANCE_STATUS_ACTIVE
+        || $status === ATTENDANCE_STATUS_PRE_CHECKED_IN
+        || trim((string) ($row['checked_in_at'] ?? '')) !== '';
+}
+
+function isAttendanceMarkedNoShow(?array $row): bool
+{
+    if ($row === null) {
+        return false;
+    }
+
+    return strtolower(trim((string) ($row['attendance_status'] ?? ''))) === ATTENDANCE_STATUS_NO_SHOW;
+}
+
+function getAutoNoShowGraceHoursAfterEvent(PDO $pdo): int
+{
+    require_once __DIR__ . '/settings-repository.php';
+    $hours = (int) getSetting($pdo, 'auto_no_show_grace_hours_after_event', (string) AUTO_NO_SHOW_DEFAULT_HOURS_AFTER_EVENT);
+
+    return max(
+        AUTO_NO_SHOW_MIN_HOURS_AFTER_EVENT,
+        min(AUTO_NO_SHOW_MAX_HOURS_AFTER_EVENT, $hours > 0 ? $hours : AUTO_NO_SHOW_DEFAULT_HOURS_AFTER_EVENT)
+    );
+}
+
+function recordAutoNoShow(PDO $pdo, int $registrationId, int $eventId): bool
+{
+    if ($registrationId < 1 || $eventId < 1 || hasCheckedIn($pdo, $registrationId)) {
+        return false;
+    }
+
+    if (getAttendanceByRegistration($pdo, $registrationId) !== null) {
+        return false;
+    }
+
+    require_once __DIR__ . '/attendance-gps-phase1.php';
+    ensureAttendanceGpsPhase1Schema($pdo);
+
+    try {
+        $insert = $pdo->prepare(
+            'INSERT INTO attendance (registration_id, event_id, checked_in_method, attendance_status)
+             VALUES (:registration_id, :event_id, :method, :attendance_status)'
+        );
+
+        return $insert->execute([
+            'registration_id'   => $registrationId,
+            'event_id'          => $eventId,
+            'method'            => 'auto_no_show',
+            'attendance_status' => ATTENDANCE_STATUS_NO_SHOW,
+        ]);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] recordAutoNoShow id=' . $registrationId . ': ' . $e->getMessage());
+
+        return false;
+    }
+}
+
+/**
+ * Mark approved staff as no-show when the event has ended and the grace window has passed.
+ *
+ * @return array{scanned: int, marked: int, skipped: int}
+ */
+function processAutoNoShowsForPastEvents(PDO $pdo): array
+{
+    require_once __DIR__ . '/attendance-gps-phase1.php';
+
+    $stats      = ['scanned' => 0, 'marked' => 0, 'skipped' => 0];
+    $graceHours = getAutoNoShowGraceHoursAfterEvent($pdo);
+    $now        = new DateTime('now');
+
+    $sql = 'SELECT sr.id AS registration_id, sr.event_id, sr.email,
+                   e.name AS event_name, e.event_date, e.start_time, e.end_time,
+                   e.event_start_time, e.event_end_time, e.checkin_open_time, e.checkin_close_time
+            FROM staff_registrations sr
+            INNER JOIN events e ON e.id = sr.event_id
+            LEFT JOIN attendance a ON a.registration_id = sr.id
+            WHERE sr.status = \'approved\'
+              AND a.id IS NULL';
+
+    $rows = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    foreach ($rows as $row) {
+        $stats['scanned']++;
+        $window   = getEventCheckinWindow($row);
+        $deadline = clone $window['event_end'];
+        $deadline->modify('+' . $graceHours . ' hours');
+
+        if ($now < $deadline) {
+            $stats['skipped']++;
+            continue;
+        }
+
+        $registrationId = (int) ($row['registration_id'] ?? 0);
+        $eventId          = (int) ($row['event_id'] ?? 0);
+        if ($registrationId < 1 || $eventId < 1) {
+            $stats['skipped']++;
+            continue;
+        }
+
+        if (!recordAutoNoShow($pdo, $registrationId, $eventId)) {
+            $stats['skipped']++;
+            continue;
+        }
+
+        $stats['marked']++;
+
+        try {
+            require_once __DIR__ . '/staff-blacklist.php';
+            processNoShowBlacklistForEmail($pdo, (string) ($row['email'] ?? ''));
+        } catch (Throwable $e) {
+            error_log('[EventStaff] auto no-show blacklist email=' . ($row['email'] ?? '') . ': ' . $e->getMessage());
+        }
+    }
+
+    return $stats;
 }
 
 /**
@@ -431,9 +696,10 @@ function getAttendanceByRegistration(PDO $pdo, int $registrationId): ?array
 }
 
 /**
- * @return true|string true on success, error message on failure
+ * @param array{lat: float, lng: float, accuracy_m: ?int}|null $gps
+ * @return true|'pre_checked_in'|string true on active check-in, pre_checked_in when hibernating, error message on failure
  */
-function recordCheckin(PDO $pdo, int $registrationId, string $method = 'self'): bool|string
+function recordCheckin(PDO $pdo, int $registrationId, string $method = 'self', ?array $gps = null): bool|string
 {
     $stmt = $pdo->prepare('SELECT id, status, event_id FROM staff_registrations WHERE id = :id LIMIT 1');
     $stmt->execute(['id' => $registrationId]);
@@ -451,20 +717,157 @@ function recordCheckin(PDO $pdo, int $registrationId, string $method = 'self'): 
         return 'Already checked in.';
     }
 
-    $insert = $pdo->prepare(
-        'INSERT INTO attendance (registration_id, event_id, checked_in_method) VALUES (:registration_id, :event_id, :method)'
-    );
-    $insert->execute([
-        'registration_id' => $registrationId,
-        'event_id'        => (int) $reg['event_id'],
-        'method'          => $method,
-    ]);
+    require_once __DIR__ . '/attendance-gps-phase1.php';
 
-    require_once __DIR__ . '/notifications.php';
-    notifyStaffCheckin($pdo, $registrationId, $method);
+    if (isGpsAttendanceV2Enabled($pdo)) {
+        ensureAttendanceGpsPhase1Schema($pdo);
 
-    require_once __DIR__ . '/work-hours-repository.php';
-    initializeWorkHoursForRegistration($pdo, $registrationId);
+        $eventStmt = $pdo->prepare('SELECT * FROM events WHERE id = :id LIMIT 1');
+        $eventStmt->execute(['id' => (int) $reg['event_id']]);
+        $event = $eventStmt->fetch();
+
+        if (!$event) {
+            return 'Event not found.';
+        }
+
+        require_once __DIR__ . '/attendance-gps-phase15.php';
+        ensureAttendanceGpsPhase15Schema($pdo);
+
+        $adminOverride = checkinMethodBypassesGpsRules($method);
+        $window        = getEventCheckinWindow($event);
+
+        if (!$adminOverride) {
+            if (!$window['is_open']) {
+                return formatCheckinWindowMessage($window);
+            }
+            $gpsCheck = validateGpsForCheckin($pdo, $event, $gps);
+            if (!$gpsCheck['ok']) {
+                return $gpsCheck['message'];
+            }
+        }
+
+        $now = new DateTime('now', $window['event_start']->getTimezone());
+        if ($adminOverride) {
+            $isPreCheck  = false;
+            $status      = ATTENDANCE_STATUS_ACTIVE;
+            $activatedAt = $now->format('Y-m-d H:i:s');
+            $gpsAt       = null;
+            $gps         = null;
+        } else {
+            $isPreCheck  = $now < $window['event_start'];
+            $status      = $isPreCheck ? ATTENDANCE_STATUS_PRE_CHECKED_IN : ATTENDANCE_STATUS_ACTIVE;
+            $activatedAt = $isPreCheck ? null : $now->format('Y-m-d H:i:s');
+            $gpsAt       = $gps !== null ? $now->format('Y-m-d H:i:s') : null;
+        }
+
+        try {
+            $insert = $pdo->prepare(
+                'INSERT INTO attendance (
+                    registration_id, event_id, checked_in_method,
+                    attendance_status, activated_at,
+                    check_in_lat, check_in_lng, check_in_accuracy_m, check_in_gps_at
+                 ) VALUES (
+                    :registration_id, :event_id, :method,
+                    :attendance_status, :activated_at,
+                    :check_in_lat, :check_in_lng, :check_in_accuracy_m, :check_in_gps_at
+                 )'
+            );
+            $insert->execute([
+                'registration_id'    => $registrationId,
+                'event_id'           => (int) $reg['event_id'],
+                'method'             => $method,
+                'attendance_status'  => $status,
+                'activated_at'       => $activatedAt,
+                'check_in_lat'       => $gps['lat'] ?? null,
+                'check_in_lng'       => $gps['lng'] ?? null,
+                'check_in_accuracy_m'=> $gps['accuracy_m'] ?? null,
+                'check_in_gps_at'    => $gpsAt,
+            ]);
+        } catch (Throwable $e) {
+            error_log('[EventStaff] recordCheckin GPS insert id=' . $registrationId . ': ' . $e->getMessage());
+
+            return recordCheckinLegacyInsert($pdo, $registrationId, (int) $reg['event_id'], $method);
+        }
+
+        ensureCheckinToken($pdo, $registrationId);
+
+        try {
+            require_once __DIR__ . '/notifications.php';
+            notifyStaffCheckin($pdo, $registrationId, $method);
+        } catch (Throwable $e) {
+            error_log('[EventStaff] notifyStaffCheckin id=' . $registrationId . ': ' . $e->getMessage());
+        }
+
+        $attendanceId = (int) $pdo->lastInsertId();
+        if ($gps !== null && $attendanceId > 0) {
+            try {
+                updateAttendanceLastGps($pdo, $attendanceId, $gps);
+            } catch (Throwable $e) {
+                error_log('[EventStaff] updateAttendanceLastGps id=' . $attendanceId . ': ' . $e->getMessage());
+            }
+        }
+
+        if ($status === ATTENDANCE_STATUS_ACTIVE) {
+            try {
+                require_once __DIR__ . '/work-hours-repository.php';
+                initializeWorkHoursForRegistration($pdo, $registrationId);
+            } catch (Throwable $e) {
+                error_log('[EventStaff] initializeWorkHours id=' . $registrationId . ': ' . $e->getMessage());
+            }
+        }
+
+        return $isPreCheck ? 'pre_checked_in' : true;
+    }
+
+    $eventStmt = $pdo->prepare('SELECT * FROM events WHERE id = :id LIMIT 1');
+    $eventStmt->execute(['id' => (int) $reg['event_id']]);
+    $event = $eventStmt->fetch(PDO::FETCH_ASSOC);
+    if (is_array($event)) {
+        require_once __DIR__ . '/attendance-gps-phase15.php';
+        $venueGpsError = assertSelfCheckinVenueGps($pdo, $event, $gps, $method);
+        if ($venueGpsError !== null) {
+            return $venueGpsError;
+        }
+    }
+
+    return recordCheckinLegacyInsert($pdo, $registrationId, (int) $reg['event_id'], $method);
+}
+
+/**
+ * @return true|string
+ */
+function recordCheckinLegacyInsert(PDO $pdo, int $registrationId, int $eventId, string $method): bool|string
+{
+    try {
+        $insert = $pdo->prepare(
+            'INSERT INTO attendance (registration_id, event_id, checked_in_method) VALUES (:registration_id, :event_id, :method)'
+        );
+        $insert->execute([
+            'registration_id' => $registrationId,
+            'event_id'        => $eventId,
+            'method'          => $method,
+        ]);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] recordCheckin legacy insert id=' . $registrationId . ': ' . $e->getMessage());
+
+        return 'Check-in could not be saved. Please ask your supervisor to check you in manually.';
+    }
+
+    ensureCheckinToken($pdo, $registrationId);
+
+    try {
+        require_once __DIR__ . '/notifications.php';
+        notifyStaffCheckin($pdo, $registrationId, $method);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] notifyStaffCheckin id=' . $registrationId . ': ' . $e->getMessage());
+    }
+
+    try {
+        require_once __DIR__ . '/work-hours-repository.php';
+        initializeWorkHoursForRegistration($pdo, $registrationId);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] initializeWorkHours id=' . $registrationId . ': ' . $e->getMessage());
+    }
 
     return true;
 }
@@ -506,8 +909,18 @@ function getAttendanceList(PDO $pdo, int $eventId = 0, ?int $limit = null, int $
     $parts = buildAttendanceListWhere($eventId);
 
     $sql = "SELECT sr.*, e.name AS event_name, e.event_date,
-                   a.checked_in_at, a.checked_in_method,
-                   CASE WHEN a.id IS NULL THEN 0 ELSE 1 END AS is_checked_in
+                   a.checked_in_at, a.checked_in_method, a.work_end_at, a.attendance_status,
+                   a.scheduled_hours, a.hours_worked, a.hours_paid, a.hours_note,
+                   CASE
+                       WHEN a.id IS NOT NULL
+                            AND COALESCE(a.attendance_status, 'active') NOT IN ('no_show')
+                            AND (
+                                a.checked_in_at IS NOT NULL
+                                OR LOWER(COALESCE(a.attendance_status, 'active')) IN ('active', 'pre_checked_in')
+                            )
+                       THEN 1
+                       ELSE 0
+                   END AS is_checked_in
             FROM staff_registrations sr
             INNER JOIN events e ON e.id = sr.event_id
             LEFT JOIN attendance a ON a.registration_id = sr.id
@@ -529,14 +942,70 @@ function getTodayCheckinCount(PDO $pdo): int
     return (int) $pdo->query("SELECT COUNT(*) FROM attendance WHERE DATE(checked_in_at) = CURDATE()")->fetchColumn();
 }
 
+/**
+ * Attendance rows counted in today's dashboard check-in metric.
+ *
+ * @return list<array<string, mixed>>
+ */
+function listTodayCheckinRows(PDO $pdo): array
+{
+    $stmt = $pdo->query(
+        "SELECT a.id, a.registration_id, a.event_id, a.checked_in_at, a.checked_in_method,
+                sr.first_name, sr.surname, sr.email,
+                e.name AS event_name, e.event_date
+         FROM attendance a
+         INNER JOIN staff_registrations sr ON sr.id = a.registration_id
+         INNER JOIN events e ON e.id = a.event_id
+         WHERE DATE(a.checked_in_at) = CURDATE()
+         ORDER BY a.checked_in_at DESC"
+    );
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+/**
+ * Remove a check-in so staff can sign in again. Deletes the attendance row.
+ */
+function resetCheckinForRegistration(PDO $pdo, int $registrationId): bool
+{
+    if ($registrationId < 1) {
+        return false;
+    }
+
+    $stmt = $pdo->prepare('DELETE FROM attendance WHERE registration_id = :id');
+
+    return $stmt->execute(['id' => $registrationId]) && $stmt->rowCount() > 0;
+}
+
+/**
+ * Clear all check-ins recorded today (dashboard “Today's check-ins” count).
+ *
+ * @return array{deleted: int, rows: list<array<string, mixed>>}
+ */
+function resetAllTodayCheckins(PDO $pdo): array
+{
+    $rows = listTodayCheckinRows($pdo);
+    if ($rows === []) {
+        return ['deleted' => 0, 'rows' => []];
+    }
+
+    $stmt = $pdo->prepare('DELETE FROM attendance WHERE DATE(checked_in_at) = CURDATE()');
+    $stmt->execute();
+
+    return ['deleted' => $stmt->rowCount(), 'rows' => $rows];
+}
+
 function getAttendanceStats(PDO $pdo, int $eventId = 0): array
 {
-    $list = getAttendanceList($pdo, $eventId);
+    $list      = getAttendanceList($pdo, $eventId);
     $checkedIn = 0;
+    $noShow    = 0;
 
     foreach ($list as $row) {
-        if ((int) $row['is_checked_in'] === 1) {
+        if (isAttendanceRosterCheckedIn($row)) {
             $checkedIn++;
+        } elseif (isAttendanceMarkedNoShow($row)) {
+            $noShow++;
         }
     }
 
@@ -555,7 +1024,8 @@ function getAttendanceStats(PDO $pdo, int $eventId = 0): array
     return [
         'approved'          => $approved,
         'checked_in'        => $checkedIn,
-        'missing'           => $approved - $checkedIn,
+        'missing'           => max(0, $approved - $checkedIn - $noShow),
+        'no_show'           => $noShow,
         'today'             => getTodayCheckinCount($pdo),
         'staff_needed'      => $staffNeeded,
         'spaces_remaining'  => $spacesRemaining,
@@ -570,7 +1040,9 @@ function getLiveAttendancePayload(PDO $pdo, int $eventId = 0): array
     $stats = getAttendanceStats($pdo, $eventId);
     $recent = [];
 
-    $where  = "sr.status = 'approved' AND a.id IS NOT NULL";
+    $where  = "sr.status = 'approved' AND a.id IS NOT NULL
+               AND COALESCE(a.attendance_status, 'active') NOT IN ('no_show')
+               AND a.checked_in_at IS NOT NULL";
     $params = [];
 
     if ($eventId > 0) {

@@ -1,0 +1,227 @@
+/* Staff status dashboard — status.php */
+
+.status-dash__section-title {
+    margin: 0 0 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+
+.status-dash__metrics {
+    margin-bottom: 1.25rem;
+}
+
+.status-dash__metric-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+}
+
+.status-dash__metric {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 0.4rem;
+    border-radius: 14px;
+    text-decoration: none;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.status-dash__metric:active {
+    transform: scale(0.98);
+}
+
+.status-dash__metric--active {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    background: #eef2ff;
+}
+
+.status-dash__metric-val {
+    font-size: 1.35rem;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.status-dash__metric-label {
+    margin-top: 0.2rem;
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+    text-align: center;
+}
+
+.status-dash__metric--total .status-dash__metric-val { color: #4f46e5; }
+.status-dash__metric--approved .status-dash__metric-val { color: #16a34a; }
+.status-dash__metric--pending .status-dash__metric-val { color: #d97706; }
+.status-dash__metric--rejected .status-dash__metric-val { color: #dc2626; }
+.status-dash__metric--upcoming .status-dash__metric-val { color: #2563eb; }
+.status-dash__metric--completed .status-dash__metric-val { color: #64748b; }
+
+.status-dash__checkin-note {
+    margin: 0.65rem 0 0;
+    font-size: 0.8125rem;
+    color: #64748b;
+}
+
+.status-dash__applications-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.status-dash__clear-filter {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #4f46e5;
+    text-decoration: none;
+}
+
+.status-dash__empty {
+    margin: 0;
+    padding: 1rem;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    color: #64748b;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+}
+
+.status-dash__app-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.status-dash__app-card {
+    padding: 1rem;
+    border-radius: 14px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+}
+
+.status-dash__app-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.65rem;
+    margin-bottom: 0.65rem;
+}
+
+.status-dash__app-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.status-dash__app-meta {
+    margin: 0 0 0.75rem;
+    display: grid;
+    gap: 0.35rem;
+}
+
+.status-dash__app-meta > div {
+    display: grid;
+    grid-template-columns: 4.5rem 1fr;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+}
+
+.status-dash__app-meta dt {
+    margin: 0;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.status-dash__app-meta dd {
+    margin: 0;
+    color: #0f172a;
+}
+
+.status-dash__app-action {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: #64748b;
+}
+
+.status-dash__app-action--done {
+    color: #16a34a;
+    font-weight: 600;
+}
+
+.status-dash__checkin-btn {
+    margin-top: 0.25rem;
+}
+
+.status-dash__account {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e2e8f0;
+}
+
+.status-dash__account summary {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    list-style: none;
+}
+
+.status-dash__account summary::-webkit-details-marker {
+    display: none;
+}
+
+.status-dash__account-body {
+    margin-top: 0.85rem;
+}
+
+.staff-profile-signout {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #fecaca;
+}
+
+.staff-profile-signout__btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: 52px;
+    padding: 0.85rem 1rem;
+    border-radius: 14px;
+    border: 1px solid #fca5a5;
+    background: linear-gradient(180deg, #fef2f2, #fff);
+    color: #b91c1c;
+    font-size: 1rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.staff-profile-signout__btn:active {
+    transform: scale(0.99);
+    background: #fee2e2;
+}
+
+.staff-profile-signout__icon {
+    font-size: 1.125rem;
+    line-height: 1;
+}
+
+@media (max-width: 380px) {
+    .status-dash__metric-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

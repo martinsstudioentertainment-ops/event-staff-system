@@ -1,0 +1,67 @@
+{
+    "generated_at": "2026-06-06T20:41:09+00:00",
+    "all_pass": true,
+    "expected_time_range": "15:00 - 23:00",
+    "checks": [
+        {
+            "check": "UI formatEventTimeRangeLabel (unchanged)",
+            "value": "15:00 – 23:00",
+            "pass": true,
+            "hex": "31353a303020e280932032333a3030"
+        },
+        {
+            "check": "Email formatEventTimeRangeLabelForEmail",
+            "value": "15:00 - 23:00",
+            "pass": true,
+            "hex": "31353a3030202d2032333a3030"
+        },
+        {
+            "check": "UI formatEventLabel (unchanged)",
+            "value": "Longitude 2026 — 05\/07\/2026",
+            "pass": true,
+            "hex": "4c6f6e676974756465203230323620e280942030352f30372f32303236"
+        },
+        {
+            "check": "Email formatEventLabelForEmail",
+            "value": "Longitude 2026 - 05\/07\/2026",
+            "pass": true,
+            "hex": "4c6f6e6769747564652032303236202d2030352f30372f32303236"
+        },
+        {
+            "check": "UI formatEventLocationLabel (unchanged)",
+            "value": "Aviva Stadium · D04 K5F9",
+            "pass": true,
+            "hex": "4176697661205374616469756d20c2b720443034204b354639"
+        },
+        {
+            "check": "Email formatEventLocationLabelForEmail",
+            "value": "Aviva Stadium | D04 K5F9",
+            "pass": true,
+            "hex": "4176697661205374616469756d207c20443034204b354639"
+        },
+        {
+            "check": "formatEmailEventNameDateCell",
+            "value": "Longitude 2026 | 05\/07\/2026",
+            "pass": true,
+            "hex": "4c6f6e6769747564652032303236207c2030352f30372f32303236"
+        },
+        {
+            "check": "MIME plain body",
+            "value": "Reporting time: 15:00 - 23:00",
+            "pass": true,
+            "hex": "5265706f7274696e672074696d653a2031353a3030202d2032333a3030"
+        },
+        {
+            "check": "MIME HTML QP contains no raw en-dash bytes",
+            "value": "<td>15:00 - 23:00<\/td>",
+            "pass": true,
+            "hex": ""
+        },
+        {
+            "check": "MIME multipart\/alternative when plain+html provided",
+            "value": "multipart\/alternative; boundary=\"=_Olasentra_feec54aecb75b3046e85849f\"",
+            "pass": true,
+            "hex": ""
+        }
+    ]
+}

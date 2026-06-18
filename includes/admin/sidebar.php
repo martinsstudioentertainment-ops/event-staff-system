@@ -1,42 +1,59 @@
 <?php
 
+
+
 require_once __DIR__ . '/nav-icons.php';
 
 require_once __DIR__ . '/../admin-capabilities.php';
 
 require_once __DIR__ . '/../notification-center.php';
 
+require_once __DIR__ . '/../staff-messages.php';
+require_once __DIR__ . '/../platform/sidebar-ops.php';
+
 $adminNotifUnread = adminCan('dashboard') ? countUnreadAdminNotifications($pdo) : 0;
+$adminMsgUnread   = adminCan('staff') ? countUnreadStaffMessagesForAdmin($pdo) : 0;
 
-$adminInitials = getAdminUserInitials($adminUser ?? null);
-
-$adminName     = trim((string) ($adminUser['name'] ?? $adminUser['username'] ?? 'Admin'));
-
-$adminRole     = formatAdminRoleLabel(getAdminRole());
+$sidebarSections = getAdminSidebarSections();
+$opsItems        = getPlatformOpsSidebarItems($pdo);
+if ($opsItems !== []) {
+    array_splice($sidebarSections, 1, 0, [[
+        'section' => 'Operations',
+        'items'   => $opsItems,
+    ]]);
+}
 
 ?>
 
-<aside class="sidebar" id="sidebar">
+<aside class="sidebar erp-sidebar erp-sidebar--v3" id="sidebar" aria-label="Admin navigation">
 
-    <div class="sidebar__brand">
+    <header class="erp-sidebar__header">
 
-        <div class="sidebar__logo brand-icon" aria-hidden="true"><?= renderThemeBrandIcon($pdo) ?></div>
+        <a href="dashboard.php" class="erp-sidebar__brand">
 
-        <div class="sidebar__brand-text">
+            <span class="erp-sidebar__logo brand-icon" aria-hidden="true"><?= renderThemeBrandIcon($pdo) ?></span>
 
-            <div class="sidebar__title"><?= h($siteName ?? 'Event Staff') ?></div>
+            <span class="erp-sidebar__brand-text">
 
-            <div class="sidebar__badge">ERP Console</div>
+                <span class="erp-sidebar__brand-name"><?= h($siteName ?? 'Event Staff') ?></span>
 
-        </div>
+            </span>
 
-    </div>
+        </a>
+
+        <button type="button" class="erp-sidebar__collapse-btn" id="sidebar-collapse" aria-label="Collapse sidebar" aria-pressed="false">
+
+            <?= renderAdminNavIcon('ui') ?>
+
+        </button>
+
+    </header>
 
 
 
-    <nav class="sidebar__nav" aria-label="Admin navigation">
+    <nav class="erp-sidebar__nav" aria-label="Modules">
 
-        <?php foreach (getAdminSidebarSections() as $section): ?>
+        <?php foreach ($sidebarSections as $section): ?>
 
             <?php
 
@@ -56,73 +73,69 @@ $adminRole     = formatAdminRoleLabel(getAdminRole());
 
             ?>
 
-            <div class="sidebar__nav-label"><?= h($section['section']) ?></div>
+            <div class="erp-sidebar__section">
 
-            <?php foreach ($visibleItems as $item): ?>
+                <p class="erp-sidebar__section-label"><?= h($section['section']) ?></p>
 
-                <a href="<?= h($item['url']) ?>" class="sidebar__link<?= isAdminSidebarLinkActive($item['key'], $activePage) ? ' sidebar__link--active' : '' ?>">
+                <div class="erp-sidebar__section-links">
 
-                    <span class="sidebar__link-icon"><?= renderAdminNavIcon($item['icon']) ?></span>
+                    <?php foreach ($visibleItems as $item): ?>
 
-                    <span class="sidebar__link-label">
-                        <?= h($item['label']) ?>
-                        <?php if ($item['key'] === 'notifications'): ?>
-                            <span
-                                class="sidebar__link-badge"
-                                data-admin-notif-badge
-                                <?= $adminNotifUnread > 0 ? '' : ' hidden' ?>
-                                aria-label="<?= (int) $adminNotifUnread ?> unread notifications"
-                            ><?= $adminNotifUnread > 99 ? '99+' : (int) $adminNotifUnread ?></span>
-                        <?php endif; ?>
-                    </span>
+                        <?php $isActive = isAdminSidebarLinkActive($item['key'], $activePage); ?>
 
-                </a>
+                        <a
 
-            <?php endforeach; ?>
+                            href="<?= h($item['url']) ?>"
+
+                            class="erp-sidebar__link<?= $isActive ? ' erp-sidebar__link--active' : '' ?>"
+
+                            data-tooltip="<?= h($item['label']) ?>"
+
+                            <?= $isActive ? 'aria-current="page"' : '' ?>
+
+                        >
+
+                            <span class="erp-sidebar__link-icon" aria-hidden="true"><?= renderAdminNavIcon($item['icon']) ?></span>
+
+                            <span class="erp-sidebar__link-text"><?= h($item['label']) ?></span>
+
+                            <?php if ($item['key'] === 'notifications'): ?>
+
+                                <span
+
+                                    class="erp-sidebar__badge"
+
+                                    data-admin-notif-badge
+
+                                    <?= $adminNotifUnread > 0 ? '' : ' hidden' ?>
+
+                                ><?= $adminNotifUnread > 99 ? '99+' : (int) $adminNotifUnread ?></span>
+
+                            <?php endif; ?>
+
+                            <?php if ($item['key'] === 'staff-inbox'): ?>
+
+                                <span class="erp-sidebar__badge" <?= $adminMsgUnread > 0 ? '' : ' hidden' ?>><?= $adminMsgUnread > 99 ? '99+' : (int) $adminMsgUnread ?></span>
+
+                            <?php endif; ?>
+
+                        </a>
+
+                    <?php endforeach; ?>
+
+                </div>
+
+            </div>
 
         <?php endforeach; ?>
 
     </nav>
 
-
-
-    <div class="sidebar__bottom">
-
-        <?php if (adminCan('website')): ?>
-
-        <div class="sidebar__quick-links">
-
-            <a href="<?= h($homePageUrl ?? (normalizePublicSiteUrl(getAppBaseUrl()) . '/home.php')) ?>" class="sidebar__quick-link" target="_blank" rel="noopener" title="View public homepage">
-
-                <?= renderAdminNavIcon('external') ?>
-
-                <span>Homepage</span>
-
-            </a>
-
-            <a href="<?= h($registrationFormUrl ?? getRegistrationFormUrl($pdo)) ?>" class="sidebar__quick-link" target="_blank" rel="noopener" title="Open registration form">
-
-                <?= renderAdminNavIcon('external') ?>
-
-                <span>Register</span>
-
-            </a>
-
-        </div>
-
-        <?php endif; ?>
-
-        <a href="logout.php" class="sidebar__logout">
-
-            <span class="sidebar__link-icon"><?= renderAdminNavIcon('logout') ?></span>
-
-            Log out
-
-        </a>
-
-    </div>
-
 </aside>
+
+
+
+<div class="erp-sidebar-tooltip" id="erp-sidebar-tooltip" role="tooltip" hidden></div>
 
 <div class="sidebar-overlay" id="sidebar-overlay"></div>
 

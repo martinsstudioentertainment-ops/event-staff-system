@@ -40,9 +40,26 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <div class="toolbar toolbar--compact no-print">
             <?php if ($eventId > 0): ?>
                 <a href="staff-message.php?event_id=<?= (int) $eventId ?>" class="btn btn--primary">Email staff</a>
+                <form method="post" action="send-shift-reminder-action.php" class="toolbar-inline-form">
+                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                    <input type="hidden" name="action" value="event">
+                    <input type="hidden" name="event_id" value="<?= (int) $eventId ?>">
+                    <input type="hidden" name="redirect" value="attendance.php?event_id=<?= (int) $eventId ?>">
+                    <button type="submit" class="btn btn--secondary">Send shift reminders</button>
+                </form>
+                <form method="post" action="send-shift-reminder-action.php" class="toolbar-inline-form">
+                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                    <input type="hidden" name="action" value="open_shift_broadcast">
+                    <input type="hidden" name="event_id" value="<?= (int) $eventId ?>">
+                    <input type="hidden" name="redirect" value="attendance.php?event_id=<?= (int) $eventId ?>">
+                    <button type="submit" class="btn btn--secondary">Broadcast open shift</button>
+                </form>
             <?php endif; ?>
             <a href="export-attendance.php<?= $eventId > 0 ? '?event_id=' . (int) $eventId : '' ?>" class="btn btn--secondary">Export CSV</a>
             <a href="work-hours.php<?= $eventId > 0 ? '?event_id=' . (int) $eventId : '' ?>" class="btn btn--secondary">Work hours</a>
+            <?php if (in_array(getAdminRole(), ['admin', 'manager'], true)): ?>
+                <a href="manual-signin.php<?= $eventId > 0 ? '?event_id=' . (int) $eventId : '' ?>" class="btn btn--primary">Manual sign-in</a>
+            <?php endif; ?>
             <?php if ($eventId > 0): ?>
                 <a href="scan-checkin.php?event_id=<?= (int) $eventId ?>" class="btn btn--secondary">Scan QR</a>
                 <a href="print-roster.php?event_id=<?= (int) $eventId ?>" class="btn btn--secondary">Print Roster</a>
@@ -123,7 +140,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <option value="">All events</option>
                 <?php foreach ($events as $event): ?>
                     <option value="<?= (int) $event['id'] ?>"<?= $eventId === (int) $event['id'] ? ' selected' : '' ?>>
-                        <?= h($event['name'] . ' — ' . date('d.m.Y', strtotime($event['event_date']))) ?>
+                        <?= h($event['name'] . ' — ' . formatEventDateLabel((string) $event['event_date'])) ?>
                     </option>
                 <?php endforeach; ?>
             </select>
@@ -158,19 +175,28 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                             <td><?= h(formatEventLabel($row)) ?></td>
                             <td><?= h(formatRoleLabel($row['staff_role'])) ?></td>
                             <td>
-                                <?php if ((int) $row['is_checked_in'] === 1): ?>
+                                <?php if (isAttendanceRosterCheckedIn($row)): ?>
                                     <span class="badge badge--approved">Checked In</span>
+                                <?php elseif (isAttendanceMarkedNoShow($row)): ?>
+                                    <span class="badge badge--rejected">No show</span>
                                 <?php else: ?>
                                     <span class="badge badge--pending">Waiting</span>
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <?= $row['checked_in_at'] ? h(date('d.m.Y H:i', strtotime($row['checked_in_at']))) : '—' ?>
+                                <?= $row['checked_in_at'] ? h(formatSystemDateTime((string) $row['checked_in_at'], $pdo)) : '—' ?>
                             </td>
                             <td>
                                 <div class="action-group">
                                     <a href="qr.php?id=<?= (int) $row['id'] ?>" class="btn btn--small btn--secondary">QR Code</a>
-                                    <?php if ((int) $row['is_checked_in'] === 0): ?>
+                                    <?php if (isAttendanceRosterCheckedIn($row) || isAttendanceMarkedNoShow($row)): ?>
+                                        <form method="post" action="checkin-reset-action.php" onsubmit="return confirm('Reset check-in for this staff member? They can sign in again.');">
+                                            <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                                            <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
+                                            <input type="hidden" name="event_id" value="<?= $eventId ?>">
+                                            <button type="submit" class="btn btn--small btn--secondary">Reset check-in</button>
+                                        </form>
+                                    <?php else: ?>
                                         <form method="post" action="checkin-action.php">
                                             <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                                             <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">

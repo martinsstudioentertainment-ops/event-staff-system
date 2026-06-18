@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Phase A.3 — Review Package</title>
+<style>
+:root { --ink: #0f172a; --muted: #64748b; --border: #e2e8f0; --accent: #6366f1; }
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 10pt; padding: 20px 28px; max-width: 960px; color: var(--ink); line-height: 1.5; }
+h1 { font-size: 20pt; margin: 0 0 4px; }
+.meta { color: var(--muted); font-size: 9pt; margin-bottom: 20px; }
+h2 { font-size: 12pt; background: #030712; color: #fff; padding: 7px 12px; margin: 24px 0 12px; border-radius: 4px; }
+h3 { font-size: 10.5pt; margin: 14px 0 6px; color: #1e293b; }
+table { width: 100%; border-collapse: collapse; font-size: 9pt; margin: 10px 0 16px; }
+th, td { border-bottom: 1px solid var(--border); padding: 7px 9px; text-align: left; vertical-align: top; }
+th { background: #1e293b; color: #fff; }
+.score { font-size: 22pt; font-weight: 800; color: var(--accent); }
+.score-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 12px 0 20px; }
+.score-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; background: #f8fafc; }
+.score-card .label { font-size: 8pt; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+.gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0 18px; }
+.gallery a { display: block; text-decoration: none; color: var(--ink); font-size: 8pt; }
+.gallery img { width: 100%; border: 1px solid var(--border); border-radius: 6px; }
+.viewport-block { margin-bottom: 28px; }
+ul { margin: 6px 0; padding-left: 1.2rem; }
+li { margin-bottom: 4px; }
+.pri-high { color: #b91c1c; font-weight: 700; }
+.pri-med { color: #c2410c; font-weight: 600; }
+.pri-low { color: #64748b; }
+.callout { background: #eff6ff; border-left: 4px solid #3b82f6; padding: 10px 14px; margin: 12px 0; font-size: 9pt; }
+@media print { .gallery { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+
+<h1>Phase A.3 — Review Package</h1>
+<p class="meta">
+<strong>Date:</strong> 6 June 2026 ·
+<strong>Scope:</strong> Registration Wizard v2 — Returning User Experience ·
+<strong>Flag:</strong> <code>feature_registration_wizard_v2</code> ·
+<strong>Status:</strong> A.3 Approved · A.4 not started
+</p>
+
+<div class="callout">
+<strong>Deliverables in this package:</strong> 24 step screenshots (8 steps × 3 viewports), UX scoring, design review, and final readiness report.
+Regenerate screenshots: <code>scripts/capture-a3-review-package.ps1</code>
+</div>
+
+<h2>1. Screenshot index — Mobile (390px)</h2>
+<div class="gallery">
+<a href="screenshots/a3-review/mobile/step-01-welcome.png"><img src="screenshots/a3-review/mobile/step-01-welcome.png" alt="Step 1 mobile"><br>Step 1 Welcome</a>
+<a href="screenshots/a3-review/mobile/step-02-your-gigs.png"><img src="screenshots/a3-review/mobile/step-02-your-gigs.png" alt="Step 2 mobile"><br>Step 2 Your gigs</a>
+<a href="screenshots/a3-review/mobile/step-03-email.png"><img src="screenshots/a3-review/mobile/step-03-email.png" alt="Step 3 mobile"><br>Step 3 Email + Returning</a>
+<a href="screenshots/a3-review/mobile/step-04-about-you.png"><img src="screenshots/a3-review/mobile/step-04-about-you.png" alt="Step 4 mobile"><br>Step 4 About you</a>
+<a href="screenshots/a3-review/mobile/step-05-contact.png"><img src="screenshots/a3-review/mobile/step-05-contact.png" alt="Step 5 mobile"><br>Step 5 Contact</a>
+<a href="screenshots/a3-review/mobile/step-06-payroll.png"><img src="screenshots/a3-review/mobile/step-06-payroll.png" alt="Step 6 mobile"><br>Step 6 Payroll</a>
+<a href="screenshots/a3-review/mobile/step-07-psa.png"><img src="screenshots/a3-review/mobile/step-07-psa.png" alt="Step 7 mobile"><br>Step 7 PSA</a>
+<a href="screenshots/a3-review/mobile/step-08-review.png"><img src="screenshots/a3-review/mobile/step-08-review.png" alt="Step 8 mobile"><br>Step 8 Review</a>
+</div>
+
+<h2>2. Screenshot index — Tablet (768px)</h2>
+<div class="gallery">
+<a href="screenshots/a3-review/tablet/step-01-welcome.png"><img src="screenshots/a3-review/tablet/step-01-welcome.png" alt="Step 1 tablet"><br>Step 1 Welcome</a>
+<a href="screenshots/a3-review/tablet/step-02-your-gigs.png"><img src="screenshots/a3-review/tablet/step-02-your-gigs.png" alt="Step 2 tablet"><br>Step 2 Your gigs</a>
+<a href="screenshots/a3-review/tablet/step-03-email.png"><img src="screenshots/a3-review/tablet/step-03-email.png" alt="Step 3 tablet"><br>Step 3 Email</a>
+<a href="screenshots/a3-review/tablet/step-04-about-you.png"><img src="screenshots/a3-review/tablet/step-04-about-you.png" alt="Step 4 tablet"><br>Step 4 About you</a>
+<a href="screenshots/a3-review/tablet/step-05-contact.png"><img src="screenshots/a3-review/tablet/step-05-contact.png" alt="Step 5 tablet"><br>Step 5 Contact</a>
+<a href="screenshots/a3-review/tablet/step-06-payroll.png"><img src="screenshots/a3-review/tablet/step-06-payroll.png" alt="Step 6 tablet"><br>Step 6 Payroll</a>
+<a href="screenshots/a3-review/tablet/step-07-psa.png"><img src="screenshots/a3-review/tablet/step-07-psa.png" alt="Step 7 tablet"><br>Step 7 PSA</a>
+<a href="screenshots/a3-review/tablet/step-08-review.png"><img src="screenshots/a3-review/tablet/step-08-review.png" alt="Step 8 tablet"><br>Step 8 Review</a>
+</div>
+
+<h2>3. Screenshot index — Desktop (1200px)</h2>
+<div class="gallery">
+<a href="screenshots/a3-review/desktop/step-01-welcome.png"><img src="screenshots/a3-review/desktop/step-01-welcome.png" alt="Step 1 desktop"><br>Step 1 Welcome</a>
+<a href="screenshots/a3-review/desktop/step-02-your-gigs.png"><img src="screenshots/a3-review/desktop/step-02-your-gigs.png" alt="Step 2 desktop"><br>Step 2 Your gigs</a>
+<a href="screenshots/a3-review/desktop/step-03-email.png"><img src="screenshots/a3-review/desktop/step-03-email.png" alt="Step 3 desktop"><br>Step 3 Email</a>
+<a href="screenshots/a3-review/desktop/step-04-about-you.png"><img src="screenshots/a3-review/desktop/step-04-about-you.png" alt="Step 4 desktop"><br>Step 4 About you</a>
+<a href="screenshots/a3-review/desktop/step-05-contact.png"><img src="screenshots/a3-review/desktop/step-05-contact.png" alt="Step 5 desktop"><br>Step 5 Contact</a>
+<a href="screenshots/a3-review/desktop/step-06-payroll.png"><img src="screenshots/a3-review/desktop/step-06-payroll.png" alt="Step 6 desktop"><br>Step 6 Payroll</a>
+<a href="screenshots/a3-review/desktop/step-07-psa.png"><img src="screenshots/a3-review/desktop/step-07-psa.png" alt="Step 7 desktop"><br>Step 7 PSA</a>
+<a href="screenshots/a3-review/desktop/step-08-review.png"><img src="screenshots/a3-review/desktop/step-08-review.png" alt="Step 8 desktop"><br>Step 8 Review</a>
+</div>
+
+<p>Earlier A.3 focused captures (returning flow, profile card, duplicate protection): <code>docs/screenshots/a3/</code></p>
+
+<h2>4. UX review — scores</h2>
+<div class="score-grid">
+<div class="score-card"><div class="score">82</div><div class="label">Mobile UX</div></div>
+<div class="score-card"><div class="score">74</div><div class="label">Tablet UX</div></div>
+<div class="score-card"><div class="score">70</div><div class="label">Desktop UX</div></div>
+<div class="score-card"><div class="score">76</div><div class="label">Accessibility</div></div>
+<div class="score-card"><div class="score">78</div><div class="label">Registration conversion</div></div>
+</div>
+<p><strong>Composite UX score: 76 / 100</strong> — solid mobile-first foundation; desktop/tablet layout and Step 8 review are the main gaps before A.4.</p>
+
+<h3>Mobile UX — 82</h3>
+<table>
+<tr><th>Strength</th><th>Gap</th></tr>
+<tr>
+<td>44px min tap targets on nav, resume buttons, event cards, profile CTA</td>
+<td>Step 4 (About you) requires significant scroll — 7 fields + 4 gender radios</td>
+</tr>
+<tr>
+<td>Sticky bottom nav reduces reach; returning card surfaces status without extra taps</td>
+<td>Progress dot indicators are decorative only (4px height) — low affordance</td>
+</tr>
+<tr>
+<td>Welcome Back card + Pick new events = 1-tap path for complete returning users</td>
+<td>Hero title repeats below fold on some devices (mobile title + hero title)</td>
+</tr>
+<tr>
+<td>Event opportunity cards scannable: venue, date, county, status badge</td>
+<td>File inputs on Step 7 use native styling — weak upload affordance on iOS</td>
+</tr>
+</table>
+
+<h3>Tablet UX — 74</h3>
+<table>
+<tr><th>Strength</th><th>Gap</th></tr>
+<tr>
+<td>Content column (560px) readable; trust chips expand to 4-column row</td>
+<td>Wide grey gutters on 768px — content feels phone-width centred, not tablet-native</td>
+</tr>
+<tr>
+<td>Event cards benefit from extra horizontal breathing room</td>
+<td>No two-column form layout on tablet for Steps 4–6 (missed space efficiency)</td>
+</tr>
+<tr>
+<td>Resume prompt side-by-side buttons work well at tablet width</td>
+<td>Returning profile card metrics could use horizontal layout with more padding</td>
+</tr>
+</table>
+
+<h3>Desktop UX — 70</h3>
+<table>
+<tr><th>Strength</th><th>Gap</th></tr>
+<tr>
+<td>Focused funnel reduces cognitive load; progress bar clear</td>
+<td>1200px viewport shows large empty margins — underuses desktop canvas</td>
+</tr>
+<tr>
+<td>Platform disclaimer visible early (Step 1 shell)</td>
+<td>No visual hierarchy difference from mobile — desktop users may expect wider summary panels</td>
+</tr>
+<tr>
+<td>Consistent step chrome across all 8 steps</td>
+<td>Step 8 review placeholder feels unfinished on large screens</td>
+</tr>
+</table>
+
+<h3>Accessibility — 76</h3>
+<table>
+<tr><th>Strength</th><th>Gap</th></tr>
+<tr>
+<td>Progress bar has <code>role="progressbar"</code> with min/max/now</td>
+<td>Step dots are <code>aria-hidden</code> — no keyboard alternative to jump steps</td>
+</tr>
+<tr>
+<td>Returning panel uses <code>aria-live="polite"</code></td>
+<td>Form hints at 0.72rem (~11.5px) — below WCAG 1.4.4 comfortable resize threshold</td>
+</tr>
+<tr>
+<td>Gender radiogroup has <code>role="radiogroup"</code> + label</td>
+<td>Duplicate-tip appears on tap but no <code>aria-describedby</code> link to blocked cards</td>
+</tr>
+<tr>
+<td>Error spans paired with fields (validation.js)</td>
+<td>Review consent checkbox — long legal text; screen reader journey is lengthy</td>
+</tr>
+</table>
+
+<h3>Registration conversion — 78</h3>
+<table>
+<tr><th>Strength</th><th>Gap</th></tr>
+<tr>
+<td>Returning user path: email → profile card → prefill → Pick new events</td>
+<td>Step 8 placeholder: “Summary will appear here in a later update” — reduces submit confidence</td>
+</tr>
+<tr>
+<td>Resume Application reduces abandonment for draft users</td>
+<td>New users still hit 8 steps; no skip-ahead for complete profiles until Step 3</td>
+</tr>
+<tr>
+<td>Already Registered prevents duplicate anxiety and support contacts</td>
+<td>Step order (events at Step 2 in nav but DOM step 2 after PSA) may confuse analytics, not users</td>
+</tr>
+<tr>
+<td>Trust chips + 3–5 min estimate set expectations</td>
+<td>PSA photo upload on Step 7 is a known drop-off point — no progress encouragement</td>
+</tr>
+</table>
+
+<h2>5. Design review</h2>
+
+<h3>Weak visual areas</h3>
+<ul>
+<li class="pri-high"><strong>Step 8 Review</strong> — grey placeholder box reads as incomplete product; primary visual on final step before submit.</li>
+<li class="pri-med"><strong>Step 7 PSA file inputs</strong> — default browser file picker styling breaks visual consistency with rounded form inputs.</li>
+<li class="pri-med"><strong>Progress dots</strong> — too subtle (4px bars); users rely on text “Step X of 8” only.</li>
+<li class="pri-low"><strong>Shift selection heading</strong> — “Shift selection” vs nav label “Your gigs” — minor label inconsistency.</li>
+</ul>
+
+<h3>Empty space</h3>
+<ul>
+<li class="pri-high"><strong>Tablet/desktop gutters</strong> — 560px max-width centred in 768–1200px viewports leaves 30–54% unused horizontal space.</li>
+<li class="pri-med"><strong>Step 5 Contact</strong> — single phone field with large vertical gap before nav; feels sparse.</li>
+<li class="pri-med"><strong>Step 1 Welcome</strong> — trust chips + platform note + role select stack; acceptable on mobile, loose on desktop.</li>
+<li class="pri-low"><strong>Below hero on desktop</strong> — could host a slim “How it works” visual without adding steps.</li>
+</ul>
+
+<h3>Typography issues</h3>
+<ul>
+<li class="pri-med"><strong>Form hints (0.72rem)</strong> — IBAN, DOB, PSA format hints may fail readability for 40+ demographic.</li>
+<li class="pri-med"><strong>Profile card platform note</strong> — 0.72rem grey on purple tint — contrast borderline on some displays.</li>
+<li class="pri-low"><strong>Section titles</strong> — form-section-title vs reg-wizard__step-name — two parallel labelling systems.</li>
+<li class="pri-low"><strong>ALL CAPS metric labels</strong> on profile card — appropriate for KPI chips; ensure 0.68rem still legible.</li>
+</ul>
+
+<h3>Trust issues</h3>
+<ul>
+<li class="pri-high"><strong>Review step placeholder</strong> — undermines trust at highest-friction moment (submit).</li>
+<li class="pri-med"><strong>Bank/payroll step</strong> — disclaimer present (A.2) but IBAN field still feels sensitive without lock icon or “encrypted” cue.</li>
+<li class="pri-low"><strong>Platform disclaimer</strong> — correctly worded; repeated on shell + profile card (acceptable for compliance).</li>
+<li class="pri-low"><strong>Privacy consent block</strong> — legally sound; dense paragraph may reduce tick rate on mobile.</li>
+</ul>
+
+<h3>Mobile improvements (recommended for A.4+)</h3>
+<ul>
+<li>Collapse gender radios to 2×2 grid on wider phones to cut Step 4 scroll.</li>
+<li>Add camera capture hint on PSA uploads (“Use phone camera — front of card”).</li>
+<li>Sticky “Step X of 8” mini-bar when scrolling long steps.</li>
+<li>Increase progress dot hit area or replace with numbered pills.</li>
+<li>Build real review summary (A.4 scope) — highest conversion impact.</li>
+</ul>
+
+<h2>6. A.3 feature completeness</h2>
+<table>
+<tr><th>Requirement</th><th>Status</th></tr>
+<tr><td>Returning user recognition (Welcome Back, %, events, compliance)</td><td>Complete</td></tr>
+<tr><td>Smart prefill (no overwrite)</td><td>Complete</td></tr>
+<tr><td>Resume Application / Start New Application</td><td>Complete</td></tr>
+<tr><td>Already Registered duplicate protection</td><td>Complete</td></tr>
+<tr><td>Profile status card (5 states)</td><td>Complete</td></tr>
+<tr><td>Analytics (5 events + funnel widget)</td><td>Complete</td></tr>
+<tr><td>Platform positioning disclaimer</td><td>Complete</td></tr>
+<tr><td>Production rules (no DB, submit, routes)</td><td>Verified</td></tr>
+</table>
+
+<h2>7. Related documents</h2>
+<ul>
+<li><a href="PHASE-A3-IMPLEMENTATION-PACKAGE.html">PHASE-A3-IMPLEMENTATION-PACKAGE.html</a> — technical implementation</li>
+<li><a href="PHASE-A3-FINAL-READINESS-REPORT.html">PHASE-A3-FINAL-READINESS-REPORT.html</a> — go/no-go for Phase A.4</li>
+</ul>
+
+</body>
+</html>

@@ -23,7 +23,9 @@ $content  = $result['content'];
 $settings = getAllSettings($pdo);
 $g        = $content['global'] ?? [];
 $homePageUrl = normalizePublicSiteUrl(getAppBaseUrl()) . '/home.php';
-$logoUrl  = getCompanyLogoUrl($pdo, '../');
+$logoUrl      = getCompanyLogoUrl($pdo, '../');
+$shareImgUrl  = getCompanyShareImageUrl($pdo, '../');
+$ogPreviewUrl = '../og-image.php';
 
 $pageTitle          = $cmsPanel ? 'Global & brand' : 'Branding';
 $activePage         = 'website-global';
@@ -53,8 +55,8 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
         <input type="hidden" name="action" value="website_global">
 
-        <h4 class="form-section-title form-group--full">Company logo</h4>
-        <p class="form-hint form-group--full">Shown in the website header, footer, and homepage hero. PNG or JPG with transparent background works best. Max 2 MB.</p>
+        <h4 class="form-section-title form-group--full">Company logo (master)</h4>
+        <p class="form-hint form-group--full">High-resolution transparent PNG for the app header, registration, and staff sign-in. Use your formal logo here — any size up to 2 MB. <strong>Do not</strong> rely on this file for WhatsApp link previews (use the share image below).</p>
         <div class="form-group form-group--full logo-upload-preview">
             <?php if ($logoUrl !== ''): ?>
                 <img src="<?= h($logoUrl) ?>" alt="Current logo" class="logo-upload-preview__img">
@@ -71,6 +73,29 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <label class="form-radio">
                 <input type="checkbox" name="remove_company_logo" value="1">
                 Remove current logo
+            </label>
+        </div>
+        <?php endif; ?>
+
+        <h4 class="form-section-title form-group--full">WhatsApp / link preview image</h4>
+        <p class="form-hint form-group--full">Optional dedicated image at <strong>1200×630 px</strong> for WhatsApp, Facebook, and email link cards. If empty, the system builds a preview from your master logo automatically (scaled correctly — never squashed).</p>
+        <div class="form-group form-group--full logo-upload-preview">
+            <?php if ($shareImgUrl !== ''): ?>
+                <img src="<?= h($shareImgUrl) ?>" alt="WhatsApp preview image" class="logo-upload-preview__img" style="max-width:100%;aspect-ratio:1200/630;object-fit:contain;background:#0f172a;">
+            <?php else: ?>
+                <img src="<?= h($ogPreviewUrl) ?>?v=<?= time() ?>" alt="Auto-generated link preview" class="logo-upload-preview__img" style="max-width:100%;aspect-ratio:1200/630;object-fit:contain;background:#0f172a;">
+                <p class="form-hint" style="margin-top:0.5rem;">Preview above is auto-generated from your master logo until you upload a custom 1200×630 image.</p>
+            <?php endif; ?>
+        </div>
+        <div class="form-group form-group--full">
+            <label class="form-label" for="company_share_image">Upload WhatsApp preview (1200×630 PNG/JPG)</label>
+            <input class="form-input" type="file" id="company_share_image" name="company_share_image" accept="image/png,image/jpeg,image/webp">
+        </div>
+        <?php if ($shareImgUrl !== ''): ?>
+        <div class="form-group form-group--full">
+            <label class="form-radio">
+                <input type="checkbox" name="remove_company_share_image" value="1">
+                Remove custom WhatsApp preview (use auto-generated)
             </label>
         </div>
         <?php endif; ?>

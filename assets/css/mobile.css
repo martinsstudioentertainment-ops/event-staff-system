@@ -348,6 +348,23 @@ body {
 
 /* — Admin ERP (managers on phone) — */
 @media (max-width: 768px) {
+    .admin-shell .erp-header,
+    .admin-shell .header {
+        padding-top: max(0.35rem, env(safe-area-inset-top));
+        padding-left: max(0.75rem, env(safe-area-inset-left));
+        padding-right: max(0.75rem, env(safe-area-inset-right));
+    }
+
+    .admin-shell .header__left {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .admin-shell .header__right {
+        flex-shrink: 0;
+        gap: 0.25rem;
+    }
+
     .admin-shell .header__menu-btn {
         display: flex;
     }

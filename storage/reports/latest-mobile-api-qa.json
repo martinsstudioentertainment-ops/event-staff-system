@@ -1,0 +1,194 @@
+﻿{
+    "ok": true,
+    "run_id": "20260612-041446-staff-47",
+    "timestamp": "2026-06-12T04:14:46+01:00",
+    "overall": "PASS",
+    "base_url": "https://register.olasentra.com/api/mobile/v1",
+    "staff": {
+        "id": 47,
+        "email": "abdullahyaqoobb014@gmail.com",
+        "name": "Abdullah Abdullah"
+    },
+    "read_only": true,
+    "summary": {
+        "passed": 29,
+        "failed": 0,
+        "total": 29
+    },
+    "results": [
+        {
+            "group": "Config",
+            "name": "Mobile API enabled",
+            "status": "PASS",
+            "detail": "Enabled"
+        },
+        {
+            "group": "Config",
+            "name": "Google sign-in enabled",
+            "status": "PASS",
+            "detail": "Required"
+        },
+        {
+            "group": "Google Auth",
+            "name": "Staff email eligible for Google sign-in",
+            "status": "PASS",
+            "detail": "abdullahyaqoobb014@gmail.com"
+        },
+        {
+            "group": "Google Auth",
+            "name": "Staff eligible for Google sign-in path",
+            "status": "PASS",
+            "detail": "Eligible for Google sign-in path"
+        },
+        {
+            "group": "Google Auth",
+            "name": "Staff not blacklisted",
+            "status": "PASS",
+            "detail": "OK"
+        },
+        {
+            "group": "Google Auth",
+            "name": "Google ID token (optional live verify)",
+            "status": "PASS",
+            "detail": "Skipped — paste token to verify live Google OAuth (read-only; no login issued)"
+        },
+        {
+            "group": "JWT",
+            "name": "JWT secret configured",
+            "status": "PASS",
+            "detail": "c980591f…"
+        },
+        {
+            "group": "JWT",
+            "name": "Access token issued",
+            "status": "PASS",
+            "detail": "259 chars"
+        },
+        {
+            "group": "JWT",
+            "name": "Token decodes with server secret",
+            "status": "PASS",
+            "detail": "Valid signature and expiry"
+        },
+        {
+            "group": "JWT",
+            "name": "Token subject matches staff id",
+            "status": "PASS",
+            "detail": "sub=47"
+        },
+        {
+            "group": "JWT",
+            "name": "Token audience olasentra-mobile",
+            "status": "PASS",
+            "detail": "olasentra-mobile"
+        },
+        {
+            "group": "JWT",
+            "name": "Token email matches staff",
+            "status": "PASS",
+            "detail": "abdullahyaqoobb014@gmail.com"
+        },
+        {
+            "group": "Profile API",
+            "name": "GET /me (service)",
+            "status": "PASS",
+            "detail": "staff.id=47"
+        },
+        {
+            "group": "Dashboard API",
+            "name": "GET /dashboard (service)",
+            "status": "PASS",
+            "detail": "profile + shifts payload"
+        },
+        {
+            "group": "Shifts API",
+            "name": "GET /shifts (service)",
+            "status": "PASS",
+            "detail": "4 shift(s)"
+        },
+        {
+            "group": "Shifts API",
+            "name": "GET /shifts/today (service)",
+            "status": "PASS",
+            "detail": "No shift today"
+        },
+        {
+            "group": "Messages API",
+            "name": "GET /messages (service, read-only)",
+            "status": "PASS",
+            "detail": "1 message(s)"
+        },
+        {
+            "group": "Notifications API",
+            "name": "GET /notifications (service, read-only)",
+            "status": "PASS",
+            "detail": "12 notification(s)"
+        },
+        {
+            "group": "Documents API",
+            "name": "GET /documents (service)",
+            "status": "PASS",
+            "detail": "3 document slot(s)"
+        },
+        {
+            "group": "Documents API",
+            "name": "GET /documents/psa_front/file (metadata)",
+            "status": "PASS",
+            "detail": "File readable on disk"
+        },
+        {
+            "group": "Availability API",
+            "name": "GET /availability (service, read-only)",
+            "status": "PASS",
+            "detail": "month=2026-06, 30 day(s)"
+        },
+        {
+            "group": "Profile API",
+            "name": "GET /me (HTTP)",
+            "status": "PASS",
+            "detail": "HTTP 200"
+        },
+        {
+            "group": "Dashboard API",
+            "name": "GET /dashboard (HTTP)",
+            "status": "PASS",
+            "detail": "HTTP 200"
+        },
+        {
+            "group": "Shifts API",
+            "name": "GET /shifts (HTTP)",
+            "status": "PASS",
+            "detail": "HTTP 200"
+        },
+        {
+            "group": "Messages API",
+            "name": "GET /messages (HTTP)",
+            "status": "PASS",
+            "detail": "HTTP 200"
+        },
+        {
+            "group": "Notifications API",
+            "name": "GET /notifications (HTTP)",
+            "status": "PASS",
+            "detail": "HTTP 200"
+        },
+        {
+            "group": "Documents API",
+            "name": "GET /documents (HTTP)",
+            "status": "PASS",
+            "detail": "HTTP 200"
+        },
+        {
+            "group": "Documents API",
+            "name": "GET /documents/psa_front/file (HTTP)",
+            "status": "PASS",
+            "detail": "HTTP 200"
+        },
+        {
+            "group": "Availability API",
+            "name": "GET /availability (HTTP)",
+            "status": "PASS",
+            "detail": "HTTP 200"
+        }
+    ]
+}

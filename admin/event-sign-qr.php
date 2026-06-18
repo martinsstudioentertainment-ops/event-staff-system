@@ -3,6 +3,9 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/attendance-repository.php';
+require_once __DIR__ . '/../includes/maps.php';
+require_once __DIR__ . '/../includes/feature-flags.php';
+require_once __DIR__ . '/../includes/admin-capabilities.php';
 
 require_once __DIR__ . '/../includes/share-meta.php';
 
@@ -29,7 +32,8 @@ $shareImage = getShareImagePreviewUrl($pdo, $assetBase);
 $emailShareTitle = $event['name'] . ' — Email Sign-in';
 $emailShareDesc = 'Sign in for ' . $event['name'] . ' on ' . formatEventDateLabel($event['event_date']) . ' at ' . formatEventLocationLabel($event);
 $venueShareTitle = $event['name'] . ' — Venue Sign-in';
-$venueShareDesc = 'Scan at the venue to sign in for ' . $event['name'] . '. GPS required within 100m.';
+$venueRadiusLabel = formatEventSigninRadiusLabel($event, $pdo);
+$venueShareDesc   = 'Scan at the venue to sign in for ' . $event['name'] . '. GPS required within ' . $venueRadiusLabel . '.';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -109,6 +113,9 @@ $venueShareDesc = 'Scan at the venue to sign in for ' . $event['name'] . '. GPS 
         <button type="button" class="btn btn--primary" onclick="window.print()">Print Venue QR Sign</button>
         <a href="events.php" class="btn btn--secondary">← Back to Events</a>
         <a href="attendance.php?event_id=<?= (int) $id ?>" class="btn btn--secondary">Attendance</a>
+        <?php if (adminCan('export')): ?>
+            <a href="export-event-signins.php?event_id=<?= (int) $id ?>&format=xlsx" class="btn btn--secondary">Download sign-ins (Excel)</a>
+        <?php endif; ?>
     </div>
 
     <header class="card__header no-print" style="margin-bottom: 1.5rem;">
@@ -184,7 +191,7 @@ $venueShareDesc = 'Scan at the venue to sign in for ' . $event['name'] . '. GPS 
                 <li>Allow location access (required at the venue).</li>
                 <li>Enter your registration email and <strong>last 4 of PPS</strong>, then tap <strong>Check In Now</strong>.</li>
             </ol>
-            <p style="margin: 0.75rem 0 0;">Venue sign-in requires GPS within <strong>100 metres</strong> of the event Eircode location.</p>
+            <p style="margin: 0.75rem 0 0;">Venue sign-in requires GPS within <strong><?= h($venueRadiusLabel) ?></strong> of the event Eircode location.</p>
         </div>
     </article>
 

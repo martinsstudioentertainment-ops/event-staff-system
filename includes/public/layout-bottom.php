@@ -1,6 +1,14 @@
 </main>
 
-<footer class="site-footer">
+<?php
+if (!function_exists('isFeatureEnabled')) {
+    require_once __DIR__ . '/../feature-flags.php';
+}
+$isPremiumHomeFooter = ($web['pageSlug'] ?? '') === 'home'
+    && isFeatureEnabled($web['pdo'] ?? null, 'feature_public_premium_v2');
+?>
+
+<footer class="site-footer<?= $isPremiumHomeFooter ? ' site-footer--premium' : '' ?>">
     <div class="site-footer__grid">
         <div class="site-footer__brand-col">
             <a class="site-footer__brand" href="<?= h(getWebsitePageUrl('home', $web['pdo'], $web['assetBase'])) ?>">
@@ -51,5 +59,8 @@
 
 <script src="<?= h($web['assetBase']) ?>assets/js/site-notice.js"></script>
 <script src="<?= h($web['assetBase']) ?>assets/js/website.js"></script>
+<?php if ($isPremiumHomeFooter): ?>
+<script src="<?= h($web['assetBase']) ?>assets/js/home-premium.js"></script>
+<?php endif; ?>
 </body>
 </html>

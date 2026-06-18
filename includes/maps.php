@@ -2,8 +2,18 @@
 
 require_once __DIR__ . '/settings-repository.php';
 
-/** Venue sign-in geofence radius in metres (fixed). */
-const EVENT_SIGNIN_RADIUS_M = 100;
+/** Legacy venue sign-in geofence radius (feature_gps_attendance_v2 OFF). */
+const EVENT_SIGNIN_RADIUS_LEGACY_M = 100;
+
+/** Default sign-in radius when events.signin_radius_m is null (feature_gps_attendance_v2 ON). */
+const EVENT_SIGNIN_RADIUS_DEFAULT_M = 1000;
+
+/** Allowed per-event sign-in radius range (metres) when GPS v2 is ON. */
+const EVENT_SIGNIN_RADIUS_MIN_M = 50;
+const EVENT_SIGNIN_RADIUS_MAX_M = 5000;
+
+/** @deprecated Use EVENT_SIGNIN_RADIUS_LEGACY_M */
+const EVENT_SIGNIN_RADIUS_M = EVENT_SIGNIN_RADIUS_LEGACY_M;
 
 function getGoogleMapsApiKey(?PDO $pdo = null): string
 {
@@ -128,7 +138,40 @@ function geocodeVenueEircode(string $eircode, ?PDO $pdo = null): ?array
     return ['lat' => $lat, 'lng' => $lng];
 }
 
-function getEventSigninRadiusMeters(array $event): int
+function getEventSigninRadiusMeters(array $event, ?PDO $pdo = null): int
 {
-    return EVENT_SIGNIN_RADIUS_M;
+    if ($pdo === null && function_exists('getDB')) {
+        try {
+            $pdo = getDB();
+        } catch (Throwable $e) {
+            $pdo = null;
+        }
+    }
+
+    if ($pdo !== null) {
+        require_once __DIR__ . '/feature-flags.php';
+
+        if (isFeatureEnabled($pdo, 'feature_gps_attendance_v2')) {
+            $stored = $event['signin_radius_m'] ?? null;
+            if ($stored === null || $stored === '' || (int) $stored <= 0) {
+                return EVENT_SIGNIN_RADIUS_DEFAULT_M;
+            }
+
+            return (int) $stored;
+        }
+    }
+
+    return EVENT_SIGNIN_RADIUS_LEGACY_M;
+}
+
+/**
+ * Human-readable radius for admin copy (respects feature flag).
+ */
+function formatEventSigninRadiusLabel(array $event, ?PDO $pdo = null): string
+{
+    $meters = getEventSigninRadiusMeters($event, $pdo);
+
+    return $meters >= 1000 && $meters % 1000 === 0
+        ? ($meters / 1000) . ' km'
+        : $meters . ' m';
 }

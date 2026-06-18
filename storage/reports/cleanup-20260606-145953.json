@@ -1,0 +1,66 @@
+{
+    "generated_at": "2026-06-06T14:59:53Z",
+    "root": "C:\\laragon\\www\\event-staff-system",
+    "mode": "read_only",
+    "summary": {
+        "issues_critical": 0,
+        "issues_high": 0,
+        "issues_medium": 0,
+        "issues_low": 1,
+        "total_findings": 1
+    },
+    "storage": [
+        {
+            "path": "storage/backups",
+            "label": "Database backups",
+            "bytes": 63978962,
+            "writable": true
+        },
+        {
+            "path": "vendor",
+            "label": "PHP libraries (vendor)",
+            "bytes": 2415217,
+            "writable": true
+        },
+        {
+            "path": "storage/branding",
+            "label": "Branding uploads",
+            "bytes": 1744105,
+            "writable": true
+        },
+        {
+            "path": "assets",
+            "label": "CSS / JS assets",
+            "bytes": 482873,
+            "writable": true
+        },
+        {
+            "path": "storage/google",
+            "label": "Google credentials",
+            "bytes": 2418,
+            "writable": true
+        },
+        {
+            "path": "storage/logs",
+            "label": "Log files",
+            "bytes": 218,
+            "writable": true
+        }
+    ],
+    "large_files": [],
+    "old_backups": [],
+    "duplicate_assets": [],
+    "empty_directories": [
+        "uploads/psa"
+    ],
+    "log_files": [],
+    "findings": [
+        {
+            "severity": "low",
+            "category": "empty_directory",
+            "path": "uploads/psa",
+            "message": "Empty directory \u2014 safe to review for removal"
+        }
+    ],
+    "rollback_note": "Restore from storage/backups/pre-deploy-*.zip or admin \u2192 Backups. Never auto-delete."
+}

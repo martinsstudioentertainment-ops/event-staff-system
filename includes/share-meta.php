@@ -25,12 +25,6 @@ function getShareImageRelativePath(?PDO $pdo): string
         return 'og-image.php';
     }
 
-    $relative = ltrim(str_replace('\\', '/', getCompanyLogoRelativePath($pdo)), '/');
-
-    if ($relative !== '' && getCompanyLogoFilesystemPath($pdo) !== '' && isRasterShareImagePath($relative)) {
-        return $relative;
-    }
-
     return 'og-image.php';
 }
 
@@ -107,7 +101,7 @@ function renderShareMeta(array $options, ?PDO $pdo = null): void
     <?php if ($image !== ''): ?>
     <meta property="og:image" content="<?= h($image) ?>">
     <meta property="og:image:secure_url" content="<?= h($image) ?>">
-    <meta property="og:image:type" content="<?= h(str_contains($image, 'og-image.php') ? 'image/png' : 'image/jpeg') ?>">
+    <meta property="og:image:type" content="<?= h(str_contains($image, 'og-image.php') || preg_match('/\.(jpe?g)(\?|$)/i', $image) ? 'image/jpeg' : 'image/png') ?>">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="<?= h($siteName !== '' ? $siteName . ' logo' : 'Event Staff') ?>">

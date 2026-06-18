@@ -1,0 +1,27 @@
+{
+    "generated_at": "2026-06-06T21:03:39+00:00",
+    "fix_status": "fixed",
+    "mime_builder": {
+        "content_type": "multipart/alternative; boundary=\"=_Olasentra_40a7a194d022710dd66dcc0e\"",
+        "transfer_encoding": "8bit",
+        "is_multipart": true,
+        "plain_in_body": true,
+        "html_in_body": true
+    },
+    "before_fix_legacy_dotstuff": {
+        "double_cr_count": 47,
+        "corruption_detected": true,
+        "wire_sample": "--=_Olasentra_40a7a194d022710dd66dcc0e\r\r\nContent-Type: text/plain; charset=UTF-8\r\r\nContent-Transfer-Encoding: 8bit\r\r\n\r\r\nDear Olayinka,\r\r\n\r\r\nThank you for your interest. Your staff registration was not approved at this time.\r\r\n\r\r\n* Kings Of Leon - 01/07/2026 - Static Security\r\r\n  Contractor listed for this shift: Acme Security (confirm pay and duties with them).\r\r\n\r\r\nView your registration status anytime:\r\r\nhttps://register.olasentra.com/status.php?token=abc123\r\r\n\r\r\nSent by the registration portal only.\r\r\n\r\r\nRegards,\r\r\nSecurity Update\r\r\n--=_Olasentra_40a7a194d022710dd66dcc0e\r\r\nContent-Type: tex"
+    },
+    "after_fix_dotstuff": {
+        "crlf_count": 47,
+        "double_cr_count": 0,
+        "corruption_detected": false,
+        "wire_sample": "--=_Olasentra_40a7a194d022710dd66dcc0e\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDear Olayinka,\r\n\r\nThank you for your interest. Your staff registration was not approved at this time.\r\n\r\n* Kings Of Leon - 01/07/2026 - Static Security\r\n  Contractor listed for this shift: Acme Security (confirm pay and duties with them).\r\n\r\nView your registration status anytime:\r\nhttps://register.olasentra.com/status.php?token=abc123\r\n\r\nSent by the registration portal only.\r\n\r\nRegards,\r\nSecurity Update\r\n--=_Olasentra_40a7a194d022710dd66dcc0e\r\nContent-Type: text/html; charset=UTF"
+    },
+    "client_impact": {
+        "multipart_parsing_likely_broken": false,
+        "inner_headers_visible_as_body_text": false,
+        "qp_html_visible_if_parser_fails": false
+    }
+}

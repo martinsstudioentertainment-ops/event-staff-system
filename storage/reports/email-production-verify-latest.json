@@ -1,0 +1,70 @@
+{
+    "ok": true,
+    "generated_at": "2026-06-06T21:14:39+00:00",
+    "to": "[REDACTED]",
+    "transport": "smtp",
+    "site_name": "Security Update",
+    "all_pass": true,
+    "templates": {
+        "registration_confirmation": {
+            "sent": true,
+            "subject": "Security Update - Registration Received",
+            "scan": {
+                "pass": true,
+                "bad_tokens": [],
+                "sample": "Security Update - Registration Received\nDear Olayinka,\n\nWe have received your staff registration for the following event(s):\n\n* Kings Of Leon - 01\/07\/2026\n\nRole: Static Security\nStatus: Pending approval\nReporting time: 15:00 - 23:00\nVenue: Thomond Park\n<div style=\"font-family:Segoe UI,Arial,sans-serif;line-height:1.55;color:#111827;max-width:560px;\"><p style=\"margin:0 0 8px;\">Dear Olayinka,<\/p><br"
+            },
+            "html": "<div style=\"font-family:Segoe UI,Arial,sans-serif;line-height:1.55;color:#111827;max-width:560px;\"><p style=\"margin:0 0 8px;\">Dear Olayinka,<\/p><br><p style=\"margin:0 0 8px;\">We have received your staff registration for the following event(s):<\/p><br><p style=\"margin:0 0 8px;\">* Kings Of Leon - 01\/07\/2026<\/p><br><p style=\"margin:0 0 8px;\">Role: Static Security<\/p><p style=\"margin:0 0 8px;\">Status: Pending approval<\/p><p style=\"margin:0 0 8px;\">Reporting time: 15:00 - 23:00<\/p><p style=\"margin:0 0 8px;\">Venue: Thomond Park<\/p><\/div>"
+        },
+        "registration_approved": {
+            "sent": true,
+            "subject": "Security Update - Registration confirmed",
+            "scan": {
+                "pass": true,
+                "bad_tokens": [],
+                "sample": "Security Update - Registration confirmed\nDear Olayinka,\n\nYour application for the shift below has been approved. Use the check-in details on event day.\n\n---\nPass ID: EVT-2026-000399\nEvent: Kings Of Leon - 01\/07\/2026\nReporting time: 15:00 - 23:00\nVenue: Thomond Park\nRole: Static Security\nCheck-in link: https:\/\/register.olasentra.com\/check-in.php?token=56465b412bd57921e895ffb197267d2a436257ef7382d44"
+            },
+            "html": "<!DOCTYPE html><html><body style=\"font-family:Segoe UI,Arial,sans-serif;line-height:1.55;color:#111;max-width:560px;margin:0 auto;padding:16px;\"><p style=\"margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;\">Security Update<\/p><h1 style=\"margin:0 0 12px;font-size:22px;color:#1e40af;\">Registration confirmed<\/h1><p style=\"margin:0 0 16px;\">Dear Olayinka, your shift is <strong>approved<\/strong>. Details for each are below.<\/p><div style=\"border:2px solid #2563eb;border-radius:12px;padding:16px;background:#f8fafc;margin-bottom:16px;\"><table style=\"width:100%;border-collapse:collapse;font-size:14px;\"><tr><td style=\"padding:4px 0;color:#64748b;width:120px;\">Pass ID<\/td><td style=\"padding:4px 0;font-weight:700;font-family:monospace;\">EVT-2026-000399<\/td><\/tr><tr><td style=\"padding:4px 0;color:#64748b;\">Event<\/td><td style=\"padding:4px 0;\">Kings Of Leon | 01\/07\/2026<\/td><\/tr><tr><td style=\"padding:4px 0;color:#64748b;\">Reporting<\/td><td style=\"padding:4px 0;\">15:00 - 23:00<\/td><\/tr><tr><td style=\"padding:4px 0;color:#64748b;\">Venue<\/td><td style=\"padding:4px 0;\">Thomond Park<\/td><\/tr><tr><td style=\"padding:4px 0;color:#64748b;\">Role<\/td><td style=\"padding:4px 0;\">Static Security<\/td><\/tr><\/table><div style=\"text-align:center;margin:12px 0 0;\"><img src=\"https:\/\/api.qrserver.com\/v1\/create-qr-code\/?size=220x220&amp;data=https%3A%2F%2Fregister.olasentra.com%2Fcheck-in.php%3Ftoken%3D56465b412bd57921e895ffb197267d2a436257ef7382d4416ef381e372ace833\" width=\"220\" height=\"220\" alt=\"Check-in QR\" style=\"border:1px solid #e2e8f0;border-radius:8px;\"><p style=\"font-size:12px;color:#64748b;margin:6px 0 0;\"><a href=\"https:\/\/register.olasentra.com\/check-in.php?token=56465b412bd57921e895ffb197267d2a436257ef7382d4416ef381e372ace833\" style=\"color:#2563eb;\">Open check-in link<\/a><\/p><\/div><\/div><p style=\"margin:0;font-size:13px;color:#475569;\">Check-in opens 1 hour before each event and closes 1 hour after it ends.<\/p><p style=\"margin:12px 0 0;font-size:11px;color:#94a3b8;\">Sent by the registration portal only. Pay and duties are agreed with the on-site contractor or event organiser.<\/p><p style=\"font-size:12px;color:#94a3b8;margin-top:12px;\">Security Update<\/p><\/body><\/html>"
+        },
+        "access_pass": {
+            "sent": true,
+            "subject": "Security Update - Registration confirmed",
+            "scan": {
+                "pass": true,
+                "bad_tokens": [],
+                "sample": "Security Update - Registration confirmed\nDear Olayinka,\n\nYour application for the shift below has been approved. Use the check-in details on event day.\n\n---\nPass ID: EVT-2026-000399\nEvent: Kings Of Leon - 01\/07\/2026\nReporting time: 15:00 - 23:00\nVenue: Thomond Park\nRole: Static Security\nCheck-in link: https:\/\/register.olasentra.com\/check-in.php?token=56465b412bd57921e895ffb197267d2a436257ef7382d44"
+            },
+            "html": "<!DOCTYPE html><html><body style=\"font-family:Segoe UI,Arial,sans-serif;line-height:1.55;color:#111;max-width:560px;margin:0 auto;padding:16px;\"><p style=\"margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;\">Security Update<\/p><h1 style=\"margin:0 0 12px;font-size:22px;color:#1e40af;\">Registration confirmed<\/h1><p style=\"margin:0 0 16px;\">Dear Olayinka, your shift is <strong>approved<\/strong>. Details for each are below.<\/p><div style=\"border:2px solid #2563eb;border-radius:12px;padding:16px;background:#f8fafc;margin-bottom:16px;\"><table style=\"width:100%;border-collapse:collapse;font-size:14px;\"><tr><td style=\"padding:4px 0;color:#64748b;width:120px;\">Pass ID<\/td><td style=\"padding:4px 0;font-weight:700;font-family:monospace;\">EVT-2026-000399<\/td><\/tr><tr><td style=\"padding:4px 0;color:#64748b;\">Event<\/td><td style=\"padding:4px 0;\">Kings Of Leon | 01\/07\/2026<\/td><\/tr><tr><td style=\"padding:4px 0;color:#64748b;\">Reporting<\/td><td style=\"padding:4px 0;\">15:00 - 23:00<\/td><\/tr><tr><td style=\"padding:4px 0;color:#64748b;\">Venue<\/td><td style=\"padding:4px 0;\">Thomond Park<\/td><\/tr><tr><td style=\"padding:4px 0;color:#64748b;\">Role<\/td><td style=\"padding:4px 0;\">Static Security<\/td><\/tr><\/table><div style=\"text-align:center;margin:12px 0 0;\"><img src=\"https:\/\/api.qrserver.com\/v1\/create-qr-code\/?size=220x220&amp;data=https%3A%2F%2Fregister.olasentra.com%2Fcheck-in.php%3Ftoken%3D56465b412bd57921e895ffb197267d2a436257ef7382d4416ef381e372ace833\" width=\"220\" height=\"220\" alt=\"Check-in QR\" style=\"border:1px solid #e2e8f0;border-radius:8px;\"><p style=\"font-size:12px;color:#64748b;margin:6px 0 0;\"><a href=\"https:\/\/register.olasentra.com\/check-in.php?token=56465b412bd57921e895ffb197267d2a436257ef7382d4416ef381e372ace833\" style=\"color:#2563eb;\">Open check-in link<\/a><\/p><\/div><\/div><p style=\"margin:0;font-size:13px;color:#475569;\">Check-in opens 1 hour before each event and closes 1 hour after it ends.<\/p><p style=\"margin:12px 0 0;font-size:11px;color:#94a3b8;\">Sent by the registration portal only. Pay and duties are agreed with the on-site contractor or event organiser.<\/p><p style=\"font-size:12px;color:#94a3b8;margin-top:12px;\">Security Update<\/p><\/body><\/html>"
+        },
+        "event_reminder": {
+            "sent": true,
+            "subject": "Security Update - Reminder: Kings Of Leon",
+            "scan": {
+                "pass": true,
+                "bad_tokens": [],
+                "sample": "Security Update - Reminder: Kings Of Leon\nDear Olayinka,\n\nTime: 15:00 - 23:00\nLocation: Thomond Park\nEvent: Kings Of Leon - 01\/07\/2026\nCheck-in window: 05\/07\/2026 14:00 - 05\/07\/2026 23:00\n"
+            },
+            "text": "Dear Olayinka,\n\nTime: 15:00 - 23:00\nLocation: Thomond Park\nEvent: Kings Of Leon - 01\/07\/2026\nCheck-in window: 05\/07\/2026 14:00 - 05\/07\/2026 23:00"
+        },
+        "admin_alert": {
+            "sent": true,
+            "subject": "[Security Update] New staff registration",
+            "scan": {
+                "pass": true,
+                "bad_tokens": [],
+                "sample": "[Security Update] New staff registration\n\nOlayinka registered for Kings Of Leon - 01\/07\/2026.\n\nReporting time: 15:00 - 23:00\n\n<p><strong>Olayinka<\/strong> registered for Kings Of Leon - 01\/07\/2026.<\/p><p>Reporting time: 15:00 - 23:00<\/p>"
+            },
+            "html": "<p><strong>Olayinka<\/strong> registered for Kings Of Leon - 01\/07\/2026.<\/p><p>Reporting time: 15:00 - 23:00<\/p>"
+        },
+        "rejection_email": {
+            "sent": true,
+            "subject": "Security Update - Registration update",
+            "scan": {
+                "pass": true,
+                "bad_tokens": [],
+                "sample": "Security Update - Registration update\nDear Olayinka,\n\nThank you for your interest. Your staff registration was not approved at this time.\n\n* Kings Of Leon - 01\/07\/2026 - Static Security\n\nView your registration status anytime:\nhttps:\/\/register.olasentra.com\/status.php?token=da54f0f25f540ae2677a82e0ab678f15f0958f33ffc07f8c895ea926ca4c2f75\n\nIf you have questions, please contact us using the contact d"
+            },
+            "html": "<div style=\"font-family:Segoe UI,Arial,sans-serif;line-height:1.55;color:#111827;max-width:560px;\"><p style=\"margin:0 0 8px;\">Dear Olayinka,<\/p><br><p style=\"margin:0 0 8px;\">Thank you for your interest. Your staff registration was not approved at this time.<\/p><br><p style=\"margin:0 0 8px;\">* Kings Of Leon - 01\/07\/2026 - Static Security<\/p><br><p style=\"margin:0 0 8px;\">View your registration status anytime:<\/p><p><a href=\"https:\/\/register.olasentra.com\/status.php?token=da54f0f25f540ae2677a82e0ab678f15f0958f33ffc07f8c895ea926ca4c2f75\" style=\"color:#2563eb;word-break:break-all;\">https:\/\/register.olasentra.com\/status.php?token=da54f0f25f540ae2677a82e0ab678f15f0958f33ffc07f8c895ea926ca4c2f75<\/a><\/p><br><p style=\"margin:0 0 8px;\">If you have questions, please contact us using the contact details on the website.<\/p><br><p style=\"margin:0 0 8px;\">Sent by the registration portal only. Pay and duties are agreed with the on-site contractor or event organiser.<\/p><br><p style=\"margin:0 0 8px;\">Regards,<\/p><p style=\"margin:0 0 8px;\">Security Update<\/p><p style=\"margin:20px 0 8px;\"><a href=\"https:\/\/register.olasentra.com\/status.php?token=da54f0f25f540ae2677a82e0ab678f15f0958f33ffc07f8c895ea926ca4c2f75\" style=\"display:inline-block;padding:12px 22px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;\">View my status<\/a><\/p><\/div>"
+        }
+    }
+}

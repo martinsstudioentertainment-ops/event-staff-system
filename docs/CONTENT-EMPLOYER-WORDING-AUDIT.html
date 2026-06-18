@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Content Audit — Employer Wording (Recommendations Only)</title>
+<style>
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 9pt; line-height: 1.45; color: #0f172a; margin: 0; padding: 16px; max-width: 820px; }
+h1 { font-size: 16pt; color: #1e1b4b; }
+h2 { font-size: 11pt; margin: 16px 0 6px; padding: 5px 10px; background: #030712; color: #fff; border-radius: 4px; }
+h3 { font-size: 9.5pt; color: #4338ca; margin: 10px 0 4px; }
+.meta { font-size: 8pt; color: #64748b; margin-bottom: 12px; }
+table { width: 100%; border-collapse: collapse; margin: 6px 0 10px; font-size: 8pt; }
+th { background: #1e293b; color: #fff; text-align: left; padding: 4px 6px; }
+td { border-bottom: 1px solid #e2e8f0; padding: 4px 6px; vertical-align: top; }
+.crit { color: #b91c1c; font-weight: 700; }
+.high { color: #c2410c; font-weight: 600; }
+.med { color: #1d4ed8; }
+.low { color: #64748b; }
+.ok { color: #15803d; }
+.callout { border-left: 3px solid #6366f1; background: #eef2ff; padding: 8px 10px; margin: 10px 0; font-size: 8.5pt; }
+ul { margin: 4px 0 8px; padding-left: 18px; }
+code { font-size: 7.5pt; background: #f1f5f9; padding: 1px 3px; }
+</style>
+</head>
+<body>
+
+<h1>Employer Wording Audit — Recommendations Only</h1>
+<p class="meta"><strong>Date:</strong> 6 June 2026 · <strong>Status:</strong> No content changed · <strong>Platform identity:</strong> Event opportunity &amp; workforce connection platform — not employer, not payroll, not security company</p>
+
+<div class="callout"><strong>Future task logged:</strong> Phase A Content Review — see Ops checklist item <code>content_employer_wording</code>. Execute after Registration Wizard A.8 or in parallel with legal review.</div>
+
+<h2>Executive summary</h2>
+<table>
+<tr><th>Surface</th><th>Risk</th><th>Notes</th></tr>
+<tr><td>Privacy Notice</td><td class="crit">Critical</td><td>States Olasentra pays staff / runs payroll</td></tr>
+<tr><td>Registration</td><td class="med">Medium</td><td>Strong disclaimer on consent; hero subtitle could be clearer</td></tr>
+<tr><td>Homepage</td><td class="low">Low</td><td>Mostly connection language; minor “our staff” patterns</td></tr>
+<tr><td>Staff Portal</td><td class="med">Medium</td><td>Operational language; lacks platform disclaimer on app shell</td></tr>
+<tr><td>Apply Portal</td><td class="low">Low (admin)</td><td>Payroll is back-office; login subtitle is internal</td></tr>
+<tr><td>Emails</td><td class="med">Medium</td><td>Good footers; “staff registration” phrasing in places</td></tr>
+<tr><td>FAQ</td><td class="ok">Good</td><td>Payment FAQ correctly disclaims Olasentra pay</td></tr>
+<tr><td>Terms</td><td class="crit">Gap</td><td>No dedicated Terms of Use page found</td></tr>
+</table>
+
+<h2>1. Homepage</h2>
+<table>
+<tr><th>Severity</th><th>Location</th><th>Current wording</th><th>Recommendation</th></tr>
+<tr><td class="low">Low</td><td><code>home.php</code> stats</td><td>“Approved staff”</td><td>Change to “Approved registrations” or “Connected workers” to avoid employment relationship</td></tr>
+<tr><td class="low">Low</td><td><code>website-content.php</code> hero_lead</td><td>“we will guide you through the rest”</td><td>Prefer “the platform guides you” or “you’ll receive email updates from organisers”</td></tr>
+<tr><td class="ok">OK</td><td><code>homepage-live.php</code> trust</td><td>“we connect you to events, not employ you directly”</td><td>Keep — model phrasing for other surfaces</td></tr>
+<tr><td class="ok">OK</td><td>Global notice items</td><td>Explicit not employer / not payroll</td><td>Keep; ensure notice enabled on registration subdomain</td></tr>
+<tr><td class="med">Medium</td><td><code>how</code> step 04</td><td>“Work the event”</td><td>Add qualifier: “Work the event <em>with the listed contractor or organiser</em>”</td></tr>
+<tr><td class="low">Low</td><td>Testimonials</td><td>“fast confirmation”</td><td>Clarify confirmation is application approval, not job offer from Olasentra</td></tr>
+</table>
+
+<h2>2. Registration pages</h2>
+<table>
+<tr><th>Severity</th><th>Location</th><th>Current wording</th><th>Recommendation</th></tr>
+<tr><td class="ok">OK</td><td><code>index.php</code> consent</td><td>“registration portal only (not my employer)”</td><td>Keep — strongest user-facing disclaimer</td></tr>
+<tr><td class="ok">OK</td><td><code>email-copy.php</code> portal notice</td><td>Full legal-safe block</td><td>Keep; surface prominently in wizard Step 1 and Step 8</td></tr>
+<tr><td class="med">Medium</td><td><code>lang/en.php</code> register_page_subtitle</td><td>“Register for shifts below” — no platform identity</td><td>Add one line: “Olasentra connects you to event opportunities — not your employer.”</td></tr>
+<tr><td class="med">Medium</td><td><code>index.php</code> share meta</td><td>“Register for event staff work with {site}”</td><td>“Find event security opportunities via {site} registration portal”</td></tr>
+<tr><td class="med">Medium</td><td>Shift gate notice</td><td>“before you can pick shifts”</td><td>OK operationally; add “Shifts are listed by third-party organisers” in wizard Step 2</td></tr>
+<tr><td class="low">Low</td><td>Section title “Financial &amp; identification”</td><td>Neutral</td><td>Wizard Step 6: add “Collected for contractor/organiser payroll handoff — Olasentra does not pay wages”</td></tr>
+</table>
+
+<h2>3. Staff Portal</h2>
+<table>
+<tr><th>Severity</th><th>Location</th><th>Current wording</th><th>Recommendation</th></tr>
+<tr><td class="med">Medium</td><td><code>staff-app.php</code> tagline</td><td>“pocket companion for event shifts”</td><td>Add footer line: portal-only disclaimer (reuse <code>getEmailShortIntro</code>)</td></tr>
+<tr><td class="med">Medium</td><td><code>staff-profile-gate.php</code></td><td>“before shifts can be approved”</td><td>Clarify approval is by event organiser/contractor, not Olasentra employment</td></tr>
+<tr><td class="low">Low</td><td><code>components/whatsapp-join.php</code></td><td>“Join our staff WhatsApp group”</td><td>Change to “Join the event updates WhatsApp group” — avoid “our staff”</td></tr>
+<tr><td class="low">Low</td><td><code>settings-repository.php</code> default label</td><td>Same “our staff WhatsApp”</td><td>Align with WhatsApp component wording</td></tr>
+<tr><td class="ok">OK</td><td><code>signin-display.php</code></td><td>Employer block + <code>portal_not_employer</code></td><td>Keep — best practice pattern</td></tr>
+</table>
+
+<h2>4. Apply Portal (admin)</h2>
+<table>
+<tr><th>Severity</th><th>Location</th><th>Current wording</th><th>Recommendation</th></tr>
+<tr><td class="low">Low</td><td><code>apply/admin/login.php</code></td><td>“PSA compliance &amp; payroll data”</td><td>OK for internal ops; add login footer: “Recruitment &amp; compliance vault — not a public employer portal”</td></tr>
+<tr><td class="low">Low</td><td><code>applicants.php</code></td><td>“payroll” in import hint</td><td>Internal only — no public change needed</td></tr>
+<tr><td class="med">Medium</td><td>Public-facing risk</td><td>Apply subdomain could be discovered</td><td>Ensure login page has no “we employ” language; add operator-only banner</td></tr>
+</table>
+
+<h2>5. Emails</h2>
+<table>
+<tr><th>Severity</th><th>Location</th><th>Current wording</th><th>Recommendation</th></tr>
+<tr><td class="ok">OK</td><td><code>email-copy.php</code></td><td>Short intro + footer disclaimers</td><td>Keep — apply to all staff-facing templates consistently</td></tr>
+<tr><td class="med">Medium</td><td><code>notifications.php</code></td><td>“Your staff registration was not approved”</td><td>“Your registration application was not approved” — avoids “staff” as employment</td></tr>
+<tr><td class="med">Medium</td><td><code>notifications.php</code> submit ack</td><td>“We have received your staff registration”</td><td>“We have received your registration application”</td></tr>
+<tr><td class="med">Medium</td><td><code>access-pass-email.php</code></td><td>Subject: “Registration confirmed”</td><td>“Application approved — check-in details” + keep contractor line</td></tr>
+<tr><td class="low">Low</td><td>Sign-off “Regards, {siteName}”</td><td>Could imply employer</td><td>“Regards, {siteName} registration portal”</td></tr>
+</table>
+
+<h2>6. FAQ</h2>
+<table>
+<tr><th>Severity</th><th>Location</th><th>Current wording</th><th>Recommendation</th></tr>
+<tr><td class="ok">OK</td><td>“Who pays me?”</td><td>Explicit “We do not pay you”</td><td>Keep — reference answer in wizard and privacy</td></tr>
+<tr><td class="med">Medium</td><td>“How will I know if I am approved?”</td><td>Implies Olasentra approves</td><td>“Organisers or contractors review applications; you’ll receive email when reviewed”</td></tr>
+<tr><td class="med">Medium</td><td>Missing FAQ</td><td>—</td><td>Add: “Is Olasentra my employer?” / “No — connection platform only.”</td></tr>
+<tr><td class="med">Medium</td><td>Missing FAQ</td><td>—</td><td>Add: “Who operates payroll?” / “Your paying contractor or organiser — not Olasentra.”</td></tr>
+</table>
+
+<h2>7. Terms &amp; Privacy</h2>
+<table>
+<tr><th>Severity</th><th>Location</th><th>Current wording</th><th>Recommendation</th></tr>
+<tr><td class="crit">Critical</td><td><code>privacy.php</code> “Who we are”</td><td>“register, approve, and <strong>pay</strong> event staff”</td><td>Replace with: “connect registrants with event opportunities and facilitate registration data sharing with authorised organisers/contractors”</td></tr>
+<tr><td class="crit">Critical</td><td><code>privacy.php</code> purposes</td><td>“Process payroll and payments to your bank account”</td><td>“Collect bank details to pass to your paying contractor/organiser for payroll they operate — Olasentra does not process wages”</td></tr>
+<tr><td class="high">High</td><td><code>privacy.php</code> lawful basis</td><td>“contract/pre-contract steps when you apply to work” + “employment”</td><td>Reframe as “registration platform services” and “data sharing with third-party organisers”; legal review required</td></tr>
+<tr><td class="high">High</td><td><code>privacy.php</code> retention</td><td>“manage your registration, payments”</td><td>“manage your registration and records required for platform operation”</td></tr>
+<tr><td class="crit">Gap</td><td>Terms of Use</td><td>No <code>terms.php</code> found</td><td>Create Terms page: platform role, no employment, no wage payment, third-party organisers, limitation of liability</td></tr>
+</table>
+
+<h2>8. Wizard v2 content guidance (for A.1–A.8)</h2>
+<ul>
+<li><strong>Step 1 Welcome:</strong> Reuse <code>getPortalLegalNotice()</code> abbreviated + events-open count</li>
+<li><strong>Step 2 Events:</strong> “Opportunities listed by organisers — Olasentra does not employ you for these shifts”</li>
+<li><strong>Step 6 Payroll:</strong> “Bank details shared with paying contractor only”</li>
+<li><strong>Step 8 Review:</strong> Repeat consent + link to Privacy + future Terms</li>
+<li><strong>Do not use:</strong> “Join our team”, “We pay”, “Your employer”, “Work for Olasentra”, “Olasentra security”</li>
+<li><strong>Prefer:</strong> “Connect”, “Register”, “Apply”, “Opportunity”, “Listed contractor”, “Organiser”</li>
+</ul>
+
+<h2>9. Priority remediation order (when approved to edit)</h2>
+<ol>
+<li><span class="crit">P0</span> — Rewrite <code>privacy.php</code> (legal review)</li>
+<li><span class="crit">P0</span> — Create <code>terms.php</code> / Terms of Use</li>
+<li><span class="high">P1</span> — Email templates: “registration application” not “staff registration”</li>
+<li><span class="high">P1</span> — Wizard copy blocks (built into A.1–A.8)</li>
+<li><span class="med">P2</span> — Staff app shell disclaimer + WhatsApp label</li>
+<li><span class="med">P2</span> — FAQ additions (employer + payroll)</li>
+<li><span class="low">P3</span> — Homepage micro-copy polish</li>
+</ol>
+
+<p class="meta" style="margin-top:20px;border-top:1px solid #e2e8f0;padding-top:8px;">Recommendations only — no production content modified in this audit.</p>
+
+</body>
+</html>

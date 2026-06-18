@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Email Body Encoding — Root Cause Report</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+h3{font-size:1rem;margin-top:1.25rem;color:#334155}
+.meta{color:#64748b;font-size:.9rem}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #6ee7b7;background:#ecfdf5}
+.verdict.warn{border-color:#fcd34d;background:#fffbeb}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.85rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.pass{color:#047857;font-weight:700}
+.fail{color:#b91c1c;font-weight:700}
+.na{color:#64748b}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.82em}
+pre{background:#0f172a;color:#e2e8f0;padding:.85rem;border-radius:8px;overflow:auto;font-size:.78rem;line-height:1.45}
+ul.compact li{margin:.3rem 0}
+.hex{font-family:ui-monospace,Consolas,monospace;font-size:.8rem}
+.stage-ok{background:#ecfdf5}
+.stage-src{background:#fffbeb}
+.stage-bad{background:#fef2f2}
+</style>
+</head>
+<body>
+
+<h1>Email Body Encoding — Root Cause Report</h1>
+<p class="meta">Generated 6 June 2026 · Production evidence: <code>15:00€" 23:00</code> · Audit only — no code changes</p>
+
+<div class="verdict"><strong>Root cause identified:</strong> The string originates as correct UTF-8 <code>15:00 – 23:00</code> (en dash U+2013) inserted by <code>formatEventTimeRangeLabel()</code> at <strong><code>includes/events-repository.php</code> line 578</strong>. Database values are pure ASCII. PHP output is not corrupted. SMTP carries valid UTF-8 (quoted-printable in HTML emails). Production display <code>€"</code> / <code>€"</code> is <strong>UTF-8 bytes <code>E2 80 93</code> misread as Windows-1252</strong> — a <strong>client rendering / charset interpretation</strong> failure, triggered because the formatter injects a non-ASCII separator and plain-text emails use <code>8bit</code> without quoted-printable armour.</div>
+
+<h2>1. Production evidence decoded</h2>
+<table>
+<tr><th>What user sees</th><th>What was intended</th><th>Mechanism</th></tr>
+<tr><td><code>15:00€" 23:00</code></td><td><code>15:00 – 23:00</code></td><td>UTF-8 en dash bytes misinterpreted as single-byte Windows-1252</td></tr>
+</table>
+
+<h3>Byte-level proof (en dash U+2013)</h3>
+<table>
+<tr><th>Encoding</th><th>Bytes (hex)</th><th>Rendered as</th></tr>
+<tr><td>UTF-8 (correct)</td><td class="hex"><code>E2 80 93</code></td><td><code>–</code> (en dash)</td></tr>
+<tr><td>Windows-1252 misread of those 3 bytes</td><td class="hex"><code>E2</code>→â, <code>80</code>→€, <code>93</code>→"</td><td><code>â€"</code> or <code>€"</code> (leading <code></code> = replacement char if first byte fails partial decode)</td></tr>
+</table>
+<p>This exact triplet (<code>€"</code>) is the fingerprint of U+2013 — not database corruption, not random binary noise.</p>
+
+<h2>2. Stage-by-stage verdict</h2>
+<table>
+<tr><th>Stage</th><th>Corruption here?</th><th>Verdict</th></tr>
+<tr class="stage-ok"><td>Database</td><td class="pass">NO</td><td><code>events.start_time</code> / <code>end_time</code> are MySQL <code>TIME</code> — ASCII <code>15:00:00</code>, <code>23:00:00</code></td></tr>
+<tr class="stage-src"><td>PHP formatting</td><td class="na">Source of Unicode</td><td>Inserts literal UTF-8 en dash — <strong>correct UTF-8, wrong choice for email-safe ASCII</strong></td></tr>
+<tr class="stage-ok"><td>MIME encoding</td><td class="pass">NO (HTML)</td><td>Quoted-printable emits ASCII-safe <code>=E2=80=93</code></td></tr>
+<tr class="stage-ok"><td>MIME encoding</td><td class="fail">RISK (plain)</td><td>Raw bytes <code>E2 80 93</code> on wire with <code>Content-Transfer-Encoding: 8bit</code></td></tr>
+<tr class="stage-ok"><td>SMTP transport</td><td class="pass">NO</td><td>Payload is byte-faithful; no transcoding in <code>smtp-mailer.php</code></td></tr>
+<tr class="stage-bad"><td>Email client rendering</td><td class="fail">YES (display)</td><td>Client treats UTF-8 body bytes as Windows-1252 / ignores <code>charset=UTF-8</code></td></tr>
+</table>
+
+<h2>3. Primary function — <code>formatEventTimeRangeLabel()</code></h2>
+<p><strong>File:</strong> <code>includes/events-repository.php</code> · <strong>Lines:</strong> 573–579 · <strong>Responsible line:</strong> <strong>578</strong></p>
+
+<pre>function formatEventTimeRangeLabel(array $event): string
+{
+    $start = substr((string) ($event['start_time'] ?? $event['event_start_time'] ?? '09:00:00'), 0, 5);
+    $end   = substr((string) ($event['end_time'] ?? $event['event_end_time'] ?? '23:00:00'), 0, 5);
+
+    return $start . ' – ' . $end;   // &lt;-- LINE 578: literal U+2013 EN DASH in PHP source
+}</pre>
+
+<table>
+<tr><th>Step</th><th>Example: DB <code>15:00:00</code> / <code>23:00:00</code></th></tr>
+<tr><td>1. Raw database value</td><td><code>start_time</code> = <code>15:00:00</code> (ASCII, 8 bytes)<br><code>end_time</code> = <code>23:00:00</code> (ASCII)</td></tr>
+<tr><td>2. PHP value before formatting</td><td><code>$start</code> = <code>"15:00"</code> (from <code>substr</code>, L575)<br><code>$end</code> = <code>"23:00"</code> (L576)<br>Separator not yet applied — still ASCII-only</td></tr>
+<tr><td>3. Final email value before send</td><td><code>"15:00 – 23:00"</code> (15 bytes)<br>Hex: <code class="hex">31 35 3a 30 30 20 E2 80 93 20 32 33 3a 30 30</code><br>Only non-ASCII: separator at bytes 7–9</td></tr>
+<tr><td>4. SMTP payload value</td><td><strong>HTML emails</strong> (access pass E02): cell contains QP <code>15:00 =E2=80=93 23:00</code> inside <code>quoted_printable_encode()</code> body<br><strong>Plain emails</strong> (check-in E07, reminder E05): raw UTF-8 in body with headers:<br><code>Content-Type: text/plain; charset=UTF-8</code><br><code>Content-Transfer-Encoding: 8bit</code></td></tr>
+<tr><td>5. Gmail-rendered expectation</td><td><strong>If charset honoured:</strong> <code>15:00 – 23:00</code> (correct)<br><strong>If UTF-8 bytes read as CP1252:</strong> <code>15:00 â€" 23:00</code> or <code>15:00 €" 23:00</code> — matches production</td></tr>
+</table>
+
+<h3>Email insertion points (all call L578)</h3>
+<table>
+<tr><th>Template</th><th>File:line</th><th>Email line</th><th>Body type on wire</th></tr>
+<tr><td>Access pass (approved)</td><td><code>access-pass-email.php:25,49,94</code></td><td><code>Reporting time: {times}</code></td><td>HTML only (QP) when sent via <code>sendEmail(..., $text, $html)</code></td></tr>
+<tr><td>Check-in confirmation</td><td><code>notifications.php:244,261</code></td><td><code>Reporting time: {times}</code></td><td><strong>Plain only</strong> — highest corruption risk</td></tr>
+<tr><td>Daily reminder</td><td><code>reminders.php:265,270</code></td><td><code>Time: {times}</code></td><td><strong>Plain only</strong></td></tr>
+<tr><td>Event broadcast</td><td><code>staff-messaging.php:32,53,56</code></td><td><code>Time: {times}</code></td><td>HTML (QP) + plain in separate args but only HTML transmitted when <code>$html</code> set</td></tr>
+</table>
+
+<h2>4. Secondary function — <code>formatEventLabel()</code></h2>
+<p><strong>File:</strong> <code>includes/staff-repository.php</code> · <strong>Responsible line:</strong> <strong>779</strong></p>
+
+<pre>return trim(($row['event_name'] ?? '') . ($date ? ' — ' . $date : ''));
+//                                        ^^^ LINE 779: U+2014 EM DASH (different character)</pre>
+
+<table>
+<tr><th>Step</th><th>Example</th></tr>
+<tr><td>1. Raw database value</td><td><code>event_name</code> = <code>Longitude 2026</code> (ASCII)<br><code>event_date</code> = <code>2026-07-05</code> (ASCII DATE)</td></tr>
+<tr><td>2. PHP before formatting</td><td>Date passed through <code>formatEventDateLabel()</code> → <code>05/07/2026</code> (ASCII digits/slashes)</td></tr>
+<tr><td>3. Final email value</td><td><code>Longitude 2026 — 05/07/2026</code><br>Em dash hex: <code class="hex">E2 80 94</code> (U+2014, not the time-range en dash)</td></tr>
+<tr><td>4. SMTP payload</td><td>Same MIME rules as above; appears in lines like <code>Event: …</code></td></tr>
+<tr><td>5. Gmail expectation</td><td>Correct: em dash — · Misread: <code>â€"</code> (three-byte mojibake, same class of bug)</td></tr>
+</table>
+<p><strong>Not the source of <code>15:00 … 23:00</code></strong> — no times in this function. Contributes parallel corruption in <code>Event:</code> lines on same emails.</p>
+
+<h2>5. Secondary function — <code>formatEventLocationLabel()</code></h2>
+<p><strong>File:</strong> <code>includes/events-repository.php</code> · <strong>Responsible line:</strong> <strong>536</strong></p>
+
+<pre>return $location . ' · ' . $eircode;   // LINE 536: U+00B7 MIDDLE DOT</pre>
+
+<table>
+<tr><th>Step</th><th>Example</th></tr>
+<tr><td>1. Raw database value</td><td><code>location</code> = <code>Aviva Stadium</code><br><code>venue_eircode</code> = <code>D04 K5F9</code> (ASCII)</td></tr>
+<tr><td>2. PHP before formatting</td><td>Trimmed strings, ASCII-only</td></tr>
+<tr><td>3. Final email value</td><td><code>Aviva Stadium · D04 K5F9</code><br>Dot hex: <code class="hex">C2 B7</code></td></tr>
+<tr><td>4. SMTP payload</td><td>HTML access pass also embeds <code> · </code> between event name and date at <code>access-pass-email.php:87</code> (separate literal, same character)</td></tr>
+<tr><td>5. Gmail expectation</td><td>Correct: middle dot · · Misread: <code>Â·</code></td></tr>
+</table>
+<p><strong>Not the source of the time-range corruption</strong> — different character, different symptom (<code>Â·</code>).</p>
+
+<h2>6. Additional en-dash source (same bug class)</h2>
+<p><code>includes/reminders.php</code> <strong>lines 290–291</strong> — separate literal en dash in check-in window line (not via <code>formatEventTimeRangeLabel</code>):</p>
+<pre>$bodyLines[] = 'Check-in window: ' . $window['opens_at']->format($checkinDateTimeFmt)
+    . ' – ' . $window['closes_at']->format($checkinDateTimeFmt);</pre>
+<p>Produces strings like <code>05/07/2026 14:00 – 05/07/2026 23:00</code> with the same U+2013 bytes.</p>
+
+<h2>7. MIME / SMTP pipeline trace</h2>
+<pre>formatEventTimeRangeLabel()          events-repository.php:578
+        │
+        ▼
+Email template builds body line      e.g. access-pass-email.php:49, notifications.php:261
+        │
+        ▼
+sendEmail($pdo, $to, $subject, $body, $htmlBody?)     mailer.php:136
+        │
+        ├─ SMTP → sendSmtpMessage()                     smtp-mailer.php:33
+        │       buildEmailMimePayload($body, $htmlBody) mailer.php:26
+        │         ├─ if $htmlBody: text/html; charset=UTF-8 + quoted-printable
+        │         └─ else:      text/plain; charset=UTF-8 + 8bit (raw UTF-8 bytes)
+        │
+        └─ php_mail → same buildEmailMimePayload()    mailer.php:198</pre>
+
+<h3>Observed payload for <code>15:00 – 23:00</code> (runtime trace)</h3>
+<table>
+<tr><th>Path</th><th>Payload fragment</th></tr>
+<tr><td>PHP string (correct)</td><td><code>15:00 – 23:00</code></td></tr>
+<tr><td>Plain MIME body (8bit)</td><td>Raw bytes <code class="hex">…20 E2 80 93 20…</code> unchanged</td></tr>
+<tr><td>HTML MIME body (QP)</td><td><code>15:00 =E2=80=93 23:00</code> inside <code>&lt;td&gt;…&lt;/td&gt;</code></td></tr>
+<tr><td>SMTP wire</td><td>Headers + body concatenated at <code>smtp-mailer.php:155</code> — no charset conversion</td></tr>
+</table>
+
+<h2>8. Why HTML emails can still show corruption</h2>
+<p>Approval/access-pass emails send <strong>HTML only</strong> on the wire (<code>buildEmailMimePayload</code> prefers HTML; plain <code>$text</code> is not attached as multipart). QP encoding is correct. Corruption in HTML view implies the client:</p>
+<ul class="compact">
+<li>Decoded QP to UTF-8 bytes but rendered the HTML document with a legacy single-byte font page, or</li>
+<li>Showed a generated plain-text snippet (Gmail preview) from bytes without UTF-8 awareness, or</li>
+<li>User copied text through an intermediate layer that re-encoded</li>
+</ul>
+<p>Plain-text-only emails (<strong>check-in E07</strong>, <strong>reminder E05</strong>) are the <strong>most likely</strong> source of the reported <code>15:00 €" 23:00</code> because raw <code>E2 80 93</code> sits in an <code>8bit</code> body.</p>
+
+<h2>9. Exact responsibility summary</h2>
+<table>
+<tr><th>Question</th><th>Answer</th></tr>
+<tr><td>Exact file</td><td><code>includes/events-repository.php</code></td></tr>
+<tr><td>Exact function</td><td><code>formatEventTimeRangeLabel()</code></td></tr>
+<tr><td>Exact line</td><td><strong>578</strong> — <code>return $start . ' – ' . $end;</code></td></tr>
+<tr><td>Character introduced</td><td>U+2013 EN DASH (UTF-8 <code>E2 80 93</code>)</td></tr>
+<tr><td>Where corruption visible</td><td>Email client rendering (CP1252 misinterpretation) — not DB, not SMTP byte corruption</td></tr>
+<tr><td>MIME layer contribution</td><td>Plain-text path uses <code>8bit</code> without QP — exposes raw UTF-8 to legacy clients (<code>mailer.php:37–40</code>)</td></tr>
+</table>
+
+<h2>10. Related lines (same encoding family, not time-range)</h2>
+<table>
+<tr><th>File:line</th><th>Character</th><th>Symptom if misread</th></tr>
+<tr><td><code>staff-repository.php:779</code></td><td>U+2014 em dash</td><td><code>â€"</code> in event titles</td></tr>
+<tr><td><code>events-repository.php:536</code></td><td>U+00B7 middle dot</td><td><code>Â·</code> in venues</td></tr>
+<tr><td><code>access-pass-email.php:87,206</code></td><td>U+00B7 (literal in HTML)</td><td><code>Â·</code> between event name and date</td></tr>
+<tr><td><code>reminders.php:291</code></td><td>U+2013 en dash</td><td><code>€"</code> in check-in window ranges</td></tr>
+</table>
+
+<div class="verdict warn"><strong>Investigation complete — no fix applied.</strong> The production string is not corrupted in the database or by SMTP mangling; it is <strong>correctly formatted UTF-8</strong> from line 578, then <strong>displayed incorrectly</strong> when the client decodes UTF-8 en-dash bytes as Windows-1252. Recommended fix direction (when approved): ASCII hyphen in email-specific formatters or quoted-printable on all plain bodies — out of scope for this report.</div>
+
+</body>
+</html>

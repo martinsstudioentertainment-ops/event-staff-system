@@ -1,0 +1,56 @@
+{
+    "generated_at": "2026-06-06T18:19:22+00:00",
+    "base_url": "https://register.olasentra.com",
+    "fix_deployed": {
+        "ok": false,
+        "detail": "Wizard assets/flag check failed"
+    },
+    "root_cause": "shift-picker-locked applied pointer-events:none on #event-selection-wrap; registration-shift-gate.js skipped unlock in wizard mode",
+    "responsible_files": [
+        "index.php",
+        "assets/js/registration-shift-gate.js",
+        "assets/css/registration-compact.css"
+    ],
+    "returning_lookup_api": {
+        "email": "e2e-wizard-20260606164932@olasentra-e2e.test",
+        "found": false,
+        "registered_event_ids": []
+    },
+    "scenarios": [
+        {
+            "scenario": "A_new_applicant",
+            "email": "step2-verify-20260606181508@olasentra-e2e.test",
+            "profile_lookup_occurred": false,
+            "registered_event_ids": [],
+            "wrap_has_shift_picker_locked": false,
+            "open_cards_found": 2,
+            "registered_cards_found": 0,
+            "card_click_handler_fired": true,
+            "selected_shift_counter_changed": true,
+            "selected_shift_summary": "1 shift selected",
+            "continue_button_enabled": false,
+            "console_errors": [],
+            "notes": [],
+            "pass": false
+        },
+        {
+            "scenario": "B_returning_applicant",
+            "email": "e2e-wizard-20260606164932@olasentra-e2e.test",
+            "profile_lookup_occurred": true,
+            "registered_event_ids": [
+                7
+            ],
+            "wrap_has_shift_picker_locked": false,
+            "open_cards_found": 1,
+            "registered_cards_found": 0,
+            "card_click_handler_fired": true,
+            "selected_shift_counter_changed": true,
+            "selected_shift_summary": "1 shift selected",
+            "continue_button_enabled": false,
+            "console_errors": [],
+            "notes": [],
+            "pass": false
+        }
+    ],
+    "classification": "production_defect_fix_not_deployed"
+}

@@ -8,7 +8,7 @@ requireAdminCapability('backups');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !verifyCsrf($_POST['csrf_token'] ?? null)) {
     setAdminFlash('error', 'Invalid request.');
-    header('Location: backups.php');
+    header('Location: backup-center.php');
     exit;
 }
 
@@ -22,5 +22,5 @@ if ($result['success']) {
     setAdminFlash('error', $result['message']);
 }
 
-header('Location: backups.php');
+header('Location: backup-center.php');
 exit;

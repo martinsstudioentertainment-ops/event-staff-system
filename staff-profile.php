@@ -5,9 +5,13 @@ require_once __DIR__ . '/includes/staff-repository.php';
 require_once __DIR__ . '/includes/staff-onboarding.php';
 require_once __DIR__ . '/includes/staff-psa.php';
 require_once __DIR__ . '/includes/staff-portal-session.php';
+require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/staff-profile-gate.php';
 require_once __DIR__ . '/includes/phone-numbers.php';
 require_once __DIR__ . '/includes/components/phone-input.php';
+require_once __DIR__ . '/includes/staff-messages.php';
+require_once __DIR__ . '/includes/status-repository.php';
+require_once __DIR__ . '/includes/status-change-post-save.php';
 
 $pdo = getDB();
 $defaultPhoneCountry = resolvePhoneCountryIsoFromRequest($pdo);
@@ -18,27 +22,48 @@ $staff = null;
 if ($token !== '') {
     $staff = getStaffByProfileToken($pdo, $token);
     if ($staff === null) {
-        die('Invalid profile link. Ask your coordinator to send a new profile update link.');
+        http_response_code(404);
+        header('Content-Type: text/html; charset=utf-8');
+        echo '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
+        echo '<title>Profile link invalid</title></head><body style="font-family:system-ui,sans-serif;max-width:32rem;margin:3rem auto;padding:0 1rem;">';
+        echo '<h1>Invalid profile link</h1>';
+        echo '<p>This link is invalid or has expired. Ask your coordinator to send a new profile update link.</p>';
+        echo '<p><a href="staff-portal.php">Staff sign in</a></p></body></html>';
+        exit;
     }
 } else {
     $staff = getStaffFromPortalSession($pdo);
     if ($staff === null) {
-        header('Location: staff-portal.php');
+        header('Location: staff-app.php');
         exit;
     }
 }
 
 if (isset($_GET['logout'])) {
-    clearStaffPortalSession();
-    header('Location: ' . (isStaffProfileUpdateRequired($pdo) ? 'staff-app.php' : 'staff-portal.php'));
+    header('Location: staff-signout.php?return=' . urlencode(isStaffProfileUpdateRequired($pdo) ? 'staff-app.php' : 'staff-portal.php'));
     exit;
 }
 
 $profileComplete = !staffNeedsProfileForm($pdo, $staff);
+$editMode        = isset($_GET['edit']) && $_GET['edit'] === '1';
+$formOpen        = !$profileComplete
+    || (isset($_GET['open']) && $_GET['open'] === '1')
+    || $_SERVER['REQUEST_METHOD'] === 'POST';
 $missingFields   = getStaffOnboardingMissingFields($staff);
+
+if ($profileComplete && !$editMode && $_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: staff-app.php');
+    exit;
+}
 $flash           = null;
 $fieldErrors     = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verifyCsrf((string) ($_POST['csrf_token'] ?? ''))) {
+        $flash = [
+            'type'    => 'error',
+            'message' => 'Your session expired. Please try again.',
+        ];
+    } else {
     prepareMobileFromRequest($_POST);
     $validationErrors = validateStaffOnboardingPost($_POST, $staff, $_FILES);
     if ($validationErrors !== []) {
@@ -84,10 +109,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $updateData = array_merge($updateData, $psaUpload['paths']);
 
+        $wasCompleteBefore = (int) ($staff['profile_completed'] ?? 0) === 1;
+
         if (updateStaffProfile($pdo, (int) $staff['id'], $updateData)) {
             $staff = getStaffById($pdo, (int) $staff['id']) ?? $staff;
             if (isStaffOnboardingComplete($staff)) {
-                markStaffProfileCompleted($pdo, (int) $staff['id']);
+                markStaffProfileCompleted($pdo, (int) $staff['id'], false);
                 $staff = getStaffById($pdo, (int) $staff['id']) ?? $staff;
                 $profileComplete = true;
                 $missingFields   = [];
@@ -97,6 +124,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     unset($_SESSION['staff_profile_return']);
                     if ($return === '' || str_contains($return, 'staff-profile.php')) {
                         $return = 'staff-app.php';
+                    }
+                    if (!$wasCompleteBefore) {
+                        flushHttpResponse($return);
+                        runProfileCompletionPostJobs($pdo, (int) $staff['id']);
+                        exit;
                     }
                     header('Location: ' . $return);
                     exit;
@@ -124,12 +156,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $flash = ['type' => 'error', 'message' => 'Error: ' . $e->getMessage()];
     }
     }
+    }
 }
 
 $siteName = getSiteName($pdo);
+require_once __DIR__ . '/includes/staff-portal-dashboard.php';
 require_once __DIR__ . '/includes/public/staff-public-shell.php';
 require_once __DIR__ . '/includes/theme.php';
 $themeColor = getThemeColor($pdo);
+
+$staffEmail      = strtolower(trim((string) ($staff['email'] ?? '')));
+$profileMetrics  = getStaffPortalDashboardMetrics($pdo, $staffEmail);
+$profileStatus   = getStaffPortalStatusBadge($staff, $profileMetrics);
+$profileRole     = getStaffPortalRoleLabel($pdo, $staff, $staffEmail);
+$profileStaffId  = formatStaffPortalStaffId($staff);
+$profileAvatar   = getStaffPortalAvatarInitials($staff);
+$profileFullName = getStaffPortalDisplayName($staff, $pdo);
+$staffStatusToken = $staffEmail !== '' ? (resolveStatusTokenByEmail($pdo, $staffEmail) ?? '') : '';
+$messagesPageUrl  = $staffStatusToken !== ''
+    ? 'staff-messages.php?token=' . urlencode($staffStatusToken)
+    : 'staff-messages.php';
+$staffMsgUnread   = $staffEmail !== '' ? countUnreadAdminRepliesForStaff($pdo, $staffEmail) : 0;
 ?>
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
@@ -138,20 +185,60 @@ $themeColor = getThemeColor($pdo);
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Staff Profile | <?= h($siteName) ?></title>
     <?php include __DIR__ . '/includes/pwa-head.php'; ?>
+    <link rel="stylesheet" href="assets/css/staff-status-dashboard.css">
+    <link rel="stylesheet" href="assets/css/staff-profile-v2.css">
 </head>
-<body class="staff-public-shell staff-public-shell--event-ops staff-public-shell--narrow login-page staff-mobile-page staff-profile-shell">
+<body class="staff-public-shell staff-public-shell--event-ops staff-public-shell--narrow login-page staff-mobile-page staff-profile-shell" <?= renderStaffPortalBodyAttributes($token === '' ? $staff : null, $pdo) ?>>
     <?php renderStaffPublicBackground(true); ?>
-    <?php renderStaffPublicHeader($pdo, $siteName, ['home_url' => 'staff-app.php']); ?>
+    <?php renderStaffPublicHeader($pdo, $siteName, ['home_url' => 'staff-app.php', 'portal_staff' => $token === '' ? $staff : null]); ?>
 
     <main class="login-page__wrap staff-public-main">
         <section class="card login-card staff-public-card staff-public-card--profile">
             <div class="card__header staff-profile-card__header">
                 <div>
-                    <h1 class="card__title">Staff profile</h1>
-                    <p class="card__subtitle"><?= h((string) $staff['email']) ?></p>
+                    <h1 class="card__title">My profile</h1>
+                    <p class="card__subtitle">Account &amp; personal details</p>
                 </div>
-                <a href="staff-profile.php?logout=1" class="btn btn--small btn--secondary">Sign out</a>
+                <?php if ($editMode): ?>
+                    <a href="staff-app.php" class="btn btn--small btn--secondary">← Back to app</a>
+                <?php endif; ?>
             </div>
+
+            <div class="staff-profile-hero">
+                <div class="staff-profile-hero__avatar" aria-hidden="true"><?= h($profileAvatar) ?></div>
+                <div class="staff-profile-hero__body">
+                    <h2 class="staff-profile-hero__name"><?= h($profileFullName) ?></h2>
+                    <p class="staff-profile-hero__role"><?= h($profileRole) ?></p>
+                    <div class="staff-profile-hero__badges">
+                        <?php if ($profileStaffId !== ''): ?>
+                            <span class="staff-profile-hero__id"><?= h($profileStaffId) ?></span>
+                        <?php endif; ?>
+                        <span class="staff-profile-hero__status staff-profile-hero__status--<?= h($profileStatus['tone']) ?>"><?= h($profileStatus['label']) ?></span>
+                    </div>
+                </div>
+            </div>
+
+            <section class="staff-profile-account" aria-label="Account details">
+                <h3 class="staff-profile-account__title">Account details</h3>
+                <dl class="staff-profile-account__list">
+                    <div><dt>Email</dt><dd><?= h((string) $staff['email']) ?></dd></div>
+                    <div><dt>Mobile</dt><dd><?= h(trim((string) ($staff['mobile'] ?? '')) !== '' ? (string) $staff['mobile'] : '—') ?></dd></div>
+                    <div><dt>Registration</dt><dd><?= $profileComplete ? 'Profile complete' : 'Profile incomplete' ?></dd></div>
+                    <?php if ($profileMetrics['has_data']): ?>
+                        <div><dt>Applications</dt><dd><?= (int) $profileMetrics['total'] ?> total · <?= (int) $profileMetrics['approved'] ?> approved</dd></div>
+                    <?php endif; ?>
+                </dl>
+            </section>
+
+            <?php if ($staffEmail !== ''): ?>
+                <section class="staff-profile-quick-links" aria-label="Communication">
+                    <h3 class="staff-profile-account__title">Messages</h3>
+                    <p class="form-hint">View replies from your coordinator and send updates about shifts.</p>
+                    <a href="<?= h($messagesPageUrl) ?>" class="btn btn--primary btn--block staff-profile-quick-links__btn">
+                        Open messages<?= $staffMsgUnread > 0 ? ' (' . (int) $staffMsgUnread . ' unread)' : '' ?>
+                    </a>
+                </section>
+            <?php endif; ?>
 
             <?php if (!$profileComplete): ?>
                 <div class="alert alert--error alert--visible staff-profile-alert">
@@ -169,7 +256,19 @@ $themeColor = getThemeColor($pdo);
                 </div>
             <?php endif; ?>
 
+            <?php if ($editMode && $profileComplete && !$formOpen): ?>
+                <section class="staff-profile-summary" aria-label="Profile summary">
+                    <h3 class="staff-profile-summary__heading">Personal details</h3>
+                    <dl class="staff-profile-summary__list">
+                        <div><dt>Address</dt><dd><?= h((string) ($staff['full_address'] ?? '—')) ?></dd></div>
+                        <div><dt>PSA licence</dt><dd><?= h((string) ($staff['psa_licence'] ?? '—')) ?></dd></div>
+                    </dl>
+                    <a href="staff-profile.php?edit=1&amp;open=1" class="btn btn--primary btn--block staff-profile-summary__edit">Edit my details</a>
+                </section>
+            <?php else: ?>
+
             <form method="post" enctype="multipart/form-data" class="form-grid staff-profile-form">
+                <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                 <h3 class="form-section-title form-group--full">Personal information</h3>
 
                 <div class="form-group">
@@ -230,7 +329,11 @@ $themeColor = getThemeColor($pdo);
                     <input type="text" name="eircode" class="form-input" value="<?= h((string) $staff['eircode']) ?>" required>
                 </div>
 
-                <h3 class="form-section-title form-group--full">Financial information</h3>
+                <p class="form-hint form-group--full" style="margin:0 0 0.5rem;padding:0.75rem 1rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;color:#166534;">
+                    <strong>Signed in securely.</strong> Payroll details below are only shown on this official profile page after you sign in — never on the public sign-in screen.
+                </p>
+
+                <h3 class="form-section-title form-group--full">Payroll details</h3>
 
                 <div class="form-group">
                     <label class="form-label">PPS number</label>
@@ -260,8 +363,9 @@ $themeColor = getThemeColor($pdo);
                     <label class="form-label">PSA card — front photo</label>
                     <input type="file" name="psa_front_image" class="form-input form-input--file" accept="<?= h(psaImageFileAcceptAttribute()) ?>" <?= empty($staff['psa_front_image']) ? 'required' : '' ?>>
                     <p class="form-hint">JPG, PNG, or photo from your phone (max 8 MB).</p>
-                    <?php if (!empty($staff['psa_front_image'])): ?>
-                        <p class="form-hint"><a href="<?= h($staff['psa_front_image']) ?>" target="_blank" rel="noopener">View current image</a></p>
+                    <?php if (isStoredPsaImagePath($staff['psa_front_image'] ?? null)): ?>
+                        <?php $profilePsaFrontUrl = psaImagePublicUrl((string) $staff['psa_front_image'], $pdo); ?>
+                        <p class="form-hint"><a href="<?= h($profilePsaFrontUrl) ?>" target="_blank" rel="noopener">View current image</a></p>
                     <?php endif; ?>
                     <?php if (!empty($fieldErrors['psa_front_image'])): ?>
                         <span class="form-error form-error--visible"><?= h($fieldErrors['psa_front_image']) ?></span>
@@ -272,8 +376,9 @@ $themeColor = getThemeColor($pdo);
                     <label class="form-label">PSA card — back photo</label>
                     <input type="file" name="psa_back_image" class="form-input form-input--file" accept="<?= h(psaImageFileAcceptAttribute()) ?>" <?= empty($staff['psa_back_image']) ? 'required' : '' ?>>
                     <p class="form-hint">JPG, PNG, or photo from your phone (max 8 MB).</p>
-                    <?php if (!empty($staff['psa_back_image'])): ?>
-                        <p class="form-hint"><a href="<?= h($staff['psa_back_image']) ?>" target="_blank" rel="noopener">View current image</a></p>
+                    <?php if (isStoredPsaImagePath($staff['psa_back_image'] ?? null)): ?>
+                        <?php $profilePsaBackUrl = psaImagePublicUrl((string) $staff['psa_back_image'], $pdo); ?>
+                        <p class="form-hint"><a href="<?= h($profilePsaBackUrl) ?>" target="_blank" rel="noopener">View current image</a></p>
                     <?php endif; ?>
                     <?php if (!empty($fieldErrors['psa_back_image'])): ?>
                         <span class="form-error form-error--visible"><?= h($fieldErrors['psa_back_image']) ?></span>
@@ -282,10 +387,34 @@ $themeColor = getThemeColor($pdo);
 
                 <div class="form-group form-group--full form-actions staff-profile-form__submit">
                     <button type="submit" class="btn btn--primary btn--block">Save changes</button>
+                    <?php if ($editMode && $profileComplete): ?>
+                        <a href="staff-profile.php?edit=1" class="btn btn--secondary btn--block">Cancel</a>
+                    <?php endif; ?>
                 </div>
             </form>
 
-            <p class="login-card__hint"><a href="staff-app.php">← Staff app home</a></p>
+            <?php endif; ?>
+
+            <?php if ($token === ''): ?>
+                <div class="staff-profile-signout">
+                    <a href="<?= h(staffPortalSignOutUrl('staff-app.php?signed_out=1')) ?>"
+                       class="staff-profile-signout__btn"
+                       id="staff-profile-signout-btn"
+                       aria-label="Sign out of your staff account">
+                        <span class="staff-profile-signout__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+                        </span>
+                        Sign out
+                    </a>
+                </div>
+            <?php endif; ?>
+
+            <p class="login-card__hint">
+                <a href="staff-app.php">← Staff app home</a>
+                <?php if ($staffEmail !== ''): ?>
+                    · <a href="<?= h($messagesPageUrl) ?>">Messages<?= $staffMsgUnread > 0 ? ' (' . (int) $staffMsgUnread . ')' : '' ?></a>
+                <?php endif; ?>
+            </p>
         </section>
     </main>
 <?php
@@ -299,5 +428,19 @@ $phoneJsPath = __DIR__ . '/assets/js/phone-input.js';
 $phoneJsVer  = is_file($phoneJsPath) ? (string) filemtime($phoneJsPath) : '1';
 ?>
 <script src="assets/js/phone-input.js?v=<?= h($phoneJsVer) ?>"></script>
+<script>
+(function () {
+    var btn = document.getElementById('staff-profile-signout-btn');
+    if (!btn) return;
+    btn.addEventListener('click', function (e) {
+        if (!window.confirm('Sign out of your staff account?')) {
+            e.preventDefault();
+        }
+    });
+})();
+</script>
+<?php if ($token === '') {
+    renderStaffPortalSessionIdleScript($pdo, $token === '' ? $staff : null);
+} ?>
 </body>
 </html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPS Attendance V2 — Master Progress Report</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+.meta{color:#64748b;font-size:.9rem}
+.status{display:inline-block;padding:.2rem .55rem;border-radius:6px;font-size:.78rem;font-weight:700}
+.done{background:#d1fae5;color:#065f46}.active{background:#dbeafe;color:#1e40af}.pending{background:#f1f5f9;color:#475569}.blocked{background:#fee2e2;color:#991b1b}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.85rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+ul.compact li{margin:.3rem 0}
+.box{margin:1rem 0;padding:1rem;border-radius:10px;border:1px solid #e2e8f0;background:#f8fafc}
+</style>
+</head>
+<body>
+
+<h1>GPS Attendance V2 — Master Progress Report</h1>
+<p class="meta">Last updated 7 June 2026 · Feature flag: <code>feature_gps_attendance_v2</code> (default OFF) · Production safety: legacy attendance unchanged when flag OFF</p>
+
+<div class="box">
+<strong>Current phase:</strong> <span class="status active">Phase 1.5 — implemented, pending production verification</span><br>
+<strong>Production flag:</strong> OFF (expected until verification complete)<br>
+<strong>Next gate:</strong> Phase 1 + 1.5 verified on production → then Phase 2
+</div>
+
+<h2>Phase summary</h2>
+<table>
+<tr><th>Phase</th><th>Objective</th><th>Status</th><th>Report</th></tr>
+<tr><td>1</td><td>1000 m radius, pre-check, hibernation, auto activation, GPS snapshot</td><td><span class="status done">Implemented</span></td><td><code>GPS-PHASE1-IMPLEMENTATION-REPORT.html</code></td></tr>
+<tr><td>1.5</td><td>GPS enforcement hardening</td><td><span class="status active">Implemented — verify</span></td><td><code>GPS-PHASE15-IMPLEMENTATION-REPORT.html</code></td></tr>
+<tr><td>2</td><td>Continuous monitoring, auto sign-out</td><td><span class="status pending">Not started</span></td><td>—</td></tr>
+<tr><td>3</td><td>Live dashboard colours</td><td><span class="status pending">Not started</span></td><td>—</td></tr>
+<tr><td>4</td><td>GPS audit trail</td><td><span class="status pending">Not started</span></td><td>—</td></tr>
+<tr><td>5</td><td>Fraud detection (flag only)</td><td><span class="status pending">Not started</span></td><td>—</td></tr>
+</table>
+
+<h2>Completed tasks</h2>
+<ul class="compact">
+<li>Phase 1 code + migration phase 52 deployed</li>
+<li>Phase 1.5 mandatory GPS validation + admin bypass block</li>
+<li>Phase 1.5 activation GPS proof + ping API</li>
+<li>Verification script: <code>scripts/verify-gps-phase15.php</code></li>
+<li>Rollback scripts for phases 52 and 53</li>
+<li>Master implementation plan: <code>GPS-ATTENDANCE-V2-IMPLEMENTATION-PLAN.html</code></li>
+</ul>
+
+<h2>Pending tasks (before Phase 2)</h2>
+<ul class="compact">
+<li>Apply <code>migrate-phase52</code> and <code>migrate-phase53</code> on production DB</li>
+<li>Run <code>scripts/verify-gps-phase15.php</code> on production</li>
+<li>Enable flag on test event only; mobile verification</li>
+<li>Schedule <code>cron/attendance-activate.php</code></li>
+<li>Sign-off Phase 1 + 1.5</li>
+</ul>
+
+<h2>Production safety checklist</h2>
+<table>
+<tr><th>Rule</th><th>Status</th></tr>
+<tr><td>Existing attendance unchanged when flag OFF</td><td class="done">✓ Enforced in code</td></tr>
+<tr><td>Payroll unchanged in Phase 1/1.5</td><td class="done">✓ No payroll formula changes</td></tr>
+<tr><td>Existing check-in workflows preserved (flag OFF)</td><td class="done">✓</td></tr>
+<tr><td>Feature flag on all new behaviour</td><td class="done">✓</td></tr>
+<tr><td>Per-phase rollback documented</td><td class="done">✓</td></tr>
+<tr><td>Independent phase deployability</td><td class="done">✓ Phase 1.5 adds columns only; optional rollback</td></tr>
+</table>
+
+<h2>Known risks</h2>
+<table>
+<tr><th>Risk</th><th>Phase</th><th>Mitigation</th></tr>
+<tr><td>Admin scan disabled under v2</td><td>1.5</td><td>Ops use venue QR; flag OFF restores scan</td></tr>
+<tr><td>Activation needs page open for GPS ping</td><td>1.5</td><td>Phase 2 heartbeat will improve; cron skips without fresh GPS</td></tr>
+<tr><td>Browser background throttling</td><td>2+</td><td>Deferred to Phase 2 design</td></tr>
+<tr><td>GPS log storage growth</td><td>4</td><td>Retention policy in Phase 4 plan</td></tr>
+</table>
+
+<h2>Rollback status</h2>
+<table>
+<tr><th>Phase</th><th>Instant rollback</th><th>Schema rollback</th><th>Tested</th></tr>
+<tr><td>1</td><td>Flag OFF</td><td><code>rollback-phase52</code></td><td>Pending prod test</td></tr>
+<tr><td>1.5</td><td>Flag OFF</td><td><code>rollback-phase53</code></td><td>Pending prod test</td></tr>
+<tr><td>2–5</td><td>Flag OFF</td><td>Per-phase SQL (planned)</td><td>—</td></tr>
+</table>
+
+<h2>Production status</h2>
+<table>
+<tr><th>Item</th><th>Status</th></tr>
+<tr><td>Code deployed (FTP)</td><td>Done (7 Jun 2026)</td></tr>
+<tr><td>Migration phase 52 on production DB</td><td>Pending confirmation</td></tr>
+<tr><td>Migration phase 53 on production DB</td><td>Pending</td></tr>
+<tr><td><code>feature_gps_attendance_v2</code> enabled</td><td>OFF (safe default)</td></tr>
+<tr><td>Phase 1.5 verification on production</td><td>Pending</td></tr>
+<tr><td>Critical defects</td><td>None logged</td></tr>
+</table>
+
+<h2>Deliverables index</h2>
+<ul class="compact">
+<li><code>docs/GPS-ATTENDANCE-V2-IMPLEMENTATION-PLAN.html</code> — full program design</li>
+<li><code>docs/GPS-PHASE1-IMPLEMENTATION-REPORT.html</code></li>
+<li><code>docs/GPS-PHASE15-IMPLEMENTATION-REPORT.html</code></li>
+<li><code>docs/GPS-ATTENDANCE-V2-MASTER-PROGRESS-REPORT.html</code> (this file)</li>
+<li><code>scripts/verify-gps-phase15.php</code></li>
+<li><code>scripts/rollback-gps-phase15.ps1</code></li>
+</ul>
+
+<p class="meta">Update this document at the end of each phase verification.</p>
+</body>
+</html>

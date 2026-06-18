@@ -1,0 +1,1944 @@
+openapi: 3.0.3
+info:
+  title: Olasentra Staff Mobile API
+  description: |
+    REST API for the native Olasentra Staff Android application.
+    Base path `/api/mobile/v1`. Admin platform (admin.olasentra.com) remains source of truth.
+    Web PWA/TWA endpoints are separate and unchanged.
+  version: 1.5.0
+  contact:
+    name: Olasentra Platform
+    url: https://register.olasentra.com
+
+servers:
+  - url: https://register.olasentra.com/api/mobile/v1
+    description: Production / staging (feature-flagged)
+  - url: http://localhost/event-staff-system/api/mobile/v1
+    description: Local development
+
+tags:
+  - name: Config
+  - name: Auth
+  - name: Profile
+  - name: Dashboard
+  - name: Shifts
+  - name: CheckIn
+  - name: GPS
+  - name: Notifications
+  - name: Messages
+  - name: Documents
+  - name: Availability
+  - name: Push
+  - name: Sync
+
+paths:
+  /config:
+    get:
+      tags: [Config]
+      summary: Public configuration and feature flags
+      operationId: getConfig
+      parameters:
+        - $ref: '#/components/parameters/AppVersion'
+        - $ref: '#/components/parameters/Platform'
+      responses:
+        '200':
+          description: Configuration payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /auth/google:
+    post:
+      tags: [Auth]
+      summary: Exchange Google ID token for JWT
+      operationId: authGoogle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthGoogleRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /auth/pps:
+    post:
+      tags: [Auth]
+      summary: Email and PPS last-4 fallback login
+      operationId: authPps
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthPpsRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate refresh token and issue new access token
+      operationId: authRefresh
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRefreshRequest'
+      responses:
+        '200':
+          description: Tokens refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke refresh token and unregister push device
+      operationId: authLogout
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthLogoutRequest'
+      responses:
+        '200':
+          description: Signed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkMessage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /me:
+    get:
+      tags: [Profile]
+      summary: Current staff profile
+      operationId: getMe
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Profile]
+      summary: Update limited profile fields
+      operationId: patchMe
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchMeRequest'
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '400':
+          description: No valid fields to update
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /dashboard:
+    get:
+      tags: [Dashboard]
+      summary: Dashboard metrics and today shift
+      operationId: getDashboard
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /shifts:
+    get:
+      tags: [Shifts]
+      summary: List staff shifts
+      operationId: listShifts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+            enum: [upcoming, past, all]
+            default: all
+        - name: employer
+          in: query
+          schema:
+            type: string
+        - name: q
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        '200':
+          description: Shift list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShiftsListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /shifts/today:
+    get:
+      tags: [Shifts]
+      summary: Today's approved shift and check-in eligibility
+      operationId: getShiftToday
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Today shift
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShiftTodayResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /shifts/{registrationId}:
+    get:
+      tags: [Shifts]
+      summary: Single shift detail
+      operationId: getShift
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RegistrationId'
+      responses:
+        '200':
+          description: Shift detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShiftDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /shifts/{registrationId}/respond:
+    post:
+      tags: [Shifts]
+      summary: Accept or decline shift
+      operationId: respondShift
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RegistrationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [response]
+              properties:
+                response:
+                  type: string
+                  enum: [accepted, declined]
+      responses:
+        '200':
+          description: Shift response recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShiftRespondResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '503':
+          description: Shift response feature unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /checkin:
+    post:
+      tags: [CheckIn]
+      summary: GPS self check-in for approved shift
+      operationId: checkin
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckinRequest'
+      responses:
+        '200':
+          description: Check-in result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckinResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /gps/ping:
+    post:
+      tags: [GPS]
+      summary: GPS heartbeat during active shift
+      operationId: gpsPing
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GpsPingRequest'
+      responses:
+        '200':
+          description: Ping result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GpsPingResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /gps/status:
+    get:
+      tags: [GPS]
+      summary: Active shift GPS monitoring status
+      operationId: gpsStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: registration_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Monitoring status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GpsStatusResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /checkout:
+    post:
+      tags: [CheckIn]
+      summary: Manual check-out from active shift
+      operationId: checkout
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [registration_id]
+              properties:
+                registration_id:
+                  type: integer
+                sign_lat:
+                  type: number
+                  format: double
+                sign_lng:
+                  type: number
+                  format: double
+                sign_accuracy_m:
+                  type: integer
+      responses:
+        '200':
+          description: Signed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: List in-app notifications
+      operationId: listNotifications
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: unread_only
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationsListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /notifications/read-all:
+    post:
+      tags: [Notifications]
+      summary: Mark all notifications read
+      operationId: markAllNotificationsRead
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Count marked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationsMarkAllResponse'
+
+  /notifications/{id}/read:
+    post:
+      tags: [Notifications]
+      summary: Mark one notification read
+      operationId: markNotificationRead
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Marked read
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationReadResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /messages:
+    get:
+      tags: [Messages]
+      summary: Message thread with coordinators
+      operationId: getMessages
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 200
+      responses:
+        '200':
+          description: Thread
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessagesResponse'
+    post:
+      tags: [Messages]
+      summary: Send message to admin
+      operationId: sendMessage
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body:
+                  type: string
+                  maxLength: 4000
+                subject:
+                  type: string
+                  maxLength: 255
+      responses:
+        '200':
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageSendResponse'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /documents:
+    get:
+      tags: [Documents]
+      summary: Document metadata list
+      operationId: listDocuments
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Documents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentsListResponse'
+
+  /documents/{key}/file:
+    get:
+      tags: [Documents]
+      summary: Stream document file (authenticated)
+      operationId: getDocumentFile
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+            example: psa_front
+      responses:
+        '200':
+          description: Binary file stream
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /availability:
+    get:
+      tags: [Availability]
+      summary: Availability for month
+      operationId: getAvailability
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+            example: '2026-06'
+      responses:
+        '200':
+          description: Month grid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailabilityResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /availability/{date}:
+    put:
+      tags: [Availability]
+      summary: Set day availability
+      operationId: setAvailability
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: date
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [available, unavailable, preferred]
+                notes:
+                  type: string
+                  maxLength: 500
+      responses:
+        '200':
+          description: Availability updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailabilitySetResponse'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /leave:
+    post:
+      tags: [Availability]
+      summary: Request leave or holiday
+      operationId: requestLeave
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date, type]
+              properties:
+                date:
+                  type: string
+                  format: date
+                type:
+                  type: string
+                  enum: [leave, holiday]
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Leave request submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaveRequestResponse'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /sync/offline:
+    post:
+      tags: [Sync]
+      summary: Flush offline action queue
+      operationId: syncOffline
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OfflineSyncRequest'
+      responses:
+        '200':
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfflineSyncResponse'
+
+  /push/register:
+    post:
+      tags: [Push]
+      summary: Register FCM device token
+      operationId: registerPush
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PushRegisterRequest'
+      responses:
+        '200':
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PushRegisterResponse'
+    delete:
+      tags: [Push]
+      summary: Unregister FCM device token
+      operationId: unregisterPush
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: device_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Unregistered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PushUnregisterResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    AppVersion:
+      name: app_version
+      in: query
+      schema:
+        type: string
+        example: '1.0.0'
+    Platform:
+      name: platform
+      in: query
+      schema:
+        type: string
+        enum: [android, ios]
+        default: android
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PerPage:
+      name: per_page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+    RegistrationId:
+      name: registrationId
+      in: path
+      required: true
+      schema:
+        type: integer
+
+  responses:
+    OkOnly:
+      description: Success
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              ok:
+                type: boolean
+                example: true
+    OkMessage:
+      description: Success with message
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              ok:
+                type: boolean
+              message:
+                type: string
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Authentication required or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unprocessable:
+      description: Business validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    TooManyRequests:
+      description: Rate limited
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ServiceUnavailable:
+      description: API disabled or DB unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: false
+        error:
+          type: string
+        code:
+          type: string
+          example: INVALID_CREDENTIALS
+        details:
+          type: object
+          additionalProperties: true
+
+    ConfigResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        api_version:
+          type: string
+          example: '1'
+        min_app_version:
+          type: string
+        mobile_api_enabled:
+          type: boolean
+        google_signin_enabled:
+          type: boolean
+        google_signin_required:
+          type: boolean
+        pps_signin_enabled:
+          type: boolean
+        gps_attendance_v2_enabled:
+          type: boolean
+        gps_max_accuracy_m:
+          type: integer
+        features:
+          type: object
+          properties:
+            availability:
+              type: boolean
+            shift_response:
+              type: boolean
+            offline_sync:
+              type: boolean
+        registration_site_url:
+          type: string
+          format: uri
+
+    AuthGoogleRequest:
+      type: object
+      required: [id_token, device_id]
+      properties:
+        id_token:
+          type: string
+        device_id:
+          type: string
+        device_label:
+          type: string
+        fcm_token:
+          type: string
+
+    AuthPpsRequest:
+      type: object
+      required: [email, pps_last4, device_id]
+      properties:
+        email:
+          type: string
+          format: email
+        pps_last4:
+          type: string
+          minLength: 4
+          maxLength: 4
+        device_id:
+          type: string
+        device_label:
+          type: string
+
+    AuthRefreshRequest:
+      type: object
+      required: [refresh_token, device_id]
+      properties:
+        refresh_token:
+          type: string
+        device_id:
+          type: string
+
+    AuthLogoutRequest:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+        device_id:
+          type: string
+        revoke_all_devices:
+          type: boolean
+          default: false
+
+    StaffSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        first_name:
+          type: string
+        surname:
+          type: string
+        profile_complete:
+          type: boolean
+        profile_reverify_required:
+          type: boolean
+        profile_gate_blocked:
+          type: boolean
+
+    AuthSuccessResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+        token_type:
+          type: string
+          example: Bearer
+        staff:
+          $ref: '#/components/schemas/StaffSummary'
+
+    TokenResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+        token_type:
+          type: string
+
+    PatchMeRequest:
+      type: object
+      properties:
+        mobile:
+          type: string
+        full_address:
+          type: string
+        eircode:
+          type: string
+        location_lat:
+          type: number
+        location_lng:
+          type: number
+
+    MeResponse:
+      type: object
+      required: [ok, staff]
+      properties:
+        ok:
+          type: boolean
+          example: true
+        staff:
+          $ref: '#/components/schemas/StaffProfile'
+
+    StaffProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        personal:
+          type: object
+          properties:
+            first_name:
+              type: string
+            surname:
+              type: string
+            display_name:
+              type: string
+            email:
+              type: string
+            date_of_birth:
+              type: string
+            gender:
+              type: string
+            staff_role:
+              type: string
+            pps_masked:
+              type: string
+              description: Masked PPS (never full value)
+        contact:
+          type: object
+          properties:
+            mobile:
+              type: string
+            full_address:
+              type: string
+            eircode:
+              type: string
+            location_lat:
+              type: number
+              nullable: true
+            location_lng:
+              type: number
+              nullable: true
+        approval:
+          type: object
+          properties:
+            total_registrations:
+              type: integer
+            approved:
+              type: integer
+            pending:
+              type: integer
+            rejected:
+              type: integer
+            upcoming_shifts:
+              type: integer
+            completed_shifts:
+              type: integer
+            has_registrations:
+              type: boolean
+        documents:
+          $ref: '#/components/schemas/StaffDocumentsSummary'
+        profile:
+          type: object
+          properties:
+            profile_complete:
+              type: boolean
+            profile_reverify_required:
+              type: boolean
+            profile_gate_blocked:
+              type: boolean
+            onboarding_missing:
+              type: array
+              items:
+                type: string
+            can_edit_limited_fields:
+              type: boolean
+            must_use_web_profile:
+              type: boolean
+
+    StaffDocumentsSummary:
+      type: object
+      properties:
+        total:
+          type: integer
+        valid:
+          type: integer
+        expiring:
+          type: integer
+        expired:
+          type: integer
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              expiry:
+                type: string
+              status:
+                type: string
+                enum: [valid, expiring, expired, missing]
+
+    DashboardResponse:
+      type: object
+      required: [ok, profile, approval_status, upcoming_shifts, unread, check_in_status, available_events_count]
+      properties:
+        ok:
+          type: boolean
+          example: true
+        profile:
+          $ref: '#/components/schemas/StaffProfile'
+        approval_status:
+          type: object
+          properties:
+            approved:
+              type: integer
+            pending:
+              type: integer
+            rejected:
+              type: integer
+            upcoming_shifts:
+              type: integer
+            total:
+              type: integer
+            overall:
+              type: string
+              enum: [no_registrations, approved, pending, mixed]
+        upcoming_shifts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShiftObject'
+        unread:
+          type: object
+          properties:
+            messages:
+              type: integer
+            notifications:
+              type: integer
+        check_in_status:
+          $ref: '#/components/schemas/CheckInStatus'
+        available_events_count:
+          type: integer
+        monthly:
+          type: object
+          additionalProperties: true
+        today_shift:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/ShiftObject'
+        profile_gate:
+          type: object
+          properties:
+            blocked:
+              type: boolean
+            reason:
+              type: string
+              nullable: true
+
+    CheckInStatus:
+      type: object
+      properties:
+        has_shift_today:
+          type: boolean
+        registration_id:
+          type: integer
+          nullable: true
+        checked_in:
+          type: boolean
+        checked_in_at:
+          type: string
+          nullable: true
+        checked_out_at:
+          type: string
+          nullable: true
+        attendance_status:
+          type: string
+          nullable: true
+        checkin_allowed:
+          type: boolean
+        checkin_block_reason:
+          type: string
+          nullable: true
+        monitoring_active:
+          type: boolean
+
+    ShiftObject:
+      type: object
+      required:
+        - event_id
+        - event_name
+        - event_date
+        - shift_status
+        - assigned_company
+        - check_in_eligibility
+        - check_out_eligibility
+      properties:
+        registration_id:
+          type: integer
+          nullable: true
+        waitlist_id:
+          type: integer
+          nullable: true
+        record_type:
+          type: string
+          enum: [registration, waitlist]
+        event_id:
+          type: integer
+        event_name:
+          type: string
+        event_date:
+          type: string
+          format: date
+        venue:
+          type: object
+          properties:
+            name:
+              type: string
+            eircode:
+              type: string
+        start_time:
+          type: string
+          nullable: true
+        end_time:
+          type: string
+          nullable: true
+        time_label:
+          type: string
+        status:
+          type: string
+          description: Raw staff_registrations.status (pending, approved, rejected)
+        shift_status:
+          type: string
+          enum: [pending, approved, declined, cancelled, waitlist, completed]
+        shift_status_label:
+          type: string
+        shift_response:
+          type: string
+          enum: ['', accepted, declined]
+        assigned_company:
+          type: string
+        check_in_eligibility:
+          $ref: '#/components/schemas/ShiftEligibility'
+        check_out_eligibility:
+          $ref: '#/components/schemas/ShiftEligibility'
+        outcome:
+          type: object
+          properties:
+            code:
+              type: string
+            label:
+              type: string
+            tone:
+              type: string
+        attendance:
+          type: object
+          properties:
+            is_checked_in:
+              type: boolean
+            checked_in_at:
+              type: string
+              nullable: true
+            checked_out_at:
+              type: string
+              nullable: true
+            attendance_status:
+              type: string
+              nullable: true
+            hours_worked:
+              type: number
+              nullable: true
+
+    ShiftEligibility:
+      type: object
+      properties:
+        allowed:
+          type: boolean
+        reason:
+          type: string
+          nullable: true
+
+    ShiftRespondResponse:
+      type: object
+      required: [ok, message, shift]
+      properties:
+        ok:
+          type: boolean
+        message:
+          type: string
+        shift:
+          $ref: '#/components/schemas/ShiftObject'
+
+    ShiftsListResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        shifts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShiftObject'
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+            per_page:
+              type: integer
+            total:
+              type: integer
+            total_pages:
+              type: integer
+        filters:
+          type: object
+          properties:
+            filter:
+              type: string
+            employer:
+              type: string
+              nullable: true
+            q:
+              type: string
+              nullable: true
+
+    ShiftDetailResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        shift:
+          $ref: '#/components/schemas/ShiftObject'
+
+    ShiftTodayResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        shift:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/ShiftObject'
+        checkin:
+          $ref: '#/components/schemas/CheckInStatus'
+
+    CheckinRequest:
+      type: object
+      required: [registration_id, sign_lat, sign_lng]
+      properties:
+        registration_id:
+          type: integer
+        sign_lat:
+          type: number
+        sign_lng:
+          type: number
+        sign_accuracy_m:
+          type: integer
+
+    CheckinResponse:
+      type: object
+      required: [ok, check_in_status, registration_id]
+      properties:
+        ok:
+          type: boolean
+        check_in_status:
+          type: string
+          enum: [checked_in, already_checked_in]
+        already:
+          type: boolean
+        message:
+          type: string
+        checked_in_at:
+          type: string
+          format: date-time
+          nullable: true
+        attendance_status:
+          type: string
+        registration_id:
+          type: integer
+        coordinates:
+          $ref: '#/components/schemas/GpsCoordinates'
+        venue_distance:
+          $ref: '#/components/schemas/VenueDistance'
+        event:
+          type: object
+          nullable: true
+        eligibility:
+          $ref: '#/components/schemas/ShiftEligibility'
+        monitoring_required:
+          type: boolean
+        locations:
+          $ref: '#/components/schemas/AttendanceLocations'
+
+    GpsCoordinates:
+      type: object
+      properties:
+        lat:
+          type: number
+        lng:
+          type: number
+        accuracy_m:
+          type: integer
+          nullable: true
+
+    VenueDistance:
+      type: object
+      properties:
+        distance_m:
+          type: integer
+        radius_m:
+          type: integer
+        in_zone:
+          type: boolean
+
+    AttendanceLocations:
+      type: object
+      properties:
+        last_known:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/GpsCoordinates'
+        check_in:
+          nullable: true
+          type: object
+        check_out:
+          nullable: true
+          type: object
+
+    GpsPingRequest:
+      type: object
+      required: [sign_lat, sign_lng]
+      properties:
+        sign_lat:
+          type: number
+        sign_lng:
+          type: number
+        sign_accuracy_m:
+          type: integer
+        registration_id:
+          type: integer
+
+    GpsPingResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        in_zone:
+          type: boolean
+        activated:
+          type: boolean
+        signed_out:
+          type: boolean
+        outside_warning:
+          type: boolean
+        strikes:
+          type: integer
+        message:
+          type: string
+        source:
+          type: string
+          example: mobile_app
+        registration_id:
+          type: integer
+        coordinates:
+          $ref: '#/components/schemas/GpsCoordinates'
+        venue_distance:
+          $ref: '#/components/schemas/VenueDistance'
+        locations:
+          $ref: '#/components/schemas/AttendanceLocations'
+
+    GpsStatusResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        monitoring:
+          type: boolean
+        live:
+          type: boolean
+        shift:
+          type: object
+          nullable: true
+        attendance:
+          type: object
+          nullable: true
+        locations:
+          $ref: '#/components/schemas/AttendanceLocations'
+        policy:
+          type: object
+          properties:
+            gps_enabled:
+              type: boolean
+            max_accuracy_m:
+              type: integer
+            geofence_strikes:
+              type: integer
+
+    CheckoutResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        check_out_status:
+          type: string
+          enum: [checked_out, already_checked_out]
+        signed_out:
+          type: boolean
+        already:
+          type: boolean
+        message:
+          type: string
+        checked_out_at:
+          type: string
+          nullable: true
+        hours_worked:
+          type: number
+          nullable: true
+        attendance_status:
+          type: string
+        attendance_outcome:
+          type: object
+          properties:
+            code:
+              type: string
+            label:
+              type: string
+        reason:
+          type: string
+        registration_id:
+          type: integer
+        coordinates:
+          $ref: '#/components/schemas/GpsCoordinates'
+        venue_distance:
+          $ref: '#/components/schemas/VenueDistance'
+        event:
+          type: object
+          nullable: true
+        locations:
+          $ref: '#/components/schemas/AttendanceLocations'
+
+    NotificationItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          description: Raw app_notifications.type value
+        category:
+          type: string
+          enum:
+            - shift_assigned
+            - shift_updated
+            - shift_cancelled
+            - event_reminder
+            - check_in_reminder
+            - message_received
+            - document_expiry
+            - approval_status
+            - system_announcement
+        category_label:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        action_url:
+          type: string
+        action_label:
+          type: string
+        related_id:
+          type: integer
+          nullable: true
+        is_read:
+          type: boolean
+        created_at:
+          type: string
+
+    NotificationCategory:
+      type: object
+      properties:
+        category:
+          type: string
+        label:
+          type: string
+
+    NotificationsListResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        notifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationItem'
+        unread_count:
+          type: integer
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+            per_page:
+              type: integer
+            total:
+              type: integer
+            total_pages:
+              type: integer
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationCategory'
+
+    NotificationReadResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        notification:
+          $ref: '#/components/schemas/NotificationItem'
+        already_read:
+          type: boolean
+
+    NotificationsMarkAllResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        marked:
+          type: integer
+        unread_count:
+          type: integer
+
+    MessageItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        direction:
+          type: string
+          enum: [admin_to_staff, staff_to_admin]
+        folder:
+          type: string
+          enum: [inbox, sent]
+        subject:
+          type: string
+        body:
+          type: string
+        is_read:
+          type: boolean
+        delivery_status:
+          type: string
+        created_at:
+          type: string
+        sender_label:
+          type: string
+        attachments:
+          type: array
+          items:
+            type: object
+          description: Reserved for future attachment support
+
+    MessagesResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        thread:
+          type: array
+          items:
+            $ref: '#/components/schemas/MessageItem'
+        inbox:
+          type: array
+          items:
+            $ref: '#/components/schemas/MessageItem'
+        sent:
+          type: array
+          items:
+            $ref: '#/components/schemas/MessageItem'
+        unread_count:
+          type: integer
+
+    MessageSendResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        id:
+          type: integer
+        sent:
+          $ref: '#/components/schemas/MessageItem'
+
+    DocumentItem:
+      type: object
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        category:
+          type: string
+          enum: [compliance, identity, other]
+        type:
+          type: string
+        expiry:
+          type: string
+        status:
+          type: string
+          enum: [valid, expiring, expired, missing]
+        approval_status:
+          type: string
+          enum: [submitted, missing]
+        has_file:
+          type: boolean
+        view_url:
+          type: string
+        licence_number:
+          type: string
+          nullable: true
+
+    DocumentsListResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentItem'
+        summary:
+          type: object
+          properties:
+            total:
+              type: integer
+            valid:
+              type: integer
+            expiring:
+              type: integer
+            expired:
+              type: integer
+            missing:
+              type: integer
+
+    AvailabilityDay:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [available, unavailable, preferred, leave, holiday]
+        approval_status:
+          type: string
+          enum: [none, pending, approved]
+        notes:
+          type: string
+        admin_approved:
+          type: boolean
+        updated_at:
+          type: string
+
+    AvailabilityResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        month:
+          type: string
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailabilityDay'
+        statuses:
+          type: array
+          items:
+            type: string
+
+    AvailabilitySetResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        message:
+          type: string
+        day:
+          $ref: '#/components/schemas/AvailabilityDay'
+
+    LeaveRequestResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        message:
+          type: string
+        day:
+          $ref: '#/components/schemas/AvailabilityDay'
+
+    PushRegisterRequest:
+      type: object
+      required: [fcm_token, device_id]
+      properties:
+        fcm_token:
+          type: string
+          maxLength: 512
+        device_id:
+          type: string
+          minLength: 8
+          maxLength: 64
+        platform:
+          type: string
+          enum: [android, ios]
+          default: android
+
+    PushRegisterResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        device_id:
+          type: string
+        platform:
+          type: string
+          enum: [android, ios]
+        registered:
+          type: boolean
+
+    PushUnregisterResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        device_id:
+          type: string
+        unregistered:
+          type: boolean
+
+    OfflineSyncRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items:
+            type: object
+            required: [client_id, action, payload]
+            properties:
+              client_id:
+                type: string
+                minLength: 8
+                maxLength: 64
+              action:
+                type: string
+                enum:
+                  - checkin
+                  - checkout
+                  - gps_ping
+                  - shift_respond
+                  - availability_set
+                  - leave_request
+              payload:
+                type: object
+
+    OfflineSyncResultItem:
+      type: object
+      properties:
+        index:
+          type: integer
+        client_id:
+          type: string
+        action:
+          type: string
+        status:
+          type: string
+          enum: [synced, duplicate, conflict, failed]
+        result:
+          type: object
+        conflict_reason:
+          type: string
+          nullable: true
+
+    OfflineSyncResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        synced:
+          type: integer
+        failed:
+          type: integer
+        conflicts:
+          type: integer
+        duplicates:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/OfflineSyncResultItem'

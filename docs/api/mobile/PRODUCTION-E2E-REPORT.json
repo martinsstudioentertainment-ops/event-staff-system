@@ -1,0 +1,65 @@
+{
+    "timestamp": "2026-06-12T02:44:51+00:00",
+    "base_url": "https://register.olasentra.com/api/mobile/v1",
+    "api_enabled": true,
+    "authenticated": false,
+    "passed": 7,
+    "failed": 0,
+    "skipped": 2,
+    "results": [
+        {
+            "group": "Config",
+            "name": "GET /config HTTP 200",
+            "status": "PASS",
+            "detail": ""
+        },
+        {
+            "group": "Config",
+            "name": "mobile_api_enabled true",
+            "status": "PASS",
+            "detail": ""
+        },
+        {
+            "group": "Auth gate",
+            "name": "GET /me without token returns 401",
+            "status": "PASS",
+            "detail": "HTTP 401"
+        },
+        {
+            "group": "Auth",
+            "name": "POST /auth/refresh",
+            "status": "SKIP",
+            "detail": "Set MOBILE_REFRESH_TOKEN + MOBILE_DEVICE_ID"
+        },
+        {
+            "group": "Auth",
+            "name": "Google login (manual)",
+            "status": "SKIP",
+            "detail": "Set MOBILE_ACCESS_TOKEN from Postman Auth \u2192 Google"
+        },
+        {
+            "group": "Regression",
+            "name": "Staff portal",
+            "status": "PASS",
+            "detail": "HTTP 200"
+        },
+        {
+            "group": "Regression",
+            "name": "Staff status",
+            "status": "PASS",
+            "detail": "HTTP 200"
+        },
+        {
+            "group": "Regression",
+            "name": "Admin login",
+            "status": "PASS",
+            "detail": "HTTP 200"
+        },
+        {
+            "group": "Regression",
+            "name": "Admin dashboard",
+            "status": "PASS",
+            "detail": "HTTP 302"
+        }
+    ]
+}

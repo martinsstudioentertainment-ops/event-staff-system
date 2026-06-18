@@ -36,3 +36,28 @@ apply/*.sql
 /.cursor/
 storage/staff-template-ods/
 storage/tmp-staff-template-content.xml
+
+# Forensic / recovery / audit temp (not production source)
+/_recovery-staging/
+/_tmp-restore/
+/_phase3_recovery_contents/
+/_phase3_recovery_summary.json
+/.audit-admin.json
+/_audit_verify.json
+/_extract_transcripts*
+/_fix_*_report.js
+/_reconstruct*
+/_reconstructed_*
+/_transcript_extraction_report.json
+/_tmp_prod_signout.php
+*.php.prod
+
+# Android build output (not web production source)
+/android/**/build/
+/android/**/.gradle/
+/handover-package/local-secrets/
+
+# Large binaries (APK/AAB — distribute separately)
+*.apk
+*.aab
+/play-store-assets/build-aab/

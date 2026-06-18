@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/secure-layout.php';
 require_once __DIR__ . '/../includes/payroll-xlsx-export.php';
 require_once __DIR__ . '/../includes/google-sheets-sync.php';
 require_once __DIR__ . '/../includes/main-admin-bridge.php';
+require_once __DIR__ . '/../includes/secure-pagination.php';
 
 /** @return list<string> */
 function payroll_column_headers(): array
@@ -120,6 +121,24 @@ if (($_GET['action'] ?? '') === 'export') {
     }
 }
 
+$page              = secureListPage();
+$perPage           = secureListPerPage();
+$payrollTotal      = count($payrollRows);
+$payrollPageRows   = array_slice($payrollRows, secureListOffset($page, $perPage), $perPage);
+$gapPage           = secureListPage('gap_page');
+$notOnPayrollTotal = count($notOnPayroll);
+$notOnPayrollPage  = array_slice($notOnPayroll, secureListOffset($gapPage, $perPage), $perPage);
+
+$paginationQuery = [];
+$gapPaginationQuery = array_filter([
+    'page'     => $page > 1 ? $page : null,
+    'per_page' => $perPage !== SECURE_LIST_DEFAULT_PER_PAGE ? $perPage : null,
+]);
+if ($gapPage > 1) {
+    $paginationQuery['gap_page'] = $gapPage;
+    $gapPaginationQuery['gap_page'] = $gapPage;
+}
+
 $headers = payroll_column_headers();
 
 secure_layout_start(
@@ -162,9 +181,12 @@ if ($error !== '') {
 </div>
 
 <div class="secure-card secure-card--danger-top">
-    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:1rem;">
-        <h2 style="margin:0;font-size:1rem;">Payroll records (main ERP approved)</h2>
-        <a href="?action=export" class="secure-btn secure-btn--success">Download Excel</a>
+    <div class="secure-list-toolbar">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.75rem;">
+            <h2 style="margin:0;font-size:1rem;">Payroll records (main ERP approved)</h2>
+            <a href="?action=export" class="secure-btn secure-btn--success">Download Excel</a>
+        </div>
+        <?php renderSecurePerPageControl('payroll.php', $paginationQuery); ?>
     </div>
 
     <div class="secure-table-wrap">
@@ -177,10 +199,10 @@ if ($error !== '') {
                 </tr>
             </thead>
             <tbody>
-                <?php if ($payrollRows === []): ?>
+                <?php if ($payrollPageRows === []): ?>
                     <tr><td colspan="<?= count($headers) ?>" style="color:var(--secure-muted);">No approved payroll records yet.</td></tr>
                 <?php else: ?>
-                    <?php foreach ($payrollRows as $row): ?>
+                    <?php foreach ($payrollPageRows as $row): ?>
                         <tr>
                             <?php foreach (payroll_format_export_row($row) as $value): ?>
                                 <td style="white-space:normal;word-break:break-word;max-width:220px;"><?= secure_h($value) ?></td>
@@ -191,14 +213,16 @@ if ($error !== '') {
             </tbody>
         </table>
     </div>
+
+    <?php renderSecurePagination($page, $payrollTotal, 'payroll.php', $paginationQuery); ?>
 </div>
 
-<?php if ($notOnPayroll !== []): ?>
+<?php if ($notOnPayrollTotal > 0): ?>
 <div class="secure-card secure-card--danger-top">
-    <h2 style="margin:0 0 0.75rem;font-size:1rem;">In apply vault but not on payroll (<?= count($notOnPayroll) ?>)</h2>
+    <h2 style="margin:0 0 0.75rem;font-size:1rem;">In apply vault but not on payroll (<?= $notOnPayrollTotal ?>)</h2>
     <p style="margin:0 0 1rem;color:var(--secure-muted);font-size:0.875rem;line-height:1.5;">
         These people are in the apply vault but are <strong style="color:var(--secure-text);">not approved</strong> on main ERP yet.
-        Approve them on <a href="https://admin.olasentra.com/staff.php" target="_blank" rel="noopener noreferrer" style="color:var(--secure-cyan);">main ERP → Staff</a>, then run sync.
+        Approve them on <a href="https://admin.olasentra.com/staff.php" target="_blank" rel="noopener noreferrer">main ERP → Staff</a>, then run sync.
     </p>
     <div class="secure-table-wrap">
         <table class="secure-table">
@@ -212,7 +236,7 @@ if ($error !== '') {
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($notOnPayroll as $gap): ?>
+                <?php foreach ($notOnPayrollPage as $gap): ?>
                     <tr>
                         <td><?= secure_h($gap['name']) ?></td>
                         <td><?= secure_h($gap['email']) ?></td>
@@ -224,6 +248,12 @@ if ($error !== '') {
             </tbody>
         </table>
     </div>
+
+    <?php
+    if ($notOnPayrollTotal > $perPage) {
+        renderSecurePagination($gapPage, $notOnPayrollTotal, 'payroll.php', $gapPaginationQuery, 'gap_page');
+    }
+    ?>
 </div>
 <?php endif; ?>
 

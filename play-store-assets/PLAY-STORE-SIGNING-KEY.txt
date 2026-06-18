@@ -1,0 +1,10 @@
+﻿OLASENTRA PLAY STORE UPLOAD KEY — KEEP PRIVATE
+Generated: 2026-06-15 22:11
+
+Keystore file: android/olasentra-staff/olasentra-staff-release.jks
+Alias: olasentra-staff
+Store password: 7pwNcVSGt19I40iDbJfXvz8y
+Key password: 7pwNcVSGt19I40iDbJfXvz8y
+
+Back up this file and the .jks to a secure location.
+If you already uploaded to Play with a different key, use that key instead.

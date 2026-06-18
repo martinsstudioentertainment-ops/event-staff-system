@@ -19,13 +19,9 @@ function payroll_format_gender(string $gender): string
 
 function payroll_format_date_cell(?string $value): string
 {
-    if ($value === null || $value === '' || $value === '0000-00-00') {
-        return '';
-    }
+    require_once __DIR__ . '/main-admin-bridge.php';
 
-    $ts = strtotime($value);
-
-    return $ts !== false ? date('Y-m-d', $ts) : $value;
+    return apply_format_sheet_date_safe($value);
 }
 
 function payroll_xml_escape(string $value): string
