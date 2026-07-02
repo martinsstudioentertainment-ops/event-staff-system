@@ -30,7 +30,7 @@ Write-Host '[2/6] Cleanup audit (read-only, no deletions) ...' -ForegroundColor 
 
 Write-Host ''
 Write-Host '[3/6] Pushing to GitHub (main) ...' -ForegroundColor Green
-git push origin main
+git -c "safe.directory=$Root" push origin main
 if ($LASTEXITCODE -ne 0) {
     throw 'git push failed'
 }
