@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Technical Debt — Master Report</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+.meta{color:#64748b;font-size:.9rem}
+.crit{color:#b91c1c;font-weight:700}.high{color:#b45309;font-weight:700}.med{color:#ca8a04}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.84rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.82em}
+.warn{margin:1rem 0;padding:.85rem;border-radius:8px;border:1px solid #fcd34d;background:#fffbeb}
+ul.compact li{margin:.3rem 0}
+</style>
+</head>
+<body>
+
+<h1>Technical Debt — Master Report</h1>
+<p class="meta">Generated 7 June 2026 · Read-only audit · <strong>Nothing deleted</strong> · Rollback: address items individually with feature flags or targeted refactors</p>
+
+<div class="warn"><strong>Audit rule:</strong> This report documents debt only. No files were removed, renamed, or refactored during this overnight pass.</div>
+
+<h2>1. Severity summary</h2>
+<table>
+<tr><th>Severity</th><th>Count</th><th>Examples</th></tr>
+<tr><td class="crit">Critical</td><td>0</td><td>—</td></tr>
+<tr><td class="high">High</td><td>4</td><td>Parallel sign-in routes; stub feature flags; dual registration JS; GPS ping auth gap</td></tr>
+<tr><td class="med">Medium</td><td>8</td><td>Orphan assets; attendance layer split; docs sprawl; apply CSRF gap</td></tr>
+<tr><td>Low</td><td>6+</td><td>URL aliases; deprecated functions; git path noise</td></tr>
+</table>
+
+<h2>2. Duplicate files</h2>
+<table>
+<tr><th>Item</th><th>Evidence</th><th>Recommendation</th><th>Rollback</th></tr>
+<tr><td>Windows path separators in git</td><td><code>admin/geo-audits.php</code> vs <code>admin\geo-audits.php</code> in status</td><td>Normalize git index; single path style</td><td>Revert git add if wrong</td></tr>
+<tr><td><code>phone-input.js</code></td><td><code>assets/js/</code> + <code>apply/admin/assets/js/</code></td><td>Share one copy via deploy manifest</td><td>Keep apply copy if main breaks apply</td></tr>
+<tr><td>URL alias pages</td><td><code>bulk_status.php</code>, <code>exports.php</code>, <code>settings.php</code></td><td>Keep for bookmarks; document in inventory</td><td>Restore redirect files if removed</td></tr>
+</table>
+
+<h2>3. Dead / low-traffic code</h2>
+<table>
+<tr><th>File</th><th>Status</th><th>Evidence</th></tr>
+<tr><td><code>getEventSigninUrl()</code></td><td>Deprecated, zero callers</td><td><code>includes/attendance-repository.php</code></td></tr>
+<tr><td><code>getAdminSettingsNavItems()</code></td><td>Deprecated, zero callers</td><td><code>includes/admin/admin-nav.php</code></td></tr>
+<tr><td><code>getAutoApprovalMode()</code></td><td>Defined, never called</td><td><code>includes/feature-flags.php</code></td></tr>
+<tr><td><code>api/roster-check.php</code></td><td>Ops-only, no UI consumer</td><td>Deploy manifest only</td></tr>
+<tr><td><code>wizard-screenshot-preview.php</code></td><td>Dev/QA only</td><td>Not in admin nav</td></tr>
+</table>
+
+<h2>4. Legacy code patterns</h2>
+<ul class="compact">
+<li><strong>Dual registration UI</strong> — <code>index.php</code> loads legacy JS always + wizard modules when flag ON</li>
+<li><strong>Legacy 100 m geofence</strong> — <code>EVENT_SIGNIN_RADIUS_LEGACY_M</code> when GPS flag OFF</li>
+<li><strong>Legacy work types</strong> — <code>getLegacyWorkTypeOptions()</code> fallback</li>
+<li><strong>Three sign-in stacks</strong> — token, email, venue QR</li>
+<li><strong>Runtime schema ensure</strong> — <code>ensure*Schema()</code> compensates for missed migrations</li>
+</ul>
+
+<h2>5. Unused assets</h2>
+<table>
+<tr><th>File</th><th>References</th><th>Risk if removed</th></tr>
+<tr><td><code>assets/css/home.css</code></td><td>0 loads (uses <code>home-premium.css</code>)</td><td>Low — verify no CDN cache</td></tr>
+<tr><td><code>assets/js/location-map.js</code></td><td>0 loads</td><td>Low</td></tr>
+<tr><td><code>assets/js/shift-calendar.js</code></td><td>0 loads; exports unused API</td><td>Low</td></tr>
+<tr><td><code>assets/css/ops-ui.css</code></td><td>Flag references; file missing</td><td>N/A — never existed</td></tr>
+</table>
+<p><strong>Rollback:</strong> Restore from git if any asset removal breaks an undocumented consumer.</p>
+
+<h2>6. Duplicate attendance logic</h2>
+<table>
+<tr><th>Layer</th><th>Files</th></tr>
+<tr><td>Canonical write</td><td><code>recordCheckin()</code> in <code>attendance-repository.php</code></td></tr>
+<tr><td>GPS Phase 1</td><td><code>attendance-gps-phase1.php</code></td></tr>
+<tr><td>GPS Phase 1.5</td><td><code>attendance-gps-phase15.php</code>, <code>attendance-gps-ping.php</code></td></tr>
+<tr><td>Geofence</td><td><code>maps.php</code> (server) + <code>event-sign-location.js</code> (client UX)</td></tr>
+<tr><td>Work hours</td><td><code>work-hours-repository.php</code></td></tr>
+<tr><td>Entry points</td><td>4 paths (venue, token, scan, admin) — consolidated behind flag except venue</td></tr>
+</table>
+
+<h2>7. Duplicate registration logic</h2>
+<table>
+<tr><th>Concern</th><th>Locations</th></tr>
+<tr><td>Client validation</td><td><code>registration-wizard-validation.js</code> + server <code>validation.php</code></td></tr>
+<tr><td>Returning user</td><td><code>returning-registrant.js</code> + <code>registration-wizard-returning.js</code></td></tr>
+<tr><td>Financial fields</td><td><code>financial-field-validation.js</code> (wizard only) + PHP server</td></tr>
+<tr><td>Submit</td><td>Single <code>submit.php</code> (good — no duplicate POST handlers)</td></tr>
+</table>
+
+<h2>8. Obsolete / stub feature flags</h2>
+<p>10 of 14 flags have <strong>no</strong> <code>isFeatureEnabled()</code> usage in application code:</p>
+<table>
+<tr><th>Flag</th><th>Runtime use</th></tr>
+<tr><td><code>feature_registration_wizard_v2</code></td><td>Yes</td></tr>
+<tr><td><code>feature_public_premium_v2</code></td><td>Yes</td></tr>
+<tr><td><code>feature_gps_attendance_v2</code></td><td>Yes</td></tr>
+<tr><td><code>feature_auto_approval</code></td><td>UI only — no engine</td></tr>
+<tr><td>All others (ops_ui, command_center, event_hub, live_ops, unified_inbox, trust_scores, client_portal, system_health, staff_pwa, ai_ops)</td><td>No implementation</td></tr>
+</table>
+<p><strong>Rollback:</strong> Flags default OFF; hiding from admin UI is a doc-only change until implementations exist.</p>
+
+<h2>9. Documentation debt</h2>
+<ul class="compact">
+<li><code>docs/EVERYTHING.html</code> (~3,500 lines) duplicates PLATFORM-DOCUMENTATION, UX-MASTER-PLAN, ADMIN-PAGE-INVENTORY</li>
+<li>HTML + PDF pairs for most major docs (intentional exports)</li>
+<li>5+ email investigation reports; 6+ returning-user reports; 5+ GPS reports</li>
+<li><strong>Recommendation:</strong> Archive closed investigations; keep master docs + progress tracker</li>
+</ul>
+
+<h2>10. Recommended cleanup order (future sessions)</h2>
+<ol class="compact">
+<li>Consolidate sign-in to venue QR path when GPS v2 stable (keep token path for flag OFF)</li>
+<li>Stop loading <code>returning-registrant.js</code> when wizard flag ON</li>
+<li>Wire or remove orphan JS/CSS</li>
+<li>Implement or hide stub feature flags</li>
+<li>Add auth token to <code>attendance-gps-ping.php</code> before Phase 2</li>
+<li>Archive superseded investigation HTML after sign-off</li>
+</ol>
+
+<p class="meta">Each cleanup item should ship behind feature flags or as isolated PRs with rollback documented.</p>
+</body>
+</html>

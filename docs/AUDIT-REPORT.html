@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Production Audit Report — Olasentra Event Staff System</title>
+    <style>
+        @page { size: A4; margin: 14mm 12mm; }
+        body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 9pt; line-height: 1.4; color: #0f172a; margin: 0; padding: 16px; }
+        h1 { font-size: 16pt; color: #1e1b4b; margin: 0 0 6px; }
+        h2 { font-size: 11pt; margin: 16px 0 6px; padding: 5px 10px; background: #1e293b; color: #fff; border-radius: 4px; page-break-after: avoid; }
+        h3 { font-size: 9.5pt; margin: 10px 0 4px; color: #4338ca; }
+        .meta { font-size: 8pt; color: #64748b; margin-bottom: 12px; }
+        table { width: 100%; border-collapse: collapse; margin: 6px 0 10px; font-size: 7.5pt; }
+        th { background: #334155; color: #f8fafc; text-align: left; padding: 4px 5px; }
+        td { border-bottom: 1px solid #e2e8f0; padding: 4px 5px; vertical-align: top; }
+        tr:nth-child(even) td { background: #f8fafc; }
+        ul, ol { margin: 4px 0 8px; padding-left: 18px; }
+        li { margin: 2px 0; }
+        code { font-size: 7pt; background: #f1f5f9; padding: 1px 3px; border-radius: 2px; }
+        pre { background: #f1f5f9; padding: 8px; font-size: 7pt; border-radius: 4px; overflow-wrap: break-word; }
+        .fixed { color: #15803d; font-weight: 600; }
+        .open { color: #b91c1c; font-weight: 600; }
+        .page-break { page-break-before: always; }
+    </style>
+</head>
+<body>
+<h1>Olasentra Event Staff System — Production Audit Report</h1>
+<p class="meta"><strong>Date:</strong> 2026-06-06 &nbsp;|&nbsp; <strong>Scope:</strong> olasentra.com ecosystem &nbsp;|&nbsp; <strong>Stack:</strong> Custom PHP 8.x + MySQL</p>
+
+<h2>Executive Summary</h2>
+<p>Live production is <strong>operational</strong>: health API reports DB/storage OK; Nick Cave event shows 36 registrations (35 approved). Critical staff-list bug (empty "All roles" filtering to DSP only) was fixed.</p>
+<p>This audit applied safe hardening without removing business functionality. High-priority items remain: apply admin CSRF, registrant API rate limits, migration pipeline.</p>
+
+<h2>A. Critical Issues</h2>
+<table>
+    <tr><th>#</th><th>Issue</th><th>Status</th></tr>
+    <tr><td>1</td><td>Staff list "All roles" silently filtered staff_role=dsp</td><td class="fixed">Fixed</td></tr>
+    <tr><td>2</td><td>Unauthenticated DB diagnostic database/tmp-venue-check.php</td><td class="fixed">Quarantined + blocked</td></tr>
+    <tr><td>3</td><td>Dev scripts under /scripts/ web-accessible</td><td class="fixed">Blocked + quarantined</td></tr>
+    <tr><td>4</td><td>api/registrant-lookup.php returns PII by email only</td><td class="open">Open — add rate limit</td></tr>
+    <tr><td>5</td><td>apply/admin/update-details.php weak upload validation</td><td class="open">Open</td></tr>
+    <tr><td>6</td><td>Apply admin has no CSRF on POST forms</td><td class="open">Open</td></tr>
+</table>
+
+<h2>B. Bugs Fixed</h2>
+<ol>
+    <li>Role filter bug — normalizeStaffRole('') returned dsp</li>
+    <li>Staff pagination — 50/page, per-page selector</li>
+    <li>Diagnostic exposure — quarantined to storage/quarantine/2026-06-06-audit/</li>
+    <li>Apache hardening — deny database/, scripts/, vendor/</li>
+    <li>Upload directory — uploads/.htaccess blocks script execution</li>
+    <li>roster-check API — diagnostics hidden on production</li>
+</ol>
+
+<h2>C. Security Issues</h2>
+<h3>Fixed / mitigated</h3>
+<ul>
+    <li>Root .htaccess blocks includes/, storage/, database/, scripts/, vendor/</li>
+    <li>config.php denied via FilesMatch</li>
+    <li>Main admin: CSRF, login lockout, capability-based auth</li>
+    <li>PDO prepared statements; EMULATE_PREPARES false in production</li>
+</ul>
+<h3>Remaining (prioritized)</h3>
+<table>
+    <tr><th>Priority</th><th>Item</th></tr>
+    <tr><td>HIGH</td><td>Add CSRF tokens to apply admin</td></tr>
+    <tr><td>HIGH</td><td>Harden apply/admin/update-details.php uploads</td></tr>
+    <tr><td>HIGH</td><td>Set explicit APPLY_SSO_SECRET / cron keys</td></tr>
+    <tr><td>HIGH</td><td>Rate-limit api/registrant-lookup.php</td></tr>
+    <tr><td>MEDIUM</td><td>Apply admin: initSecureSession()</td></tr>
+    <tr><td>MEDIUM</td><td>Convert GET state changes to POST+CSRF</td></tr>
+    <tr><td>LOW</td><td>Remove import-summer-roster.php after import</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2>D. Performance Issues</h2>
+<table>
+    <tr><th>Item</th><th>Recommendation</th></tr>
+    <tr><td>Staff list grouped queries</td><td>Fixed JOIN removal in count query</td></tr>
+    <tr><td>Missing composite indexes</td><td>Add (event_id, status) on staff_registrations</td></tr>
+    <tr><td>LOWER(email) in WHERE</td><td>Normalize emails at insert</td></tr>
+    <tr><td>Runtime ensure*Schema()</td><td>Consolidate migrations 35–47</td></tr>
+</table>
+
+<h2>E. Database Issues</h2>
+<h3>Healthy</h3>
+<ul>
+    <li>FK staff_registrations.event_id → events</li>
+    <li>UNIQUE (email, event_id)</li>
+    <li>Production: 36 registrations event #1 Nick Cave (35 approved)</li>
+</ul>
+<h3>Recommendations</h3>
+<ol>
+    <li>Extend getDatabaseMigrationFiles() to phases 35–47</li>
+    <li>Add FKs: staff_messages.staff_id, personal_invoice_lines, saved_job_records.event_id</li>
+    <li>Backfill NULL staff_registrations.staff_id</li>
+    <li>Periodic reconciliation: staff vs latest registration per email</li>
+</ol>
+
+<h2>F. Files Safe to Remove (after review)</h2>
+<table>
+    <tr><th>Path</th><th>Notes</th></tr>
+    <tr><td>storage/backups/pre-deploy-*.zip (keep latest 3)</td><td>Deploy artifacts</td></tr>
+    <tr><td>import-summer-roster.php</td><td>After roster import</td></tr>
+    <tr><td>database/seed-*.php, database/tmp-*</td><td>Dev only</td></tr>
+</table>
+
+<h2>G. Files Requiring Review</h2>
+<table>
+    <tr><th>Path</th><th>Reason</th></tr>
+    <tr><td>api/registrant-lookup.php</td><td>PII in JSON response</td></tr>
+    <tr><td>apply/admin/update-details.php</td><td>Public profile + uploads</td></tr>
+    <tr><td>cron/daily-cleanup.php</td><td>Web-accessible with key</td></tr>
+    <tr><td>admin/import-roster.php</td><td>GET-triggered import</td></tr>
+</table>
+
+<h2>H. Changes Made (2026-06-06)</h2>
+<table>
+    <tr><th>File</th><th>Change</th></tr>
+    <tr><td>.htaccess</td><td>Block database/scripts/vendor; HTTPS redirect</td></tr>
+    <tr><td>database/.htaccess, scripts/.htaccess</td><td>Deny all web access</td></tr>
+    <tr><td>uploads/.htaccess</td><td>Block script execution</td></tr>
+    <tr><td>api/roster-check.php</td><td>Hide verbose diagnostics in production</td></tr>
+    <tr><td>includes/staff-repository.php</td><td>Role filter fix</td></tr>
+    <tr><td>admin/staff.php</td><td>Pagination + event flat list</td></tr>
+</table>
+
+<h2>I. Remaining Recommendations</h2>
+<h3>Immediate</h3>
+<ol>
+    <li>Run Admin → Backups → Full backup on production</li>
+    <li>Confirm APP_ENV=production in server config.php</li>
+    <li>Set apply SSO/cron secrets in sso.local.php</li>
+    <li>Add composite index (event_id, status)</li>
+</ol>
+<h3>Short term (1–2 weeks)</h3>
+<ol>
+    <li>CSRF middleware for apply admin</li>
+    <li>Rate limit registrant lookup (10 req/min/IP)</li>
+    <li>Complete migration runner phases 35–47</li>
+</ol>
+
+<h2>J. Final Verification Checklist</h2>
+<table>
+    <tr><th>Test</th><th>Expected</th></tr>
+    <tr><td>Admin login</td><td>admin.olasentra.com/login.php</td></tr>
+    <tr><td>Staff list event filter</td><td>36 rows for Nick Cave, all roles</td></tr>
+    <tr><td>Registration form</td><td>register.olasentra.com</td></tr>
+    <tr><td>Health API</td><td>JSON ok</td></tr>
+    <tr><td>Blocked paths</td><td>/database/setup.php → 403/404</td></tr>
+</table>
+
+<p style="font-size:7pt;color:#94a3b8;margin-top:16px;">Report generated during live production audit · Olasentra · Confidential</p>
+</body>
+</html>

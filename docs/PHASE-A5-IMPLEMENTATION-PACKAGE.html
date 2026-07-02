@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Phase A.5 Implementation Package — Final Submit &amp; E2E Hardening</title>
+<style>
+body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; line-height: 1.5; color: #111; }
+h1 { font-size: 1.5rem; }
+h2 { font-size: 1.15rem; margin-top: 2rem; border-bottom: 1px solid #ddd; padding-bottom: 0.25rem; }
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+th, td { border: 1px solid #ccc; padding: 0.5rem 0.75rem; text-align: left; vertical-align: top; }
+th { background: #f3f4f6; }
+code { background: #f3f4f6; padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.9em; }
+.pass { color: #047857; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Phase A.5 — Final Submit &amp; E2E Hardening</h1>
+<p><strong>Status:</strong> <span class="pass">Complete</span> | Flag <code>feature_registration_wizard_v2</code> <strong>OFF</strong></p>
+
+<h2>1. Error recovery (always Step 8)</h2>
+<p>On <code>submit.php</code> validation redirect:</p>
+<ul>
+<li>User lands on <strong>Step 8 Review</strong> (wizard progress preserved via session <code>registration_old</code>)</li>
+<li>Top alert + review error banner list all server errors</li>
+<li>Affected review sections highlighted (<code>reg-review-summary__section--error</code>)</li>
+<li><strong>Fix</strong> buttons jump to the relevant step without clearing data</li>
+<li>PSA file fields: browser cannot restore files; review shows "Re-attach required" + notice</li>
+</ul>
+
+<h2>2. Review summary reliability</h2>
+<ul>
+<li>Selected events from checked inputs OR <code>#shift-picker-list[data-selected]</code> fallback</li>
+<li><code>shiftPickerReady</code> event re-renders review when async events load</li>
+<li>Sections: Role, Events, Contact, Personal, Contact details, Payroll (masked), PSA, Consent</li>
+</ul>
+
+<h2>3. Submit success experience</h2>
+<p><code>includes/public/registration-success-panel.php</code> on <code>status.php</code> after successful submit:</p>
+<ul>
+<li>Registration received + application reference #</li>
+<li>Organiser will review application</li>
+<li>Olasentra is not employer or payroll provider</li>
+</ul>
+
+<h2>4. E2E &amp; QA tooling</h2>
+<table>
+<tr><th>Script</th><th>Purpose</th></tr>
+<tr><td><code>scripts/e2e-registration-wizard-test.php</code></td><td>Fresh email multipart POST + API/DB verification</td></tr>
+<tr><td><code>scripts/verify-phase-a5.ps1</code></td><td>19 static checks</td></tr>
+<tr><td><code>scripts/run-phase-a5-qa.ps1</code></td><td>Static + E2E + screenshots pipeline</td></tr>
+<tr><td><code>wizard-screenshot-preview.php?mode=error</code></td><td>Step 8 error-recovery preview (localhost)</td></tr>
+<tr><td><code>status-screenshot-preview.php</code></td><td>Success confirmation preview (localhost)</td></tr>
+</table>
+
+<h2>5. Verification report</h2>
+<p><code>docs/PHASE-A5-VERIFICATION-REPORT.html</code> — PASS verdict, E2E results, screenshots, rollback notes.</p>
+
+<h2>6. Next</h2>
+<p><strong>Phase A.6</strong> — Auto-save banner polish. Flag remains OFF until A.8.</p>
+</body>
+</html>

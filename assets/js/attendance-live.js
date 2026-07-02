@@ -81,7 +81,9 @@
                 var stats = data.stats || {};
                 setText('live-stat-approved', stats.approved);
                 setText('live-stat-checked-in', stats.checked_in);
-                setText('live-stat-missing', stats.missing);
+                setText('live-stat-awaiting', stats.awaiting != null ? stats.awaiting : stats.missing);
+                setText('live-stat-missing', stats.missing != null ? stats.missing : stats.awaiting);
+                setText('live-stat-no-show', stats.no_show != null ? stats.no_show : 0);
                 setText('live-stat-today', stats.today);
 
                 if (stats.staff_needed !== null && stats.staff_needed !== undefined) {

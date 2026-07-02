@@ -86,7 +86,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <select class="form-select" id="event_id" name="event_id" required>
                     <option value="">Select event…</option>
                     <?php foreach ($events as $ev): ?>
-                        <option value="<?= (int) $ev['id'] ?>"><?= h($ev['name'] . ' — ' . date('d.m.Y', strtotime($ev['event_date']))) ?></option>
+                        <option value="<?= (int) $ev['id'] ?>"><?= h($ev['name'] . ' — ' . formatEventDateLabel((string) $ev['event_date'])) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -159,7 +159,12 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <?php if ($lines === []): ?>
             <p class="form-hint">No staff lines to invoice. Check in staff first via Attendance or Work hours.</p>
         <?php else: ?>
-            <div class="table-wrap" style="margin-top:1.25rem;">
+            <div class="toolbar toolbar--compact invoice-fixed-toolbar" style="margin-top:1.25rem;">
+                <button type="button" class="btn btn--secondary btn--small" id="invoice-fixed-select-all">Select all Fixed</button>
+                <button type="button" class="btn btn--secondary btn--small" id="invoice-fixed-deselect-all">Deselect all Fixed</button>
+                <span class="form-hint" style="margin:0;" id="invoice-fixed-toolbar-hint" aria-live="polite"></span>
+            </div>
+            <div class="table-wrap" style="margin-top:0.5rem;">
                 <table class="data-table invoice-lines-table" id="invoice-lines-table">
                     <thead>
                         <tr>
@@ -169,7 +174,12 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                             <th>Hours billed</th>
                             <th>Rate / hr</th>
                             <th>Amount</th>
-                            <th>Override</th>
+                            <th>
+                                <label class="form-checkbox" style="margin:0;white-space:nowrap;">
+                                    <input type="checkbox" id="invoice-fixed-select-all-head" aria-label="Select all Fixed">
+                                    <span>Fixed</span>
+                                </label>
+                            </th>
                             <th>Note</th>
                         </tr>
                     </thead>
@@ -232,11 +242,111 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <button type="submit" class="btn btn--primary"<?= $lines === [] ? ' disabled' : '' ?>>Save invoice</button>
         </div>
     </form>
+
+    <?php if ($invoice): ?>
+        <form method="post" action="invoice-action.php" class="form-actions form-actions--end" style="margin-top:0.75rem;" onsubmit="return confirm('Replace all lines with staff who actually checked in? Manual edits to lines will be lost.');">
+            <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+            <input type="hidden" name="action" value="reload_checked_in">
+            <input type="hidden" name="invoice_id" value="<?= (int) $invoice['id'] ?>">
+            <input type="hidden" name="event_id" value="<?= (int) $eventId ?>">
+            <button type="submit" class="btn btn--secondary">Reload from checked-in staff</button>
+            <span class="form-hint" style="margin:0;">Syncs with venue check-ins only. Removes no-shows; clears all lines when nobody has signed in.</span>
+        </form>
+
+        <?php
+        $invoiceStatus = (string) ($invoice['status'] ?? 'draft');
+        $canDelete     = in_array($invoiceStatus, ['draft', 'void'], true);
+        ?>
+        <div class="form-actions" style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--admin-border);display:flex;flex-wrap:wrap;gap:0.75rem;align-items:center;">
+            <?php if ($invoiceStatus !== 'void'): ?>
+                <form method="post" action="invoice-action.php" style="margin:0;" onsubmit="return confirm('Mark this commission invoice as void? It will be hidden from normal lists but still linked to this event.');">
+                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                    <input type="hidden" name="action" value="void">
+                    <input type="hidden" name="invoice_id" value="<?= (int) $invoice['id'] ?>">
+                    <input type="hidden" name="event_id" value="<?= (int) $eventId ?>">
+                    <button type="submit" class="btn btn--small btn--danger">Void invoice</button>
+                </form>
+            <?php endif; ?>
+            <?php if ($canDelete): ?>
+                <form method="post" action="invoice-action.php" style="margin:0;" onsubmit="return confirm('Permanently delete this commission invoice? This cannot be undone. You can create a fresh invoice for this event afterwards.');">
+                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="invoice_id" value="<?= (int) $invoice['id'] ?>">
+                    <input type="hidden" name="event_id" value="<?= (int) $eventId ?>">
+                    <button type="submit" class="btn btn--small btn--danger">Delete invoice</button>
+                </form>
+                <span class="form-hint" style="margin:0;">Delete removes the invoice completely so you can start again for this event.</span>
+            <?php else: ?>
+                <span class="form-hint" style="margin:0;">Sent or paid invoices cannot be deleted — use Void to hide from lists.</span>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+
     <?php endif; ?>
 </section>
 
 <?php if ($event && $lines !== []): ?>
-<script src="../assets/js/invoice-form.js"></script>
+<?php
+$invoiceFormJsPath = dirname(__DIR__) . '/assets/js/invoice-form.js';
+$invoiceFormJsVer  = is_file($invoiceFormJsPath) ? (string) filemtime($invoiceFormJsPath) : '1';
+?>
+<script src="<?= h($assetBase) ?>assets/js/invoice-form.js?v=<?= h($invoiceFormJsVer) ?>"></script>
+<script>
+(function () {
+    'use strict';
+    var form = document.getElementById('commission-invoice-form');
+    var table = document.getElementById('invoice-lines-table');
+    var hint = document.getElementById('invoice-fixed-toolbar-hint');
+    if (!form || !table) {
+        return;
+    }
+
+    function rowChecks() {
+        return table.querySelectorAll('.invoice-line__override');
+    }
+
+    function setAll(checked) {
+        var count = 0;
+        rowChecks().forEach(function (cb) {
+            cb.checked = checked;
+            cb.dispatchEvent(new Event('change', { bubbles: true }));
+            count += 1;
+        });
+        var head = document.getElementById('invoice-fixed-select-all-head');
+        if (head) {
+            head.checked = checked;
+            head.indeterminate = false;
+        }
+        if (hint) {
+            hint.textContent = checked
+                ? ('Fixed selected on ' + count + ' row' + (count === 1 ? '' : 's') + '.')
+                : ('Fixed cleared on ' + count + ' row' + (count === 1 ? '' : 's') + ' — amounts recalculate from hours × rate.');
+        }
+        form.dispatchEvent(new CustomEvent('invoice-fixed-bulk-change'));
+    }
+
+    form.addEventListener('click', function (e) {
+        var t = e.target;
+        if (!t || !t.id) {
+            return;
+        }
+        if (t.id === 'invoice-fixed-select-all') {
+            e.preventDefault();
+            setAll(true);
+        } else if (t.id === 'invoice-fixed-deselect-all') {
+            e.preventDefault();
+            setAll(false);
+        }
+    });
+
+    var head = document.getElementById('invoice-fixed-select-all-head');
+    if (head) {
+        head.addEventListener('change', function () {
+            setAll(head.checked);
+        });
+    }
+})();
+</script>
 <?php endif; ?>
 
 <?php include __DIR__ . '/../includes/admin/layout-bottom.php'; ?>

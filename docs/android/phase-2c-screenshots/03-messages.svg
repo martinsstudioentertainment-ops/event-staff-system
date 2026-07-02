@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+  <rect width="390" height="844" fill="#f5f7fb"/>
+  <text x="24" y="48" fill="#1a2744" font-size="22" font-weight="600">Messages</text>
+  <rect x="0" y="100" width="195" height="40" fill="#fff" stroke="#2d6cdf"/>
+  <text x="97" y="126" text-anchor="middle" fill="#2d6cdf" font-size="13" font-weight="600">Inbox (2 unread)</text>
+  <rect x="195" y="100" width="195" height="40" fill="#f5f7fb"/>
+  <text x="292" y="126" text-anchor="middle" fill="#5a6478" font-size="13">Sent</text>
+  <rect x="16" y="160" width="358" height="96" rx="12" fill="#fff" stroke="#d8dee8"/>
+  <text x="32" y="188" fill="#1a2744" font-size="14" font-weight="600">Shift confirmation</text>
+  <text x="32" y="210" fill="#5a6478" font-size="12">Coordinator � Unread � 12 Jun 2026</text>
+  <rect x="16" y="268" width="358" height="96" rx="12" fill="#fff" stroke="#d8dee8"/>
+  <text x="32" y="296" fill="#1a2744" font-size="14">Document reminder</text>
+  <text x="32" y="318" fill="#5a6478" font-size="12">Admin � Read � 10 Jun 2026</text>
+</svg>

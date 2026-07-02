@@ -230,6 +230,7 @@
         if (typeof REGISTRATION_FIELDS !== 'undefined') {
             REGISTRATION_FIELDS.forEach(function (field) {
                 if (field.name === 'gender' || field.name === 'staff_role' || field.name === 'mobile') return;
+                if (field.name === 'email') return;
 
                 const el = document.getElementById(field.name);
                 if (!el || !el.value.trim()) {
@@ -255,8 +256,23 @@
         }
 
         const emailEl = document.getElementById('email');
-        if (emailEl && emailEl.value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailEl.value.trim())) {
+        const effectiveEmail = emailEl && emailEl.value.trim()
+            ? emailEl.value.trim()
+            : (typeof window.RegistrationWizardValidation !== 'undefined'
+                && typeof window.RegistrationWizardValidation.getEffectiveRegistrationEmail === 'function'
+                ? window.RegistrationWizardValidation.getEffectiveRegistrationEmail()
+                : '');
+        if (emailEl && !emailEl.value.trim() && effectiveEmail) {
+            emailEl.value = effectiveEmail;
+        }
+        if (effectiveEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(effectiveEmail)) {
             showFieldError('email', 'Please enter a valid email address.');
+            isValid = false;
+        } else if (document.body.dataset.wizardMode === '1' && !effectiveEmail) {
+            showFieldError('email', 'Email address is required.');
+            isValid = false;
+        } else if (emailEl && emailEl.required && !effectiveEmail) {
+            showFieldError('email', 'Email address is required.');
             isValid = false;
         }
 
@@ -299,8 +315,10 @@
         const checkedShifts = shiftList
             ? shiftList.querySelectorAll('input[name="event_ids[]"]:checked:not(:disabled)')
             : [];
-        if (!shiftList || checkedShifts.length === 0) {
-            showFieldError('event_ids', 'Please tick at least one shift you want to work.');
+        const joinWaitlist = document.getElementById('join_waiting_list');
+        const waitlistOk = joinWaitlist && joinWaitlist.checked;
+        if ((!shiftList || checkedShifts.length === 0) && !waitlistOk) {
+            showFieldError('event_ids', 'Please tick at least one shift, or join the waiting list.');
             isValid = false;
         }
 
@@ -324,7 +342,8 @@
         const psaField = document.getElementById('psa_licence')
             || document.getElementById('status_psa_licence')
             || form.querySelector('input[name="psa_licence"]');
-        if (psaField && psaField.offsetParent !== null) {
+        const psaNeeded = document.body.dataset.psaRequired !== '0';
+        if (psaNeeded && psaField && psaField.offsetParent !== null) {
             const psaErr = typeof psaLicenceError === 'function'
                 ? psaLicenceError(psaField.value, psaField.required)
                 : null;
@@ -334,9 +353,9 @@
             }
         }
 
-        if (document.body.dataset.registrationPage === 'true') {
+        if (document.body.dataset.registrationPage === 'true' && psaNeeded) {
             const psaExpiry = document.getElementById('psa_expiry_date');
-            if (psaExpiry && !psaExpiry.value.trim()) {
+            if (psaExpiry && psaExpiry.required && !psaExpiry.value.trim()) {
                 showFieldError('psa_expiry_date', 'PSA expiry date is required.');
                 isValid = false;
             }
@@ -379,9 +398,14 @@
 
         if (flash === 'success') {
             const count = parseInt(document.body.dataset.registeredCount || '1', 10);
-            const message = count === 1
-                ? 'Registration submitted successfully for 1 event! Your application is pending approval.'
-                : 'Registration submitted successfully for ' + count + ' events! Your applications are pending approval.';
+            const autoApproved = parseInt(document.body.dataset.autoApprovedCount || '0', 10) > 0;
+            const message = autoApproved
+                ? (count === 1
+                    ? 'Registration submitted successfully for 1 event! Your application has been approved.'
+                    : 'Registration submitted successfully for ' + count + ' events! Your applications have been approved.')
+                : (count === 1
+                    ? 'Registration submitted successfully for 1 event! Your application is pending approval.'
+                    : 'Registration submitted successfully for ' + count + ' events! Your applications are pending approval.');
             showAlert(message, 'success');
         } else if (flash === 'db') {
             showAlert('We could not save your registration. Please try again in a few minutes.', 'error');
@@ -439,8 +463,6 @@
             }
             return;
         }
-
-        console.log('[EventStaff] Registration preview:', getFormDataObject(form));
 
         if (alertEl) {
             alertEl.textContent = 'Registration preview saved locally. Use index.php via Laragon to save to the database.';
@@ -529,12 +551,23 @@
     }
 
     async function initRegistrationForm() {
-        const form = document.getElementById('registration-form');
+        const shiftList = document.getElementById('shift-picker-list');
         if (typeof initShiftSelection === 'function') {
-            await initShiftSelection();
+            try {
+                await initShiftSelection();
+            } catch (err) {
+                console.error('[EventStaff] Shift picker failed:', err);
+                if (shiftList) {
+                    shiftList.innerHTML = '<p class="form-hint shift-picker-list--error">Could not load shifts. Please refresh the page.</p>';
+                }
+            }
         } else if (typeof initVenueEventSelection === 'function') {
             await initVenueEventSelection();
+        } else if (shiftList && shiftList.textContent.indexOf('Loading shifts') !== -1) {
+            shiftList.innerHTML = '<p class="form-hint shift-picker-list--error">Could not load shifts. Please refresh the page.</p>';
         }
+
+        const form = document.getElementById('registration-form');
         if (!form) return;
 
         function syncRoleFromFormSlug() {
@@ -546,6 +579,9 @@
             const picked = document.querySelector('input[name="form_slug"]:checked');
             if (picked) {
                 window.REGISTRATION_FORM_SLUG = picked.value;
+            }
+            if (typeof window.syncRegistrationPsaRequirement === 'function') {
+                window.syncRegistrationPsaRequirement();
             }
         }
         document.querySelectorAll('input[name="form_slug"]').forEach(function (el) {
@@ -564,7 +600,10 @@
                 e.preventDefault();
                 var alertEl = document.getElementById('form-alert');
                 if (alertEl) {
-                    alertEl.textContent = 'Please correct the highlighted fields before submitting.';
+                    var consentBox = form.querySelector('input[name="privacy_consent"]');
+                    alertEl.textContent = (consentBox && !consentBox.checked)
+                        ? 'Tick the privacy notice checkbox at the bottom of the review step, then submit again.'
+                        : 'Please correct the highlighted fields before submitting.';
                     alertEl.className = 'alert alert--error alert--visible';
                 }
                 var firstError = form.querySelector('.form-error--visible');
@@ -585,11 +624,27 @@
                     return;
                 }
                 form.dataset.submitting = '1';
-                var regSubmitBtn = form.querySelector('[type="submit"]');
+                var regSubmitBtn = form.querySelector('[type="submit"]') || document.getElementById('reg-wizard-submit');
+                var submitLabel = regSubmitBtn ? (regSubmitBtn.textContent || 'Submit registration') : 'Submit registration';
                 if (regSubmitBtn) {
                     regSubmitBtn.disabled = true;
                     regSubmitBtn.textContent = 'Submitting…';
                 }
+                window.setTimeout(function () {
+                    if (form.dataset.submitting !== '1') {
+                        return;
+                    }
+                    form.dataset.submitting = '';
+                    if (regSubmitBtn) {
+                        regSubmitBtn.disabled = false;
+                        regSubmitBtn.textContent = submitLabel;
+                    }
+                    var alertEl = document.getElementById('form-alert');
+                    if (alertEl) {
+                        alertEl.textContent = 'Submission is taking longer than expected. Please check your connection and try again.';
+                        alertEl.className = 'alert alert--error alert--visible';
+                    }
+                }, 90000);
                 return;
             }
 

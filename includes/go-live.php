@@ -266,6 +266,14 @@ function applyGoLiveSettingsDefaults(PDO $pdo): array
         $fixed[] = 'reminder_cron_key';
     }
 
+    try {
+        require_once __DIR__ . '/google-sheets-auto-worker.php';
+        systemHeartbeatEnsureLoopRunning($pdo);
+        $fixed[] = 'background_heartbeat';
+    } catch (Throwable $e) {
+        error_log('[EventStaff] go-live heartbeat: ' . $e->getMessage());
+    }
+
     $fromEmail = trim(getSetting($pdo, 'mail_from_email', ''));
     if (!filter_var($fromEmail, FILTER_VALIDATE_EMAIL)) {
         $company = trim(getSetting($pdo, 'company_email', ''));

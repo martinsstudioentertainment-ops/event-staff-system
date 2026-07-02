@@ -1,0 +1,1010 @@
+﻿{
+    "restored":  [
+                     {
+                         "file":  "admin/auto-approval.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  6042
+                     },
+                     {
+                         "file":  "admin/backup-download.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  2150
+                     },
+                     {
+                         "file":  "admin/client-centre.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  7076
+                     },
+                     {
+                         "file":  "admin/communication-centre.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  82
+                     },
+                     {
+                         "file":  "admin/communication-hub.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  17082
+                     },
+                     {
+                         "file":  "admin/compliance-audit.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  5377
+                     },
+                     {
+                         "file":  "admin/compliance-centre.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  4260
+                     },
+                     {
+                         "file":  "admin/contract-centre.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  6069
+                     },
+                     {
+                         "file":  "admin/contracts-centre.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  80
+                     },
+                     {
+                         "file":  "admin/data-integrity.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  10573
+                     },
+                     {
+                         "file":  "admin/duplicate-merge.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  11014
+                     },
+                     {
+                         "file":  "admin/event-hub.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  8785
+                     },
+                     {
+                         "file":  "admin/event-rostering.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  13801
+                     },
+                     {
+                         "file":  "admin/events-probe.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  1845
+                     },
+                     {
+                         "file":  "admin/events-sheets-action.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  16531
+                     },
+                     {
+                         "file":  "admin/event-staffing.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  4400
+                     },
+                     {
+                         "file":  "admin/executive-dashboard.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  5940
+                     },
+                     {
+                         "file":  "admin/geo-audits.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  8927
+                     },
+                     {
+                         "file":  "admin/google-sheets-resync.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  3949
+                     },
+                     {
+                         "file":  "admin/incident-centre.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  7398
+                     },
+                     {
+                         "file":  "admin/mobile-api-qa.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  12644
+                     },
+                     {
+                         "file":  "admin/notifications.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  3933
+                     },
+                     {
+                         "file":  "admin/recruitment-centre.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  7664
+                     },
+                     {
+                         "file":  "admin/same-day-conflicts-action.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  1609
+                     },
+                     {
+                         "file":  "admin/settings-email.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  14547
+                     },
+                     {
+                         "file":  "admin/settings-site.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  10638
+                     },
+                     {
+                         "file":  "admin/sheets-queue-ping.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  777
+                     },
+                     {
+                         "file":  "admin/staff-availability.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  8310
+                     },
+                     {
+                         "file":  "admin/staff-documents.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  4249
+                     },
+                     {
+                         "file":  "admin/staff-download-export.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  3848
+                     },
+                     {
+                         "file":  "admin/staff-edit.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  26854
+                     },
+                     {
+                         "file":  "admin/staff-go-live.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  6528
+                     },
+                     {
+                         "file":  "admin/staff-google-signin-diagnostic.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  4648
+                     },
+                     {
+                         "file":  "admin/staff-inbox.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  13265
+                     },
+                     {
+                         "file":  "admin/staff-search.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  7423
+                     },
+                     {
+                         "file":  "admin/training-centre.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  5683
+                     },
+                     {
+                         "file":  "admin/website-global.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  9265
+                     },
+                     {
+                         "file":  "admin/workforce-performance.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  5029
+                     },
+                     {
+                         "file":  "admin/workforce-risk.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  3957
+                     },
+                     {
+                         "file":  "admin/work-hours-action.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  2766
+                     },
+                     {
+                         "file":  "admin-manifest.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  2965
+                     },
+                     {
+                         "file":  "api/psa-licence-verify.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  914
+                     },
+                     {
+                         "file":  "api/pwa-install-event.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  1508
+                     },
+                     {
+                         "file":  "api/registration-google-verify.php",
+                         "source":  "forensic",
+                         "bytes":  2219
+                     },
+                     {
+                         "file":  "api/registration-options.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  1092
+                     },
+                     {
+                         "file":  "api/staff-shift-gps.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  2274
+                     },
+                     {
+                         "file":  "apply/admin/admin/import-applicants.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  6034
+                     },
+                     {
+                         "file":  "apply/admin/admin/payroll.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  10228
+                     },
+                     {
+                         "file":  "apply/admin/admin/psa-compliance.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  12650
+                     },
+                     {
+                         "file":  "apply/admin/assets/css/secure-admin.css",
+                         "source":  "_tmp-restore",
+                         "bytes":  19570
+                     },
+                     {
+                         "file":  "apply/admin/includes/auth.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  2317
+                     },
+                     {
+                         "file":  "apply/admin/includes/import-precheck.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  7735
+                     },
+                     {
+                         "file":  "apply/admin/includes/legacy-public-redirect.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  1646
+                     },
+                     {
+                         "file":  "apply/admin/includes/secure-admin-theme.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  13122
+                     },
+                     {
+                         "file":  "apply/admin/includes/staff-import.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  11191
+                     },
+                     {
+                         "file":  "apply/admin/update-details.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  15059
+                     },
+                     {
+                         "file":  "apply/legacy-root/index.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  167
+                     },
+                     {
+                         "file":  "apply/legacy-root/staff-list.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  99
+                     },
+                     {
+                         "file":  "apply/legacy-root/update-details.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  164
+                     },
+                     {
+                         "file":  "apply/legacy-root/update-profile.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  164
+                     },
+                     {
+                         "file":  "assets/css/admin-sidebar.css",
+                         "source":  "_tmp-restore",
+                         "bytes":  20264
+                     },
+                     {
+                         "file":  "assets/css/admin-v3.css",
+                         "source":  "_tmp-restore",
+                         "bytes":  31747
+                     },
+                     {
+                         "file":  "assets/css/automation-suite.css",
+                         "source":  "_tmp-restore",
+                         "bytes":  2528
+                     },
+                     {
+                         "file":  "assets/css/dashboard-s7-mockup.css",
+                         "source":  "_tmp-restore",
+                         "bytes":  73392
+                     },
+                     {
+                         "file":  "assets/css/notifications.css",
+                         "source":  "_tmp-restore",
+                         "bytes":  8488
+                     },
+                     {
+                         "file":  "assets/css/platform-ops.css",
+                         "source":  "_tmp-restore",
+                         "bytes":  6357
+                     },
+                     {
+                         "file":  "assets/css/pwa-install.css",
+                         "source":  "_tmp-restore",
+                         "bytes":  5600
+                     },
+                     {
+                         "file":  "assets/css/registration-wizard.css",
+                         "source":  "_tmp-restore",
+                         "bytes":  22115
+                     },
+                     {
+                         "file":  "assets/css/staff-app.css",
+                         "source":  "_tmp-restore",
+                         "bytes":  15493
+                     },
+                     {
+                         "file":  "assets/css/staff-profile-v2.css",
+                         "source":  "_tmp-restore",
+                         "bytes":  3850
+                     },
+                     {
+                         "file":  "assets/css/style.css",
+                         "source":  "_tmp-restore",
+                         "bytes":  47662
+                     },
+                     {
+                         "file":  "assets/js/events.js",
+                         "source":  "_tmp-restore",
+                         "bytes":  27233
+                     },
+                     {
+                         "file":  "assets/js/event-sign-location.js",
+                         "source":  "_tmp-restore",
+                         "bytes":  16031
+                     },
+                     {
+                         "file":  "assets/js/staff-shift-gps.js",
+                         "source":  "_tmp-restore",
+                         "bytes":  7202
+                     },
+                     {
+                         "file":  "check-in.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  13598
+                     },
+                     {
+                         "file":  "config.php",
+                         "source":  "ftp-download",
+                         "bytes":  1790
+                     },
+                     {
+                         "file":  "cron/apply-auto-approval-low-threshold.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  2187
+                     },
+                     {
+                         "file":  "cron/attendance-activate.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  1623
+                     },
+                     {
+                         "file":  "cron/create-test-signin-event.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  19503
+                     },
+                     {
+                         "file":  "cron/daily-reminders.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  2902
+                     },
+                     {
+                         "file":  "cron/google-sheets-sync.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  2413
+                     },
+                     {
+                         "file":  "cron/list-events-summary.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  2328
+                     },
+                     {
+                         "file":  "cron/mobile-api-pre-phase2-bootstrap.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  5079
+                     },
+                     {
+                         "file":  "cron/production-test-cleanup.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  3318
+                     },
+                     {
+                         "file":  "cron/production-truth-verify.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  5620
+                     },
+                     {
+                         "file":  "cron/purge-global-test-history.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  8391
+                     },
+                     {
+                         "file":  "cron/rebuild-event-sheets.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  2315
+                     },
+                     {
+                         "file":  "cron/reject-same-day-duplicates.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  2458
+                     },
+                     {
+                         "file":  "cron/restore-shift-attendance.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  4474
+                     },
+                     {
+                         "file":  "cron/signin-attempts-audit.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  11563
+                     },
+                     {
+                         "file":  "cron/sprint66-production-audit.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  3902
+                     },
+                     {
+                         "file":  "cron/sprint66-regenerate-reports.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  2584
+                     },
+                     {
+                         "file":  "cron/venue-signin-gps-audit.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  5412
+                     },
+                     {
+                         "file":  "includes/access-pass-email.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  14076
+                     },
+                     {
+                         "file":  "includes/admin/registration-funnel-widget.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  10341
+                     },
+                     {
+                         "file":  "includes/admin/system-health.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  9174
+                     },
+                     {
+                         "file":  "includes/admin/website-handler.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  8094
+                     },
+                     {
+                         "file":  "includes/admin-login-otp.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  8490
+                     },
+                     {
+                         "file":  "includes/attendance-gps-phase15.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  7969
+                     },
+                     {
+                         "file":  "includes/attendance-gps-signout-schema.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  952
+                     },
+                     {
+                         "file":  "includes/automation/automation-schema.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  3963
+                     },
+                     {
+                         "file":  "includes/automation/clients-repository.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  6777
+                     },
+                     {
+                         "file":  "includes/automation/comms-hub.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  17695
+                     },
+                     {
+                         "file":  "includes/automation/contracts-repository.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  8079
+                     },
+                     {
+                         "file":  "includes/automation/incidents-repository.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  7719
+                     },
+                     {
+                         "file":  "includes/automation/ops-automation.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  7717
+                     },
+                     {
+                         "file":  "includes/automation/payroll-repository.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  5284
+                     },
+                     {
+                         "file":  "includes/automation/recruitment-repository.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  6196
+                     },
+                     {
+                         "file":  "includes/automation/roster-repository.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  14103
+                     },
+                     {
+                         "file":  "includes/automation/staff-portal.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  2596
+                     },
+                     {
+                         "file":  "includes/automation/staff-self-service.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  3794
+                     },
+                     {
+                         "file":  "includes/automation/training-repository.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  6088
+                     },
+                     {
+                         "file":  "includes/background-workers-bootstrap.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  674
+                     },
+                     {
+                         "file":  "includes/go-live.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  18794
+                     },
+                     {
+                         "file":  "includes/google-sheets-queue.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  16258
+                     },
+                     {
+                         "file":  "includes/google-sheets-schedule.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  5796
+                     },
+                     {
+                         "file":  "includes/mobile/controllers/AttendanceController.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  2842
+                     },
+                     {
+                         "file":  "includes/mobile/controllers/AvailabilityController.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  1983
+                     },
+                     {
+                         "file":  "includes/mobile/controllers/ConfigController.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  328
+                     },
+                     {
+                         "file":  "includes/mobile/controllers/DashboardController.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  743
+                     },
+                     {
+                         "file":  "includes/mobile/controllers/EventsController.php",
+                         "source":  "forensic",
+                         "bytes":  1353
+                     },
+                     {
+                         "file":  "includes/mobile/controllers/MessagesController.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  1359
+                     },
+                     {
+                         "file":  "includes/mobile/controllers/NotificationsController.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  1874
+                     },
+                     {
+                         "file":  "includes/mobile/controllers/ProfileController.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  1379
+                     },
+                     {
+                         "file":  "includes/mobile/controllers/PushController.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  1429
+                     },
+                     {
+                         "file":  "includes/mobile/controllers/SyncController.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  844
+                     },
+                     {
+                         "file":  "includes/mobile/mappers/MobileAvailabilityMapper.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  2672
+                     },
+                     {
+                         "file":  "includes/mobile/mappers/MobileDocumentMapper.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  3291
+                     },
+                     {
+                         "file":  "includes/mobile/mappers/MobileNotificationMapper.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  4402
+                     },
+                     {
+                         "file":  "includes/mobile/mappers/MobileShiftStatus.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  3114
+                     },
+                     {
+                         "file":  "includes/mobile/middleware/MobileAuthMiddleware.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  2278
+                     },
+                     {
+                         "file":  "includes/mobile/mobile-api-qa-runner.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  20121
+                     },
+                     {
+                         "file":  "includes/mobile/mobile-api-qa-screenshots.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  12717
+                     },
+                     {
+                         "file":  "includes/mobile/repositories/MobileFcmRepository.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  2482
+                     },
+                     {
+                         "file":  "includes/mobile/services/MobileAttendanceService.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  25091
+                     },
+                     {
+                         "file":  "includes/mobile/services/MobileAvailabilityService.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  10931
+                     },
+                     {
+                         "file":  "includes/mobile/services/MobileDashboardService.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  7678
+                     },
+                     {
+                         "file":  "includes/mobile/services/MobileEventsService.php",
+                         "source":  "ftp-download",
+                         "bytes":  7834
+                     },
+                     {
+                         "file":  "includes/mobile/services/MobileMessageService.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  5928
+                     },
+                     {
+                         "file":  "includes/mobile/services/MobileNotificationService.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  6945
+                     },
+                     {
+                         "file":  "includes/mobile/services/MobileProfileService.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  9815
+                     },
+                     {
+                         "file":  "includes/mobile/services/MobilePushService.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  4276
+                     },
+                     {
+                         "file":  "includes/platform/auto-approval-engine.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  14393
+                     },
+                     {
+                         "file":  "includes/platform/data-integrity.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  32443
+                     },
+                     {
+                         "file":  "includes/platform/data-integrity-reports.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  9495
+                     },
+                     {
+                         "file":  "includes/platform/event-hub.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  4062
+                     },
+                     {
+                         "file":  "includes/platform/google-sheets-control.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  7187
+                     },
+                     {
+                         "file":  "includes/platform/test-data-cleanup.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  9948
+                     },
+                     {
+                         "file":  "includes/psa-licence-verify.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  1762
+                     },
+                     {
+                         "file":  "includes/pwa-install-analytics.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  23761
+                     },
+                     {
+                         "file":  "includes/pwa-push.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  7385
+                     },
+                     {
+                         "file":  "includes/registration-google-gate.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  1740
+                     },
+                     {
+                         "file":  "includes/reminders.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  20029
+                     },
+                     {
+                         "file":  "includes/signin-location-log.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  9756
+                     },
+                     {
+                         "file":  "includes/staff-google-oauth.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  12659
+                     },
+                     {
+                         "file":  "includes/staff-messages-schema.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  1688
+                     },
+                     {
+                         "file":  "includes/staff-messaging.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  4140
+                     },
+                     {
+                         "file":  "includes/staff-portal-session.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  5619
+                     },
+                     {
+                         "file":  "includes/staff-profile-email.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  4522
+                     },
+                     {
+                         "file":  "includes/workforce/compliance-repository.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  5693
+                     },
+                     {
+                         "file":  "includes/workforce/staff-availability.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  5532
+                     },
+                     {
+                         "file":  "includes/workforce/workforce-analytics.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  17831
+                     },
+                     {
+                         "file":  "og-image.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  314
+                     },
+                     {
+                         "file":  "portal/staff-dashboard.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  14063
+                     },
+                     {
+                         "file":  "scripts/admin-production-smoke.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  2771
+                     },
+                     {
+                         "file":  "scripts/batch2-verification.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  3829
+                     },
+                     {
+                         "file":  "scripts/copy-android-launcher-icons.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  1335
+                     },
+                     {
+                         "file":  "scripts/generate-sprint66-reports.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  922
+                     },
+                     {
+                         "file":  "scripts/run-sprint66-production-audit.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  7875
+                     },
+                     {
+                         "file":  "scripts/test-events-page.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  1266
+                     },
+                     {
+                         "file":  "scripts/test-mobile-api-sprint2.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  5428
+                     },
+                     {
+                         "file":  "scripts/test-mobile-api-sprint4.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  2802
+                     },
+                     {
+                         "file":  "scripts/test-mobile-api-sprint5.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  5532
+                     },
+                     {
+                         "file":  "scripts/test-mobile-api-sprint6.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  5153
+                     },
+                     {
+                         "file":  "scripts/test-mobile-config.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  210
+                     },
+                     {
+                         "file":  "scripts/test-settings-email-bootstrap.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  244
+                     },
+                     {
+                         "file":  "staff-google-oauth-callback.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  1946
+                     },
+                     {
+                         "file":  "staff-google-signin.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  415
+                     },
+                     {
+                         "file":  "staff-messages.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  8299
+                     },
+                     {
+                         "file":  "staff-notifications.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  1742
+                     },
+                     {
+                         "file":  "staff-portal.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  170
+                     },
+                     {
+                         "file":  "staff-self-service.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  104
+                     },
+                     {
+                         "file":  "status.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  12106
+                     },
+                     {
+                         "file":  "storage/temp/apply-dashboard-patches.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  1835
+                     },
+                     {
+                         "file":  "storage/temp/debug-ops-patch.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  430
+                     },
+                     {
+                         "file":  "storage/temp/extract-dashboard-patches.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  1289
+                     },
+                     {
+                         "file":  "storage/temp/finish-dashboard-recover.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  14389
+                     },
+                     {
+                         "file":  "sw.js",
+                         "source":  "_tmp-restore",
+                         "bytes":  4378
+                     },
+                     {
+                         "file":  "terms.php",
+                         "source":  "_tmp-restore",
+                         "bytes":  4772
+                     }
+                 ],
+    "no_source_count":  27,
+    "restored_count":  189,
+    "no_source":  [
+                      "_extract_transcripts.js",
+                      "_fix_strings_report.js",
+                      "_reconstruct_manifest.js",
+                      "account-deletion.php",
+                      "admin/mobile-portal.php",
+                      "admin/settings-mobile-portal.php",
+                      "api/mobile-config-probe.php",
+                      "api/mobile-dashboard-probe.php",
+                      "api/probe-dash2.php",
+                      "api/probe-ping.php",
+                      "api/probe-reg-save.php",
+                      "api/probe-reg-submit.php",
+                      "api/probe-staff-full-verify.php",
+                      "api/registration-email-otp-send.php",
+                      "cron/reset-staff-checkins.php",
+                      "includes/footer.php",
+                      "includes/header.php",
+                      "includes/mobile/services/MobilePortalConfigService.php",
+                      "includes/settings.php",
+                      "includes/sidebar.php",
+                      "scripts/backup-events-global.php",
+                      "scripts/diag-otp-send.php",
+                      "scripts/generate-branding-assets.php",
+                      "scripts/generate-play-feature-graphic.php",
+                      "scripts/generate-play-screenshots.php",
+                      "scripts/play-store-graphics-lib.php",
+                      "scripts/test-otp-send-production.php"
+                  ],
+    "still_zero":  [
+                       "_extract_transcripts.js",
+                       "_fix_strings_report.js",
+                       "_reconstruct_manifest.js",
+                       "account-deletion.php",
+                       "admin/mobile-portal.php",
+                       "admin/settings-mobile-portal.php",
+                       "api/mobile-config-probe.php",
+                       "api/mobile-dashboard-probe.php",
+                       "api/probe-dash2.php",
+                       "api/probe-ping.php",
+                       "api/probe-reg-save.php",
+                       "api/probe-reg-submit.php",
+                       "api/probe-staff-full-verify.php",
+                       "api/registration-email-otp-send.php",
+                       "cron/reset-staff-checkins.php",
+                       "includes/footer.php",
+                       "includes/header.php",
+                       "includes/mobile/services/MobilePortalConfigService.php",
+                       "includes/settings.php",
+                       "includes/sidebar.php",
+                       "scripts/backup-events-global.php",
+                       "scripts/diag-otp-send.php",
+                       "scripts/generate-branding-assets.php",
+                       "scripts/generate-play-feature-graphic.php",
+                       "scripts/generate-play-screenshots.php",
+                       "scripts/play-store-graphics-lib.php",
+                       "scripts/test-otp-send-production.php"
+                   ],
+    "still_zero_count":  27
+}

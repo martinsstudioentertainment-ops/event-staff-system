@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roadmap 2026 Q3–Q4</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.84rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.p1{background:#dbeafe}.p2{background:#fef3c7}.p3{background:#d1fae5}
+.meta{color:#64748b;font-size:.9rem}
+</style>
+</head>
+<body>
+
+<h1>Roadmap 2026 Q3–Q4</h1>
+<p class="meta">Generated 7 June 2026 · Effort estimates for planning · All items require production verification gates</p>
+
+<h2>1. Priority stack</h2>
+<table>
+<tr><th>#</th><th>Initiative</th><th>Effort</th><th>Dependencies</th><th>Rollback</th></tr>
+<tr class="p1"><td>1</td><td><strong>GPS Phase 1.5 verification</strong></td><td>2–3 days ops + QA</td><td>Migrations 52–53; code deployed</td><td>Flag OFF</td></tr>
+<tr class="p2"><td>2</td><td><strong>GPS Phase 2</strong> — heartbeat, auto sign-out</td><td>2–3 weeks dev</td><td>1.5 verified; ping API hardened</td><td>Flag OFF; rollback phase 53+</td></tr>
+<tr class="p3"><td>3</td><td><strong>GPS Phase 3</strong> — live dashboard colours</td><td>1–2 weeks</td><td>Phase 2 statuses stable</td><td>Flag OFF; UI revert</td></tr>
+<tr><td>4</td><td><strong>Homepage Phase B</strong></td><td>1–2 weeks</td><td><code>PHASE-B-PUBLIC-PLATFORM-AUDIT.html</code></td><td><code>feature_public_premium_v2</code> OFF</td></tr>
+<tr><td>5</td><td><strong>Fraud Phase F</strong> — flag-only queue</td><td>2+ weeks</td><td>Phase 4 GPS logs preferred</td><td>Shadow mode first</td></tr>
+<tr><td>6</td><td><strong>Reporting improvements</strong></td><td>1 week</td><td>Attendance status columns (Phase 2+)</td><td>Export-only changes</td></tr>
+<tr><td>7</td><td><strong>Admin UX improvements</strong></td><td>Ongoing</td><td>Stub flags implemented or hidden</td><td>Per-page flag</td></tr>
+</table>
+
+<h2>2. GPS program timeline</h2>
+<pre style="background:#f8fafc;padding:1rem;border-radius:8px;font-size:.82rem">
+Jun 2026   Phase 1 + 1.5 code complete → production pilot
+Jul 2026   Phase 1.5 verified → Phase 2 dev + pilot event
+Aug 2026   Phase 2 verified → Phase 3 dashboard
+Sep 2026   Phase 4 audit log + retention policy
+Q4 2026    Phase 5 fraud queue (shadow mode)
+</pre>
+
+<h2>3. Security hardening (parallel track)</h2>
+<table>
+<tr><th>Item</th><th>Effort</th><th>Blocks</th></tr>
+<tr><td>registrant-lookup protection</td><td>3–5 days</td><td>None — do before marketing push</td></tr>
+<tr><td>attendance-gps-ping auth token</td><td>2 days</td><td>Phase 2</td></tr>
+<tr><td>Apply CSRF</td><td>3 days</td><td>None</td></tr>
+<tr><td>staff-profile CSRF</td><td>1 day</td><td>None</td></tr>
+</table>
+
+<h2>4. Registration / returning user (deferred)</h2>
+<ul>
+<li>Returning fast-track v2 — design approved; implement after GPS pilot stable</li>
+<li>Wizard flag rollout — keep OFF until A7 mobile QA sign-off complete</li>
+</ul>
+
+<h2>5. Technical debt sprints</h2>
+<table>
+<tr><th>Sprint</th><th>Scope</th><th>Effort</th></tr>
+<tr><td>TD-1</td><td>Orphan assets, git path normalize</td><td>0.5 day</td></tr>
+<tr><td>TD-2</td><td>Sign-in route consolidation (flag-aware)</td><td>2 days</td></tr>
+<tr><td>TD-3</td><td>Feature flag cleanup (hide stubs)</td><td>1 day</td></tr>
+<tr><td>TD-4</td><td>Docs archive policy</td><td>0.5 day</td></tr>
+</table>
+
+<h2>6. Q3–Q4 success criteria</h2>
+<ul>
+<li>GPS v2 pilot event completed with zero payroll disputes</li>
+<li>Critical API findings remediated or accepted with compensating controls</li>
+<li>Phase 50 FKs applied after clean precheck</li>
+<li>No unplanned production downtime from flag toggles</li>
+</ul>
+
+<p class="meta">Update quarterly. See <code>OVERNIGHT-ENGINEERING-SUMMARY.html</code> for immediate next steps.</p>
+</body>
+</html>

@@ -1,0 +1,85 @@
+{
+    "ok": true,
+    "fix": "registration_post_save_fix_1",
+    "run_id": "202606281058548476",
+    "event_id": 11,
+    "open_event_ids": [
+        11,
+        13
+    ],
+    "tests": {
+        "steward_web": {
+            "ok": true,
+            "registration_id": 702,
+            "staff_role": "steward",
+            "evidence": {
+                "label": "Steward (web post-save path)",
+                "path": "web_post_save",
+                "admin_notif_before": {
+                    "count": 1,
+                    "ids": [
+                        3894
+                    ]
+                },
+                "admin_notif_after": {
+                    "count": 1,
+                    "ids": [
+                        3894
+                    ]
+                },
+                "idempotent": true
+            }
+        },
+        "psa_web": {
+            "ok": true,
+            "registration_id": 703,
+            "staff_role": "static",
+            "evidence": {
+                "label": "PSA static (web post-save path)",
+                "path": "web_post_save",
+                "admin_notif_before": {
+                    "count": 1,
+                    "ids": [
+                        3895
+                    ]
+                },
+                "admin_notif_after": {
+                    "count": 1,
+                    "ids": [
+                        3895
+                    ]
+                },
+                "idempotent": true
+            }
+        },
+        "mobile_api": {
+            "ok": true,
+            "registration_id": 705,
+            "evidence": {
+                "mobile_result": {
+                    "ok": true,
+                    "message": "Registration submitted for 1 event.",
+                    "registration_ids": [
+                        705
+                    ],
+                    "count": 1
+                },
+                "admin_notif_first": {
+                    "count": 1,
+                    "ids": [
+                        3896
+                    ]
+                },
+                "admin_notif_repeat": {
+                    "count": 1,
+                    "ids": [
+                        3896
+                    ]
+                },
+                "event_id": 13
+            }
+        }
+    },
+    "cleanup": "/cron/verify-registration-post-save-fix.php?key=…&cleanup=1&run_id=202606281058548476",
+    "verdict": "FIX_1_PASS"
+}

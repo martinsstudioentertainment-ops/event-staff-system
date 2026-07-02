@@ -4,6 +4,7 @@ require_once __DIR__ . '/venues-repository.php';
 require_once __DIR__ . '/registration-forms.php';
 require_once __DIR__ . '/events-repository.php';
 require_once __DIR__ . '/event-capacity.php';
+require_once __DIR__ . '/validation.php';
 
 /**
  * Active events + venues for a registration form (venue-first UI).
@@ -99,6 +100,7 @@ function getRegistrationOptionsForForm(PDO $pdo, string $formSlug): array
                 $workTypes
             ),
         ],
+        'genders'         => getRegistrationGenderOptions(),
         'venues'          => $venues,
         'eventsByVenue'   => $eventsByVenue,
         'unassignedVenue' => $unassignedVenue,
@@ -159,7 +161,7 @@ function formatRegistrationEvent(array $event): array
         'mainSecurityCompany' => formatEventMainSecurityLabel($event),
         'rolesLabel'          => formatEventRolesNeededDisplay($event),
         'rolesNeeded'         => normalizeRolesNeeded($event),
-        'date'                => $sortDate !== '' ? date('d.m.Y', strtotime($sortDate)) : '',
+        'date'                => $sortDate !== '' ? formatEventDateLabel($sortDate) : '',
         'sortDate'            => $sortDate,
         'openForRegistration' => true,
         'workType'            => (string) ($event['work_type'] ?? 'special_event'),

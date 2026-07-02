@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anti-Fraud Protection Review — Olasentra Registration</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#111}
+h1{font-size:1.6rem} h2{font-size:1.15rem;margin-top:2.25rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+h3{font-size:1rem;margin-top:1.25rem;color:#334155}
+.meta{color:#64748b;font-size:.9rem}
+.badge{display:inline-block;padding:.2rem .65rem;border-radius:6px;font-weight:700;font-size:.82rem}
+.badge.ok{background:#dcfce7;color:#166534}.badge.partial{background:#fef3c7;color:#92400e}.badge.gap{background:#fee2e2;color:#991b1b}
+.badge.low{background:#e0f2fe;color:#0369a1}.badge.med{background:#fef3c7;color:#b45309}.badge.high{background:#fee2e2;color:#b91c1c}
+.verdict{margin:1.5rem 0;padding:1rem 1.15rem;border-radius:10px;border:1px solid #fcd34d;background:#fffbeb}
+.warn-box{margin:1rem 0;padding:.85rem 1rem;border-radius:8px;border:1px solid #fca5a5;background:#fef2f2;font-size:.92rem}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.86rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+code{background:#f1f5f9;padding:.1rem .3rem;border-radius:3px;font-size:.84em}
+ul.compact li{margin:.3rem 0}
+.roadmap{display:grid;gap:.75rem;margin:1rem 0}
+.phase{border:1px solid #e2e8f0;border-radius:10px;padding:.85rem 1rem;background:#f8fafc}
+.phase strong{color:#1e40af}
+.score-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.75rem;margin:1.25rem 0}
+.score-card{padding:1rem;border-radius:10px;border:1px solid #e2e8f0;text-align:center}
+.score-card strong{display:block;font-size:1.5rem}
+.mermaid-note{font-size:.85rem;color:#64748b;font-style:italic}
+</style>
+</head>
+<body>
+
+<h1>Anti-Fraud Protection Review</h1>
+<p class="meta">Olasentra Registration (register.olasentra.com) | Phase A.7 addendum | Generated 2026-06-06 | <strong>Review only — no enforcement implemented</strong></p>
+
+<div class="verdict">
+<strong>Executive summary:</strong> The platform has <em>solid baseline protections</em> against the most common duplicate-application scenario (same email + same event) and blocks blacklisted staff. However, <em>cross-identity fraud</em> (same person, different email), <em>device/session velocity</em>, <em>payroll detail sharing</em>, and <em>proactive PSA duplicate detection</em> are largely unmonitored. Recommended approach: <strong>Shadow Mode</strong> — compute risk scores and queue flags for admin review without auto-rejecting applicants.
+</div>
+
+<div class="warn-box">
+<strong>Production rule (approved for this review):</strong> Do not automatically reject applicants. Initial deployment must be <strong>Shadow Mode only</strong> — flag suspicious records for admin review. Live blocking requires separate approval after shadow metrics are validated.
+</div>
+
+<h2>Overall risk assessment</h2>
+<div class="score-grid">
+<div class="score-card"><strong class="badge partial">MEDIUM</strong><span>Overall fraud exposure</span></div>
+<div class="score-card"><strong class="badge ok">LOW</strong><span>Same-email duplicate apps</span></div>
+<div class="score-card"><strong class="badge high">HIGH</strong><span>Multi-account / alias email</span></div>
+<div class="score-card"><strong class="badge med">MEDIUM</strong><span>Payroll identity reuse</span></div>
+<div class="score-card"><strong class="badge med">MEDIUM</strong><span>Velocity / bot abuse</span></div>
+<div class="score-card"><strong class="badge partial">MEDIUM</strong><span>PSA compliance gaps</span></div>
+</div>
+
+<h2>1. Duplicate registrations</h2>
+<table>
+<thead><tr><th>Identifier</th><th>Current protection</th><th>Status</th><th>Gap</th></tr></thead>
+<tbody>
+<tr>
+<td><strong>Same email</strong></td>
+<td>DB unique <code>uq_staff_email_event (email, event_id)</code>; <code>getAlreadyRegisteredEvents()</code> in <code>submit.php</code>; <code>staff.email</code> UNIQUE; one staff row via <code>ensureStaffRecordForEmail()</code></td>
+<td><span class="badge ok">Protected</span></td>
+<td>None for same-email path</td>
+</tr>
+<tr>
+<td><strong>Same phone</strong></td>
+<td>Format validation only; no cross-record lookup</td>
+<td><span class="badge gap">Gap</span></td>
+<td>Different emails can share one mobile — no flag</td>
+</tr>
+<tr>
+<td><strong>Same PPS</strong></td>
+<td>Format validation; stored on <code>staff_registrations</code> + <code>staff</code>; no uniqueness index</td>
+<td><span class="badge gap">Gap</span></td>
+<td>Second account with new email + same PPS undetected</td>
+</tr>
+<tr>
+<td><strong>Same PSA number</strong></td>
+<td>Format check <code>EM######/##</code>; index <code>idx_psa_licence</code> on staff; Apply PSA sync normalises TEMP licences</td>
+<td><span class="badge partial">Partial</span></td>
+<td>No submit-time duplicate PSA query; no cross-email alert</td>
+</tr>
+<tr>
+<td><strong>Same IBAN</strong></td>
+<td>IBAN mod-97 validation; no duplicate lookup</td>
+<td><span class="badge gap">Gap</span></td>
+<td>Shared payroll account across identities not flagged</td>
+</tr>
+<tr>
+<td><strong>Same date of birth</strong></td>
+<td>Required field; no fuzzy match or cross-field scoring</td>
+<td><span class="badge gap">Gap</span></td>
+<td>DOB alone weak signal; useful only combined with name/PPS</td>
+</tr>
+</tbody>
+</table>
+
+<h3>Recommendations (shadow mode)</h3>
+<ul class="compact">
+<li>Add <code>registration_fraud_signals</code> table (or extend audit log) written on every successful <code>submit.php</code> save — never blocks submit in shadow mode.</li>
+<li>Normalise and hash sensitive fields (PPS, IBAN last 4, PSA, mobile E.164) for lookup; store raw values only where already required for payroll.</li>
+<li>Run duplicate queries: <em>“another staff row exists with same normalised PPS / PSA / IBAN / mobile?”</em> → flag <code>duplicate_identity</code>.</li>
+<li>Composite match: same <code>surname + first_name + date_of_birth</code> with different email → flag <code>probable_same_person</code>.</li>
+<li>Surface flags on admin Fraud Queue (Section 7) — status <code>review_required</code>, not <code>rejected</code>.</li>
+</ul>
+
+<h2>2. Multiple applications</h2>
+<table>
+<thead><tr><th>Scenario</th><th>Current behaviour</th><th>Status</th></tr></thead>
+<tbody>
+<tr>
+<td>Same person, same event, same email</td>
+<td>Server blocks insert; wizard shows <strong>Already Registered</strong> on event card (<code>reg-event-card--registered</code>); client tip + <code>duplicate_application_prevented</code> analytics event; partial submit skips duplicates and continues new events</td>
+<td><span class="badge ok">Protected</span></td>
+</tr>
+<tr>
+<td>Same person, same event, different email</td>
+<td>No cross-email event check; could register twice for same event under two emails if PPS/identity differs in form</td>
+<td><span class="badge gap">Gap</span></td>
+</tr>
+<tr>
+<td>Same person, multiple accounts</td>
+<td><code>staff.email</code> UNIQUE prevents duplicate staff <em>rows</em> per email; does not prevent intentional multi-email accounts</td>
+<td><span class="badge partial">Partial</span></td>
+</tr>
+<tr>
+<td>Blacklisted person re-applies</td>
+<td><code>validateStaffNotBlacklisted()</code> in <code>submit.php</code> blocks by email; 3-strike no-show auto-blacklist in <code>staff-blacklist.php</code></td>
+<td><span class="badge ok">Protected</span></td>
+</tr>
+</tbody>
+</table>
+
+<h3>Recommendations</h3>
+<ul class="compact">
+<li>Keep <strong>Already Registered</strong> UX (working in wizard Step 2 via <code>registered_event_ids</code> from <code>api/registrant-lookup.php</code>).</li>
+<li>Add server-side shadow check: if PPS or PSA matches existing staff with different email → flag, still allow submit in shadow mode.</li>
+<li>Consider copy change: <strong>Already Applied</strong> (user requirement) — alias of current “Already Registered” label in <code>events.js</code> / wizard cards.</li>
+<li>Do <strong>not</strong> create duplicate <code>staff_registrations</code> rows — current unique constraint is correct; extend with identity signals only.</li>
+</ul>
+
+<h2>3. Device &amp; session monitoring</h2>
+<table>
+<thead><tr><th>Signal</th><th>Current state</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>Device fingerprint</td><td>Not collected on registration</td><td><span class="badge gap">Gap</span></td></tr>
+<tr><td>Browser signature</td><td><code>user_agent</code> stored for PWA push only; not on registration submit</td><td><span class="badge gap">Gap</span></td></tr>
+<tr><td>IP address</td><td>Captured for admin audit log, website visitor tracking (<code>includes/website-visitor-tracking.php</code>), geo cache — <strong>not linked to registration submissions</strong></td><td><span class="badge partial">Partial</span></td></tr>
+<tr><td>Country</td><td>Geo lookup exists for visitor IPs (<code>ip_geo_cache</code>); not on registration</td><td><span class="badge gap">Gap</span></td></tr>
+<tr><td>Repeated registrations same device</td><td>Wizard analytics session ID (server session) tracks funnel only; no device persistence across sessions</td><td><span class="badge gap">Gap</span></td></tr>
+<tr><td>localStorage draft</td><td>Per-browser autosave — not a fraud signal, useful for resume only</td><td><span class="badge ok">N/A</span></td></tr>
+</tbody>
+</table>
+
+<h3>Recommendations</h3>
+<ul class="compact">
+<li>On submit (shadow): persist <code>ip_address</code>, <code>user_agent</code>, <code>accept_language</code>, optional lightweight fingerprint (e.g. FingerprintJS open-source or self-hosted hash of canvas/timezone/UA — privacy review required).</li>
+<li>Store <code>registration_session_id</code> (existing analytics SID) + optional <code>device_hash</code> on each registration row or child <code>registration_submit_meta</code> table.</li>
+<li>Velocity rules (shadow flags): &gt;5 submissions / IP / 24h; &gt;3 distinct emails / device_hash / 7d.</li>
+<li>Reuse existing geo pipeline from <code>website-visitor-tracking.php</code> for country/region on submit IP.</li>
+<li>GDPR: document in Privacy Notice; retention 90 days for fraud meta; no fingerprinting without consent banner update.</li>
+</ul>
+
+<h2>4. Fraud risk scoring</h2>
+<p>Proposed model — <strong>shadow only</strong>, scores stored on each submission; applicants always proceed unless separate policy approved later.</p>
+
+<table>
+<thead><tr><th>Tier</th><th>Score range</th><th>Example factors</th><th>Shadow action</th></tr></thead>
+<tbody>
+<tr>
+<td><span class="badge low">Low Risk</span></td>
+<td>0–25</td>
+<td>Returning email with clean history; no duplicate fields; single event; domestic IP</td>
+<td>Log only; no queue entry</td>
+</tr>
+<tr>
+<td><span class="badge med">Medium Risk</span></td>
+<td>26–60</td>
+<td>Disposable email domain; PSA shared with 1 other staff; &gt;2 events in one submit; rapid resubmit within 2 min</td>
+<td>Fraud Queue — <em>optional review</em></td>
+</tr>
+<tr>
+<td><span class="badge high">High Risk</span></td>
+<td>61–100</td>
+<td>PPS or IBAN match different email; &gt;3 accounts same device; VPN/datacenter IP (if detectable); failed validation burst then success</td>
+<td>Fraud Queue — <em>review required</em> (still not auto-reject)</td>
+</tr>
+</tbody>
+</table>
+
+<h3>Proposed scoring weights (configurable)</h3>
+<table>
+<thead><tr><th>Factor</th><th>Points</th><th>Detectable today?</th></tr></thead>
+<tbody>
+<tr><td>Duplicate PPS (different email)</td><td>+35</td><td>After query added</td></tr>
+<tr><td>Duplicate PSA licence</td><td>+30</td><td>After query added</td></tr>
+<tr><td>Duplicate IBAN</td><td>+30</td><td>After query added</td></tr>
+<tr><td>Duplicate mobile</td><td>+20</td><td>After normalise E.164</td></tr>
+<tr><td>Disposable email domain</td><td>+25</td><td>Blocklist file</td></tr>
+<tr><td>Same device, 3+ emails (7d)</td><td>+25</td><td>After device meta</td></tr>
+<tr><td>Same IP, 5+ registrations (24h)</td><td>+20</td><td>After IP logging</td></tr>
+<tr><td>Rapid submit (&lt;60s after page load)</td><td>+10</td><td>Analytics timestamp delta</td></tr>
+<tr><td>VPN / hosting ASN</td><td>+15</td><td>External IP intel API (optional)</td></tr>
+<tr><td>Failed submit then success (same session)</td><td>+10</td><td>Session error count</td></tr>
+</tbody>
+</table>
+
+<p>New feature flag (recommended): <code>feature_fraud_shadow_mode</code> — <code>0=off</code>, <code>1=shadow (log+queue)</code>, <code>2=live block</code> (future, not in initial scope).</p>
+
+<h2>5. PSA validation review</h2>
+<table>
+<thead><tr><th>Check</th><th>Current</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>Licence format <code>EM######/##</code></td><td><code>validatePsaLicenceField()</code> on submit</td><td><span class="badge ok">Protected</span></td></tr>
+<tr><td>Expiry date required</td><td>Format validation in <code>validateRegistrationPsa()</code></td><td><span class="badge ok">Protected</span></td></tr>
+<tr><td>Expired PSA card rejected at registration</td><td><strong>Not enforced</strong> — expiry date accepted even if in the past</td><td><span class="badge gap">Gap</span></td></tr>
+<tr><td>PSA photos required</td><td>Front + back upload validated on submit; returning users may use stored images</td><td><span class="badge ok">Protected</span></td></tr>
+<tr><td>Duplicate PSA numbers</td><td>Index exists; no duplicate query at registration</td><td><span class="badge gap">Gap</span></td></tr>
+<tr><td>PSA compliance dashboard</td><td>Apply admin PSA compliance + ops checklist item <code>psa_expiry</code></td><td><span class="badge partial">Partial</span> (post-registration, manual)</td></tr>
+<tr><td>TEMP-PSA placeholders</td><td>Stripped on Apply sync (<code>apply_is_temp_psa_licence</code>)</td><td><span class="badge ok">Handled</span></td></tr>
+</tbody>
+</table>
+
+<h3>Recommendations</h3>
+<ul class="compact">
+<li>Shadow flag <code>psa_expired</code> when <code>psa_expiry_date &lt; today</code> (do not block in shadow mode).</li>
+<li>Shadow flag <code>psa_duplicate</code> when licence exists on another <code>staff.id</code>.</li>
+<li>Shadow flag <code>psa_images_missing</code> if submit used stored paths that are empty/pending.</li>
+<li>Link Fraud Queue rows to Apply PSA compliance view for admin follow-up.</li>
+<li>Future (approved separately): soft warning on Step 7 if expiry &lt; 30 days.</li>
+</ul>
+
+<h2>6. Application velocity monitoring</h2>
+<table>
+<thead><tr><th>Alert condition</th><th>Current</th><th>Recommended threshold (shadow)</th></tr></thead>
+<tbody>
+<tr><td>Many registrations from one IP</td><td>Not monitored</td><td>&gt;5 successful submits / IP / 24h → flag</td></tr>
+<tr><td>Many registrations from one device</td><td>Not monitored</td><td>&gt;3 distinct emails / device_hash / 7d → flag</td></tr>
+<tr><td>Shared payroll details</td><td>Not monitored</td><td>Same normalised IBAN or PPS on &gt;1 staff email → flag</td></tr>
+<tr><td>Registration funnel abuse</td><td><code>registration_abandoned</code> analytics only</td><td>Track failed submit count per session; flag &gt;3 validation failures then success</td></tr>
+</tbody>
+</table>
+
+<h3>Recommendations</h3>
+<ul class="compact">
+<li>Nightly cron <code>cron/fraud-velocity-scan.php</code> aggregating last 24h/7d — email ops if high-risk count &gt; threshold.</li>
+<li>Dashboard widget: “Registrations last 24h by IP top 10” (admin only).</li>
+<li>Correlate with existing <code>storage/analytics/registration-funnel/</code> for step-drop vs submit spikes.</li>
+</ul>
+
+<h2>7. Admin dashboard — Fraud Queue (recommended)</h2>
+<p><strong>Does not exist today.</strong> Recommended new admin page: <code>admin/fraud-queue.php</code> (capability: <code>staff</code> or new <code>fraud_review</code>).</p>
+
+<table>
+<thead><tr><th>Queue column</th><th>Source</th></tr></thead>
+<tbody>
+<tr><td>Applicant name / email</td><td><code>staff_registrations</code> + latest submit</td></tr>
+<tr><td>Risk tier</td><td>Computed score (Low / Medium / High)</td></tr>
+<tr><td>Flags</td><td>e.g. <code>duplicate_pps</code>, <code>shared_iban</code>, <code>velocity_ip</code>, <code>psa_expired</code></td></tr>
+<tr><td>Matched records</td><td>Link to existing staff / registrations with same identifier</td></tr>
+<tr><td>Compliance</td><td>PSA expiry, missing images</td></tr>
+<tr><td>Status</td><td><code>open</code> | <code>reviewed_ok</code> | <code>escalated</code> | <code>blacklist_recommended</code></td></tr>
+<tr><td>Actions</td><td>View staff, merge suggestion (manual), add note, mark reviewed — <strong>no auto-blacklist</strong></td></tr>
+</tbody>
+</table>
+
+<h3>Queue filters</h3>
+<ul class="compact">
+<li><strong>Duplicate registrations</strong> — identity field matches</li>
+<li><strong>Compliance issues</strong> — PSA expired / missing uploads</li>
+<li><strong>Suspicious applications</strong> — score ≥ 61 or velocity flags</li>
+<li><strong>Review required</strong> — all open high + medium items</li>
+</ul>
+
+<p>Integrate with existing <code>admin/blacklist.php</code> — fraud review may <em>recommend</em> blacklist; admin must confirm.</p>
+
+<h2>8. Production rules &amp; shadow mode</h2>
+<table>
+<thead><tr><th>Rule</th><th>Policy</th></tr></thead>
+<tbody>
+<tr><td>Auto-reject applicants</td><td><strong>Forbidden</strong> in initial release</td></tr>
+<tr><td>Shadow mode default</td><td><code>feature_fraud_shadow_mode = 1</code> — log signals, populate queue, zero user-facing change</td></tr>
+<tr><td>User-facing duplicate UX</td><td>Continue showing <strong>Already Registered / Already Applied</strong> for same email + event (not a fraud block)</td></tr>
+<tr><td>Blacklist enforcement</td><td>Keep existing email blacklist on submit (operational, not new fraud module)</td></tr>
+<tr><td>Live block mode</td><td>Requires Phase F sign-off + legal/ops approval</td></tr>
+<tr><td>submit.php changes</td><td>Shadow hook: post-save signal writer only; no change to validation outcome</td></tr>
+</tbody>
+</table>
+
+<h2>Current gaps summary</h2>
+<table>
+<thead><tr><th>Priority</th><th>Gap</th></tr></thead>
+<tbody>
+<tr><td>P1</td><td>No cross-email duplicate detection (PPS, PSA, IBAN, mobile)</td></tr>
+<tr><td>P1</td><td>No registration submit metadata (IP, UA, device)</td></tr>
+<tr><td>P1</td><td>No fraud risk score or admin queue</td></tr>
+<tr><td>P2</td><td>Expired PSA not flagged at registration</td></tr>
+<tr><td>P2</td><td>No disposable email detection</td></tr>
+<tr><td>P2</td><td>No velocity alerting</td></tr>
+<tr><td>P3</td><td>VPN/proxy detection not integrated</td></tr>
+<tr><td>P3</td><td>DOB + name fuzzy matching not implemented</td></tr>
+</tbody>
+</table>
+
+<h2>Implementation roadmap</h2>
+<p class="mermaid-note">No code from this roadmap should ship until this review is approved.</p>
+
+<div class="roadmap">
+<div class="phase">
+<strong>Phase F1 — Shadow foundation (2–3 days)</strong>
+<ul class="compact">
+<li>Add <code>feature_fraud_shadow_mode</code> flag (default OFF)</li>
+<li>Migration: <code>registration_fraud_signals</code> + <code>registration_submit_meta</code> tables</li>
+<li>Post-save hook in <code>submit.php</code> (after successful save only) — write IP, UA, session id</li>
+<li>Duplicate queries for normalised PPS, PSA, IBAN, mobile</li>
+<li>Compute score; insert signal row; never alter HTTP response</li>
+</ul>
+</div>
+<div class="phase">
+<strong>Phase F2 — Scoring &amp; velocity (2–3 days)</strong>
+<ul class="compact">
+<li>Disposable email domain list (static JSON, weekly update)</li>
+<li>Velocity counters (IP 24h, device 7d) in meta table or Redis/file cache</li>
+<li>PSA expired + duplicate PSA flags</li>
+<li>Cron <code>fraud-velocity-scan.php</code> + optional email alert</li>
+</ul>
+</div>
+<div class="phase">
+<strong>Phase F3 — Admin Fraud Queue (3–4 days)</strong>
+<ul class="compact">
+<li><code>admin/fraud-queue.php</code> list + detail drawer</li>
+<li>Filters: duplicates, compliance, suspicious, review required</li>
+<li>Audit log on review actions</li>
+<li>Sidebar link under Staff section</li>
+</ul>
+</div>
+<div class="phase">
+<strong>Phase F4 — Hardening (optional)</strong>
+<ul class="compact">
+<li>Lightweight client fingerprint (privacy assessment)</li>
+<li>IP intelligence API for datacenter/VPN ASN (shadow flag only)</li>
+<li>Enable shadow mode on staging → production soak 2 weeks</li>
+<li>Metrics review before any live block discussion</li>
+</ul>
+</div>
+<div class="phase">
+<strong>Phase F5 — Live enforcement (future, separate approval)</strong>
+<ul class="compact">
+<li><code>feature_fraud_shadow_mode = 2</code> — block only highest-confidence duplicates (e.g. same PPS + same PSA + different email)</li>
+<li>Requires legal sign-off, false-positive analysis from shadow period, and rollback plan</li>
+</ul>
+</div>
+</div>
+
+<h2>Existing assets to reuse</h2>
+<ul class="compact">
+<li><code>submit.php</code> + <code>validation.php</code> — duplicate email/event logic (extend, do not replace)</li>
+<li><code>api/registrant-lookup.php</code> — returning user + <code>registered_event_ids</code></li>
+<li><code>assets/js/registration-wizard-returning.js</code> — Already Registered UX</li>
+<li><code>includes/staff-blacklist.php</code> — enforcement for known bad actors</li>
+<li><code>includes/website-visitor-tracking.php</code> — IP geo cache pattern</li>
+<li><code>includes/registration-analytics.php</code> — session + funnel timing for velocity</li>
+<li><code>includes/financial-field-validation.php</code> — normalisation helpers for PPS/IBAN/PSA</li>
+<li><code>admin/geo-audits.php</code> / <code>visitor-locations.php</code> — IP UI patterns</li>
+</ul>
+
+<h2>Approval gate</h2>
+<ul class="compact">
+<li><strong>This document</strong> — review and approve before any Phase F implementation</li>
+<li><strong>Shadow mode soak</strong> — minimum 14 days production data before considering live blocks</li>
+<li><strong>Privacy</strong> — update Privacy Notice if device fingerprint or extended IP retention added</li>
+<li><strong>Phase B</strong> — remains blocked until Phase A.7 + this anti-fraud review are approved</li>
+</ul>
+
+<p class="meta">Related: <a href="PHASE-A-CLOSURE-REPORT.html">Phase A Closure Report</a> | <a href="PHASE-A7-MOBILE-QA-REPORT.html">Phase A.7 Mobile QA</a> | <a href="WIZARD-LIVE-VERIFICATION-REPORT.html">Live Wizard Verification</a></p>
+
+</body>
+</html>

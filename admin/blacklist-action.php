@@ -3,6 +3,8 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/staff-blacklist.php';
 require_once __DIR__ . '/../includes/audit-log.php';
+require_once __DIR__ . '/../includes/staff-repository.php';
+require_once __DIR__ . '/../includes/platform/trust-scores.php';
 
 requireAdminCapability('staff');
 
@@ -42,6 +44,14 @@ if ($action === 'add') {
     $entry  = blacklistEmail($pdo, $email, $reason !== '' ? $reason : 'Added manually by admin', false);
     if ($entry !== null) {
         logAdminAudit($pdo, 'staff_blacklist', 'staff_email', (int) $entry['id'], $email);
+        $staffId = (int) (ensureStaffRecordForEmail($pdo, $email) ?? 0);
+        if ($staffId > 0) {
+            try {
+                refreshStaffTrustScoreOnEvent($pdo, $staffId);
+            } catch (Throwable $trustErr) {
+                error_log('[EventStaff] trust score refresh on blacklist: ' . $trustErr->getMessage());
+            }
+        }
         setAdminFlash('success', 'Added to blacklist.');
     } else {
         setAdminFlash('error', 'Could not add to blacklist — they may already be listed.');

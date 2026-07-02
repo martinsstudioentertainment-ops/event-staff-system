@@ -11,12 +11,18 @@ requireAdminCapability('staff');
 $pdo = getDB();
 $staffPortalUrl = getStaffPortalUrl($pdo);
 
+$profileFilter = trim((string) ($_GET['profile'] ?? ''));
+if (!in_array($profileFilter, ['complete', 'incomplete'], true)) {
+    $profileFilter = '';
+}
+
 $filters = [
-    'q' => trim((string) ($_GET['q'] ?? '')),
-    'role' => trim((string) ($_GET['role'] ?? '')),
+    'q'           => trim((string) ($_GET['q'] ?? '')),
+    'role'        => trim((string) ($_GET['role'] ?? '')),
     'blacklisted' => isset($_GET['blacklisted']) && $_GET['blacklisted'] !== ''
         ? (bool) (int) $_GET['blacklisted']
         : null,
+    'profile'     => $profileFilter,
 ];
 
 $page       = adminListPage();
@@ -30,6 +36,7 @@ $paginationQuery = array_filter([
     'q'           => $filters['q'] !== '' ? $filters['q'] : null,
     'role'        => $filters['role'] !== '' ? $filters['role'] : null,
     'blacklisted' => $filters['blacklisted'] !== null ? (int) $filters['blacklisted'] : null,
+    'profile'     => $filters['profile'] !== '' ? $filters['profile'] : null,
 ]);
 
 $flash = getAdminFlash();
@@ -60,6 +67,9 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                     <input type="hidden" name="filter_role" value="<?= h($filters['role']) ?>">
                     <?php if ($filters['blacklisted'] !== null): ?>
                         <input type="hidden" name="filter_blacklisted" value="<?= (int) $filters['blacklisted'] ?>">
+                    <?php endif; ?>
+                    <?php if ($filters['profile'] !== ''): ?>
+                        <input type="hidden" name="filter_profile" value="<?= h($filters['profile']) ?>">
                     <?php endif; ?>
                     <button type="submit" class="btn btn--primary">Email profile link to all (<?= (int) $bulkCount ?>)</button>
                 </form>
@@ -112,6 +122,13 @@ This is not an approval email.</pre>
             </select>
         </div>
         <div class="filter-bar__group">
+            <select name="profile" class="form-select">
+                <option value="">All profiles</option>
+                <option value="complete" <?= $filters['profile'] === 'complete' ? ' selected' : '' ?>>Profile complete</option>
+                <option value="incomplete" <?= $filters['profile'] === 'incomplete' ? ' selected' : '' ?>>Profile incomplete</option>
+            </select>
+        </div>
+        <div class="filter-bar__group">
             <select name="blacklisted" class="form-select">
                 <option value="">All accounts</option>
                 <option value="0" <?= $filters['blacklisted'] === false ? ' selected' : '' ?>>Active</option>
@@ -126,7 +143,7 @@ This is not an approval email.</pre>
 
     <?php if ($staffList === []): ?>
         <p class="form-hint">
-            <?php if ($filters['q'] !== '' || $filters['role'] !== '' || $filters['blacklisted'] !== null): ?>
+            <?php if ($filters['q'] !== '' || $filters['role'] !== '' || $filters['profile'] !== '' || $filters['blacklisted'] !== null): ?>
                 No staff members match your filters.
             <?php else: ?>
                 No staff members found. Run staff table migrations if this is a new install.
@@ -196,6 +213,7 @@ This is not an approval email.</pre>
                             <td class="col-actions">
                                 <div class="table-actions table-actions--stack">
                                     <a href="staff-edit.php?id=<?= (int) $staff['id'] ?>" class="btn btn--small btn--primary">Edit</a>
+                                    <a href="staff-inbox-thread.php?staff_id=<?= (int) $staff['id'] ?>" class="btn btn--small btn--secondary">Message</a>
                                     <form method="post" action="staff-send-profile-link.php">
                                         <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                                         <input type="hidden" name="staff_id" value="<?= (int) $staff['id'] ?>">

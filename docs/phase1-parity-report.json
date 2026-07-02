@@ -1,0 +1,470 @@
+﻿{
+    "compared_at":  "2026-06-21T05:52:54.4012120+01:00",
+    "reference_root":  "_tmp-restore/event-staff-system",
+    "local_file_count":  790,
+    "missing_in_local":  [
+                             "docs/screenshots/a3/_preview-styles.css",
+                             "docs/screenshots/a3-review/_preview-styles.css",
+                             "docs/screenshots/a4-verification/_preview-styles.css",
+                             "storage/temp/apply-dashboard-patches.php",
+                             "storage/temp/apply-ops-patch.php",
+                             "storage/temp/apply-ops-patch2.php",
+                             "storage/temp/dashboard-before-recover.php",
+                             "storage/temp/dashboard-recovered.php",
+                             "storage/temp/debug-ops-patch.php",
+                             "storage/temp/dump-aside-anchor.php",
+                             "storage/temp/extract-dashboard-patches.php",
+                             "storage/temp/finish-dashboard-recover.php"
+                         ],
+    "missing_in_ref":  [
+                           "_extract_transcripts.js",
+                           "_fix_manifest_report.js",
+                           "_fix_strings_report.js",
+                           "_reconstruct_manifest.js",
+                           "_tmp_prod_signout.php",
+                           "account-deletion.php",
+                           "admin/cancel-event-registrations.php",
+                           "admin/export-event-signins.php",
+                           "admin/geocode-eircode.php",
+                           "admin/mobile-portal.php",
+                           "admin/settings-mobile-portal.php",
+                           "api/mobile-config-probe.php",
+                           "api/mobile-dashboard-probe.php",
+                           "api/probe-dash2.php",
+                           "api/probe-flush.php",
+                           "api/probe-ping.php",
+                           "api/probe-reg-save.php",
+                           "api/probe-reg-submit.php",
+                           "api/probe-staff-full-verify.php",
+                           "api/registration-email-otp-send.php",
+                           "api/registration-email-otp-verify.php",
+                           "api/registration-google-verify.php",
+                           "apply/admin/config/database.php",
+                           "apply/admin/config/eventstaff-database.php",
+                           "config.php",
+                           "cron/apply-android-app-release.php",
+                           "cron/assign-staff-bibs.php",
+                           "cron/attendance-close-no-shows.php",
+                           "cron/bib19-kodaleone-status.php",
+                           "cron/bib-list-signin-status.php",
+                           "cron/bib-web-verify.php",
+                           "cron/correct-kingfishr-manual-hours.php",
+                           "cron/correct-kingfishr-shift-hours.php",
+                           "cron/correct-kodaleone-shift.php",
+                           "cron/diagnose-save-event.php",
+                           "cron/kodaleone-85-report.php",
+                           "cron/kodaleone-fix-three-staff.php",
+                           "cron/lookup-staff-by-phone.php",
+                           "cron/probe-attendance-gps-detail.php",
+                           "cron/probe-event-audit.php",
+                           "cron/probe-staff-hours-lookup.php",
+                           "cron/probe-work-hours-audit.php",
+                           "cron/purge-named-test-accounts.php",
+                           "cron/rebuild-commission-invoice.php",
+                           "cron/repair-no-show-with-checkin.php",
+                           "cron/reset-staff-checkins.php",
+                           "cron/staff-bib-app-verify.php",
+                           "cron/verify-timezone-email-branding.php",
+                           "handover-package/local-secrets/config.php",
+                           "handover-package/local-secrets/database.php",
+                           "handover-package/local-secrets/eventstaff-database.php",
+                           "handover-package/scripts-reference/generate-branding-assets.php",
+                           "includes/admin/attendance-roster-row.php",
+                           "includes/attendance-bib-schema.php",
+                           "includes/attendance-roster-helpers.php",
+                           "includes/checkin-bib.php",
+                           "includes/event-cancel-registrations.php",
+                           "includes/event-signin-export.php",
+                           "includes/mobile/controllers/EventsController.php",
+                           "includes/mobile/services/MobileEmailOtpAuthService.php",
+                           "includes/mobile/services/MobileEventsService.php",
+                           "includes/mobile/services/MobileOtpService.php",
+                           "includes/mobile/services/MobilePortalConfigService.php",
+                           "includes/staff-app-android.php",
+                           "scripts/backup-events-global.php",
+                           "scripts/diag-otp-send.php",
+                           "scripts/generate-branding-assets.php",
+                           "scripts/generate-play-feature-graphic.php",
+                           "scripts/generate-play-screenshots.php",
+                           "scripts/play-store-graphics-lib.php",
+                           "scripts/process-new-logo.php",
+                           "scripts/test-otp-send-now.php",
+                           "scripts/test-otp-send-production.php",
+                           "staff-app-download.php",
+                           "storage/reports/debug-json.php",
+                           "storage/reports/list-hours-by-date.php"
+                       ],
+    "local_zero_byte":  [
+                            "includes/footer.php",
+                            "includes/header.php",
+                            "includes/settings.php",
+                            "includes/sidebar.php"
+                        ],
+    "reference_zero_byte":  [
+                                "apply/admin/front.php",
+                                "includes/footer.php",
+                                "includes/header.php",
+                                "includes/settings.php",
+                                "includes/sidebar.php"
+                            ],
+    "size_differences":  [
+                             {
+                                 "file":  "admin/attendance.php",
+                                 "local_bytes":  11784,
+                                 "reference_bytes":  12203
+                             },
+                             {
+                                 "file":  "admin/event-form.php",
+                                 "local_bytes":  23402,
+                                 "reference_bytes":  21652
+                             },
+                             {
+                                 "file":  "admin/events.php",
+                                 "local_bytes":  24736,
+                                 "reference_bytes":  24624
+                             },
+                             {
+                                 "file":  "admin/event-sign-qr.php",
+                                 "local_bytes":  11691,
+                                 "reference_bytes":  11681
+                             },
+                             {
+                                 "file":  "admin/export-attendance.php",
+                                 "local_bytes":  3131,
+                                 "reference_bytes":  3104
+                             },
+                             {
+                                 "file":  "admin/invoice-action.php",
+                                 "local_bytes":  3124,
+                                 "reference_bytes":  2242
+                             },
+                             {
+                                 "file":  "admin/invoice-form.php",
+                                 "local_bytes":  17492,
+                                 "reference_bytes":  16625
+                             },
+                             {
+                                 "file":  "admin/operations-reports.php",
+                                 "local_bytes":  4528,
+                                 "reference_bytes":  4335
+                             },
+                             {
+                                 "file":  "admin/print-roster.php",
+                                 "local_bytes":  7568,
+                                 "reference_bytes":  6253
+                             },
+                             {
+                                 "file":  "admin/save-event.php",
+                                 "local_bytes":  4257,
+                                 "reference_bytes":  3315
+                             },
+                             {
+                                 "file":  "admin/scan-checkin.php",
+                                 "local_bytes":  3151,
+                                 "reference_bytes":  2674
+                             },
+                             {
+                                 "file":  "admin/scan-checkin-action.php",
+                                 "local_bytes":  2418,
+                                 "reference_bytes":  2280
+                             },
+                             {
+                                 "file":  "api/attendance-gps-ping.php",
+                                 "local_bytes":  2217,
+                                 "reference_bytes":  2286
+                             },
+                             {
+                                 "file":  "apply/admin/front.php",
+                                 "local_bytes":  70,
+                                 "reference_bytes":  0
+                             },
+                             {
+                                 "file":  "apply/admin/includes/app-environment-shim.php",
+                                 "local_bytes":  825,
+                                 "reference_bytes":  857
+                             },
+                             {
+                                 "file":  "assets/css/admin.css",
+                                 "local_bytes":  77582,
+                                 "reference_bytes":  79866
+                             },
+                             {
+                                 "file":  "assets/css/messages.css",
+                                 "local_bytes":  7836,
+                                 "reference_bytes":  8250
+                             },
+                             {
+                                 "file":  "assets/css/staff-app-v3.css",
+                                 "local_bytes":  38716,
+                                 "reference_bytes":  38016
+                             },
+                             {
+                                 "file":  "assets/css/variables.css",
+                                 "local_bytes":  3591,
+                                 "reference_bytes":  4682
+                             },
+                             {
+                                 "file":  "assets/js/admin-event-venue.js",
+                                 "local_bytes":  16219,
+                                 "reference_bytes":  10848
+                             },
+                             {
+                                 "file":  "assets/js/admin-rich-text.js",
+                                 "local_bytes":  2385,
+                                 "reference_bytes":  2468
+                             },
+                             {
+                                 "file":  "assets/js/admin-scan-checkin.js",
+                                 "local_bytes":  4303,
+                                 "reference_bytes":  3910
+                             },
+                             {
+                                 "file":  "assets/js/attendance-live.js",
+                                 "local_bytes":  4132,
+                                 "reference_bytes":  4112
+                             },
+                             {
+                                 "file":  "assets/js/invoice-form.js",
+                                 "local_bytes":  3312,
+                                 "reference_bytes":  4595
+                             },
+                             {
+                                 "file":  "assets/js/shift-calendar.js",
+                                 "local_bytes":  10170,
+                                 "reference_bytes":  10673
+                             },
+                             {
+                                 "file":  "cron/apply-olasentra-branding.php",
+                                 "local_bytes":  3756,
+                                 "reference_bytes":  3031
+                             },
+                             {
+                                 "file":  "cron/system-heartbeat.php",
+                                 "local_bytes":  3147,
+                                 "reference_bytes":  2824
+                             },
+                             {
+                                 "file":  "event-sign.php",
+                                 "local_bytes":  1102,
+                                 "reference_bytes":  1127
+                             },
+                             {
+                                 "file":  "faq.php",
+                                 "local_bytes":  3357,
+                                 "reference_bytes":  3421
+                             },
+                             {
+                                 "file":  "home.php",
+                                 "local_bytes":  17655,
+                                 "reference_bytes":  17993
+                             },
+                             {
+                                 "file":  "includes/admin/admin-nav.php",
+                                 "local_bytes":  6804,
+                                 "reference_bytes":  6850
+                             },
+                             {
+                                 "file":  "includes/app-environment.php",
+                                 "local_bytes":  3725,
+                                 "reference_bytes":  3879
+                             },
+                             {
+                                 "file":  "includes/attendance-gps-phase1.php",
+                                 "local_bytes":  5437,
+                                 "reference_bytes":  5579
+                             },
+                             {
+                                 "file":  "includes/attendance-gps-signout.php",
+                                 "local_bytes":  12970,
+                                 "reference_bytes":  13341
+                             },
+                             {
+                                 "file":  "includes/attendance-repository.php",
+                                 "local_bytes":  39459,
+                                 "reference_bytes":  30235
+                             },
+                             {
+                                 "file":  "includes/brand-logo.php",
+                                 "local_bytes":  11437,
+                                 "reference_bytes":  10962
+                             },
+                             {
+                                 "file":  "includes/commission-invoice-repository.php",
+                                 "local_bytes":  23858,
+                                 "reference_bytes":  18776
+                             },
+                             {
+                                 "file":  "includes/components/staff-status-dashboard.php",
+                                 "local_bytes":  6348,
+                                 "reference_bytes":  6324
+                             },
+                             {
+                                 "file":  "includes/date-format.php",
+                                 "local_bytes":  8555,
+                                 "reference_bytes":  5958
+                             },
+                             {
+                                 "file":  "includes/email-branding.php",
+                                 "local_bytes":  9077,
+                                 "reference_bytes":  9458
+                             },
+                             {
+                                 "file":  "includes/event-capacity.php",
+                                 "local_bytes":  3455,
+                                 "reference_bytes":  3808
+                             },
+                             {
+                                 "file":  "includes/event-sign-flow.php",
+                                 "local_bytes":  27590,
+                                 "reference_bytes":  26147
+                             },
+                             {
+                                 "file":  "includes/mailer.php",
+                                 "local_bytes":  9015,
+                                 "reference_bytes":  9389
+                             },
+                             {
+                                 "file":  "includes/mobile/controllers/AuthController.php",
+                                 "local_bytes":  3253,
+                                 "reference_bytes":  2178
+                             },
+                             {
+                                 "file":  "includes/mobile/mappers/MobileShiftMapper.php",
+                                 "local_bytes":  7661,
+                                 "reference_bytes":  7322
+                             },
+                             {
+                                 "file":  "includes/mobile/mobile-router.php",
+                                 "local_bytes":  6289,
+                                 "reference_bytes":  5705
+                             },
+                             {
+                                 "file":  "includes/mobile/services/MobileConfigService.php",
+                                 "local_bytes":  1578,
+                                 "reference_bytes":  1480
+                             },
+                             {
+                                 "file":  "includes/notification-center.php",
+                                 "local_bytes":  15663,
+                                 "reference_bytes":  15393
+                             },
+                             {
+                                 "file":  "includes/notifications.php",
+                                 "local_bytes":  14924,
+                                 "reference_bytes":  10942
+                             },
+                             {
+                                 "file":  "includes/public/homepage-live.php",
+                                 "local_bytes":  6514,
+                                 "reference_bytes":  6670
+                             },
+                             {
+                                 "file":  "includes/public/registration-wizard-shell.php",
+                                 "local_bytes":  3551,
+                                 "reference_bytes":  3629
+                             },
+                             {
+                                 "file":  "includes/registration-options-repository.php",
+                                 "local_bytes":  8049,
+                                 "reference_bytes":  7944
+                             },
+                             {
+                                 "file":  "includes/registration-post-save.php",
+                                 "local_bytes":  5328,
+                                 "reference_bytes":  5085
+                             },
+                             {
+                                 "file":  "includes/registration-returning-profile.php",
+                                 "local_bytes":  5618,
+                                 "reference_bytes":  3436
+                             },
+                             {
+                                 "file":  "includes/settings-repository.php",
+                                 "local_bytes":  9550,
+                                 "reference_bytes":  8153
+                             },
+                             {
+                                 "file":  "includes/smtp-mailer.php",
+                                 "local_bytes":  7676,
+                                 "reference_bytes":  7709
+                             },
+                             {
+                                 "file":  "includes/staff-app-v3-data.php",
+                                 "local_bytes":  13533,
+                                 "reference_bytes":  13580
+                             },
+                             {
+                                 "file":  "includes/staff-app-v3-pages.php",
+                                 "local_bytes":  29192,
+                                 "reference_bytes":  27546
+                             },
+                             {
+                                 "file":  "includes/staff-app-v3-public.php",
+                                 "local_bytes":  2595,
+                                 "reference_bytes":  2674
+                             },
+                             {
+                                 "file":  "includes/staff-app-v3-shell.php",
+                                 "local_bytes":  17756,
+                                 "reference_bytes":  16220
+                             },
+                             {
+                                 "file":  "includes/staff-blacklist.php",
+                                 "local_bytes":  8455,
+                                 "reference_bytes":  8671
+                             },
+                             {
+                                 "file":  "includes/staff-repository.php",
+                                 "local_bytes":  58091,
+                                 "reference_bytes":  59898
+                             },
+                             {
+                                 "file":  "includes/staff-venue-checkin.php",
+                                 "local_bytes":  8874,
+                                 "reference_bytes":  8763
+                             },
+                             {
+                                 "file":  "includes/status-change-post-save.php",
+                                 "local_bytes":  5909,
+                                 "reference_bytes":  4896
+                             },
+                             {
+                                 "file":  "includes/system-settings.php",
+                                 "local_bytes":  9528,
+                                 "reference_bytes":  8933
+                             },
+                             {
+                                 "file":  "includes/website-content.php",
+                                 "local_bytes":  12926,
+                                 "reference_bytes":  13681
+                             },
+                             {
+                                 "file":  "includes/work-hours-repository.php",
+                                 "local_bytes":  15271,
+                                 "reference_bytes":  15157
+                             },
+                             {
+                                 "file":  "index.php",
+                                 "local_bytes":  34168,
+                                 "reference_bytes":  34535
+                             },
+                             {
+                                 "file":  "privacy.php",
+                                 "local_bytes":  3284,
+                                 "reference_bytes":  3373
+                             },
+                             {
+                                 "file":  "sign-in.php",
+                                 "local_bytes":  1026,
+                                 "reference_bytes":  1051
+                             },
+                             {
+                                 "file":  "submit.php",
+                                 "local_bytes":  14420,
+                                 "reference_bytes":  14299
+                             }
+                         ],
+    "hash_differences":  [
+                             "apply/legacy-root/import-main-staff.php"
+                         ]
+}

@@ -5,7 +5,7 @@
 function ensureAdminAuditLogSchema(PDO $pdo): void
 {
     static $ready = false;
-    if ($ready) {
+    if ($ready || !$pdo instanceof PDO) {
         return;
     }
 
@@ -38,7 +38,7 @@ function ensureAdminAuditLogSchema(PDO $pdo): void
 function ensureGoLiveStaffNeededColumn(PDO $pdo): void
 {
     static $ready = false;
-    if ($ready) {
+    if ($ready || !$pdo instanceof PDO) {
         return;
     }
 
@@ -73,7 +73,7 @@ function ensureGoLiveStaffNeededColumn(PDO $pdo): void
 function ensureGoLiveReminderColumn(PDO $pdo): void
 {
     static $ready = false;
-    if ($ready) {
+    if ($ready || !$pdo instanceof PDO) {
         return;
     }
 
@@ -111,7 +111,7 @@ function ensureGoLiveReminderColumn(PDO $pdo): void
 function ensureAdminUsersSchemaForGoLive(PDO $pdo): void
 {
     static $ready = false;
-    if ($ready) {
+    if ($ready || !$pdo instanceof PDO) {
         return;
     }
 

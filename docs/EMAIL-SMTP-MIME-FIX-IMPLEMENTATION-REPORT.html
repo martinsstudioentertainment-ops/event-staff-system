@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SMTP MIME Fix — Implementation Report</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+h3{font-size:.98rem;margin-top:1.25rem;color:#334155}
+.meta{color:#64748b;font-size:.9rem}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #6ee7b7;background:#ecfdf5}
+.verdict.warn{border-color:#fcd34d;background:#fffbeb}
+.verdict.fail{border-color:#fca5a5;background:#fef2f2}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.85rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.pass{color:#047857;font-weight:700}.fail{color:#b91c1c;font-weight:700}.pending{color:#b45309;font-weight:700}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.82em}
+pre{background:#0f172a;color:#e2e8f0;padding:.85rem;border-radius:8px;overflow:auto;font-size:.72rem;white-space:pre-wrap}
+.shots{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0}
+.shot{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
+.shot img{width:100%;display:block}
+.shot figcaption{padding:.5rem .65rem;font-size:.78rem;background:#f8fafc}
+ul.compact li{margin:.3rem 0}
+.note{font-size:.88rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.75rem 1rem}
+@media(max-width:720px){.shots{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<h1>SMTP MIME Fix — Implementation Report</h1>
+<p class="meta">Deployed 6 June 2026 · Production: <code>register.olasentra.com</code> · Transport: <strong>SMTP</strong></p>
+
+<div class="verdict"><strong>Automated verification: PASS</strong> — <code>smtpDotStuff()</code> fix deployed; production wire audit reports <code>current_double_cr: 0</code>; five dual-format templates + rejection + admin alert sent via SMTP to <code>info@olasentra.com</code> at 21:13 UTC.</div>
+
+<div class="verdict warn"><strong>Inbox rendering: PENDING CONFIRMATION</strong> — Automated tooling cannot log into Gmail web, Gmail Android, or Outlook. Fresh test messages were delivered; please open the newest messages in each client and confirm rendering. Once confirmed, mark <strong>FULL PASS</strong> below.</div>
+
+<h2>1. Root cause (recap)</h2>
+<p><code>buildEmailMimePayload()</code> was already correct (<code>multipart/alternative</code>). Production SMTP path called <code>smtpDotStuff()</code> which expanded <code>\n</code> → <code>\r\n</code> on payloads already using CRLF, producing <code>\r\r\n</code> on every line and breaking multipart parsing. Clients displayed inner MIME headers and quoted-printable HTML as plain text.</p>
+
+<h2>2. Fix implemented</h2>
+<p><strong>File:</strong> <code>includes/smtp-mailer.php</code></p>
+<pre>function smtpDotStuff(string $payload): string
+{
+    // Normalize to LF first — payload already uses CRLF from MIME builder
+    $payload = smtpNormalizeBody($payload);
+    $payload = str_replace("\n", "\r\n", $payload);
+    return preg_replace('/^\./m', '..', $payload) ?? $payload;
+}</pre>
+<p>No template, copy, branding, subject, or registration workflow changes.</p>
+
+<h2>3. Files changed</h2>
+<table>
+<tr><th>File</th><th>Change</th></tr>
+<tr><td><code>includes/smtp-mailer.php</code></td><td>P0 fix — CRLF-safe <code>smtpDotStuff()</code></td></tr>
+<tr><td><code>scripts/verify-smtp-mime-wire.php</code></td><td>New — wire verify after dot-stuff (exit 0 = PASS)</td></tr>
+<tr><td><code>scripts/audit-smtp-mime-wire.php</code></td><td>Before/after legacy vs fixed wire samples</td></tr>
+<tr><td><code>scripts/verify-smtp-mime-production.php</code></td><td>Production orchestrator (wire + send + previews)</td></tr>
+<tr><td><code>scripts/capture-email-smtp-fix-screenshots.ps1</code></td><td>Post-fix preview screenshots</td></tr>
+<tr><td><code>cron/smtp-mime-wire-audit.php</code></td><td>Production wire audit endpoint</td></tr>
+<tr><td><code>cron/email-production-verify.php</code></td><td>Added rejection template to test send suite</td></tr>
+<tr><td><code>scripts/upload-to-server.ps1</code></td><td>Upload <code>smtp-mime-wire-audit.php</code></td></tr>
+</table>
+
+<h2>4. Before / after wire format evidence</h2>
+<table>
+<tr><th>Metric</th><th>Before (legacy dotstuff)</th><th>After (fixed, local + production)</th></tr>
+<tr><td><code>\r\r\n</code> count</td><td class="fail">47 (local sample) / 29 (production audit)</td><td class="pass">0</td></tr>
+<tr><td>Multipart parsing</td><td class="fail">Broken</td><td class="pass">Intact</td></tr>
+<tr><td>Inner headers in body</td><td class="fail">Visible to clients</td><td class="pass">Not leaked</td></tr>
+<tr><td>HTML <code>=3D</code> in rendered view</td><td class="fail">Yes (undecoded QP)</td><td class="pass">Decoded on parse</td></tr>
+</table>
+
+<h3>4.1 Wire sample — BEFORE (legacy)</h3>
+<pre>--=_Olasentra_…\r\r\n
+Content-Type: text/plain; charset=UTF-8\r\r\n
+Content-Transfer-Encoding: 8bit\r\r\n
+\r\r\n
+Dear Olayinka,\r\r\n
+…</pre>
+<p class="meta">Source: <code>storage/reports/smtp-mime-wire-audit-latest.json</code> → <code>before_fix_legacy_dotstuff.wire_sample</code></p>
+
+<h3>4.2 Wire sample — AFTER (fixed)</h3>
+<pre>--=_Olasentra_…\r\n
+Content-Type: text/plain; charset=UTF-8\r\n
+Content-Transfer-Encoding: 8bit\r\n
+\r\n
+Dear Olayinka,\r\n
+…</pre>
+<p class="meta">Source: <code>storage/reports/smtp-mime-wire-audit-latest.json</code> → <code>after_fix_dotstuff.wire_sample</code></p>
+
+<h3>4.3 Production server audit (post-deploy)</h3>
+<pre>{
+  "ok": true,
+  "fix_status": "fixed",
+  "legacy_double_cr": 29,
+  "current_double_cr": 0,
+  "is_multipart": true
+}</pre>
+<p class="meta">Live: <code>https://register.olasentra.com/cron/smtp-mime-wire-audit.php?key=…</code></p>
+
+<h2>5. Production test sends (21:13 UTC)</h2>
+<table>
+<tr><th>Template</th><th>Sent</th><th>Recipient</th></tr>
+<tr><td>Registration confirmation</td><td class="pass">Yes</td><td>info@olasentra.com</td></tr>
+<tr><td>Registration approved</td><td class="pass">Yes</td><td>info@olasentra.com</td></tr>
+<tr><td>Access pass</td><td class="pass">Yes</td><td>info@olasentra.com</td></tr>
+<tr><td>Rejection email</td><td class="pass">Yes</td><td>info@olasentra.com</td></tr>
+<tr><td>Admin alert</td><td class="pass">Yes</td><td>info@olasentra.com</td></tr>
+</table>
+<p class="meta">Orchestrator: <code>php scripts/verify-smtp-mime-production.php</code> · Report: <code>storage/reports/smtp-mime-production-verify-latest.json</code></p>
+
+<h2>6. Screenshots</h2>
+
+<h3>6.1 BEFORE — live production defect (user evidence)</h3>
+<div class="shots">
+<figure class="shot" style="grid-column:1/-1">
+<img src="screenshots/email-production/registration-received-gmail-broken-2026-06-06.png" alt="Before fix — raw MIME in Gmail">
+<figcaption>Raw <code>Content-Type</code>, <code>Content-Transfer-Encoding</code>, <code>=3D</code>, and HTML tags visible in Gmail body (pre-fix).</figcaption>
+</figure>
+</div>
+
+<h3>6.2 AFTER — post-fix client render previews (wire-decode + template HTML)</h3>
+<p class="note">These previews show expected rendering when multipart parses correctly. <strong>Replace with real inbox captures</strong> from Gmail web, Gmail Android, and Outlook once you confirm the 21:13 UTC test messages.</p>
+
+<div class="shots">
+<figure class="shot">
+<img src="screenshots/email-smtp-fix/registration_confirmation-gmail.png" alt="After — registration confirmation Gmail preview">
+<figcaption>Registration confirmation — Gmail-style preview</figcaption>
+</figure>
+<figure class="shot">
+<img src="screenshots/email-smtp-fix/rejection_email-gmail.png" alt="After — rejection Gmail preview">
+<figcaption>Rejection email — Gmail-style preview</figcaption>
+</figure>
+<figure class="shot">
+<img src="screenshots/email-smtp-fix/registration_approved-outlook.png" alt="After — approved Outlook preview">
+<figcaption>Registration approved — Outlook-style preview</figcaption>
+</figure>
+<figure class="shot">
+<img src="screenshots/email-smtp-fix/registration_confirmation-android.png" alt="After — confirmation Android preview">
+<figcaption>Registration confirmation — Android-style preview</figcaption>
+</figure>
+</div>
+
+<h2>7. Verification checklist</h2>
+<table>
+<tr><th>Check</th><th>Status</th></tr>
+<tr><td>Local wire verify (<code>verify-smtp-mime-wire.php</code>)</td><td class="pass">PASS — 7/7 checks</td></tr>
+<tr><td>Production wire audit on server</td><td class="pass">PASS — <code>current_double_cr: 0</code></td></tr>
+<tr><td>SMTP delivery of 5 template types</td><td class="pass">PASS</td></tr>
+<tr><td>No raw MIME headers in body</td><td class="pending">Confirm in real inbox</td></tr>
+<tr><td>No <code>=3D</code> artefacts when rendered</td><td class="pending">Confirm in real inbox</td></tr>
+<tr><td>HTML renders (not raw tags)</td><td class="pending">Confirm in real inbox</td></tr>
+<tr><td>Links / buttons clickable</td><td class="pending">Confirm in real inbox</td></tr>
+<tr><td>Plain-text fallback valid</td><td class="pass">Wire extract PASS (plain part decodes)</td></tr>
+</table>
+
+<h2>8. Rollback steps</h2>
+<ol class="compact">
+<li>Revert <code>includes/smtp-mailer.php</code> <code>smtpDotStuff()</code> to pre-fix version (removes CRLF normalization).</li>
+<li>Run <code>powershell -ExecutionPolicy Bypass -File .\deploy.ps1</code>.</li>
+<li>Re-run <code>php scripts/audit-smtp-mime-wire.php</code> — expect <code>corruption_detected: true</code>.</li>
+<li><strong>Do not</strong> rollback <code>includes/mailer.php</code> multipart builder — that is a separate fix; reverting only smtpDotStuff restores the original double defect on SMTP.</li>
+</ol>
+
+<h2>9. Re-run verification</h2>
+<pre>php scripts/verify-smtp-mime-wire.php
+php scripts/verify-smtp-mime-production.php --to=info@olasentra.com</pre>
+
+<h2>10. Related documents</h2>
+<ul class="compact">
+<li><code>docs/EMAIL-MIME-PRODUCTION-INVESTIGATION.html</code> — pre-fix audit</li>
+<li><code>docs/EMAIL-MIME-ROOT-CAUSE-REPORT.html</code> — builder layer</li>
+<li><code>storage/reports/smtp-mime-wire-verify-latest.json</code></li>
+<li><code>storage/reports/smtp-mime-wire-audit-latest.json</code></li>
+</ul>
+
+</body>
+</html>

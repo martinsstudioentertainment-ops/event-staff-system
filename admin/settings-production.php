@@ -15,13 +15,17 @@ require_once __DIR__ . '/../includes/google-sheets-sync.php';
 require_once __DIR__ . '/../includes/google-drive-oauth.php';
 require_once __DIR__ . '/../includes/registration-forms.php';
 require_once __DIR__ . '/../includes/staff-profile-gate.php';
+require_once __DIR__ . '/../includes/staff-google-oauth.php';
+require_once __DIR__ . '/../includes/site-urls.php';
+require_once __DIR__ . '/../includes/mobile/schema/mobile-api-schema.php';
 
 requireAdminCapability('settings');
 
 $pdo            = getDB();
+$staffAppUrl    = getRegistrationSiteUrl($pdo) . '/staff-app.php';
 $adminUser      = getAdminUser();
 $postAction     = ($_SERVER['REQUEST_METHOD'] === 'POST') ? (string) ($_POST['action'] ?? '') : '';
-$settingsAction = in_array($postAction, ['commission_rates', 'invoice_payment', 'google_sheets', 'pwa_settings', 'staff_profile_gate'], true)
+$settingsAction = in_array($postAction, ['commission_rates', 'invoice_payment', 'google_sheets', 'pwa_settings', 'mobile_api_settings', 'staff_google_signin', 'staff_google_signin_go_live', 'staff_google_signin_registration_both', 'staff_profile_gate'], true)
     ? $postAction
     : 'system';
 $staffNeedingProfile = countStaffNeedingProfileUpdate($pdo);
@@ -162,7 +166,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <label class="erp-system-status__item">
                     <input type="checkbox" name="admin_2fa_required" value="1"<?= $system['admin_2fa_required'] === '1' ? ' checked' : '' ?>>
                     <span class="erp-system-status__dot"></span>
-                    <span class="erp-system-status__label">2FA</span>
+                    <span class="erp-system-status__label">Login verification code (email)</span>
                 </label>
                 <label class="erp-system-status__item">
                     <input type="checkbox" name="activity_logging_enabled" value="1"<?= $system['activity_logging_enabled'] === '1' ? ' checked' : '' ?>>
@@ -175,6 +179,12 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                     <span class="erp-system-status__label">Weekly auto backup</span>
                 </label>
             </div>
+        </div>
+
+        <div class="form-group form-group--full">
+            <label class="form-label" for="admin_login_otp_email">Admin login verification email</label>
+            <input class="form-input" type="email" id="admin_login_otp_email" name="admin_login_otp_email" value="<?= h(getSetting($pdo, 'admin_login_otp_email', 'olabodeoluwafemi2580@gmail.com')) ?>" placeholder="olabodeoluwafemi2580@gmail.com">
+            <p class="form-hint">6-digit codes are sent here when login verification is enabled. “Trust this browser” uses a 30-day cookie to skip the code on return visits.</p>
         </div>
 
         <div class="form-actions form-actions--end">
@@ -282,150 +292,222 @@ if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
 <section class="card erp-settings-panel" id="google-sheets">
     <div class="card__header">
         <h2 class="card__title">Google Sheets sync</h2>
-        <p class="card__subtitle">Each event gets its own spreadsheet named <strong>date — event name — Staff</strong> (e.g. 10/06/2026 — Nick Cave — Staff). New registrations append a row automatically.</p>
+        <p class="card__subtitle">Two ways to link sheets — use <strong>manual link</strong> if Gmail Connect is blocked. Only auto-create needs Connect Google account.</p>
     </div>
 
     <?php if ($googleOauthFlash !== ''): ?>
         <div class="alert alert--<?= $googleOauthFlashType === 'success' ? 'success' : ($googleOauthFlashType === 'warning' ? 'warning' : 'info') ?> alert--visible" style="margin-bottom:1rem"><?= h($googleOauthFlash) ?></div>
     <?php endif; ?>
 
-    <?php if ($saEmail === '' || !$googleOauthSecretSaved): ?>
-        <div class="alert alert--warning alert--visible" style="margin-bottom:1rem">
-            <p style="margin:0 0 0.5rem"><strong>Two different Google credentials</strong> (do not mix them up):</p>
-            <ol style="margin:0 0 0 1.25rem;padding:0;font-size:0.9rem">
-                <li><strong>Service account JSON file</strong> (bottom of this form) — from IAM → Service accounts → Keys → JSON. Contains <code>client_email</code> ending in <code>.iam.gserviceaccount.com</code>.</li>
-                <li><strong>OAuth Client ID + secret</strong> (boxes above) — from Credentials → <strong>Web application</strong> OAuth client. Secret starts with <code>GOCSPX-</code> — type it in the password box, not in the file upload.</li>
-            </ol>
-            <?php if ($saEmail === ''): ?>
-                <p style="margin:0.5rem 0 0"><strong>Missing:</strong> service account JSON file.</p>
-            <?php endif; ?>
-            <?php if (!$googleOauthSecretSaved): ?>
-                <p style="margin:0.5rem 0 0"><strong>Missing:</strong> OAuth Client secret (paste GOCSPX-… and Save).</p>
-            <?php endif; ?>
-        </div>
-    <?php endif; ?>
+    <div class="alert alert--visible" style="margin-bottom:1rem;background:#0f172a;border-color:#334155;color:#e2e8f0;">
+        <p style="margin:0 0 0.75rem"><strong>Quick status</strong></p>
+        <ul style="margin:0;padding-left:1.25rem;font-size:0.9rem;line-height:1.6">
+            <li>Manual link (paste URL on each event): <?= isGoogleSheetsManualLinkReady($pdo) ? '<strong style="color:#86efac">Ready</strong>' : '<strong style="color:#fca5a5">Upload service account JSON below</strong>' ?></li>
+            <li>Live sync: <?= isGoogleSheetsSyncEnabled($pdo) ? '<strong style="color:#86efac">On</strong>' : '<strong style="color:#fcd34d">Off — tick Enable live sync and Save</strong>' ?></li>
+            <li>Auto-create new sheets: <?= isGoogleSheetsAutoCreateReady($pdo) ? '<strong style="color:#86efac">Ready</strong>' : '<strong style="color:#94a3b8">Optional — needs Gmail Connect (section below)</strong>' ?></li>
+        </ul>
+    </div>
 
     <form method="post" class="erp-settings-form" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
         <input type="hidden" name="action" value="google_sheets">
 
-        <div class="form-group form-group--full">
-            <label class="form-label">Connect your Gmail (required for auto-create)</label>
-            <p class="form-hint">
-                Service accounts have <strong>no Drive storage</strong>. Sign in once with the Gmail that owns
-                <strong>Event Staff Sheets</strong> so the app can copy <strong>Event Staff Template</strong> using your 15 GB.
-            </p>
-            <div class="form-group">
-                <label class="form-label" for="google_oauth_client_id">OAuth Client ID (Web application)</label>
-                <input class="form-input" type="text" id="google_oauth_client_id" name="google_oauth_client_id" value="<?= h($settings['google_oauth_client_id'] ?? '') ?>" placeholder="From Google Cloud → APIs &amp; Credentials → Web client">
+        <div class="erp-settings-subpanel" id="google-sheets-manual" style="margin-bottom:1.5rem;padding:1rem 1.25rem;border:1px solid #334155;border-radius:10px;background:rgba(15,23,42,0.35);">
+            <h3 class="card__title" style="font-size:1.05rem;margin:0 0 0.35rem">1. Manual link — no Gmail Connect</h3>
+            <p class="form-hint" style="margin:0 0 1rem">Use this when Google shows “This app is blocked”. Registrations still sync; you paste each sheet URL yourself.</p>
+
+            <label class="form-checkbox" style="margin-bottom:1rem;display:flex;">
+                <input type="checkbox" name="google_sheets_sync_enabled" value="1"<?= ($settings['google_sheets_sync_enabled'] ?? '0') === '1' ? ' checked' : '' ?>>
+                <span><strong>Enable live sync</strong> — approved staff are added to the linked sheet when you approve them</span>
+            </label>
+
+            <div class="form-group form-group--full">
+                <label class="form-label" for="google_service_account">Service account JSON (required)</label>
+                <input class="form-input" type="file" id="google_service_account" name="google_service_account" accept=".json,application/json">
+                <p class="form-hint">
+                    Google Cloud → <strong>IAM &amp; Admin → Service accounts</strong> → Keys → <strong>Add key → JSON</strong>.
+                    This is <em>not</em> the OAuth “Download JSON” from Credentials.
+                </p>
             </div>
-            <div class="form-group">
-                <label class="form-label" for="google_oauth_client_secret">OAuth Client secret</label>
-                <?php if ($googleOauthSecretSaved): ?>
-                    <p class="form-hint" style="margin:0 0 0.5rem">
-                        <span class="badge badge--approved">Secret saved in database</span>
-                        — this page never shows it again (security). Leave the box empty unless you are replacing it.
-                    </p>
-                <?php endif; ?>
-                <input
-                    class="form-input"
-                    type="password"
-                    id="google_oauth_client_secret"
-                    name="google_oauth_client_secret"
-                    value=""
-                    autocomplete="off"
-                    placeholder="<?= $googleOauthSecretSaved ? 'Leave empty to keep current secret' : 'Paste GOCSPX-… from Web client 1, then Save below' ?>"
-                >
-                <?php if (!$googleOauthSecretSaved): ?>
-                    <p class="form-hint">Google Cloud → Credentials → <strong>Web client 1</strong> → copy Client secret → paste here → click <strong>Save Google Sheets settings</strong> (not Connect yet).</p>
-                <?php endif; ?>
-            </div>
-            <div class="form-group">
-                <label class="form-label" for="google_oauth_redirect_uri">Redirect URI override (only if Google still says invalid)</label>
-                <input class="form-input" type="text" id="google_oauth_redirect_uri" name="google_oauth_redirect_uri" value="<?= h($settings['google_oauth_redirect_uri'] ?? '') ?>" placeholder="<?= h(googleDriveOAuthRedirectUri($pdo)) ?>">
-            </div>
-            <p class="form-hint">
-                In Google Cloud → your <strong>Web client</strong> → add these <strong>exactly</strong> (no extra <code>/admin</code> if you use the admin subdomain):
-            </p>
-            <ul class="form-hint" style="margin:0.25rem 0 0 1rem">
-                <li>Authorized JavaScript origins: <code><?= h(googleDriveOAuthJavaScriptOrigin($pdo)) ?></code></li>
-                <li>Authorized redirect URIs: <code><?= h(googleDriveOAuthRedirectUri($pdo)) ?></code></li>
-            </ul>
-            <p class="form-hint">OAuth consent screen → add your Gmail as a <strong>Test user</strong> if the app is in Testing mode.</p>
-            <p class="form-hint">After a code update, click <strong>Connect Google account</strong> again so Google grants Drive access to copy your template.</p>
-            <p class="form-hint">
-                <strong>Status:</strong>
-                Client ID <?= trim($settings['google_oauth_client_id'] ?? '') !== '' ? 'saved' : 'missing' ?> ·
-                Client secret <?= $googleOauthSecretSaved ? 'saved' : 'missing' ?> ·
-                Gmail <?= $googleOauthConnected ? 'connected' : 'not connected' ?>
-            </p>
-            <?php if ($googleOauthSecretSaved && !$googleOauthConnected): ?>
-                <p class="form-hint">Secret is saved — click <strong>Connect Google account</strong> below (no need to re-paste the secret).</p>
-            <?php elseif (!$googleOauthSecretSaved): ?>
-                <p class="form-hint">Paste the secret and <strong>Save Google Sheets settings</strong> before Connect — Connect does not store the secret.</p>
-            <?php endif; ?>
-        </div>
 
-        <label class="form-checkbox" style="margin-bottom:1rem;">
-            <input type="checkbox" name="google_sheets_sync_enabled" value="1"<?= ($settings['google_sheets_sync_enabled'] ?? '0') === '1' ? ' checked' : '' ?>>
-            <span>Enable live sync to Google Sheets (approved staff only — added on approval, removed if rejected)</span>
-        </label>
-
-        <div class="form-group form-group--full">
-            <label class="form-label" for="google_sheets_drive_folder_id">Drive folder ID (required for auto-create)</label>
-            <input class="form-input" type="text" id="google_sheets_drive_folder_id" name="google_sheets_drive_folder_id" value="<?= h($settings['google_sheets_drive_folder_id'] ?? '') ?>" placeholder="Paste folder URL or ID from Google Drive">
-            <p class="form-hint">
-                In <strong>your Gmail</strong> Google Drive: create a folder (e.g. “Event Staff Sheets”) → <strong>Share</strong> with
-                <code><?= h($saEmail !== '' ? $saEmail : 'service-account@project.iam.gserviceaccount.com') ?></code> as <strong>Editor</strong>
-                → open the folder → copy the ID from the browser URL (<code>…/folders/<strong>THIS_PART</strong></code>) → paste here → Save.
-            </p>
-            <p class="form-hint">
-                Inside that folder, add one blank Google Sheet named <strong>Event Staff Template</strong> (the system copies it for each event — required for personal Gmail).
-            </p>
-        </div>
-
-        <div class="form-group form-group--full">
-            <label class="form-label" for="google_sheets_template_id">Template sheet URL (optional)</label>
-            <input class="form-input" type="text" id="google_sheets_template_id" name="google_sheets_template_id" value="<?= h($settings['google_sheets_template_id'] ?? '') ?>" placeholder="Leave blank if sheet is named Event Staff Template in the folder">
-            <p class="form-hint">Only needed if the template has a different name. Paste the sheet URL from inside your shared folder.</p>
-        </div>
-
-        <div class="form-group form-group--full">
-            <label class="form-label" for="google_sheets_share_with_email">Share new auto-created sheets with (Gmail)</label>
-            <input class="form-input" type="email" id="google_sheets_share_with_email" name="google_sheets_share_with_email" value="<?= h($settings['google_sheets_share_with_email'] ?? '') ?>" placeholder="you@olasentra.com">
-            <p class="form-hint">Optional. Also shares each new sheet with this address as Editor (in addition to the folder above).</p>
-        </div>
-
-        <div class="form-group">
-            <label class="form-label" for="google_sheets_default_tab">Tab name on auto-created sheets</label>
-            <input class="form-input" type="text" id="google_sheets_default_tab" name="google_sheets_default_tab" value="<?= h($settings['google_sheets_default_tab'] ?? 'Registrations') ?>" maxlength="100">
-        </div>
-
-        <p class="form-hint">
-            Service account:
             <?php if ($saEmail !== ''): ?>
-                <strong><?= h($saEmail) ?></strong> — used for API sync; new sheets are copied with your connected Gmail into the shared folder.
+                <div class="alert alert--success alert--visible" style="margin:0 0 1rem">
+                    <p style="margin:0 0 0.5rem"><strong>Share every event sheet with this email as Editor:</strong></p>
+                    <p style="margin:0"><code style="word-break:break-all"><?= h($saEmail) ?></code></p>
+                </div>
             <?php else: ?>
-                <strong>Not uploaded</strong> — upload JSON from Google Cloud Console below.
+                <div class="alert alert--warning alert--visible" style="margin:0 0 1rem">
+                    Upload the service account JSON above, then Save — the robot email will appear here.
+                </div>
             <?php endif; ?>
-        </p>
 
-        <div class="form-group form-group--full">
-            <label class="form-label" for="google_service_account">Service account JSON</label>
-            <input class="form-input" type="file" id="google_service_account" name="google_service_account" accept=".json,application/json">
-            <p class="form-hint">
-                Google Cloud → <strong>IAM &amp; Admin → Service accounts</strong> → select the robot account → <strong>Keys → Add key → JSON</strong>.
-                Not the OAuth “Download JSON” from Credentials — that file will not work here.
-            </p>
-            <p class="form-hint"><a href="google-sheets-diagnostic.php"><strong>Google Sheets diagnostic</strong></a> — if bulk create fails, run this after deploy.</p>
+            <ol class="form-hint" style="margin:0;padding-left:1.25rem;line-height:1.65">
+                <li>In Google Drive, create a blank Google Sheet for the event (any name).</li>
+                <li>Click <strong>Share</strong> → add the service account email above → role <strong>Editor</strong> → Send.</li>
+                <li>Admin → <strong>Events → Edit event</strong> → paste the sheet URL → set <strong>Sheet tab name</strong> (bottom tab, usually <code>Sheet1</code>) → Save event.</li>
+                <li>Events → <strong>More actions → Sync registrations</strong> to push existing approved staff.</li>
+            </ol>
         </div>
+
+        <details class="erp-settings-subpanel" id="google-sheets-auto" style="margin-bottom:1rem;padding:0;border:1px solid #475569;border-radius:10px;">
+            <summary style="cursor:pointer;padding:1rem 1.25rem;font-weight:600;list-style-position:inside;">2. Optional — auto-create sheets (needs Gmail Connect)</summary>
+            <div style="padding:0 1.25rem 1.25rem;">
+                <p class="form-hint" style="margin:0 0 1rem">
+                    Skip this section if you paste sheet URLs manually. Auto-create copies <strong>Event Staff Template</strong> from your Drive folder using your Gmail storage (service accounts cannot create files alone).
+                </p>
+
+                <?php if ($saEmail === '' || !$googleOauthSecretSaved): ?>
+                    <div class="alert alert--warning alert--visible" style="margin-bottom:1rem">
+                        <p style="margin:0 0 0.5rem"><strong>Two different Google credentials</strong> (do not mix them up):</p>
+                        <ol style="margin:0 0 0 1.25rem;padding:0;font-size:0.9rem">
+                            <li><strong>Service account JSON</strong> — in section 1 above. Email ends in <code>.iam.gserviceaccount.com</code>.</li>
+                            <li><strong>OAuth Client ID + secret</strong> — below. From Credentials → <strong>Web application</strong>. Secret starts with <code>GOCSPX-</code>.</li>
+                        </ol>
+                        <?php if (!$googleOauthSecretSaved): ?>
+                            <p style="margin:0.5rem 0 0"><strong>Missing:</strong> OAuth Client secret — paste GOCSPX-… and Save.</p>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+
+                <div class="form-group form-group--full">
+                    <label class="form-label">Connect your Gmail (auto-create only)</label>
+                    <p class="form-hint">If Google says “This app is blocked”, set OAuth consent to <strong>Testing</strong> and add your Gmail as a <strong>Test user</strong>, or skip Connect and use manual link (section 1).</p>
+                    <div class="form-group">
+                        <label class="form-label" for="google_oauth_client_id">OAuth Client ID (Web application)</label>
+                        <input class="form-input" type="text" id="google_oauth_client_id" name="google_oauth_client_id" value="<?= h($settings['google_oauth_client_id'] ?? '') ?>" placeholder="From Google Cloud → APIs &amp; Credentials → Web client">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="google_oauth_client_secret">OAuth Client secret</label>
+                        <?php if ($googleOauthSecretSaved): ?>
+                            <p class="form-hint" style="margin:0 0 0.5rem">
+                                <span class="badge badge--approved">Secret saved in database</span>
+                                — leave empty unless replacing it.
+                            </p>
+                        <?php endif; ?>
+                        <input
+                            class="form-input"
+                            type="password"
+                            id="google_oauth_client_secret"
+                            name="google_oauth_client_secret"
+                            value=""
+                            autocomplete="off"
+                            placeholder="<?= $googleOauthSecretSaved ? 'Leave empty to keep current secret' : 'Paste GOCSPX-… then Save below' ?>"
+                        >
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="google_oauth_redirect_uri">Redirect URI override (only if Google still says invalid)</label>
+                        <input class="form-input" type="text" id="google_oauth_redirect_uri" name="google_oauth_redirect_uri" value="<?= h($settings['google_oauth_redirect_uri'] ?? '') ?>" placeholder="<?= h(googleDriveOAuthRedirectUri($pdo)) ?>">
+                    </div>
+                    <p class="form-hint">Authorized redirect URI: <code><?= h(googleDriveOAuthRedirectUri($pdo)) ?></code></p>
+                    <p class="form-hint">
+                        <strong>Status:</strong>
+                        Client ID <?= trim($settings['google_oauth_client_id'] ?? '') !== '' ? 'saved' : 'missing' ?> ·
+                        Client secret <?= $googleOauthSecretSaved ? 'saved' : 'missing' ?> ·
+                        Gmail <?= $googleOauthConnected ? 'connected' : 'not connected' ?>
+                    </p>
+                </div>
+
+                <div class="form-group form-group--full">
+                    <label class="form-label" for="google_sheets_drive_folder_id">Drive folder ID (auto-create only)</label>
+                    <input class="form-input" type="text" id="google_sheets_drive_folder_id" name="google_sheets_drive_folder_id" value="<?= h($settings['google_sheets_drive_folder_id'] ?? '') ?>" placeholder="Paste folder URL or ID from Google Drive">
+                    <p class="form-hint">
+                        Share the folder with <code><?= h($saEmail !== '' ? $saEmail : 'service-account@….iam.gserviceaccount.com') ?></code> as Editor.
+                        Put a sheet named <strong>Event Staff Template</strong> inside it.
+                    </p>
+                </div>
+
+                <div class="form-group form-group--full">
+                    <label class="form-label" for="google_sheets_template_id">Template sheet URL (optional)</label>
+                    <input class="form-input" type="text" id="google_sheets_template_id" name="google_sheets_template_id" value="<?= h($settings['google_sheets_template_id'] ?? '') ?>" placeholder="Leave blank if named Event Staff Template in the folder">
+                </div>
+
+                <div class="form-group form-group--full">
+                    <label class="form-label" for="google_sheets_share_with_email">Share new auto-created sheets with (Gmail)</label>
+                    <input class="form-input" type="email" id="google_sheets_share_with_email" name="google_sheets_share_with_email" value="<?= h($settings['google_sheets_share_with_email'] ?? '') ?>" placeholder="you@olasentra.com">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="google_sheets_default_tab">Tab name on auto-created sheets</label>
+                    <input class="form-input" type="text" id="google_sheets_default_tab" name="google_sheets_default_tab" value="<?= h($settings['google_sheets_default_tab'] ?? 'Registrations') ?>" maxlength="100">
+                    <p class="form-hint">Manual paste on events uses the tab name on each event form (often <code>Sheet1</code>), not necessarily this value.</p>
+                </div>
+            </div>
+        </details>
+
+        <p class="form-hint" style="margin-bottom:1rem">
+            <a href="google-sheets-diagnostic.php"><strong>Google Sheets diagnostic</strong></a> — test service account access to a sheet after you share it.
+        </p>
 
         <div class="form-actions form-actions--end" style="flex-wrap:wrap;gap:0.5rem">
             <button type="submit" class="btn btn--primary">Save Google Sheets settings</button>
             <?php if (trim($settings['google_oauth_client_id'] ?? '') !== '' && $googleOauthSecretSaved): ?>
-                <a href="<?= h(googleDriveOAuthAuthorizeUrl($pdo)) ?>" class="btn btn--secondary">Connect Google account</a>
+                <a href="<?= h(googleDriveOAuthAuthorizeUrl($pdo)) ?>" class="btn btn--secondary">Connect Google account (auto-create only)</a>
             <?php endif; ?>
             <a href="google-sheets-diagnostic.php" class="btn btn--secondary">Diagnostic</a>
+        </div>
+    </form>
+</section>
+
+<section class="card erp-settings-panel" id="staff-google-signin">
+    <div class="card__header">
+        <h2 class="card__title">Staff app — Google (Gmail) sign-in</h2>
+        <p class="card__subtitle" style="margin-top:0.35rem;"><a href="staff-go-live.php"><strong>Easy setup guide (4 steps) →</strong></a></p>
+        <p class="card__subtitle">Uses the same OAuth Client ID / secret as Google Sheets above. Staff sign in with Gmail — free, no extra Google billing. Keeps them signed in on their phone for GPS shift tracking.</p>
+    </div>
+
+    <?php if (isStaffGoogleSigninEnabled($pdo)): ?>
+        <div class="alert alert--success alert--visible">
+            <strong>On.</strong> Staff use <em>Continue with Google</em> on
+            <a href="<?= h($staffAppUrl) ?>" target="_blank" rel="noopener">staff-app.php</a>.
+            <?php if (isStaffGoogleSigninRequired($pdo)): ?>
+                Email + PPS sign-in is hidden (Google only).
+            <?php endif; ?>
+        </div>
+    <?php else: ?>
+        <div class="alert alert--visible" style="background:#f1f5f9;border-color:#cbd5e1;color:#334155;">
+            Off — staff still use email + last 4 of PPS on the staff app.
+        </div>
+    <?php endif; ?>
+
+    <p class="form-hint form-group--full">
+        <strong>Before enabling — Google Cloud Console</strong> (same Web client as admin Sheets): add
+        <code><?= h(staffGoogleOAuthRedirectUri($pdo)) ?></code> under <strong>Authorized redirect URIs</strong>
+        and <code><?= h(rtrim(getRegistrationSiteUrl($pdo), '/')) ?></code> under <strong>Authorized JavaScript origins</strong>.
+    </p>
+
+    <form method="post" class="erp-settings-form">
+        <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+        <input type="hidden" name="action" value="staff_google_signin">
+
+        <label class="form-checkbox" style="margin-bottom:0.75rem;">
+            <input type="checkbox" name="staff_google_signin_enabled" value="1"<?= ($settings['staff_google_signin_enabled'] ?? '0') === '1' ? ' checked' : '' ?>>
+            <span>Enable Google sign-in (registration, staff app, mobile)</span>
+        </label>
+        <label class="form-checkbox" style="margin-bottom:1rem;">
+            <input type="checkbox" name="staff_google_signin_required" value="1"<?= ($settings['staff_google_signin_required'] ?? '0') === '1' ? ' checked' : '' ?>>
+            <span>Require Google only — hides email OTP on registration and blocks email/PPS sign-in elsewhere</span>
+        </label>
+        <p class="form-hint" style="margin-bottom:1rem;">
+            For <strong>both Google and email code on registration</strong>, leave “Require Google only” unchecked.
+            Registration will show Sign in with Google <em>or</em> send a verification code to any email.
+        </p>
+        <div class="form-group form-group--full">
+            <label class="form-label" for="staff_google_oauth_redirect_uri">Staff redirect URI override (optional)</label>
+            <input class="form-input" type="text" id="staff_google_oauth_redirect_uri" name="staff_google_oauth_redirect_uri" value="<?= h($settings['staff_google_oauth_redirect_uri'] ?? '') ?>" placeholder="<?= h(staffGoogleOAuthRedirectUri($pdo)) ?>">
+        </div>
+        <div class="form-actions form-actions--end" style="flex-wrap:wrap;gap:0.5rem;">
+            <button type="submit" class="btn btn--primary">Save staff Google sign-in</button>
+            <?php if (isStaffGoogleSigninConfigured($pdo)): ?>
+                <button type="submit" class="btn btn--secondary" formaction="settings-production.php" name="action" value="staff_google_signin_registration_both"
+                    onclick="return confirm('Turn ON Google sign-in AND email verification for registration? Staff can choose either method. Email OTP and PPS stay available on staff sign-in.');">
+                    Registration: Google + email (both)
+                </button>
+                <button type="submit" class="btn btn--secondary" formaction="settings-production.php" name="action" value="staff_google_signin_go_live"
+                    onclick="return confirm('Turn ON Gmail sign-in and REQUIRE it everywhere? Registration will be Google-only. Add the redirect URI in Google Cloud first.');">
+                    Google only (go live)
+                </button>
+            <?php endif; ?>
+            <a href="staff-google-signin-diagnostic.php" class="btn btn--secondary">Diagnostic</a>
         </div>
     </form>
 </section>
@@ -439,7 +521,7 @@ if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
     <?php if ($profileGateOn): ?>
         <div class="alert alert--warning alert--visible">
             <strong>Active.</strong> <?= (int) $staffNeedingProfile ?> staff member(s) still need to update their profile on
-            <a href="../staff-app.php" target="_blank" rel="noopener">staff-app.php</a>.
+            <a href="<?= h($staffAppUrl) ?>" target="_blank" rel="noopener">staff-app.php</a>.
         </div>
     <?php else: ?>
         <div class="alert alert--visible" style="background:#f1f5f9;border-color:#cbd5e1;color:#334155;">
@@ -467,10 +549,83 @@ if (isset($_GET['google_oauth']) && $_GET['google_oauth'] === 'connected') {
     </form>
 </section>
 
+<section class="card erp-settings-panel" id="mobile-api">
+    <div class="card__header">
+        <h2 class="card__title">Mobile API (Native Android)</h2>
+        <p class="card__subtitle">REST API at <code>/api/mobile/v1/</code> for the future native staff app. Web staff app (PWA/TWA) is unchanged.</p>
+    </div>
+
+    <?php if (mobileApiIsEnabled($pdo)): ?>
+        <div class="alert alert--success alert--visible">
+            <strong>Enabled.</strong> Auth endpoints accept requests when JWT secret is set.
+            OpenAPI: <code>docs/api/mobile/openapi.yaml</code>
+        </div>
+    <?php else: ?>
+        <div class="alert alert--visible" style="background:#f1f5f9;border-color:#cbd5e1;color:#334155;">
+            Disabled — <code>GET /api/mobile/v1/config</code> still works; auth returns 503 until enabled.
+        </div>
+    <?php endif; ?>
+
+    <p class="form-hint form-group--full">
+        JWT secret:
+        <?php if (trim($settings['mobile_jwt_secret'] ?? '') !== ''): ?>
+            <strong>Configured</strong> (<?= h(substr($settings['mobile_jwt_secret'], 0, 8)) ?>…)
+        <?php else: ?>
+            <strong>Not set</strong> — generate before enabling auth.
+        <?php endif; ?>
+        · Base URL: <code><?= h(rtrim(getRegistrationSiteUrl($pdo), '/')) ?>/api/mobile/v1</code>
+    </p>
+
+    <form method="post" class="erp-settings-form">
+        <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+        <input type="hidden" name="action" value="mobile_api_settings">
+
+        <label class="form-checkbox" style="margin-bottom:0.75rem;">
+            <input type="checkbox" name="mobile_api_enabled" value="1"<?= ($settings['mobile_api_enabled'] ?? '0') === '1' ? ' checked' : '' ?>>
+            <span>Enable Mobile API (auth, shifts, check-in — Sprint 1+: auth only until later sprints)</span>
+        </label>
+
+        <div class="form-group">
+            <label class="form-label" for="mobile_min_app_version">Minimum app version</label>
+            <input class="form-input" type="text" id="mobile_min_app_version" name="mobile_min_app_version" value="<?= h($settings['mobile_min_app_version'] ?? '1.0.0') ?>" maxlength="20">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="mobile_jwt_access_ttl">Access token TTL (seconds)</label>
+            <input class="form-input" type="number" id="mobile_jwt_access_ttl" name="mobile_jwt_access_ttl" value="<?= h($settings['mobile_jwt_access_ttl'] ?? '900') ?>" min="60" max="3600">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="mobile_jwt_refresh_days">Refresh token lifetime (days)</label>
+            <input class="form-input" type="number" id="mobile_jwt_refresh_days" name="mobile_jwt_refresh_days" value="<?= h($settings['mobile_jwt_refresh_days'] ?? '90') ?>" min="1" max="365">
+        </div>
+
+        <div class="form-group form-group--full">
+            <label class="form-label" for="fcm_project_id">Firebase project ID (Sprint 5+)</label>
+            <input class="form-input" type="text" id="fcm_project_id" name="fcm_project_id" value="<?= h($settings['fcm_project_id'] ?? '') ?>" placeholder="olasentra-staff">
+        </div>
+
+        <div class="form-group form-group--full">
+            <label class="form-label" for="fcm_service_account_path">FCM service account path on server</label>
+            <input class="form-input" type="text" id="fcm_service_account_path" name="fcm_service_account_path" value="<?= h($settings['fcm_service_account_path'] ?? '') ?>" placeholder="storage/firebase/service-account.json">
+            <p class="form-hint">Do not commit this file. Upload via FTP/cPanel separately.</p>
+        </div>
+
+        <div class="form-actions form-actions--end" style="flex-wrap:wrap;gap:0.5rem;">
+            <button type="submit" class="btn btn--primary">Save Mobile API settings</button>
+            <a href="mobile-api-qa.php" class="btn btn--secondary">Mobile API QA (temporary)</a>
+            <button type="submit" name="generate_mobile_jwt_secret" value="1" class="btn btn--secondary"
+                onclick="return confirm('Generate a new JWT secret? All existing mobile tokens will stop working.');">
+                Generate JWT secret
+            </button>
+        </div>
+    </form>
+</section>
+
 <section class="card erp-settings-panel" id="pwa-push">
     <div class="card__header">
         <h2 class="card__title">PWA &amp; push notifications</h2>
-        <p class="card__subtitle">Staff install the app from <a href="../staff-app.php" target="_blank" rel="noopener">staff-app.php</a>. Push alerts when registration is approved (requires HTTPS + composer).</p>
+        <p class="card__subtitle">Staff install the app from <a href="<?= h($staffAppUrl) ?>" target="_blank" rel="noopener">staff-app.php</a>. Push alerts when registration is approved (requires HTTPS + composer).</p>
     </div>
 
     <form method="post" class="erp-settings-form">

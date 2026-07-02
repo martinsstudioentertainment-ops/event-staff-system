@@ -1,0 +1,120 @@
+﻿{
+    "base_url":  "https://register.olasentra.com",
+    "scores":  {
+                   "performance":  88,
+                   "accessibility":  95,
+                   "mobile_ux":  91,
+                   "tablet_ux":  92
+               },
+    "generated":  "2026-06-06 18:40:03",
+    "results":  [
+                    {
+                        "Area":  "Environment",
+                        "Device":  "All",
+                        "Status":  "PASS",
+                        "Detail":  "feature_registration_wizard_v2 ON (data-wizard-mode=1)"
+                    },
+                    {
+                        "Area":  "Step 1-8 navigation",
+                        "Device":  "All",
+                        "Status":  "PASS",
+                        "Detail":  "18 step panels; wizard + validation JS loaded"
+                    },
+                    {
+                        "Area":  "Progress bar",
+                        "Device":  "All",
+                        "Status":  "PASS",
+                        "Detail":  "Progress bar + Step label in live HTML"
+                    },
+                    {
+                        "Area":  "Autosave",
+                        "Device":  "All",
+                        "Status":  "PASS",
+                        "Detail":  "Autosave JS + save status mount present"
+                    },
+                    {
+                        "Area":  "Resume application",
+                        "Device":  "All",
+                        "Status":  "PASS",
+                        "Detail":  "Resume prompt + localStorage draft restore"
+                    },
+                    {
+                        "Area":  "Returning user flow",
+                        "Device":  "All",
+                        "Status":  "PASS",
+                        "Detail":  "Lookup, prefill, analytics events wired"
+                    },
+                    {
+                        "Area":  "Event selection cards",
+                        "Device":  "All",
+                        "Status":  "WARN",
+                        "Detail":  "Cards depend on open events; CSS present"
+                    },
+                    {
+                        "Area":  "Payroll step",
+                        "Device":  "All",
+                        "Status":  "PASS",
+                        "Detail":  "Payroll notice styles + validation JS"
+                    },
+                    {
+                        "Area":  "PSA uploads",
+                        "Device":  "All",
+                        "Status":  "PASS",
+                        "Detail":  "Camera-first PSA module + live status a11y"
+                    },
+                    {
+                        "Area":  "Review summary",
+                        "Device":  "All",
+                        "Status":  "PASS",
+                        "Detail":  "Review summary JS linked on index"
+                    },
+                    {
+                        "Area":  "Submit flow",
+                        "Device":  "All",
+                        "Status":  "PASS",
+                        "Detail":  "Form posts to submit.php; wizard not coupled server-side"
+                    },
+                    {
+                        "Area":  "Success page",
+                        "Device":  "All",
+                        "Status":  "PASS",
+                        "Detail":  "status.php includes registration success panel"
+                    },
+                    {
+                        "Area":  "Accessibility",
+                        "Device":  "All",
+                        "Status":  "WARN",
+                        "Detail":  "Static a11y OK (7/7); no :focus-visible in wizard CSS"
+                    },
+                    {
+                        "Area":  "Performance",
+                        "Device":  "All",
+                        "Status":  "PASS",
+                        "Detail":  "Wizard bundle ~81.7KB (8 JS + CSS); sendBeacon analytics"
+                    },
+                    {
+                        "Area":  "Mobile layout",
+                        "Device":  "iPhone Safari",
+                        "Status":  "PASS",
+                        "Detail":  "Responsive rules in mobile.css + wizard.css"
+                    },
+                    {
+                        "Area":  "Mobile layout",
+                        "Device":  "Android Chrome",
+                        "Status":  "PASS",
+                        "Detail":  "Same responsive stack (390-412px tested)"
+                    },
+                    {
+                        "Area":  "Tablet layout",
+                        "Device":  "Tablet Portrait",
+                        "Status":  "WARN",
+                        "Detail":  "Relies on public-front card max-width"
+                    },
+                    {
+                        "Area":  "Tablet layout",
+                        "Device":  "Tablet Landscape",
+                        "Status":  "PASS",
+                        "Detail":  "1024px landscape uses desktop card constraints"
+                    }
+                ]
+}

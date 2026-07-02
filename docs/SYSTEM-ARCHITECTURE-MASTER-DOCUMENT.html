@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System Architecture — Master Document</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1200px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.6rem} h2{font-size:1.15rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+h3{font-size:.98rem;margin-top:1.25rem;color:#334155}
+.meta{color:#64748b;font-size:.9rem}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.84rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.82em}
+pre{background:#0f172a;color:#e2e8f0;padding:.85rem;border-radius:8px;font-size:.74rem;overflow:auto;white-space:pre-wrap}
+.diagram{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:1rem;margin:1rem 0;font-family:ui-monospace,monospace;font-size:.78rem;white-space:pre-wrap}
+ul.compact li{margin:.3rem 0}
+</style>
+</head>
+<body>
+
+<h1>System Architecture — Master Document</h1>
+<p class="meta">Generated 7 June 2026 · Event Staff System · PHP + MySQL · Multi-host deployment (register / admin / apply)</p>
+
+<h2>1. Platform overview</h2>
+<p>Monolithic PHP application with shared <code>includes/</code> business layer, three production hosts, and a separate Apply portal subtree. State lives in MySQL; configuration and feature flags in <code>system_settings</code>.</p>
+
+<table>
+<tr><th>Host</th><th>Role</th><th>Key entry points</th></tr>
+<tr><td><code>register.olasentra.com</code></td><td>Public registration + staff self-service</td><td><code>index.php</code>, <code>submit.php</code>, <code>event-sign.php</code>, <code>check-in.php</code>, <code>staff-app.php</code></td></tr>
+<tr><td><code>admin.olasentra.com</code></td><td>Operations ERP</td><td><code>admin/dashboard.php</code>, events, staff, attendance, invoices</td></tr>
+<tr><td><code>apply.olasentra.com</code></td><td>UK applicant + payroll portal</td><td><code>apply/admin/</code> — separate DB, SSO from main admin</td></tr>
+</table>
+
+<h2>2. High-level dependency map</h2>
+<pre class="diagram">                    ┌─────────────────────────────────────┐
+                    │         system_settings + flags      │
+                    └─────────────────┬───────────────────┘
+                                      │
+    ┌───────────────┬─────────────────┼─────────────────┬───────────────┐
+    ▼               ▼                 ▼                 ▼               ▼
+ events         staff            staff_registrations  attendance    app_notifications
+    │               │                 │                 │               │
+    └───────┬───────┴────────┬────────┴────────┬────────┘               │
+            ▼                ▼                 ▼                        ▼
+     events-repository  staff-repository  attendance-repository   notifications.php
+            │                │                 │                        │
+            └────────────────┴────────┬────────┴────────────────────────┘
+                                      ▼
+                              submit.php / admin actions
+                                      ▼
+                         mailer.php · google-sheets-sync · work-hours</pre>
+
+<h2>3. Registration system</h2>
+<h3>3.1 Flow</h3>
+<ol class="compact">
+<li><code>index.php</code> — loads active events, registration forms, wizard shell (flag: <code>feature_registration_wizard_v2</code>)</li>
+<li>Client — 8-step wizard JS modules OR legacy single-page + <code>returning-registrant.js</code></li>
+<li><code>api/registrant-lookup.php</code> — returning user prefill by email</li>
+<li><code>api/registration-options.php</code> — dynamic form → events/roles</li>
+<li><code>submit.php</code> → <code>includes/validation.php</code> → <code>staff-repository.php</code> → <code>staff</code> + <code>staff_registrations</code></li>
+<li>Post-save — <code>notifications.php</code>, Google Sheets sync, PWA push, apply remote sync on approval</li>
+</ol>
+<h3>3.2 Key files</h3>
+<table>
+<tr><th>Layer</th><th>Files</th></tr>
+<tr><td>UI shell</td><td><code>includes/public/registration-wizard-shell.php</code>, <code>assets/js/registration-wizard*.js</code></td></tr>
+<tr><td>Validation</td><td><code>includes/validation.php</code>, <code>includes/financial-field-validation.php</code>, <code>includes/staff-psa.php</code></td></tr>
+<tr><td>Data</td><td><code>includes/staff-repository.php</code>, <code>includes/staff-registration-schema.php</code></td></tr>
+<tr><td>Returning user</td><td><code>includes/registration-returning-profile.php</code>, <code>registration-wizard-returning.js</code></td></tr>
+<tr><td>Analytics</td><td><code>includes/registration-analytics.php</code>, <code>api/registration-analytics-event.php</code></td></tr>
+</table>
+
+<h2>4. Returning-user flow</h2>
+<pre class="diagram">Email entered → registrant-lookup.php → registration-returning-profile.php
+    → prefill staff + registered events
+    → shift gate (registration-shift-gate.js) if profile incomplete
+    → pick event/shift → submit.php (same endpoint as new users)</pre>
+<p>Wizard mode skips legacy <code>returning-registrant.js</code> when <code>data-wizard-mode="1"</code>. Fast-track design documented in <code>RETURNING-USER-FAST-TRACK-DESIGN-REPORT.html</code> (not fully implemented).</p>
+
+<h2>5. Attendance system</h2>
+<h3>5.1 Entry points</h3>
+<table>
+<tr><th>Route</th><th>Method</th><th>GPS v2 behaviour</th></tr>
+<tr><td><code>event-sign.php</code></td><td>Venue QR (email + PPS)</td><td>Full GPS enforcement when flag ON</td></tr>
+<tr><td><code>sign-in.php</code></td><td>Email sign-in (no venue GPS UI)</td><td>Legacy path</td></tr>
+<tr><td><code>check-in.php</code></td><td>Personal token (access pass)</td><td>Blocked when flag ON → redirect to venue sign-in</td></tr>
+<tr><td><code>admin/scan-checkin.php</code></td><td>Supervisor QR scan</td><td>Blocked when flag ON</td></tr>
+<tr><td><code>admin/checkin-action.php</code></td><td>Manual admin check-in</td><td>Blocked when flag ON</td></tr>
+</table>
+<h3>5.2 Core logic</h3>
+<p><code>includes/attendance-repository.php</code> — check-in window (±1 h), <code>recordCheckin()</code>, geofence via <code>includes/maps.php</code> (Haversine). Work hours initialized in <code>includes/work-hours-repository.php</code> on check-in (legacy) or on activation (GPS v2).</p>
+
+<h2>6. GPS attendance (Phases 1 + 1.5)</h2>
+<table>
+<tr><th>Component</th><th>File</th></tr>
+<tr><td>Feature flag</td><td><code>feature_gps_attendance_v2</code> in <code>includes/feature-flags.php</code></td></tr>
+<tr><td>Phase 1</td><td><code>includes/attendance-gps-phase1.php</code>, migration phase 52</td></tr>
+<tr><td>Phase 1.5</td><td><code>includes/attendance-gps-phase15.php</code>, <code>api/attendance-gps-ping.php</code>, migration phase 53</td></tr>
+<tr><td>Client GPS</td><td><code>assets/js/event-sign-location.js</code></td></tr>
+<tr><td>Activation cron</td><td><code>cron/attendance-activate.php</code></td></tr>
+</table>
+<pre class="diagram">Sign-in (GPS validated) → PRE_CHECKED_IN or ACTIVE
+    → last_gps_* updated via ping API
+    → cron activates at event start IF fresh in-zone GPS proof
+    → work hours from activated_at (not checked_in_at for hibernated)</pre>
+
+<h2>7. Event system</h2>
+<p><code>includes/events-repository.php</code> — CRUD, signin tokens, venue linkage. Admin: <code>admin/events.php</code>, <code>event-form.php</code>, <code>save-event.php</code>. Venues master: <code>includes/venues-repository.php</code>. Capacity: <code>includes/event-capacity.php</code>.</p>
+
+<h2>8. Payroll integration</h2>
+<table>
+<tr><th>System</th><th>Source of hours</th><th>Files</th></tr>
+<tr><td>Main admin work hours</td><td><code>attendance.hours_paid</code> from check-in/activation</td><td><code>admin/work-hours.php</code>, <code>work-hours-repository.php</code></td></tr>
+<tr><td>Commission invoices</td><td>Event commission billing</td><td><code>commission-invoice-repository.php</code></td></tr>
+<tr><td>Job records / personal invoices</td><td>Manual ops billing</td><td><code>job-record-repository.php</code></td></tr>
+<tr><td>Apply payroll</td><td>Separate DB + Sheets sync</td><td><code>apply/admin/admin/payroll.php</code>, <code>sync-payroll.php</code></td></tr>
+</table>
+<p>Bridge: <code>includes/apply-remote-sync.php</code> triggers apply sync after main-admin staff approval.</p>
+
+<h2>9. Email system</h2>
+<pre class="diagram">Trigger (submit, status change, reminder, access pass)
+    → includes/notifications.php or reminders.php or access-pass-email.php
+    → includes/mailer.php (multipart/alternative MIME)
+    → smtp-mailer.php OR php mail()
+Parallel: notification-center.php → app_notifications table
+Parallel: pwa-push.php → push_subscriptions</pre>
+
+<h2>10. Admin system</h2>
+<p>Auth: <code>includes/auth.php</code>. RBAC: <code>includes/admin-capabilities.php</code> (admin / manager / staff roles). Layout: <code>includes/admin/layout-top.php</code>, <code>sidebar.php</code>. Session idle: 5 min (<code>APP_SESSION_IDLE_TTL</code>).</p>
+
+<h2>11. Apply system</h2>
+<p>Subtree <code>apply/admin/</code> — own database config, SSO cookie from main admin (<code>includes/apply-sso.php</code>), bridge to main ERP (<code>main-admin-bridge.php</code>). Roles: admin + manager only on apply host.</p>
+
+<h2>12. APIs</h2>
+<table>
+<tr><th>Endpoint</th><th>Auth</th><th>Purpose</th></tr>
+<tr><td><code>api/events.php</code></td><td>Public</td><td>Active events</td></tr>
+<tr><td><code>api/registrant-lookup.php</code></td><td>Public</td><td>Returning user profile</td></tr>
+<tr><td><code>api/registration-options.php</code></td><td>Public</td><td>Form options</td></tr>
+<tr><td><code>api/registration-analytics-event.php</code></td><td>Session CSRF</td><td>Wizard funnel</td></tr>
+<tr><td><code>api/attendance-live.php</code></td><td>Admin</td><td>Live board JSON</td></tr>
+<tr><td><code>api/attendance-gps-ping.php</code></td><td>None*</td><td>GPS position update (Phase 1.5)</td></tr>
+<tr><td><code>api/notifications.php</code></td><td>Admin or staff token</td><td>In-app feed</td></tr>
+<tr><td><code>api/push-subscribe.php</code></td><td>Status token</td><td>Web Push</td></tr>
+<tr><td><code>api/health.php</code></td><td>Public</td><td>Health probe</td></tr>
+</table>
+<p>* See security report for ping API hardening recommendations.</p>
+
+<h2>13. Feature flags</h2>
+<p>14 flags in <code>includes/feature-flags.php</code>. Runtime-checked: <code>feature_registration_wizard_v2</code>, <code>feature_public_premium_v2</code>, <code>feature_gps_attendance_v2</code>. Others are placeholders for future phases. Toggle: <code>admin/feature-flags.php</code> (no deploy required).</p>
+
+<h2>14. Cron jobs</h2>
+<table>
+<tr><th>Job</th><th>Schedule</th><th>Purpose</th></tr>
+<tr><td><code>cron/daily-reminders.php</code></td><td>Daily</td><td>Event reminders</td></tr>
+<tr><td><code>cron/daily-cleanup.php</code></td><td>Daily</td><td>Log truncation</td></tr>
+<tr><td><code>cron/attendance-activate.php</code></td><td>1–5 min (event days)</td><td>GPS hibernation → active</td></tr>
+<tr><td><code>cron/weekly-backup.php</code></td><td>Weekly</td><td>DB + files backup</td></tr>
+<tr><td><code>apply/admin/cron/sync-payroll.php</code></td><td>Scheduled</td><td>Payroll Sheets sync</td></tr>
+</table>
+<p>Web cron auth: <code>reminder_cron_key</code> in Admin → Email settings.</p>
+
+<h2>15. Database relationships</h2>
+<pre class="diagram">events (1) ──&lt; staff_registrations (N) ──&lt; attendance (0..1)
+   │                    │
+   │                    └── staff_id → staff (1)
+   └── venue_id → venues
+
+attendance → hours_paid (work-hours) → admin adjustments
+staff_registrations → app_notifications, push_subscriptions
+saved_job_records → personal_invoice_lines
+commission_invoices → events</pre>
+
+<h2>16. Deployment architecture</h2>
+<p><code>deploy.ps1</code> → git push + FTP to admin <code>public_html</code> + apply <code>/apply/admin</code>. Excluded from upload: production <code>config.php</code>, DB configs, service account JSON.</p>
+
+<p class="meta">Companion: <code>TECHNICAL-DEBT-MASTER-REPORT.html</code>, <code>PRODUCTION-RISK-ASSESSMENT.html</code>, <code>GPS-ATTENDANCE-V2-MASTER-PROGRESS-REPORT.html</code></p>
+</body>
+</html>

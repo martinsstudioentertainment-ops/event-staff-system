@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Olasentra — Platform Focus &amp; Product Priorities</title>
+<style>
+@page { size: A4; margin: 11mm 10mm; }
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 8.5pt; line-height: 1.4; color: #0f172a; margin: 0; padding: 14px; }
+.cover { page-break-after: always; text-align: center; padding: 48px 28px; background: #030712; color: #f8fafc; margin: -14px -14px 0; min-height: 96vh; display: flex; flex-direction: column; justify-content: center; }
+.cover h1 { font-size: 19pt; }
+h2 { font-size: 11pt; margin: 16px 0 6px; padding: 5px 10px; background: #1e293b; color: #fff; border-radius: 4px; }
+h3 { font-size: 9.5pt; margin: 10px 0 4px; color: #4338ca; }
+table { width: 100%; border-collapse: collapse; margin: 5px 0 8px; font-size: 7.5pt; }
+th { background: #334155; color: #fff; padding: 4px 6px; text-align: left; }
+td { border-bottom: 1px solid #e2e8f0; padding: 4px 6px; vertical-align: top; }
+tr:nth-child(even) td { background: #f8fafc; }
+.callout { border-left: 3px solid #6366f1; background: #eef2ff; padding: 7px 9px; margin: 6px 0; font-size: 8pt; }
+.ok { border-color: #22c55e; background: #f0fdf4; }
+.warn { border-color: #f59e0b; background: #fff7ed; }
+.removed { border-color: #ef4444; background: #fef2f2; }
+ul { margin: 4px 0; padding-left: 16px; }
+code { background: #f1f5f9; padding: 1px 3px; font-size: 6.5pt; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+<p>Event Operations Command Platform</p>
+<h1>Platform Focus &amp; Priorities</h1>
+<p>Product clarification — authoritative scope</p>
+<p style="color:#94a3b8;margin-top:24px;">Version 1.0 · 6 June 2026 · Approved</p>
+</div>
+
+<h2>What Olasentra Is</h2>
+<div class="callout ok">
+<strong>Olasentra is the leading Event Operations Command Platform</strong> for event staffing, workforce operations, and live event management — not a equipment rental or asset-hire business.
+</div>
+
+<h2>Platform Focus (In Scope)</h2>
+<table>
+<tr><th>Domain</th><th>Description</th></tr>
+<tr><td>Event Staffing</td><td>Registration, roster, roles, approval workflows</td></tr>
+<tr><td>Workforce Operations</td><td>Staff directory, profiles, PSA compliance, onboarding</td></tr>
+<tr><td>Event Management</td><td>Events, venues, timelines, capacity, go-live</td></tr>
+<tr><td>Attendance</td><td>Check-in, sign-in tokens, geo validation, work hours</td></tr>
+<tr><td>Compliance</td><td>PSA licence, audit log, blacklist, privacy consent</td></tr>
+<tr><td>Messaging</td><td>Admin ↔ staff inbox, broadcasts, notifications</td></tr>
+<tr><td>Payroll</td><td>Work hours, apply-site payroll bridge, exports</td></tr>
+<tr><td>Invoicing</td><td>Commission invoices, job records, personal invoices</td></tr>
+<tr><td>Client Portal</td><td>Client-facing event visibility (future subdomain)</td></tr>
+<tr><td>Operations Intelligence</td><td>Auto-approval, trust scores, readiness, AI ops assistant</td></tr>
+</table>
+
+<h2>Explicitly Out of Scope</h2>
+<div class="callout removed">
+<strong>Equipment Rental</strong> — removed from roadmap. Olasentra is <em>not</em> an equipment rental platform. No development effort on rental workflows unless explicitly approved in a future gate.
+</div>
+<ul>
+<li><strong>Removed from planning:</strong> Phase 23 Equipment Rental Module</li>
+<li><strong>Tables not to be built upon:</strong> <code>equipment_categories</code>, <code>equipment_items</code>, <code>equipment_rentals</code></li>
+<li><strong>Note:</strong> These tables may exist empty on production from Phase 51 SQL — dormant schema only; no UI, no cron, no API</li>
+</ul>
+
+<h2>Development Priority Order</h2>
+<p>All engineering effort follows this sequence after Gate G (Phase 16 stable):</p>
+<table>
+<tr><th>#</th><th>Initiative</th><th>Phase</th><th>Status</th></tr>
+<tr><td>1</td><td>Security Hardening</td><td>P15</td><td>Next — after Gate G</td></tr>
+<tr><td>2</td><td>Design System (OOU)</td><td>P1</td><td>Wave 2 foundation</td></tr>
+<tr><td>3</td><td>Operations Command Center</td><td>P2</td><td>Core ops MVP</td></tr>
+<tr><td>4</td><td>Event Hub</td><td>P3</td><td>Per-event command surface</td></tr>
+<tr><td>5</td><td>Unified Inbox</td><td>P5</td><td>Messages + notifications</td></tr>
+<tr><td>6</td><td>Auto Approval Engine</td><td>P6</td><td>Rules + shadow mode</td></tr>
+<tr><td>7</td><td>Staff Intelligence</td><td>P7</td><td>Trust scores, readiness</td></tr>
+<tr><td>8</td><td>Client Portal</td><td>P9</td><td>After P15 + GDPR gate</td></tr>
+<tr><td>9</td><td>System Health Center</td><td>P10 + P18–P21</td><td>Health, cleanup, SSL, audit</td></tr>
+<tr><td>10</td><td>AI Operations Assistant</td><td>P12</td><td>After inbox + intelligence</td></tr>
+</table>
+
+<h3>Supporting phases (parallel where safe)</h3>
+<ul>
+<li><strong>P4 Live Ops</strong> — with Event Hub (Wave 2)</li>
+<li><strong>P13 Staff PWA 2.0</strong> — after Unified Inbox</li>
+<li><strong>P18–P22</strong> — Cleanup, storage, monthly audit, SSL, emergency mode (under System Health)</li>
+<li><strong>P14 Public Website</strong> — marketing refresh, lower priority than ops core</li>
+</ul>
+
+<h2>Platform Ops Modules (P18–P22)</h2>
+<table>
+<tr><th>Phase</th><th>Module</th><th>DB table</th></tr>
+<tr><td>P18</td><td>Cleanup Center</td><td>platform_cleanup_log</td></tr>
+<tr><td>P19</td><td>Storage Analyzer</td><td>platform_storage_snapshots</td></tr>
+<tr><td>P20</td><td>Monthly System Audit</td><td>platform_audit_runs</td></tr>
+<tr><td>P21</td><td>Domain &amp; SSL Monitoring</td><td>platform_ssl_checks</td></tr>
+<tr><td>P22</td><td>Emergency Event Mode</td><td>emergency_event_log</td></tr>
+</table>
+
+<h2>Strategic Statement</h2>
+<p>Keep Olasentra focused on being the <strong>leading Event Operations Command Platform</strong> — one place to run events, staff, attendance, compliance, messaging, payroll, invoicing, and operational intelligence. Do not dilute the product with unrelated verticals.</p>
+
+<p style="font-size:7pt;color:#94a3b8;margin-top:16px;">Olasentra · Platform Focus v1.0 · Companion: IMPLEMENTATION-MASTER-PLAN v1.2</p>
+
+</body>
+</html>

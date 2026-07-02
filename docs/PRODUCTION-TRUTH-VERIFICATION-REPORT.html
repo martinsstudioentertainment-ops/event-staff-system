@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Production Truth Verification Report</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.84rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.pass{color:#047857;font-weight:700}.fail{color:#b91c1c;font-weight:700}.warn{color:#b45309;font-weight:700}
+.meta{color:#64748b;font-size:.9rem}
+</style>
+</head>
+<body>
+
+<h1>Production Truth Verification Report</h1>
+<p class="meta">Updated 7 June 2026 · Run <code>cron/production-truth-verify.php?key=…</code> on production after each deploy</p>
+
+<h2>Verified production state (HTTP probes)</h2>
+<table>
+<tr><th>Feature</th><th>Flag / state</th><th>Production</th><th>Status</th></tr>
+<tr><td>Registration Wizard V2</td><td>ON</td><td><code>data-wizard-mode="1"</code> on register index</td><td class="pass">LIVE</td></tr>
+<tr><td>Legacy registration</td><td>—</td><td>Not served while wizard ON</td><td class="warn">Superseded</td></tr>
+<tr><td>GPS Attendance v2</td><td>OFF</td><td><code>data-gps-v2-on="0"</code>; 100 m radius</td><td class="pass">Sleeping (safe)</td></tr>
+<tr><td>Premium homepage</td><td>ON</td><td><code>olasentra.com/home.php</code> dark theme</td><td class="pass">LIVE</td></tr>
+<tr><td>Session idle JS</td><td>300 s</td><td><code>session-idle-timeout.js</code> deployed</td><td class="pass">Deployed</td></tr>
+<tr><td>Email MIME</td><td>—</td><td><code>buildEmailMimePayload()</code> in mailer</td><td class="pass">Deployed</td></tr>
+</table>
+
+<h2>Security hardening (this session)</h2>
+<table>
+<tr><th>Item</th><th>Fix</th></tr>
+<tr><td><code>registrant-lookup.php</code></td><td>Session CSRF + 2 s throttle</td></tr>
+<tr><td><code>check-staff.php</code></td><td>Apply session CSRF</td></tr>
+<tr><td><code>attendance-gps-ping.php</code></td><td><code>checkin_token</code> required</td></tr>
+<tr><td>Admin JSON APIs</td><td><code>requireAdminApiSession()</code> idle gate</td></tr>
+<tr><td><code>apply-sync-ping.php</code></td><td><code>adminCan('apply')</code></td></tr>
+<tr><td><code>staff-profile.php</code></td><td>CSRF on POST</td></tr>
+</table>
+
+<h2>Ops verification commands</h2>
+<ul>
+<li>Wizard: <code>powershell -File scripts\verify-wizard-production.ps1</code></li>
+<li>GPS schema: <code>php scripts/verify-gps-phase15.php</code> (production DB)</li>
+<li>Full truth: <code>GET /cron/production-truth-verify.php?key=REMINDER_CRON_KEY</code></li>
+<li>Activation cron: schedule <code>cron/attendance-activate.php</code> every 1–5 min on event days when GPS ON</li>
+</ul>
+
+<h2>Documentation corrections</h2>
+<p>Handover stating wizard OFF was incorrect — production has wizard <strong>ON</strong> since Phase A live verification (6 Jun 2026). GPS remains <strong>OFF</strong> until pilot sign-off.</p>
+
+</body>
+</html>

@@ -1,13 +1,17 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/config.php';
 initSecureSession();
 require_once __DIR__ . '/includes/staff-repository.php';
 require_once __DIR__ . '/includes/staff-onboarding.php';
 require_once __DIR__ . '/includes/staff-psa.php';
 require_once __DIR__ . '/includes/staff-portal-session.php';
+require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/staff-profile-gate.php';
 require_once __DIR__ . '/includes/phone-numbers.php';
 require_once __DIR__ . '/includes/components/phone-input.php';
+require_once __DIR__ . '/includes/staff-messages.php';
+require_once __DIR__ . '/includes/status-repository.php';
+require_once __DIR__ . '/includes/status-change-post-save.php';
 
 $pdo = getDB();
 $defaultPhoneCountry = resolvePhoneCountryIsoFromRequest($pdo);
@@ -18,27 +22,48 @@ $staff = null;
 if ($token !== '') {
     $staff = getStaffByProfileToken($pdo, $token);
     if ($staff === null) {
-        die('Invalid profile link. Ask your coordinator to send a new profile update link.');
+        http_response_code(404);
+        header('Content-Type: text/html; charset=utf-8');
+        echo '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
+        echo '<title>Profile link invalid</title></head><body style="font-family:system-ui,sans-serif;max-width:32rem;margin:3rem auto;padding:0 1rem;">';
+        echo '<h1>Invalid profile link</h1>';
+        echo '<p>This link is invalid or has expired. Ask your coordinator to send a new profile update link.</p>';
+        echo '<p><a href="staff-portal.php">Staff sign in</a></p></body></html>';
+        exit;
     }
 } else {
     $staff = getStaffFromPortalSession($pdo);
     if ($staff === null) {
-        header('Location: staff-portal.php');
+        header('Location: staff-app.php');
         exit;
     }
 }
 
 if (isset($_GET['logout'])) {
-    clearStaffPortalSession();
-    header('Location: ' . (isStaffProfileUpdateRequired($pdo) ? 'staff-app.php' : 'staff-portal.php'));
+    header('Location: staff-signout.php?return=' . urlencode(isStaffProfileUpdateRequired($pdo) ? 'staff-app.php' : 'staff-portal.php'));
     exit;
 }
 
 $profileComplete = !staffNeedsProfileForm($pdo, $staff);
+$editMode        = isset($_GET['edit']) && $_GET['edit'] === '1';
+$formOpen        = !$profileComplete
+    || (isset($_GET['open']) && $_GET['open'] === '1')
+    || $_SERVER['REQUEST_METHOD'] === 'POST';
 $missingFields   = getStaffOnboardingMissingFields($staff);
+
+if ($profileComplete && !$editMode && $_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: staff-app.php');
+    exit;
+}
 $flash           = null;
 $fieldErrors     = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verifyCsrf((string) ($_POST['csrf_token'] ?? ''))) {
+        $flash = [
+            'type'    => 'error',
+            'message' => 'Your session expired. Please try again.',
+        ];
+    } else {
     prepareMobileFromRequest($_POST);
     $validationErrors = validateStaffOnboardingPost($_POST, $staff, $_FILES);
     if ($validationErrors !== []) {
@@ -84,10 +109,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $updateData = array_merge($updateData, $psaUpload['paths']);
 
+        $wasCompleteBefore = (int) ($staff['profile_completed'] ?? 0) === 1;
+
         if (updateStaffProfile($pdo, (int) $staff['id'], $updateData)) {
             $staff = getStaffById($pdo, (int) $staff['id']) ?? $staff;
             if (isStaffOnboardingComplete($staff)) {
-                markStaffProfileCompleted($pdo, (int) $staff['id']);
+                markStaffProfileCompleted($pdo, (int) $staff['id'], false);
                 $staff = getStaffById($pdo, (int) $staff['id']) ?? $staff;
                 $profileComplete = true;
                 $missingFields   = [];
@@ -97,6 +124,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     unset($_SESSION['staff_profile_return']);
                     if ($return === '' || str_contains($return, 'staff-profile.php')) {
                         $return = 'staff-app.php';
+                    }
+                    if (!$wasCompleteBefore) {
+                        flushHttpResponse($return);
+                        runProfileCompletionPostJobs($pdo, (int) $staff['id']);
+                        exit;
                     }
                     header('Location: ' . $return);
                     exit;
@@ -124,180 +156,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $flash = ['type' => 'error', 'message' => 'Error: ' . $e->getMessage()];
     }
     }
+    }
 }
 
 $siteName = getSiteName($pdo);
-require_once __DIR__ . '/includes/public/staff-public-shell.php';
-require_once __DIR__ . '/includes/theme.php';
-$themeColor = getThemeColor($pdo);
-?>
-<!DOCTYPE html>
-<html lang="en" data-theme="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Staff Profile | <?= h($siteName) ?></title>
-    <?php include __DIR__ . '/includes/pwa-head.php'; ?>
-</head>
-<body class="staff-public-shell staff-public-shell--event-ops staff-public-shell--narrow login-page staff-mobile-page staff-profile-shell">
-    <?php renderStaffPublicBackground(true); ?>
-    <?php renderStaffPublicHeader($pdo, $siteName, ['home_url' => 'staff-app.php']); ?>
+require_once __DIR__ . '/includes/staff-portal-dashboard.php';
 
-    <main class="login-page__wrap staff-public-main">
-        <section class="card login-card staff-public-card staff-public-card--profile">
-            <div class="card__header staff-profile-card__header">
-                <div>
-                    <h1 class="card__title">Staff profile</h1>
-                    <p class="card__subtitle"><?= h((string) $staff['email']) ?></p>
-                </div>
-                <a href="staff-profile.php?logout=1" class="btn btn--small btn--secondary">Sign out</a>
-            </div>
+$staffEmail      = strtolower(trim((string) ($staff['email'] ?? '')));
+$profileMetrics  = getStaffPortalDashboardMetrics($pdo, $staffEmail);
+$profileStatus   = getStaffPortalStatusBadge($staff, $profileMetrics);
+$profileRole     = getStaffPortalRoleLabel($pdo, $staff, $staffEmail);
+$profileStaffId  = formatStaffPortalStaffId($staff);
+$profileAvatar   = getStaffPortalAvatarInitials($staff);
+$profileFullName = getStaffPortalDisplayName($staff, $pdo);
+$staffStatusToken = $staffEmail !== '' ? (resolveStatusTokenByEmail($pdo, $staffEmail) ?? '') : '';
+$messagesPageUrl  = $staffStatusToken !== ''
+    ? 'staff-messages.php?token=' . urlencode($staffStatusToken)
+    : 'staff-messages.php';
+$staffMsgUnread   = $staffEmail !== '' ? countUnreadAdminRepliesForStaff($pdo, $staffEmail) : 0;
 
-            <?php if (!$profileComplete): ?>
-                <div class="alert alert--error alert--visible staff-profile-alert">
-                    <strong>Profile incomplete</strong>
-                    <p>Complete all fields before you can view registration status or check in.</p>
-                    <?php if ($missingFields !== []): ?>
-                        <p class="staff-profile-alert__missing"><strong>Still needed:</strong> <?= h(implode(', ', $missingFields)) ?></p>
-                    <?php endif; ?>
-                </div>
-            <?php endif; ?>
+require_once __DIR__ . '/includes/staff-app-v3-pages.php';
 
-            <?php if ($flash): ?>
-                <div class="alert alert--<?= h($flash['type']) ?> alert--visible staff-profile-alert">
-                    <?= h($flash['message']) ?>
-                </div>
-            <?php endif; ?>
+$portalStaffForCtx = $token === '' ? $staff : null;
+$ctx = buildStaffV3Context($pdo, $portalStaffForCtx);
+$ctx['load_profile_form_js'] = true;
 
-            <form method="post" enctype="multipart/form-data" class="form-grid staff-profile-form">
-                <h3 class="form-section-title form-group--full">Personal information</h3>
-
-                <div class="form-group">
-                    <label class="form-label">First name</label>
-                    <input type="text" name="first_name" class="form-input" value="<?= h((string) $staff['first_name']) ?>" required>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Last name</label>
-                    <input type="text" name="surname" class="form-input" value="<?= h((string) $staff['surname']) ?>" required>
-                </div>
-
-                <div class="form-group form-group--full">
-                    <label class="form-label">Email</label>
-                    <input type="email" class="form-input" value="<?= h((string) $staff['email']) ?>" disabled>
-                    <p class="form-hint">Cannot be changed — used when you sign in.</p>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="mobile_national">Mobile</label>
-                    <?php renderPhoneInputField([
-                        'id'         => 'mobile',
-                        'value'      => (string) ($staff['mobile'] ?? ''),
-                        'defaultIso' => $defaultPhoneCountry,
-                        'required'   => true,
-                    ]); ?>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Date of birth</label>
-                    <?php if (trim((string) ($staff['date_of_birth'] ?? '')) === ''): ?>
-                        <input type="date" name="date_of_birth" class="form-input" required>
-                    <?php else: ?>
-                        <input type="date" class="form-input" value="<?= h((string) $staff['date_of_birth']) ?>" disabled>
-                        <p class="form-hint">Locked after first save.</p>
-                    <?php endif; ?>
-                </div>
-
-                <div class="form-group form-group--full">
-                    <label class="form-label">Gender</label>
-                    <select name="gender" class="form-select" required>
-                        <option value="male" <?= $staff['gender'] === 'male' ? 'selected' : '' ?>>Male</option>
-                        <option value="female" <?= $staff['gender'] === 'female' ? 'selected' : '' ?>>Female</option>
-                        <option value="other" <?= $staff['gender'] === 'other' ? 'selected' : '' ?>>Other</option>
-                        <option value="prefer_not_to_say" <?= $staff['gender'] === 'prefer_not_to_say' ? 'selected' : '' ?>>Prefer not to say</option>
-                    </select>
-                </div>
-
-                <h3 class="form-section-title form-group--full">Address</h3>
-
-                <div class="form-group form-group--full">
-                    <label class="form-label">Full address</label>
-                    <textarea name="full_address" class="form-input" rows="3" required><?= h((string) $staff['full_address']) ?></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Eircode</label>
-                    <input type="text" name="eircode" class="form-input" value="<?= h((string) $staff['eircode']) ?>" required>
-                </div>
-
-                <h3 class="form-section-title form-group--full">Financial information</h3>
-
-                <div class="form-group">
-                    <label class="form-label">PPS number</label>
-                    <input type="text" name="pps_number" class="form-input" value="<?= h((string) $staff['pps_number']) ?>" required>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Bank IBAN</label>
-                    <input type="text" name="bank_iban" id="bank_iban" class="form-input" value="<?= h((string) $staff['bank_iban']) ?>" placeholder="IE29AIBK93115212345678" autocomplete="off" autocapitalize="characters" maxlength="34" required>
-                    <p class="form-hint">IBAN with country code only — not a bank name.</p>
-                </div>
-
-                <h3 class="form-section-title form-group--full">PSA licence <span class="staff-profile-badge">Required</span></h3>
-
-                <div class="form-group">
-                    <label class="form-label">PSA licence number</label>
-                    <input type="text" name="psa_licence" id="psa_licence" class="form-input" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>" placeholder="EM123456/00" autocomplete="off" autocapitalize="characters" pattern="EM[0-9]{6}/[0-9]{2}" required>
-                    <p class="form-hint">Format EM123456/00 as on your PSA card.</p>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">PSA expiry date</label>
-                    <input type="date" name="psa_expiry_date" class="form-input" value="<?= h((string) ($staff['psa_expiry_date'] ?? '')) ?>" required>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">PSA card — front photo</label>
-                    <input type="file" name="psa_front_image" class="form-input form-input--file" accept="<?= h(psaImageFileAcceptAttribute()) ?>" <?= empty($staff['psa_front_image']) ? 'required' : '' ?>>
-                    <p class="form-hint">JPG, PNG, or photo from your phone (max 8 MB).</p>
-                    <?php if (!empty($staff['psa_front_image'])): ?>
-                        <p class="form-hint"><a href="<?= h($staff['psa_front_image']) ?>" target="_blank" rel="noopener">View current image</a></p>
-                    <?php endif; ?>
-                    <?php if (!empty($fieldErrors['psa_front_image'])): ?>
-                        <span class="form-error form-error--visible"><?= h($fieldErrors['psa_front_image']) ?></span>
-                    <?php endif; ?>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">PSA card — back photo</label>
-                    <input type="file" name="psa_back_image" class="form-input form-input--file" accept="<?= h(psaImageFileAcceptAttribute()) ?>" <?= empty($staff['psa_back_image']) ? 'required' : '' ?>>
-                    <p class="form-hint">JPG, PNG, or photo from your phone (max 8 MB).</p>
-                    <?php if (!empty($staff['psa_back_image'])): ?>
-                        <p class="form-hint"><a href="<?= h($staff['psa_back_image']) ?>" target="_blank" rel="noopener">View current image</a></p>
-                    <?php endif; ?>
-                    <?php if (!empty($fieldErrors['psa_back_image'])): ?>
-                        <span class="form-error form-error--visible"><?= h($fieldErrors['psa_back_image']) ?></span>
-                    <?php endif; ?>
-                </div>
-
-                <div class="form-group form-group--full form-actions staff-profile-form__submit">
-                    <button type="submit" class="btn btn--primary btn--block">Save changes</button>
-                </div>
-            </form>
-
-            <p class="login-card__hint"><a href="staff-app.php">← Staff app home</a></p>
-        </section>
-    </main>
-<?php
-$assetBase = '';
-$finJsPath = __DIR__ . '/assets/js/financial-field-validation.js';
-$finJsVer  = is_file($finJsPath) ? (string) filemtime($finJsPath) : '1';
-?>
-<script src="assets/js/financial-field-validation.js?v=<?= h($finJsVer) ?>"></script>
-<?php
-$phoneJsPath = __DIR__ . '/assets/js/phone-input.js';
-$phoneJsVer  = is_file($phoneJsPath) ? (string) filemtime($phoneJsPath) : '1';
-?>
-<script src="assets/js/phone-input.js?v=<?= h($phoneJsVer) ?>"></script>
-</body>
-</html>
+$showNav = $token === '' && $portalStaffForCtx !== null;
+renderStaffV3PageStart($ctx, 'profile', 'Profile', $showNav);
+renderStaffV3ProfileEditPage($ctx, [
+    'staff'                  => $staff,
+    'token'                  => $token,
+    'profile_complete'       => $profileComplete,
+    'edit_mode'              => $editMode,
+    'form_open'              => $formOpen,
+    'missing_fields'         => $missingFields,
+    'flash'                  => $flash,
+    'field_errors'           => $fieldErrors,
+    'profile_metrics'        => $profileMetrics,
+    'profile_status'         => $profileStatus,
+    'profile_role'           => $profileRole,
+    'profile_staff_id'       => $profileStaffId,
+    'profile_avatar'         => $profileAvatar,
+    'profile_full_name'      => $profileFullName,
+    'messages_page_url'      => $messagesPageUrl,
+    'staff_msg_unread'       => $staffMsgUnread,
+    'default_phone_country'  => $defaultPhoneCountry,
+]);
+renderStaffV3PageEnd($ctx, $showNav);

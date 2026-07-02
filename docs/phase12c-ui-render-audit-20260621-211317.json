@@ -1,0 +1,55 @@
+{
+    "generated_at": "2026-06-21T21:13:17+00:00",
+    "css_bytes": 67132,
+    "css_phase_12a": true,
+    "css_fill_none_rules": 18,
+    "css_global_svg_fill_none": false,
+    "inline_svg_total": 38,
+    "inline_svg_without_fill_attr": 37,
+    "inline_svg_with_explicit_fill": 1,
+    "svg_by_file": {
+        "staff-app-v3-pages.php": 17,
+        "staff-app-v3-public.php": 1,
+        "staff-app-v3-shell.php": 10,
+        "staff-app-easy.php": 6,
+        "staff-portal-shift.php": 2,
+        "notification-list.php": 1,
+        "offline.php": 1
+    },
+    "sw_cache_name": "event-staff-v10-v3-staff-pwa",
+    "sw_cache_first": true,
+    "offline_css_cache_bust": false,
+    "issues": [
+        {
+            "id": "SVG-01",
+            "severity": "HIGH",
+            "title": "Inline SVGs rely on scoped CSS fill:none (no global fallback)",
+            "detail": "37/38 inline SVGs lack fill attribute; CSS has 18 fill:none rules but no `.es-v3 svg` global rule."
+        },
+        {
+            "id": "SW-01",
+            "severity": "HIGH",
+            "title": "Service worker cache-first for static assets",
+            "detail": "CACHE_NAME=event-staff-v10-v3-staff-pwa; stale CSS can persist on installed PWA until cache bump."
+        },
+        {
+            "id": "CSS-01",
+            "severity": "MEDIUM",
+            "title": "offline.php loads staff-app-v3.css without ?v= cache buster",
+            "detail": "Offline shell may render with stale stylesheet from SW precache."
+        },
+        {
+            "id": "CSS-02",
+            "severity": "LOW",
+            "title": "mask-image without -webkit-mask-image on empty-card pseudo",
+            "detail": "Safari/iOS may not render masked calendar icon in .es-v3__empty-card::before."
+        },
+        {
+            "id": "SW-02",
+            "severity": "LOW",
+            "title": "registration-v3.css not in SW CORE_ASSETS",
+            "detail": "Messages token view / registration pages may miss CSS when offline."
+        }
+    ],
+    "verdict": "ISSUES FOUND"
+}

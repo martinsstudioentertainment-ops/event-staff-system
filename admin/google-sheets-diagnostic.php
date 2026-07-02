@@ -143,6 +143,13 @@ if ($folderId !== '' && ($token ?? '') !== '' && is_array($sa)) {
 }
 
 $userTokenDiag = $oauthOk ? googleDriveGetUserAccessToken($pdo) : '';
+if ($oauthOk && $userTokenDiag === '') {
+    $rows[] = [
+        'Gmail access token (live)',
+        'fail',
+        googleDriveOAuthReconnectMessage($pdo),
+    ];
+}
 if ($folderId !== '' && $userTokenDiag !== '') {
     $gmailFolder = googleDriveInspectParentFolderWithToken($userTokenDiag, null, $folderId);
     $rows[] = [
@@ -241,6 +248,15 @@ if (isset($_GET['test_create'])) {
     $rows[] = ['Create test spreadsheet (app)', $createOk ? 'pass' : 'fail', $createDetail];
 }
 
+$logTail = '';
+$logFile = dirname(__DIR__) . '/storage/logs/google-sheets.log';
+if (is_readable($logFile)) {
+    $lines = @file($logFile, FILE_IGNORE_NEW_LINES);
+    if (is_array($lines) && $lines !== []) {
+        $logTail = implode("\n", array_slice($lines, -40));
+    }
+}
+
 $pageTitle  = 'Google Sheets diagnostic';
 $activePage = 'settings-production';
 include __DIR__ . '/../includes/admin/layout-top.php';
@@ -328,6 +344,11 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <strong>Order:</strong> 1) Purge test → 2) If still quota full, Delete ALL → 3) Create test once.
         Re-upload <code>includes/google-sheets-sync.php</code> and this page after git pull if buttons are missing.
     </p>
+
+    <?php if ($logTail !== ''): ?>
+        <h3 style="margin:1.5rem 0 0.5rem;font-size:1rem">Recent log (last 40 lines)</h3>
+        <pre style="max-height:16rem;overflow:auto;padding:0.75rem;background:#1e1e1e;color:#d4d4d4;border-radius:6px;font-size:0.8rem;white-space:pre-wrap;word-break:break-word"><?= h($logTail) ?></pre>
+    <?php endif; ?>
 </section>
 
 <?php include __DIR__ . '/../includes/admin/layout-bottom.php'; ?>

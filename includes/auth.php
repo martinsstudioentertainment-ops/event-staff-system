@@ -4,6 +4,7 @@
  */
 
 require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/app-environment.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     initSecureSession();
@@ -21,6 +22,13 @@ function requireAdmin(): void
         exit;
     }
 
+    $adminIdleTtl = defined('ADMIN_SESSION_IDLE_TTL') ? ADMIN_SESSION_IDLE_TTL : APP_SESSION_IDLE_TTL;
+    if (sessionIdleExpired('app_session_last_activity', $adminIdleTtl)) {
+        logoutAdmin();
+        header('Location: login.php?timeout=1');
+        exit;
+    }
+
     require_once __DIR__ . '/admin-users-schema.php';
     refreshAdminSession(getDB());
 
@@ -29,6 +37,7 @@ function requireAdmin(): void
         exit;
     }
 
+    touchSessionActivity();
     enforceDefaultPasswordChange();
 }
 
@@ -139,6 +148,7 @@ function attemptAdminLogin(string $username, string $password): bool
 
     require_once __DIR__ . '/admin-users-repository.php';
     touchAdminLastLogin($pdo, (int) $user['id']);
+    touchSessionActivity();
 
     return true;
 }
@@ -184,6 +194,35 @@ function csrfToken(): string
 function verifyCsrf(?string $token): bool
 {
     return is_string($token) && hash_equals($_SESSION['csrf_token'] ?? '', $token);
+}
+
+function csrfField(): string
+{
+    return '<input type="hidden" name="csrf_token" value="' . h(csrfToken()) . '">';
+}
+
+/**
+ * Admin JSON APIs — require login and enforce idle timeout.
+ */
+function requireAdminApiSession(): void
+{
+    if (!isAdminLoggedIn()) {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['ok' => false, 'error' => 'Unauthorized']);
+        exit;
+    }
+
+    $adminIdleTtl = defined('ADMIN_SESSION_IDLE_TTL') ? ADMIN_SESSION_IDLE_TTL : APP_SESSION_IDLE_TTL;
+    if (sessionIdleExpired('app_session_last_activity', $adminIdleTtl)) {
+        logoutAdmin();
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['ok' => false, 'error' => 'Session expired']);
+        exit;
+    }
+
+    touchSessionActivity();
 }
 
 require_once __DIR__ . '/admin-capabilities.php';

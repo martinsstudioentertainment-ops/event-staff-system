@@ -1,0 +1,45 @@
+﻿{
+    "checked_at":  "2026-06-21T05:53:37.3133981+01:00",
+    "phase":  "PHASE1-20260621-OLASENTRA",
+    "report_only":  true,
+    "critical_missing":  [
+
+                         ],
+    "critical_zero_byte":  [
+
+                           ],
+    "zero_byte_count":  27,
+    "zero_byte_files":  [
+                            "_extract_transcripts.js",
+                            "_fix_strings_report.js",
+                            "_reconstruct_manifest.js",
+                            "account-deletion.php",
+                            "admin/mobile-portal.php",
+                            "admin/settings-mobile-portal.php",
+                            "api/mobile-config-probe.php",
+                            "api/mobile-dashboard-probe.php",
+                            "api/probe-dash2.php",
+                            "api/probe-ping.php",
+                            "api/probe-reg-save.php",
+                            "api/probe-reg-submit.php",
+                            "api/probe-staff-full-verify.php",
+                            "api/registration-email-otp-send.php",
+                            "cron/reset-staff-checkins.php",
+                            "includes/footer.php",
+                            "includes/header.php",
+                            "includes/mobile/services/MobilePortalConfigService.php",
+                            "includes/settings.php",
+                            "includes/sidebar.php",
+                            "scripts/backup-events-global.php",
+                            "scripts/diag-otp-send.php",
+                            "scripts/generate-branding-assets.php",
+                            "scripts/generate-play-feature-graphic.php",
+                            "scripts/generate-play-screenshots.php",
+                            "scripts/play-store-graphics-lib.php",
+                            "scripts/test-otp-send-production.php"
+                        ],
+    "deploy_allowed":  false,
+    "block_reasons":  [
+                          "Found 27 zero-byte PHP/JS/CSS file(s) in deploy tree."
+                      ]
+}

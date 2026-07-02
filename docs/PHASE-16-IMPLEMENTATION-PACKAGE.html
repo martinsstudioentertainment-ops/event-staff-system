@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Phase 16 — Database Optimization Implementation Package</title>
+<style>
+@page { size: A4; margin: 11mm 10mm; }
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 8.5pt; line-height: 1.4; color: #0f172a; margin: 0; padding: 14px; }
+.cover { page-break-after: always; text-align: center; padding: 48px 28px; background: #030712; color: #f8fafc; margin: -14px -14px 0; min-height: 96vh; display: flex; flex-direction: column; justify-content: center; }
+.cover h1 { font-size: 19pt; }
+h2 { font-size: 11pt; margin: 16px 0 6px; padding: 5px 10px; background: #1e293b; color: #fff; border-radius: 4px; page-break-after: avoid; }
+h3 { font-size: 9.5pt; margin: 10px 0 4px; color: #4338ca; }
+table { width: 100%; border-collapse: collapse; margin: 5px 0 8px; font-size: 7pt; }
+th { background: #334155; color: #fff; padding: 3px 5px; text-align: left; }
+td { border-bottom: 1px solid #e2e8f0; padding: 3px 5px; vertical-align: top; }
+tr:nth-child(even) td { background: #f8fafc; }
+pre { background: #0f172a; color: #e2e8f0; padding: 8px; font-size: 6.5pt; border-radius: 4px; white-space: pre-wrap; }
+.callout { border-left: 3px solid #6366f1; background: #eef2ff; padding: 7px 9px; margin: 6px 0; font-size: 8pt; }
+.warn { border-color: #f59e0b; background: #fff7ed; }
+.ok { border-color: #22c55e; background: #f0fdf4; }
+.crit { color: #b91c1c; font-weight: 700; }
+.page-break { page-break-before: always; }
+code { background: #f1f5f9; padding: 1px 3px; font-size: 6.5pt; }
+ul, ol { margin: 4px 0; padding-left: 16px; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+<p>Olasentra Event Operations Command Platform</p>
+<h1>Phase 16 Implementation Package</h1>
+<p>Database Optimization — Full deploy blueprint</p>
+<p style="color:#94a3b8;margin-top:24px;">v1.0 · 6 June 2026 · SQL artifacts generated · PHP not modified</p>
+<p>Await Gate F approval before production execution</p>
+</div>
+
+<h2>1. Objective &amp; Scope</h2>
+<table>
+<tr><th>Item</th><th>Detail</th></tr>
+<tr><td>Phase</td><td>P16 — Database Optimization</td></tr>
+<tr><td>Business value</td><td>Faster ops queries; referential integrity; migration runner completeness; schema foundation for P18–P22 platform modules</td></tr>
+<tr><td>In scope</td><td>Runner consolidation manifest, indexes, staff_id backfill, FK constraints, 8 platform tables, diagnostic SQL</td></tr>
+<tr><td>Out of scope (Phase 16b)</td><td>PHP runner update, deleteStaffProfileCompletely extension, UI for Cleanup Center</td></tr>
+<tr><td>Blocked until complete</td><td><strong>Phase 15 Security Hardening</strong> (per approval directive)</td></tr>
+</table>
+
+<h2>2. Current Database Analysis</h2>
+
+<h3>2.1 Existing tables (20 production tables)</h3>
+<table>
+<tr><th>Table</th><th>Rows (typical)</th><th>Phase 16 action</th></tr>
+<tr><td>events</td><td>32+</td><td>Add index idx_events_active_date</td></tr>
+<tr><td>staff_registrations</td><td>36+ (event 1)</td><td>Index + backfill staff_id</td></tr>
+<tr><td>staff</td><td>~35 unique</td><td>Index email; backfill target</td></tr>
+<tr><td>attendance</td><td>Low</td><td>No schema change</td></tr>
+<tr><td>staff_messages</td><td>Low</td><td>Add FK → staff</td></tr>
+<tr><td>app_notifications</td><td>Growing</td><td>Add inbox index</td></tr>
+<tr><td>saved_job_records</td><td>Low</td><td>Add FK event_id, created_by</td></tr>
+<tr><td>personal_invoice_lines</td><td>Low</td><td>Add FK → saved_job_records</td></tr>
+<tr><td>commission_invoices</td><td>Low</td><td>Already has FKs</td></tr>
+<tr><td>admin_users, system_settings, venues, work_types, staff_blacklist, push_subscriptions, email_reminder_log, admin_audit_log, website_visits, ip_geo_cache</td><td>—</td><td>No change</td></tr>
+</table>
+
+<h3>2.2 Migration runner gap (critical finding)</h3>
+<p><code>includes/database-migrations.php</code> runs only phases <strong>3–34 + 43</strong>. Missing from runner but SQL files exist:</p>
+<pre>migrate-phase11-site-urls.sql
+migrate-phase12-company-home.sql
+migrate-phase13-website-content.sql
+migrate-phase30-staff-role-varchar.sql
+migrate-phase31-staff-registration-save.sql
+migrate-phase35-staff-table.sql  ← staff table may exist only via manual run
+migrate-phase36-populate-staff-table.sql
+migrate-phase37-add-staff-id-to-registrations.sql
+migrate-phase38-link-registrations-to-staff.sql
+migrate-phase39-staff-profile-token.sql
+migrate-phase40-psa-licence-fields.sql
+migrate-phase41-force-profile-update.sql
+migrate-phase42-website-visits.sql
+migrate-phase44-staff-messages.sql
+migrate-phase45-job-records.sql
+migrate-phase46-job-record-type.sql
+migrate-phase47-personal-invoice-lines.sql</pre>
+<p>Additionally <strong>24 ensure*Schema()</strong> functions in PHP create tables at page-load — Phase 16b will reduce reliance after runner applies SQL.</p>
+
+<h3>2.3 Known integrity gaps (audit)</h3>
+<ul>
+<li><code>staff_registrations.staff_id</code> nullable — some rows unlinked</li>
+<li><code>staff_messages.staff_id</code> — no FK</li>
+<li><code>personal_invoice_lines.invoice_id</code> — no FK</li>
+<li><code>saved_job_records.event_id</code> — no FK</li>
+<li><code>deleteStaffProfileCompletely()</code> — does not delete staff_messages, app_notifications, push_subscriptions (Phase 16b PHP)</li>
+<li>Queries use <code>LOWER(email)</code> — index on staff.email helps; full normalize deferred</li>
+</ul>
+
+<h3>2.4 Production baseline (must not change counts)</h3>
+<pre>Event #1 Nick Cave: expect 36 registrations (35 approved, 1 rejected)
+api/health.php: app, database, storage = ok</pre>
+
+<div class="page-break"></div>
+
+<h2>3. Exact Files Affected</h2>
+
+<h3>3.1 SQL artifacts (GENERATED — ready to run)</h3>
+<table>
+<tr><th>File</th><th>Run order</th><th>Mutates data?</th></tr>
+<tr><td><code>database/phase16-precheck.sql</code></td><td>Step 2</td><td>Read-only</td></tr>
+<tr><td><code>database/migrate-phase35..47.sql</code></td><td>Step 4 (if tables missing)</td><td>Yes (if not applied)</td></tr>
+<tr><td><code>database/migrate-phase48-composite-indexes.sql</code></td><td>Step 5</td><td>No</td></tr>
+<tr><td><code>database/migrate-phase49-backfill-staff-id.sql</code></td><td>Step 6</td><td>Yes — links/creates staff</td></tr>
+<tr><td><code>database/migrate-phase50-foreign-keys.sql</code></td><td>Step 8</td><td>No (constraints only)</td></tr>
+<tr><td><code>database/migrate-phase51-platform-ops-tables.sql</code></td><td>Step 9</td><td>Creates empty tables</td></tr>
+<tr><td><code>database/phase16-postcheck.sql</code></td><td>Step 10</td><td>Read-only</td></tr>
+<tr><td><code>database/rollback-phase48-51.sql</code></td><td>Rollback only</td><td>Yes — drops tables/FKs</td></tr>
+<tr><td><code>docs/PHASE-16-RUNNER-MANIFEST.txt</code></td><td>Phase 16b</td><td>Reference</td></tr>
+</table>
+
+<h3>3.2 PHP files (Phase 16b — NOT modified yet)</h3>
+<table>
+<tr><th>File</th><th>Change required</th><th>Risk</th></tr>
+<tr><td><code>includes/database-migrations.php</code></td><td>Replace getDatabaseMigrationFiles() array per manifest (52 files)</td><td class="crit">High — test on clone first</td></tr>
+<tr><td><code>includes/database-reset.php</code></td><td>Verify still calls runDatabaseMigrations after reset</td><td>Low</td></tr>
+<tr><td><code>includes/staff-repository.php</code></td><td>deleteStaffProfileCompletely: add staff_messages, app_notifications, push_subscriptions cleanup</td><td>Medium</td></tr>
+<tr><td><code>admin/go-live.php</code></td><td>Show last migration run + postcheck status</td><td>Low</td></tr>
+<tr><td><code>includes/go-live.php</code></td><td>Optionally invoke phase16 postcheck query</td><td>Low</td></tr>
+</table>
+
+<h3>3.3 Files NOT touched in Phase 16</h3>
+<p>All admin/*.php UI, staff-app.php, api/* (except future health), apply/admin/*, assets/*, config.php on server.</p>
+
+<h2>4. Exact Migration Execution Plan</h2>
+
+<h3>Step-by-step (production)</h3>
+<pre>STEP 1  BACKUP (see Section 6)
+STEP 2  Run database/phase16-precheck.sql → save output as phase16-precheck-YYYYMMDD.txt
+STEP 3  If staff table missing: run migrate-phase35 through 37 manually
+STEP 4  Run any missing phase 38-47 files (idempotent CREATE/ALTER)
+STEP 5  Run migrate-phase48-composite-indexes.sql
+STEP 6  Run migrate-phase49-backfill-staff-id.sql
+STEP 7  Re-run phase16-precheck.sql sections 2,5,6,7 — MUST be 0 orphans
+STEP 8  If orphans = 0: run migrate-phase50-foreign-keys.sql
+        If orphans &gt; 0: STOP — fix data manually — do NOT run step 8
+STEP 9  Run migrate-phase51-platform-ops-tables.sql
+STEP 10 Run database/phase16-postcheck.sql → save as phase16-postcheck-YYYYMMDD.txt
+STEP 11 Production smoke test (Section 8)
+STEP 12 Wait 24h — Gate G approval before Phase 15
+STEP 13 Phase 16b: deploy PHP runner update (separate deploy)</pre>
+
+<h3>New tables created (phase 51)</h3>
+<table>
+<tr><th>Table</th><th>Future phase</th></tr>
+<tr><td>platform_cleanup_log</td><td>P18 Cleanup Center</td></tr>
+<tr><td>platform_storage_snapshots</td><td>P19 Storage Analyzer</td></tr>
+<tr><td>platform_audit_runs</td><td>P20 Monthly System Audit</td></tr>
+<tr><td>platform_ssl_checks</td><td>P21 Domain &amp; SSL Monitoring</td></tr>
+<tr><td>emergency_event_log</td><td>P22 Emergency Event Mode</td></tr>
+<tr><td>equipment_* (3 tables)</td><td><strong>Out of scope</strong> — dormant schema only; rental removed from roadmap v1.2</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2>5. Exact Rollback Plan</h2>
+
+<h3>5.1 When to rollback</h3>
+<ul>
+<li>phase16-postcheck shows bad_count &gt; 0 for orphan checks</li>
+<li>Nick Cave registration counts changed unexpectedly</li>
+<li>Admin staff list errors after migrate</li>
+<li>FK migration fails mid-run</li>
+</ul>
+
+<h3>5.2 Rollback procedure (ordered)</h3>
+<pre>LEVEL 1 — Partial (phase 48-51 only, data preserved)
+  1. Run database/rollback-phase48-51.sql
+  2. Note: MySQL 8.0.19+ supports DROP INDEX IF EXISTS; older: manual DROP
+  3. Re-run phase16-postcheck
+  4. Application continues — staff_id backfill from phase 49 REMAINS (beneficial)
+
+LEVEL 2 — Full database restore (catastrophic)
+  1. Maintenance mode ON (system_settings maintenance_mode=1)
+  2. Restore MySQL dump from Step 1 backup via cPanel/phpMyAdmin
+  3. Verify row counts match precheck baseline
+  4. Maintenance mode OFF
+  5. Smoke test Section 8
+
+LEVEL 3 — PHP rollback (Phase 16b only)
+  1. Revert includes/database-migrations.php from git/backup
+  2. deploy.ps1
+  3. No DB change needed if SQL not re-run</pre>
+
+<h3>5.3 What rollback does NOT undo</h3>
+<p><code>migrate-phase49-backfill-staff-id.sql</code> population of staff_id — intentional. Level 1 rollback does not clear staff_id. Level 2 full restore does.</p>
+
+<h2>6. Exact Backup Procedure</h2>
+
+<h3>6.1 Pre-migration backup (mandatory)</h3>
+<pre>PRODUCTION (admin.olasentra.com):
+  1. Login → Admin → Settings → Backups
+  2. Click "Run full backup now" (backup-run.php)
+  3. Download all 3 weekly files from backups.php:
+     - event-staff-database-*.sql
+     - event-staff-settings-*.json
+     - event-staff-site-*.zip
+  4. Store locally: C:\Backups\olasentra\phase16-YYYYMMDD\
+
+LOCAL (developer machine):
+  powershell -ExecutionPolicy Bypass -File .\scripts\pre-deploy-backup.ps1
+  → storage/backups/pre-deploy-YYYYMMDD-HHMMSS.zip
+
+OPTIONAL cPanel:
+  phpMyAdmin → event_staff_system → Export → SQL → Save
+
+RECORD:
+  - Backup timestamp
+  - File sizes
+  - phase16-precheck output
+  - Git commit hash (if any)</pre>
+
+<h3>6.2 Backup verification</h3>
+<ul>
+<li>SQL dump opens in text editor; contains CREATE TABLE staff</li>
+<li>Dump size &gt; 100 KB (production with data)</li>
+<li>settings JSON contains site_name key</li>
+</ul>
+
+<h2>7. Risks &amp; Mitigations</h2>
+<table>
+<tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr>
+<tr><td>FK fail on orphan rows</td><td class="crit">Critical</td><td>precheck step 7 gate before phase 50</td></tr>
+<tr><td>phase 49 creates duplicate staff</td><td>High</td><td>INSERT only WHERE email not in staff; UNIQUE on staff.email</td></tr>
+<tr><td>Index already exists</td><td>Low</td><td>Runner skips duplicate; manual run may error — ignore</td></tr>
+<tr><td>Long lock on staff_registrations UPDATE</td><td>Medium</td><td>Run off-peak; 36 rows = instant on current scale</td></tr>
+<tr><td>equipment tables empty</td><td>None</td><td>Dormant — no development (not a rental platform)</td></tr>
+<tr><td>Runner re-runs phase 35 on existing staff table</td><td>Low</td><td>CREATE TABLE IF NOT EXISTS</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2>8. Exact Testing Procedure</h2>
+
+<h3>8.1 Pre-migration tests (before Step 5)</h3>
+<table>
+<tr><th>#</th><th>Test</th><th>Expected</th></tr>
+<tr><td>1</td><td>https://admin.olasentra.com/api/health.php</td><td>{"database":"ok"}</td></tr>
+<tr><td>2</td><td>admin/staff.php?event_id=1</td><td>36 rows, all roles</td></tr>
+<tr><td>3</td><td>admin/dashboard.php</td><td>Loads, pending count correct</td></tr>
+<tr><td>4</td><td>register.olasentra.com index.php</td><td>Form loads</td></tr>
+<tr><td>5</td><td>phase16-precheck.sql</td><td>Save output file</td></tr>
+</table>
+
+<h3>8.2 Post-migration tests (after Step 10)</h3>
+<table>
+<tr><th>#</th><th>Test</th><th>Expected</th></tr>
+<tr><td>1</td><td>phase16-postcheck.sql</td><td>All bad_count = 0</td></tr>
+<tr><td>2</td><td>SHOW INDEX idx_staff_reg_event_status</td><td>Exists</td></tr>
+<tr><td>3</td><td>8 platform tables in information_schema</td><td>All present</td></tr>
+<tr><td>4</td><td>staff.php event 1</td><td>Still 36 rows</td></tr>
+<tr><td>5</td><td>staff-directory.php</td><td>Profiles load</td></tr>
+<tr><td>6</td><td>staff-inbox.php / notifications.php</td><td>Load (FK intact)</td></tr>
+<tr><td>7</td><td>job-records.php, personal-invoices.php</td><td>Load if used</td></tr>
+<tr><td>8</td><td>submit.php test registration (staging email)</td><td>Creates row + staff_id set</td></tr>
+<tr><td>9</td><td>scan-checkin.php</td><td>Camera page loads</td></tr>
+<tr><td>10</td><td>apply-portal.php SSO</td><td>Bridge works</td></tr>
+</table>
+
+<h3>8.3 Performance verification</h3>
+<pre>EXPLAIN SELECT COUNT(*) FROM staff_registrations WHERE event_id=1 AND status='pending';
+→ Should use idx_staff_reg_event_status after phase 48</pre>
+
+<h3>8.4 24-hour monitoring (Gate G)</h3>
+<ul>
+<li>No new errors in storage/logs/error.log</li>
+<li>api/health.php green</li>
+<li>No staff reports of registration issues</li>
+<li>Admin flash errors on dashboard</li>
+</ul>
+
+<h2>9. Effort &amp; Approval</h2>
+<table>
+<tr><th>Work package</th><th>Effort</th><th>Owner</th></tr>
+<tr><td>SQL package generation</td><td>Done</td><td>Architect</td></tr>
+<tr><td>Production SQL execution</td><td>2 hours</td><td>DevOps + Admin</td></tr>
+<tr><td>Phase 16b PHP runner</td><td>4 hours</td><td>PHP Engineer</td></tr>
+<tr><td>deleteStaffProfileCompletely fix</td><td>2 hours</td><td>PHP Engineer</td></tr>
+<tr><td>Total Phase 16</td><td>~1 week calendar</td><td>—</td></tr>
+</table>
+
+<div class="callout ok">
+<strong>Gate F — Approve to execute on production:</strong>
+<ol>
+<li>Backup procedure accepted</li>
+<li>SQL file list accepted</li>
+<li>Rollback plan accepted</li>
+<li>Testing checklist accepted</li>
+<li>Maintenance window agreed (off-peak recommended)</li>
+</ol>
+<p>Signature: ___________________ Date: ___________________</p>
+</div>
+
+<div class="callout warn">
+<strong>Phase 15 blocked</strong> until Gate G (P16 postcheck + 24h stable) is confirmed.
+</div>
+
+<p style="font-size:7pt;color:#94a3b8;margin-top:12px;">Olasentra · Phase 16 Implementation Package v1.0 · Companion: IMPLEMENTATION-MASTER-PLAN v1.1</p>
+
+</body>
+</html>

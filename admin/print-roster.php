@@ -4,6 +4,8 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/staff-repository.php';
 require_once __DIR__ . '/../includes/attendance-repository.php';
+require_once __DIR__ . '/../includes/attendance-roster-helpers.php';
+require_once __DIR__ . '/../includes/work-hours-repository.php';
 require_once __DIR__ . '/../includes/staff-pass.php';
 require_once __DIR__ . '/../includes/maps.php';
 
@@ -19,8 +21,9 @@ if ($eventId <= 0 || !$event) {
     exit;
 }
 
-$list      = getAttendanceList($pdo, $eventId);
-$stats     = getAttendanceStats($pdo, $eventId);
+$list         = getAttendanceList($pdo, $eventId);
+$board        = groupAttendanceBoardRows($list);
+$stats        = getAttendanceStats($pdo, $eventId);
 $roleCounts = countRolesInList($list);
 $siteName  = getSiteName($pdo);
 $venue     = getEventVenueCoordinates($event);
@@ -74,8 +77,9 @@ $mapsUrl   = $venue
 
     <div class="roster-summary">
         <span><strong>Approved:</strong> <?= (int) $stats['approved'] ?></span>
-        <span><strong>Checked in:</strong> <?= (int) $stats['checked_in'] ?></span>
-        <span><strong>Waiting:</strong> <?= (int) $stats['missing'] ?></span>
+        <span><strong>Signed in:</strong> <?= (int) $stats['checked_in'] ?></span>
+        <span><strong>Awaiting sign-in:</strong> <?= (int) $stats['awaiting'] ?></span>
+        <span><strong>No-show:</strong> <?= (int) $stats['no_show'] ?></span>
         <?php if ($stats['staff_needed'] !== null): ?>
             <span><strong>Staff needed:</strong> <?= (int) $stats['staff_needed'] ?> (<?= (int) $stats['spaces_remaining'] ?> left)</span>
         <?php endif; ?>
@@ -96,26 +100,52 @@ $mapsUrl   = $venue
                 <th>Status</th>
                 <th>Check-in</th>
                 <th>Time</th>
+                <th>BIB</th>
+                <th>Hours</th>
                 <th>In</th>
             </tr>
         </thead>
         <tbody>
             <?php if ($list === []): ?>
-                <tr><td colspan="10">No approved staff for this event.</td></tr>
+                <tr><td colspan="12">No approved staff for this event.</td></tr>
             <?php else: ?>
-                <?php foreach ($list as $i => $row): ?>
+                <?php
+                $rowNum = 0;
+                $renderRosterPrintRow = static function (array $row) use (&$rowNum, $event): void {
+                    $rowNum++;
+                    ?>
                     <tr>
-                        <td><?= $i + 1 ?></td>
+                        <td><?= $rowNum ?></td>
                         <td><?= h(formatStaffPassId((int) $row['id'], (string) $event['event_date'])) ?></td>
                         <td><?= h($row['first_name'] . ' ' . $row['surname']) ?></td>
                         <td><?= h(formatRoleLabel($row['staff_role'])) ?></td>
                         <td><?= h($row['email']) ?></td>
                         <td><?= h($row['mobile']) ?></td>
-                        <td><?= (int) $row['is_checked_in'] === 1 ? 'Signed in' : 'Waiting' ?></td>
+                        <td><?= h(formatAttendanceBoardStatusLabel($row)) ?></td>
                         <td><?= (int) $row['is_checked_in'] === 1 ? 'Yes' : 'No' ?></td>
                         <td><?= $row['checked_in_at'] ? h(date('H:i', strtotime($row['checked_in_at']))) : '—' ?></td>
+                        <td><?= trim((string) ($row['bib_number'] ?? '')) !== '' ? h((string) $row['bib_number']) : '—' ?></td>
+                        <td><?= h(formatAttendanceRosterHours($row)) ?></td>
                         <td><span class="check-box" aria-hidden="true"></span></td>
                     </tr>
+                    <?php
+                };
+                ?>
+
+                $sections = [
+                    'checked_in' => 'Signed in',
+                    'awaiting'   => 'Awaiting sign-in',
+                    'no_show'    => 'No-show',
+                ];
+                foreach ($sections as $bucket => $heading):
+                    if ($board[$bucket] === []) {
+                        continue;
+                    }
+                    ?>
+                    <tr><td colspan="11" style="background:#f8fafc;font-weight:600;border-top:1px dashed #cbd5e1;"><?= h($heading) ?></td></tr>
+                    <?php foreach ($board[$bucket] as $row): ?>
+                        <?php $renderRosterPrintRow($row); ?>
+                    <?php endforeach; ?>
                 <?php endforeach; ?>
             <?php endif; ?>
         </tbody>

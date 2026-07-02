@@ -89,6 +89,18 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         </div>
         <div class="form-group form-group--full">
             <label class="form-radio">
+                <input type="checkbox" name="notify_staff_shift_alerts" value="1"<?= ($settings['notify_staff_shift_alerts'] ?? '1') === '1' ? ' checked' : '' ?>>
+                Email staff when a shift is activated or more lads are needed — only people who have not already picked that shift
+            </label>
+        </div>
+        <div class="form-group form-group--full">
+            <label class="form-radio">
+                <input type="checkbox" name="email_show_pay_rate" value="1"<?= ($settings['email_show_pay_rate'] ?? '1') === '1' ? ' checked' : '' ?>>
+                Show hourly pay rate in staff emails (shift alerts, reminders, approval pass, check-in emails)
+            </label>
+        </div>
+        <div class="form-group form-group--full">
+            <label class="form-radio">
                 <input type="checkbox" name="notify_on_registration" value="1"<?= ($settings['notify_on_registration'] ?? '0') === '1' ? ' checked' : '' ?>>
                 Email staff when registration is received — one email listing all shifts selected
             </label>
@@ -97,6 +109,12 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <label class="form-radio">
                 <input type="checkbox" name="notify_on_checkin" value="1"<?= ($settings['notify_on_checkin'] ?? '1') === '1' ? ' checked' : '' ?>>
                 Email staff when they sign in / check in (off by default — reduces email volume)
+            </label>
+        </div>
+        <div class="form-group form-group--full">
+            <label class="form-radio">
+                <input type="checkbox" name="notify_ops_on_checkin" value="1"<?= ($settings['notify_ops_on_checkin'] ?? '0') === '1' ? ' checked' : '' ?>>
+                Email ops team when any staff member signs in (uses admin alert emails from Settings → General)
             </label>
         </div>
 

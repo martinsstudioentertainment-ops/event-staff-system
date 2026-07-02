@@ -12,7 +12,7 @@ function getErpSettingsNavItems(): array
         ['key' => 'system',   'label' => 'System',      'url' => 'settings-production.php', 'icon' => 'system',   'cap' => 'settings'],
         ['key' => 'email',    'label' => 'Email',       'url' => 'settings-email.php',       'icon' => 'email',    'cap' => 'settings'],
         ['key' => 'security', 'label' => 'Security',    'url' => 'settings-security.php',    'icon' => 'security', 'cap' => 'settings'],
-        ['key' => 'backup',   'label' => 'Backup',      'url' => 'backups.php',              'icon' => 'backup',   'cap' => 'backups'],
+        ['key' => 'backup',   'label' => 'Backup',      'url' => 'backup-center.php',        'icon' => 'backup',   'cap' => 'backups'],
     ];
 }
 
@@ -109,6 +109,9 @@ function getAdminExportNavItems(): array
     return [
         ['key' => 'staff',      'label' => 'Staff CSV',      'url' => 'export-staff.php'],
         ['key' => 'attendance', 'label' => 'Attendance CSV', 'url' => 'export-attendance.php'],
+        ['key' => 'signins',    'label' => 'Event sign-ins', 'url' => 'export-event-signins.php'],
+        ['key' => 'contractor-sheet', 'label' => 'Contractor sheet', 'url' => 'contractor-sheet.php'],
+        ['key' => 'work-hours', 'label' => 'Work hours', 'url' => 'work-hours.php'],
     ];
 }
 

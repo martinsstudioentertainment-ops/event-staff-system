@@ -3,10 +3,25 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/secure-admin-theme.php';
+require_once __DIR__ . '/date-format.php';
 
 function secure_h(string $value): string
 {
     return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+}
+
+function secure_format_date(?string $date): string
+{
+    require_once __DIR__ . '/main-admin-bridge.php';
+
+    return formatDisplayDate($date, getMainAdminPdo());
+}
+
+function secure_format_datetime(?string $datetime): string
+{
+    require_once __DIR__ . '/main-admin-bridge.php';
+
+    return formatDisplayDateTime($datetime, getMainAdminPdo());
 }
 
 /**
@@ -42,16 +57,16 @@ function secure_layout_start(string $pageTitle, string $activeKey = '', string $
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
     <?php secure_print_admin_theme(); ?>
 </head>
-<body>
+<body data-session-idle-timeout="600" data-session-signout-url="logout.php?timeout=1">
 <div class="secure-sidebar-backdrop" id="secure-sidebar-backdrop" aria-hidden="true"></div>
-<div class="secure-app">
+<div class="secure-app secure-app--premium-x">
     <aside class="secure-sidebar" id="secure-sidebar" aria-label="Secure navigation">
         <div class="secure-sidebar__brand">
             <div class="secure-sidebar__shield" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
             </div>
             <p class="secure-sidebar__title">Apply Secure Admin</p>
-            <span class="secure-sidebar__zone">High security zone</span>
+            <span class="secure-sidebar__zone">Premium UI X · High security zone</span>
         </div>
         <nav class="secure-sidebar__nav">
             <div class="secure-sidebar__label">Operations</div>
@@ -80,6 +95,7 @@ function secure_layout_start(string $pageTitle, string $activeKey = '', string $
             <div class="secure-operator">
                 <strong><?= $adminName ?></strong>
                 <?= $role ?> · cleared access
+                · <a href="logout.php" class="secure-operator__signout">Sign out</a>
             </div>
         </header>
         <main class="secure-content">
@@ -94,7 +110,7 @@ function secure_layout_end(): void
 {
     ?>
             <footer class="secure-footer">
-                APPLY SECURE ADMIN v2 · AUTHORIZED USE ONLY · <?= secure_h(gmdate('Y-m-d H:i') . ' UTC') ?>
+                APPLY SECURE ADMIN · Premium UI X · AUTHORIZED USE ONLY · <?= secure_h(gmdate('Y-m-d H:i') . ' UTC') ?>
             </footer>
         </main>
     </div>
@@ -126,6 +142,11 @@ function secure_layout_end(): void
     setInterval(function () { ping(false); }, intervalMs);
 })();
 </script>
+<?php
+$idleJsPath = __DIR__ . '/../assets/js/session-idle-timeout.js';
+$idleJsVer  = is_file($idleJsPath) ? (string) filemtime($idleJsPath) : '1';
+?>
+<script src="../assets/js/session-idle-timeout.js?v=<?= secure_h($idleJsVer) ?>"></script>
 </body>
 </html>
     <?php

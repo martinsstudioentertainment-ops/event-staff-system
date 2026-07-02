@@ -57,7 +57,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <option value="">All events</option>
                 <?php foreach ($events as $event): ?>
                     <option value="<?= (int) $event['id'] ?>"<?= $eventId === (int) $event['id'] ? ' selected' : '' ?>>
-                        <?= h($event['name'] . ' — ' . date('d.m.Y', strtotime($event['event_date']))) ?>
+                        <?= h($event['name'] . ' — ' . formatEventDateLabel((string) $event['event_date'])) ?>
                     </option>
                 <?php endforeach; ?>
             </select>
@@ -135,8 +135,8 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                             <td><?= h(formatGenderLabel((string) $row['gender'])) ?></td>
                             <td><?= h(formatEventLabel($row)) ?></td>
                             <td><?= h(formatRoleLabel($row['staff_role'])) ?></td>
-                            <td><?= h(date('d.m.Y H:i', strtotime((string) $row['checked_in_at']))) ?></td>
-                            <td><?= $row['work_end_at'] ? h(date('d.m.Y H:i', strtotime((string) $row['work_end_at']))) : '—' ?></td>
+                            <td><?= h(formatSystemDateTime((string) $row['checked_in_at'], $pdo)) ?></td>
+                            <td><?= $row['work_end_at'] ? h(formatSystemDateTime((string) $row['work_end_at'], $pdo)) : '—' ?></td>
                             <td><?= h(formatHoursDecimal((float) ($row['hours_worked'] ?? 0))) ?></td>
                             <td>
                                 <strong><?= h(formatHoursDecimal((float) ($row['hours_paid'] ?? 0))) ?></strong>

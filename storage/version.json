@@ -1,0 +1,12 @@
+{
+    "version": "1.0.0",
+    "build": 2026062800,
+    "deployed_at": "2026-06-28T12:00:00+00:00",
+    "git_commit": "",
+    "label": "v1.0-certified",
+    "certified_at": "2026-06-28T12:00:00+00:00",
+    "production_status": "CERTIFIED FOR LIVE OPERATIONS",
+    "baseline_label": "OLASENTRA_ERP_PRODUCTION_V1.0_BASELINE",
+    "previous_stable_build": 2026062600,
+    "previous_stable_label": "v1.0-stable"
+}

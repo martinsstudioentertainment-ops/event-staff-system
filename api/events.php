@@ -12,6 +12,7 @@ try {
     $events = getActiveEventsForFrontend(getDB());
     echo json_encode($events);
 } catch (Throwable $e) {
+    error_log('[EventStaff] events API: ' . $e->getMessage());
     http_response_code(500);
     echo json_encode(['error' => 'Unable to load events.']);
 }

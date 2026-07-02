@@ -29,7 +29,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     <div class="card__header card__header--row">
         <div>
             <h2 class="card__title">Quick invoice — print only</h2>
-            <p class="card__subtitle">Generate a one-off commission invoice for printing or PDF. Nothing is saved — no event, no monthly totals.</p>
+            <p class="card__subtitle">One-off print only — not saved. To keep job details for later, use <a href="job-record-form.php">Saved job records</a>.</p>
         </div>
         <a href="invoices.php" class="btn btn--secondary">← All invoices</a>
     </div>

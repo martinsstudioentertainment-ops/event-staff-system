@@ -1,0 +1,67 @@
+{
+  "description": "Phase 2 file classifications for deploy gate and restoration decisions.",
+  "classifications": {
+    "production_critical": [
+      "includes/mobile/services/MobilePortalConfigService.php"
+    ],
+    "admin_only": [
+      "admin/mobile-portal.php",
+      "admin/settings-mobile-portal.php",
+      "cron/reset-staff-checkins.php",
+      "scripts/backup-events-global.php"
+    ],
+    "legacy": [
+      "includes/footer.php",
+      "includes/header.php",
+      "includes/sidebar.php",
+      "includes/settings.php",
+      "account-deletion.php"
+    ],
+    "diagnostic": [
+      "api/mobile-config-probe.php",
+      "api/mobile-dashboard-probe.php",
+      "api/probe-dash2.php",
+      "api/probe-ping.php",
+      "api/probe-reg-save.php",
+      "api/probe-reg-submit.php",
+      "api/probe-staff-full-verify.php",
+      "api/registration-email-otp-send.php",
+      "scripts/diag-otp-send.php",
+      "scripts/test-otp-send-production.php"
+    ],
+    "safe_to_exclude": [
+      "_extract_transcripts.js",
+      "_fix_strings_report.js",
+      "_reconstruct_manifest.js",
+      "scripts/generate-branding-assets.php",
+      "scripts/generate-play-feature-graphic.php",
+      "scripts/generate-play-screenshots.php",
+    "scripts/play-store-graphics-lib.php",
+    "scripts/backup-events-global.php"
+  ]
+},
+  "zero_byte_safe_exclude_paths": [
+    "_extract_transcripts.js",
+    "_fix_strings_report.js",
+    "_reconstruct_manifest.js",
+    "api/mobile-config-probe.php",
+    "api/mobile-dashboard-probe.php",
+    "api/probe-dash2.php",
+    "api/probe-ping.php",
+    "api/probe-reg-save.php",
+    "api/probe-reg-submit.php",
+    "api/probe-staff-full-verify.php",
+    "api/registration-email-otp-send.php",
+    "scripts/diag-otp-send.php",
+    "scripts/test-otp-send-production.php",
+    "scripts/generate-branding-assets.php",
+    "scripts/generate-play-feature-graphic.php",
+    "scripts/generate-play-screenshots.php",
+    "scripts/play-store-graphics-lib.php",
+    "includes/footer.php",
+    "includes/header.php",
+    "includes/sidebar.php",
+    "includes/settings.php",
+    "account-deletion.php"
+  ]
+}

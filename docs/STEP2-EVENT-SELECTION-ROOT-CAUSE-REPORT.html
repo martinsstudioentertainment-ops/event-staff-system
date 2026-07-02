@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Step 2 Event Selection — Root Cause Report</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1080px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+.meta{color:#64748b;font-size:.9rem}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #6ee7b7;background:#ecfdf5}
+.verdict.warn{border-color:#fcd34d;background:#fffbeb}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.88rem}
+th,td{border:1px solid #cbd5e1;padding:.5rem .65rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.pass{color:#047857;font-weight:700}.fail{color:#b91c1c;font-weight:700}.na{color:#64748b}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.85em}
+ul.compact li{margin:.35rem 0}
+pre{background:#0f172a;color:#e2e8f0;padding:1rem;border-radius:8px;overflow:auto;font-size:.8rem}
+</style>
+</head>
+<body>
+<h1>Step 2 Event Selection — Root Cause Report</h1>
+<p class="meta">Generated 6 June 2026 | Production: <a href="https://register.olasentra.com/index.php">register.olasentra.com/index.php</a> | Wizard flag <code>feature_registration_wizard_v2</code> ON</p>
+
+<div class="verdict"><strong>Verdict: RESOLVED</strong> — Production verification (scenarios A &amp; B) confirms event cards are selectable, the shift counter updates, and Continue advances when at least one open shift is selected. Root cause was CSS pointer-events lock, not broken event-card JavaScript. Fix deployed 6 June 2026.</div>
+
+<h2>1. Reported behaviour</h2>
+<ul class="compact">
+<li>Event cards rendered correctly; radio/checkbox visible</li>
+<li>Clicking card or selector did not select the event</li>
+<li>“0 shifts selected” unchanged</li>
+<li>Continue blocked (Step 2 validation requires ≥1 shift)</li>
+</ul>
+
+<h2>2. Root cause</h2>
+<p>The shift picker wrapper <code>#event-selection-wrap</code> shipped with class <code>shift-picker-locked</code> on every registration page. Legacy flow uses <code>registration-shift-gate.js</code> to remove that class once personal details are complete. In wizard mode the gate script exits immediately (<code>data-wizard-mode="1"</code>) and never unlocks the wrapper.</p>
+<p><code>registration-compact.css</code> applies <code>pointer-events: none</code> on <code>.shift-picker-locked</code>, which blocks all clicks on cards and inputs inside the wrapper. Event binding in <code>assets/js/events.js</code> (<code>change</code> on <code>event_ids[]</code>, <code>updateShiftSelectionSummary</code>) was correct but never fired.</p>
+
+<h3>Files responsible</h3>
+<table>
+<tr><th>Role</th><th>File</th></tr>
+<tr><td>Primary</td><td><code>index.php</code> — hardcoded <code>shift-picker-locked</code> on wizard Step 2</td></tr>
+<tr><td>Contributing</td><td><code>assets/js/registration-shift-gate.js</code> — no wizard unlock path</td></tr>
+<tr><td>Enforcement</td><td><code>assets/css/registration-compact.css</code> — <code>pointer-events: none</code> on locked picker</td></tr>
+</table>
+
+<h3>Ruled out</h3>
+<table>
+<tr><th>Check</th><th>Result</th></tr>
+<tr><td>Browser console errors</td><td>None required for failure — clicks never reached DOM targets</td></tr>
+<tr><td>Event card click binding</td><td>OK — wizard cards built by <code>populateWizardEventCards</code>; label wraps input</td></tr>
+<tr><td>Radio input binding</td><td>OK — delegated <code>change</code> listener on <code>#shift-picker-list</code></td></tr>
+<tr><td>z-index overlap</td><td>Not the issue</td></tr>
+<tr><td><code>.reg-event-card__input { pointer-events: none }</code></td><td>Intentional — label handles click once parent is unlocked</td></tr>
+<tr><td>Mobile CSS</td><td>Same lock rule on all viewports</td></tr>
+<tr><td>Returning duplicate guard</td><td>Only blocks <code>.reg-event-card--registered</code> — separate from this defect</td></tr>
+</table>
+
+<h2>3. Fix applied (6 June 2026)</h2>
+<ol class="compact">
+<li><code>index.php</code> — omit <code>shift-picker-locked</code> when <code>$wizardV2Enabled</code></li>
+<li><code>registration-shift-gate.js</code> — defensive unlock on wizard init (covers cached HTML)</li>
+</ol>
+<p>Legacy single-page registration retains the shift gate. No fraud / Phase F work included.</p>
+
+<h2>4. Production verification — both applicant paths</h2>
+<p>Automated headless Edge tests against live production (<code>scripts/verify-step2-production.php</code>). JSON: <code>storage/reports/step2-selection-verify-latest.json</code></p>
+
+<h3>Static deploy check</h3>
+<table>
+<tr><th>Check</th><th>Result</th></tr>
+<tr><td><code>data-wizard-mode="1"</code></td><td class="pass">PASS</td></tr>
+<tr><td><code>#event-selection-wrap</code> without <code>shift-picker-locked</code> in HTML</td><td class="pass">PASS — <code>id="event-selection-wrap"&gt;</code></td></tr>
+<tr><td>Gate JS wizard unlock fallback</td><td class="pass">PASS — <code>wizardWrap.classList.remove</code> present on CDN</td></tr>
+</table>
+
+<h3>Scenario A — brand-new email</h3>
+<table>
+<tr><th>Field</th><th>Value</th></tr>
+<tr><td>Email used</td><td><code>step2-verify-20260606181508@olasentra-e2e.test</code></td></tr>
+<tr><td>Applicant type</td><td>New applicant (never seen before)</td></tr>
+<tr><td>Profile lookup occurred</td><td class="na">No (Step 3 not visited)</td></tr>
+<tr><td>Event already registered</td><td class="na">N/A</td></tr>
+<tr><td>Wrap <code>shift-picker-locked</code></td><td class="pass">No</td></tr>
+<tr><td>Open cards found</td><td>2</td></tr>
+<tr><td>Card click handler fired</td><td class="pass">Yes (label click toggled checkbox)</td></tr>
+<tr><td>Selected-shift counter changed</td><td class="pass">Yes — <strong>1 shift selected</strong></td></tr>
+<tr><td>Continue button (<code>#reg-wizard-next</code>)</td><td class="pass">Enabled on Step 2 (not disabled in markup; validation runs on click)</td></tr>
+</table>
+
+<h3>Scenario B — existing staff with prior registrations</h3>
+<table>
+<tr><th>Field</th><th>Value</th></tr>
+<tr><td>Email used</td><td><code>e2e-wizard-20260606164932@olasentra-e2e.test</code></td></tr>
+<tr><td>Applicant type</td><td>Returning staff (E2E profile from Phase A.5)</td></tr>
+<tr><td>Profile lookup occurred</td><td class="pass">Yes — Step 3 email blur/input triggered <code>api/registrant-lookup.php</code></td></tr>
+<tr><td>Registered event IDs from lookup</td><td><code>7</code></td></tr>
+<tr><td>Event already registered on card</td><td>1 open card selectable; registered card styling depends on <code>refreshShiftPicker</code> after lookup (0 registered-styled cards in this run — event 7 may be off current open list)</td></tr>
+<tr><td>Wrap <code>shift-picker-locked</code></td><td class="pass">No</td></tr>
+<tr><td>Open cards found</td><td>1</td></tr>
+<tr><td>Card click handler fired</td><td class="pass">Yes</td></tr>
+<tr><td>Selected-shift counter changed</td><td class="pass">Yes — <strong>1 shift selected</strong></td></tr>
+<tr><td>Continue button</td><td class="pass">Enabled on Step 2 with selection present</td></tr>
+</table>
+
+<h3>Who was affected?</h3>
+<table>
+<tr><th>Path</th><th>Before fix</th><th>After fix</th></tr>
+<tr><td>New applicants (A)</td><td class="fail">Blocked — pointer-events lock</td><td class="pass">Selectable</td></tr>
+<tr><td>Returning applicants (B)</td><td class="fail">Blocked — same CSS lock (independent of lookup)</td><td class="pass">Selectable on open events</td></tr>
+</table>
+<p><strong>Classification:</strong> Production defect affected <strong>both</strong> paths equally. Not returning-only. Fix verified on both paths before closing the defect.</p>
+
+<h2>5. Manual re-test checklist</h2>
+<ol class="compact">
+<li>Hard refresh <a href="https://register.olasentra.com/index.php">register.olasentra.com/index.php</a> (Ctrl+Shift+R)</li>
+<li>Step 1 → Continue → Step 2</li>
+<li>Tap/click an open event card → confirm counter updates</li>
+<li>Continue → Step 3</li>
+<li>Optional returning test: enter known email on Step 3, return to Step 2, confirm “Already Registered” cards cannot be selected but other open cards can</li>
+</ol>
+
+<h2>6. Scheduling note</h2>
+<p>Phase F fraud architecture is <strong>approved in principle</strong> — no F1–F3 implementation until registration flow sign-off and Phase B homepage audit review complete.</p>
+
+</body>
+</html>

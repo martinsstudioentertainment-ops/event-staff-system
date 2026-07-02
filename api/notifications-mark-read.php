@@ -33,7 +33,14 @@ if ($id <= 0 || !in_array($audience, ['admin', 'staff'], true)) {
     exit;
 }
 
-$pdo = getDB();
+try {
+    $pdo = getDB();
+} catch (Throwable $e) {
+    error_log('[NotificationsMarkRead] DB: ' . $e->getMessage());
+    http_response_code(503);
+    echo json_encode(['ok' => false, 'error' => 'Service unavailable']);
+    exit;
+}
 
 if ($audience === 'admin') {
     if (!isAdminLoggedIn()) {

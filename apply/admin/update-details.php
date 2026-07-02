@@ -2,13 +2,15 @@
 
 declare(strict_types=1);
 
-ini_set('display_errors', '1');
+ini_set('display_errors', '0');
 error_reporting(E_ALL);
 
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/apply-urls.php';
 require_once __DIR__ . '/includes/google-sheets-sync.php';
 require_once __DIR__ . '/includes/main-admin-bridge.php';
+require_once __DIR__ . '/includes/legacy-public-redirect.php';
+apply_redirect_legacy_public_surface('update-details');
 
 $staff = null;
 $success = '';
@@ -54,6 +56,7 @@ if (isset($_POST['lookup_profile'])) {
 if (isset($_POST['save_profile'])) {
 
     $staffId = (int)($_POST['staff_id'] ?? 0);
+    $verifyDob = trim((string) ($_POST['date_of_birth'] ?? ''));
 
     $phone = trim($_POST['phone'] ?? '');
     $email = trim($_POST['email'] ?? '');
@@ -212,6 +215,22 @@ if (isset($_POST['save_profile'])) {
             $backName;
     }
 
+    if (!$error && $staffId > 0) {
+        $ownerCheck = $pdo->prepare('
+            SELECT id FROM staff_master
+            WHERE id = :id AND email = :email AND date_of_birth = :dob
+            LIMIT 1
+        ');
+        $ownerCheck->execute([
+            ':id'   => $staffId,
+            ':email' => $email,
+            ':dob'  => $verifyDob,
+        ]);
+        if (!$ownerCheck->fetch()) {
+            $error = 'Profile verification failed. Please look up your profile again with email and date of birth.';
+        }
+    }
+
     if (!$error) {
 
         $profileStatus = 'Pending Review';
@@ -278,7 +297,11 @@ if (isset($_POST['save_profile'])) {
             ':id' => $staffId,
         ]);
 
-        run_apply_google_sheets_sync($pdo, getMainAdminPdo());
+        try {
+            run_apply_google_sheets_sync($pdo, getMainAdminPdo());
+        } catch (Throwable $e) {
+            error_log('[ApplySync] update-details: ' . $e->getMessage());
+        }
 
         $success =
             'Thank you. Your profile has been updated successfully and is awaiting review.';

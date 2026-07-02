@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Phase A.3 — Final Readiness Report</title>
+<style>
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 10pt; padding: 24px 32px; max-width: 720px; color: #0f172a; line-height: 1.5; }
+h1 { font-size: 18pt; margin: 0 0 6px; }
+.meta { color: #64748b; font-size: 9pt; margin-bottom: 20px; }
+h2 { font-size: 11pt; background: #030712; color: #fff; padding: 6px 12px; margin: 18px 0 10px; }
+.verdict { font-size: 14pt; font-weight: 800; padding: 14px 18px; border-radius: 10px; margin: 16px 0; }
+.verdict--go { background: #ecfdf5; border: 2px solid #22c55e; color: #15803d; }
+table { width: 100%; border-collapse: collapse; font-size: 9pt; margin: 10px 0; }
+th, td { border-bottom: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; }
+th { background: #1e293b; color: #fff; }
+ul { margin: 8px 0; padding-left: 1.2rem; }
+.score-row td:last-child { font-weight: 700; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>Phase A.3 — Final Readiness Report</h1>
+<p class="meta">
+<strong>Date:</strong> 6 June 2026 ·
+<strong>Author:</strong> Platform UX review ·
+<strong>Approval:</strong> A.3 Returning User Experience — Approved
+</p>
+
+<div class="verdict verdict--go">
+GO — Phase A.4 may proceed<br>
+<span style="font-size:10pt;font-weight:600">A.3 returning-user scope is complete. Address Step 8 review summary in A.4 as P0.</span>
+</div>
+
+<h2>Executive summary</h2>
+<p>
+Phase A.3 delivers returning-user recognition, smart prefill, draft resume, duplicate event protection, profile status card, analytics, and platform positioning — all behind <code>feature_registration_wizard_v2</code> with no database or submit-path changes.
+UX review across 24 screenshots (8 steps × mobile/tablet/desktop) yields a <strong>composite score of 76/100</strong>.
+The wizard is production-ready for controlled flag-on rollout; the highest-risk gap for conversion is the Step 8 review placeholder, explicitly scheduled for Phase A.4.
+</p>
+
+<h2>UX scorecard</h2>
+<table class="score-row">
+<tr><th>Dimension</th><th>Score</th><th>Verdict</th></tr>
+<tr><td>Mobile UX</td><td>82</td><td>Strong — primary target met</td></tr>
+<tr><td>Tablet UX</td><td>74</td><td>Acceptable — gutter space unused</td></tr>
+<tr><td>Desktop UX</td><td>70</td><td>Acceptable — mobile-first by design</td></tr>
+<tr><td>Accessibility</td><td>76</td><td>Good baseline — hint size + step nav gaps</td></tr>
+<tr><td>Registration conversion</td><td>78</td><td>Good — returning flow lifts score; review step drags</td></tr>
+</table>
+
+<h2>Deliverables checklist</h2>
+<table>
+<tr><th>Item</th><th>Location</th><th>Status</th></tr>
+<tr><td>Implementation package</td><td>docs/PHASE-A3-IMPLEMENTATION-PACKAGE.html</td><td>Complete</td></tr>
+<tr><td>Review package (this cycle)</td><td>docs/PHASE-A3-REVIEW-PACKAGE.html</td><td>Complete</td></tr>
+<tr><td>Mobile screenshots (8 steps)</td><td>docs/screenshots/a3-review/mobile/</td><td>Complete</td></tr>
+<tr><td>Tablet screenshots (8 steps)</td><td>docs/screenshots/a3-review/tablet/</td><td>Complete</td></tr>
+<tr><td>Desktop screenshots (8 steps)</td><td>docs/screenshots/a3-review/desktop/</td><td>Complete</td></tr>
+<tr><td>Returning-flow captures</td><td>docs/screenshots/a3/</td><td>Complete</td></tr>
+<tr><td>UX + design review</td><td>PHASE-A3-REVIEW-PACKAGE.html §4–5</td><td>Complete</td></tr>
+</table>
+
+<h2>Production readiness</h2>
+<table>
+<tr><th>Gate</th><th>Result</th></tr>
+<tr><td>No database changes</td><td>Pass</td></tr>
+<tr><td>No submit.php changes</td><td>Pass</td></tr>
+<tr><td>No route / permission changes</td><td>Pass</td></tr>
+<tr><td>Feature flag protected</td><td>Pass — default OFF</td></tr>
+<tr><td>Rollback path</td><td>Pass — flag OFF restores legacy</td></tr>
+<tr><td>Analytics funnel</td><td>Pass — 5 returning events + widget</td></tr>
+<tr><td>Deploy to production</td><td>Pending — run deploy.ps1 when ops ready</td></tr>
+</table>
+
+<h2>Known issues (carry to A.4)</h2>
+<ul>
+<li><strong>P0:</strong> Step 8 review summary placeholder — replace with live field/event summary before wide rollout.</li>
+<li><strong>P1:</strong> Tablet/desktop empty gutters — optional two-column forms at ≥640px.</li>
+<li><strong>P1:</strong> Form hint typography — bump to 0.8rem minimum.</li>
+<li><strong>P2:</strong> PSA file upload visual design — camera-first mobile pattern.</li>
+<li><strong>P2:</strong> Progress indicator affordance — numbered step pills.</li>
+</ul>
+
+<h2>Recommended actions before A.4 coding</h2>
+<ol>
+<li>Deploy A.3 code to production (flag remains OFF).</li>
+<li>Enable flag on staging / limited pilot; verify returning-user analytics in admin funnel widget.</li>
+<li>Begin Phase A.4 with review-step summary + payroll/PSA polish per master plan.</li>
+</ol>
+
+<h2>Sign-off</h2>
+<p>
+<strong>Phase A.3:</strong> Complete and approved.<br>
+<strong>Phase A.4:</strong> Cleared to start after review package acknowledgment.<br>
+<strong>Review artifacts:</strong> <a href="PHASE-A3-REVIEW-PACKAGE.html">PHASE-A3-REVIEW-PACKAGE.html</a>
+</p>
+
+</body>
+</html>

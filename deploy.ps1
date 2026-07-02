@@ -14,22 +14,37 @@ Write-Host '  Push to server (GitHub + FTP)' -ForegroundColor Green
 Write-Host '========================================' -ForegroundColor Green
 Write-Host ''
 
-Write-Host '[0/4] Local pre-deploy backup ...' -ForegroundColor Green
+Write-Host '[0/6] Deploy safety gate (repository integrity) ...' -ForegroundColor Green
+& (Join-Path $Root 'scripts\deploy-safety-gate.ps1')
+if ($LASTEXITCODE -ne 0) {
+    throw 'Deploy blocked by safety gate. See docs/phase1-deploy-safety-gate.json'
+}
+
+Write-Host ''
+Write-Host '[1/6] Local pre-deploy backup ...' -ForegroundColor Green
 & (Join-Path $Root 'scripts\pre-deploy-backup.ps1')
 
 Write-Host ''
-Write-Host '[1/4] Pushing to GitHub (main) ...' -ForegroundColor Green
+Write-Host '[2/6] Cleanup audit (read-only, no deletions) ...' -ForegroundColor Green
+& (Join-Path $Root 'scripts\cleanup-audit.ps1')
+
+Write-Host ''
+Write-Host '[3/6] Pushing to GitHub (main) ...' -ForegroundColor Green
 git push origin main
 if ($LASTEXITCODE -ne 0) {
     throw 'git push failed'
 }
 
 Write-Host ''
-Write-Host '[2/4] Uploading main admin (admin.olasentra.com) ...' -ForegroundColor Green
-& (Join-Path $Root 'scripts\upload-to-server.ps1')
+Write-Host '[3b/6] Generating Version 1.0 deployment manifest ...' -ForegroundColor Green
+& (Join-Path $Root 'scripts\generate-v10-deploy-manifest.ps1')
 
 Write-Host ''
-Write-Host '[3/4] Uploading apply site (apply.olasentra.com) ...' -ForegroundColor Green
+Write-Host '[4/6] Uploading main admin (admin.olasentra.com) ...' -ForegroundColor Green
+& (Join-Path $Root 'scripts\upload-from-manifest.ps1')
+
+Write-Host ''
+Write-Host '[5/6] Uploading apply site (apply.olasentra.com) ...' -ForegroundColor Green
 & (Join-Path $Root 'scripts\upload-apply-site.ps1')
 
 Write-Host ''

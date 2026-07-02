@@ -6,6 +6,61 @@ declare(strict_types=1);
  * PSA sync + automatic profile_status (Verified / Pending Review / Expired PSA).
  */
 
+function apply_is_temp_psa_licence(?string $licence): bool
+{
+    return str_starts_with(trim((string) $licence), 'TEMP-PSA-');
+}
+
+/**
+ * Vault DB value — null when staff have not submitted a real licence yet.
+ */
+function apply_normalize_vault_psa_licence(?string $licence): ?string
+{
+    $licence = trim((string) $licence);
+
+    if ($licence === '' || apply_is_temp_psa_licence($licence)) {
+        return null;
+    }
+
+    return $licence;
+}
+
+/**
+ * Google Sheets / CSV — blank until staff complete PSA details.
+ */
+function apply_export_psa_licence(?string $licence): string
+{
+    return apply_normalize_vault_psa_licence($licence) ?? '';
+}
+
+/**
+ * Remove legacy TEMP-PSA-* placeholders from the vault.
+ */
+function apply_clear_temp_psa_licences(PDO $applyPdo): int
+{
+    try {
+        $stmt = $applyPdo->prepare(
+            "UPDATE staff_master SET psa_licence = NULL WHERE psa_licence LIKE 'TEMP-PSA-%'"
+        );
+        $stmt->execute();
+
+        return $stmt->rowCount();
+    } catch (Throwable $e) {
+        try {
+            $stmt = $applyPdo->prepare(
+                "UPDATE staff_master SET psa_licence = '' WHERE psa_licence LIKE 'TEMP-PSA-%'"
+            );
+            $stmt->execute();
+
+            return $stmt->rowCount();
+        } catch (Throwable $fallback) {
+            error_log('[ApplySync] apply_clear_temp_psa_licences: ' . $e->getMessage());
+
+            return 0;
+        }
+    }
+}
+
 /**
  * @return array<string, array{
  *     psa_licence: string,
@@ -19,7 +74,8 @@ function apply_main_staff_by_email(PDO $eventPdo): array
 
     try {
         $stmt = $eventPdo->query("
-            SELECT email, psa_licence, psa_expiry_date, profile_completed
+            SELECT email, psa_licence, psa_expiry_date, profile_completed,
+                   psa_front_image, psa_back_image
             FROM staff
             WHERE email IS NOT NULL AND TRIM(email) != ''
         ");
@@ -33,6 +89,8 @@ function apply_main_staff_by_email(PDO $eventPdo): array
                 'psa_licence'       => trim((string) ($row['psa_licence'] ?? '')),
                 'psa_expiry_date'   => ($expiry === '' || $expiry === '0000-00-00') ? null : $expiry,
                 'profile_completed' => (int) ($row['profile_completed'] ?? 0),
+                'psa_front_image'   => trim((string) ($row['psa_front_image'] ?? '')),
+                'psa_back_image'    => trim((string) ($row['psa_back_image'] ?? '')),
             ];
         }
     } catch (Throwable $e) {
@@ -95,8 +153,7 @@ function apply_vault_profile_complete_for_verify(array $row): bool
         }
     }
 
-    $psa = trim((string) ($row['psa_licence'] ?? ''));
-    if ($psa === '' || str_starts_with($psa, 'TEMP-PSA-')) {
+    if (apply_normalize_vault_psa_licence((string) ($row['psa_licence'] ?? '')) === null) {
         return false;
     }
 
@@ -191,11 +248,14 @@ function apply_resolve_psa_from_main(array $registration, ?array $mainStaff, str
     }
 
     $existingLicence = trim($existingLicence);
-    if (($licence === '' || str_starts_with($licence, 'TEMP-PSA-')) && $existingLicence !== '' && !str_starts_with($existingLicence, 'TEMP-PSA-')) {
-        $licence = $existingLicence;
+    if (apply_normalize_vault_psa_licence($licence) === null) {
+        $licence = apply_export_psa_licence($existingLicence);
     }
 
-    return ['licence' => $licence, 'expiry' => $expiry];
+    return [
+        'licence' => apply_export_psa_licence($licence),
+        'expiry'  => $expiry,
+    ];
 }
 
 /**
@@ -216,13 +276,17 @@ function apply_auto_refresh_vault_profile_statuses(PDO $applyPdo, ?PDO $eventPdo
         return 0;
     }
 
+    require_once __DIR__ . '/psa-images.php';
+
     $update = $applyPdo->prepare('
         UPDATE staff_master
         SET psa_licence = :psa,
             psa_expiry_date = :expiry,
             profile_status = :status,
             verified_by = :verified_by,
-            verified_at = :verified_at
+            verified_at = :verified_at,
+            psa_front_image = :psa_front_image,
+            psa_back_image = :psa_back_image
         WHERE id = :id
     ');
 
@@ -230,7 +294,7 @@ function apply_auto_refresh_vault_profile_statuses(PDO $applyPdo, ?PDO $eventPdo
         $key       = strtolower(trim((string) ($row['email'] ?? '')));
         $mainStaff = $staffMap[$key] ?? null;
 
-        $oldLicence = trim((string) ($row['psa_licence'] ?? ''));
+        $oldLicence = apply_export_psa_licence((string) ($row['psa_licence'] ?? ''));
         $oldExpiry  = apply_normalize_psa_expiry((string) ($row['psa_expiry_date'] ?? ''));
         $psaLicence = $oldLicence;
         $psaExpiry  = $oldExpiry;
@@ -241,7 +305,9 @@ function apply_auto_refresh_vault_profile_statuses(PDO $applyPdo, ?PDO $eventPdo
             $psaExpiry  = $resolved['expiry'] ?? $psaExpiry;
         }
 
-        $row['psa_licence']     = $psaLicence;
+        $psaLicence = apply_normalize_vault_psa_licence($psaLicence);
+
+        $row['psa_licence']     = apply_export_psa_licence($psaLicence);
         $row['psa_expiry_date'] = $psaExpiry;
 
         $oldStatus = (string) ($row['profile_status'] ?? 'Incomplete');
@@ -260,18 +326,36 @@ function apply_auto_refresh_vault_profile_statuses(PDO $applyPdo, ?PDO $eventPdo
             $verifiedAt = null;
         }
 
-        if ($status === $oldStatus && $psaLicence === $oldLicence && $psaExpiry === $oldExpiry) {
+        $imageSync = apply_vault_psa_images_to_sync_from_main($row, $mainStaff);
+        $psaFront  = trim((string) ($row['psa_front_image'] ?? ''));
+        $psaBack   = trim((string) ($row['psa_back_image'] ?? ''));
+        if (isset($imageSync['psa_front_image'])) {
+            $psaFront = $imageSync['psa_front_image'];
+        }
+        if (isset($imageSync['psa_back_image'])) {
+            $psaBack = $imageSync['psa_back_image'];
+        }
+        $oldFront = trim((string) ($row['psa_front_image'] ?? ''));
+        $oldBack  = trim((string) ($row['psa_back_image'] ?? ''));
+
+        if ($status === $oldStatus
+            && apply_export_psa_licence($psaLicence) === $oldLicence
+            && $psaExpiry === $oldExpiry
+            && $psaFront === $oldFront
+            && $psaBack === $oldBack) {
             continue;
         }
 
         try {
             $update->execute([
-                'psa'         => $psaLicence !== '' ? $psaLicence : null,
-                'expiry'      => $psaExpiry,
-                'status'      => $status,
-                'verified_by' => $verifiedBy !== '' ? $verifiedBy : null,
-                'verified_at' => $verifiedAt,
-                'id'          => (int) $row['id'],
+                'psa'             => $psaLicence,
+                'expiry'          => $psaExpiry,
+                'status'          => $status,
+                'verified_by'     => $verifiedBy !== '' ? $verifiedBy : null,
+                'verified_at'     => $verifiedAt,
+                'psa_front_image' => $psaFront !== '' ? $psaFront : null,
+                'psa_back_image'  => $psaBack !== '' ? $psaBack : null,
+                'id'              => (int) $row['id'],
             ]);
             ++$updated;
         } catch (Throwable $e) {

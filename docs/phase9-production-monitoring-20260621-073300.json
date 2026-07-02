@@ -1,0 +1,102 @@
+﻿{
+    "operational_failures":  [
+                                 {
+                                     "ID":  "P9-A13",
+                                     "Category":  "PWA install",
+                                     "Severity":  "Medium",
+                                     "Frequency":  "Unknown",
+                                     "Description":  "manifest.php missing name",
+                                     "RootCause":  "Manifest generation",
+                                     "RecommendedFix":  "Check manifest.php",
+                                     "Source":  "Automated probe"
+                                 },
+                                 {
+                                     "ID":  "P9-A17-Staff shifts",
+                                     "Category":  "Broken links",
+                                     "Severity":  "Medium",
+                                     "Frequency":  "Unknown",
+                                     "Description":  "Staff shifts returned HTTP 0",
+                                     "RootCause":  "Routing or auth",
+                                     "RecommendedFix":  "Verify https://register.olasentra.com/staff-shifts.php",
+                                     "Source":  "Automated probe"
+                                 },
+                                 {
+                                     "ID":  "P9-A17-Profile hub",
+                                     "Category":  "Broken links",
+                                     "Severity":  "Medium",
+                                     "Frequency":  "Unknown",
+                                     "Description":  "Profile hub returned HTTP 0",
+                                     "RootCause":  "Routing or auth",
+                                     "RecommendedFix":  "Verify https://register.olasentra.com/staff-profile-hub.php",
+                                     "Source":  "Automated probe"
+                                 }
+                             ],
+    "staff_feedback_received":  false,
+    "staff_feedback_note":  "No completed TESTER-FEEDBACK-FORM or admin inbox exports found in repository for this monitoring window.",
+    "probed_at":  "2026-06-21T07:33:00.8210204+01:00",
+    "known_polish_items":  [
+                               {
+                                   "ID":  "P9-P03",
+                                   "Category":  "Dashboard",
+                                   "Severity":  "Low",
+                                   "Frequency":  "When on shift",
+                                   "Description":  "Shift monitoring banner may render unstyled (staff-v2__alert without v2 CSS on v3 pages)",
+                                   "RootCause":  "Phase 6 audit: banner class not in v3 CSS bundle",
+                                   "RecommendedFix":  "Style shift banner with v3 tokens in future UI phase (not auth/attendance)",
+                                   "Source":  "Automated probe"
+                               },
+                               {
+                                   "ID":  "P9-P04",
+                                   "Category":  "Dashboard",
+                                   "Severity":  "Low",
+                                   "Frequency":  "One-time per user",
+                                   "Description":  "Registration (index.php) uses light public shell; staff app is dark v3 — visual disconnect after Register",
+                                   "RootCause":  "Separate registration wizard CSS",
+                                   "RecommendedFix":  "Phase 6C registration dark band alignment (future UI phase)",
+                                   "Source":  "Automated probe"
+                               },
+                               {
+                                   "ID":  "P9-P05",
+                                   "Category":  "PWA install",
+                                   "Severity":  "Low",
+                                   "Frequency":  "Ongoing",
+                                   "Description":  "Dual PWA install UX (v3 orange banner + legacy blue pwa-install.css)",
+                                   "RootCause":  "Two install systems coexist",
+                                   "RecommendedFix":  "Consolidate install prompts in future UI phase",
+                                   "Source":  "Automated probe"
+                               },
+                               {
+                                   "ID":  "P9-P06",
+                                   "Category":  "Notifications",
+                                   "Severity":  "Low",
+                                   "Frequency":  "When WhatsApp enabled",
+                                   "Description":  "WhatsApp notification card uses light green styling on dark v3 page",
+                                   "RootCause":  "notifications.css legacy block",
+                                   "RecommendedFix":  "Restyle WhatsApp card to v3 dark in future UI phase",
+                                   "Source":  "Automated probe"
+                               },
+                               {
+                                   "ID":  "P9-P07",
+                                   "Category":  "Messages",
+                                   "Severity":  "Low",
+                                   "Frequency":  "Signed-in use",
+                                   "Description":  "Messages page uses hybrid legacy bubble markup with v3 overrides",
+                                   "RootCause":  "Incremental migration incomplete",
+                                   "RecommendedFix":  "Full v3 messages markup in future UI phase",
+                                   "Source":  "Automated probe"
+                               },
+                               {
+                                   "ID":  "P9-P08",
+                                   "Category":  "Dashboard",
+                                   "Severity":  "Info",
+                                   "Frequency":  "N/A",
+                                   "Description":  "Device owner checklist (Phase 8 Section 6) not yet signed off — no stored staff feedback forms received",
+                                   "RootCause":  "Monitoring gap: no automated staff feedback ingestion",
+                                   "RecommendedFix":  "Collect TESTER-FEEDBACK-FORM submissions; complete device matrix",
+                                   "Source":  "Automated probe"
+                               }
+                           ],
+    "target":  "https://register.olasentra.com",
+    "verdict":  "FIXES RECOMMENDED",
+    "phase":  "PHASE9-PRODUCTION-MONITORING"
+}

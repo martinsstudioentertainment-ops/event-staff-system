@@ -1,0 +1,62 @@
+﻿{
+    "restored_at":  "2026-06-21T06:04:34.0410653+01:00",
+    "snapshot_used":  "production-snapshot-20260621-055543",
+    "restored_count":  0,
+    "restored":  [
+
+                 ],
+    "still_zero_count":  13,
+    "still_zero":  [
+                       "_extract_transcripts.js",
+                       "_fix_strings_report.js",
+                       "_reconstruct_manifest.js",
+                       "includes/footer.php",
+                       "includes/header.php",
+                       "includes/settings.php",
+                       "includes/sidebar.php",
+                       "scripts/backup-events-global.php",
+                       "scripts/generate-branding-assets.php",
+                       "scripts/generate-play-feature-graphic.php",
+                       "scripts/generate-play-screenshots.php",
+                       "scripts/play-store-graphics-lib.php",
+                       "scripts/test-otp-send-production.php"
+                   ],
+    "missing_on_prod":  [
+                            {
+                                "file":  "_extract_transcripts.js",
+                                "detail":  "Exception calling \"DownloadFile\" with \"2\" argument(s): \"The remote server returned an error: (550) File unavailable (e.g., file not found, no access).\""
+                            },
+                            {
+                                "file":  "_fix_strings_report.js",
+                                "detail":  "Exception calling \"DownloadFile\" with \"2\" argument(s): \"The remote server returned an error: (550) File unavailable (e.g., file not found, no access).\""
+                            },
+                            {
+                                "file":  "_reconstruct_manifest.js",
+                                "detail":  "Exception calling \"DownloadFile\" with \"2\" argument(s): \"The remote server returned an error: (550) File unavailable (e.g., file not found, no access).\""
+                            },
+                            {
+                                "file":  "scripts/backup-events-global.php",
+                                "detail":  "Exception calling \"DownloadFile\" with \"2\" argument(s): \"The remote server returned an error: (550) File unavailable (e.g., file not found, no access).\""
+                            },
+                            {
+                                "file":  "scripts/generate-branding-assets.php",
+                                "detail":  "Exception calling \"DownloadFile\" with \"2\" argument(s): \"The remote server returned an error: (550) File unavailable (e.g., file not found, no access).\""
+                            },
+                            {
+                                "file":  "scripts/generate-play-feature-graphic.php",
+                                "detail":  "Exception calling \"DownloadFile\" with \"2\" argument(s): \"The remote server returned an error: (550) File unavailable (e.g., file not found, no access).\""
+                            },
+                            {
+                                "file":  "scripts/generate-play-screenshots.php",
+                                "detail":  "Exception calling \"DownloadFile\" with \"2\" argument(s): \"The remote server returned an error: (550) File unavailable (e.g., file not found, no access).\""
+                            },
+                            {
+                                "file":  "scripts/play-store-graphics-lib.php",
+                                "detail":  "Exception calling \"DownloadFile\" with \"2\" argument(s): \"The remote server returned an error: (550) File unavailable (e.g., file not found, no access).\""
+                            },
+                            {
+                                "file":  "scripts/test-otp-send-production.php",
+                                "detail":  "Exception calling \"DownloadFile\" with \"2\" argument(s): \"The remote server returned an error: (550) File unavailable (e.g., file not found, no access).\""
+                            }
+                        ]
+}

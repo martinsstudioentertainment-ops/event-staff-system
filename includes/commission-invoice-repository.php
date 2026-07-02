@@ -2,10 +2,22 @@
 
 require_once __DIR__ . '/commission-invoice-schema.php';
 require_once __DIR__ . '/work-hours-repository.php';
+require_once __DIR__ . '/attendance-repository.php';
+require_once __DIR__ . '/checkin-bib.php';
 require_once __DIR__ . '/events-repository.php';
 require_once __DIR__ . '/staff-repository.php';
 require_once __DIR__ . '/settings-repository.php';
 require_once __DIR__ . '/system-settings.php';
+
+/**
+ * Events dropdown for commission invoice filters (alias used by admin/invoices.php).
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function getEventsForCommissionInvoiceFilter(PDO $pdo): array
+{
+    return getEventsForFilter($pdo);
+}
 
 /** @return array<string, string> */
 function getCommissionInvoiceStatusOptions(): array
@@ -227,6 +239,62 @@ function getCommissionInvoiceLines(PDO $pdo, int $invoiceId): array
 }
 
 /**
+ * True when staff completed a real venue check-in (billable on client invoice).
+ *
+ * Stricter than registrationHadVenueCheckin(): excludes no-shows, pre-check-only GPS,
+ * and rows that only have backfilled hours without a check-in timestamp.
+ *
+ * @param array<string, mixed> $row
+ */
+function attendanceRowBillableForCommissionInvoice(array $row): bool
+{
+    $status = strtolower(trim((string) ($row['attendance_status'] ?? '')));
+    if ($status === 'no_show') {
+        return false;
+    }
+
+    $hoursWorked = round((float) ($row['hours_worked'] ?? 0), 2);
+    $hoursPaid   = round((float) ($row['hours_paid'] ?? $hoursWorked), 2);
+    if ($hoursWorked <= 0 && $hoursPaid <= 0) {
+        return false;
+    }
+
+    if ($status === 'pre_checked_in') {
+        $activated = trim((string) ($row['activated_at'] ?? ''));
+
+        return $activated !== '' && !isEmptyDbDate($activated);
+    }
+
+    $activated = trim((string) ($row['activated_at'] ?? ''));
+    if ($activated !== '' && !isEmptyDbDate($activated)) {
+        return true;
+    }
+
+    $checkedIn = trim((string) ($row['checked_in_at'] ?? ''));
+    if ($checkedIn === '' || isEmptyDbDate($checkedIn)) {
+        return false;
+    }
+
+    $method = strtolower(trim((string) ($row['checked_in_method'] ?? '')));
+    if (in_array($method, ['self', 'scan', 'qr'], true)) {
+        return true;
+    }
+
+    $bib = resolveStaffDisplayBibNumber($row);
+    if (in_array($method, ['admin', 'admin_manual'], true)) {
+        return $bib !== '';
+    }
+
+    if ($method === '') {
+        $gpsAt = trim((string) ($row['check_in_gps_at'] ?? ''));
+
+        return ($gpsAt !== '' && !isEmptyDbDate($gpsAt)) || $bib !== '';
+    }
+
+    return false;
+}
+
+/**
  * Build draft lines from event attendance / work hours.
  *
  * @return list<array<string, mixed>>
@@ -238,6 +306,10 @@ function buildCommissionInvoiceLinesFromEvent(PDO $pdo, int $eventId): array
     $order = 0;
 
     foreach ($rows as $row) {
+        if (!attendanceRowBillableForCommissionInvoice($row)) {
+            continue;
+        }
+
         $hoursWorked = round((float) ($row['hours_worked'] ?? 0), 2);
         $hoursBilled = round((float) ($row['hours_paid'] ?? $hoursWorked), 2);
         $rate        = getDefaultCommissionRate($pdo, (string) ($row['staff_role'] ?? ''));
@@ -258,6 +330,151 @@ function buildCommissionInvoiceLinesFromEvent(PDO $pdo, int $eventId): array
     }
 
     return $lines;
+}
+
+/**
+ * Replace saved invoice lines with staff who actually checked in at the event.
+ *
+ * @return int|string Invoice ID on success, error message on failure
+ */
+function rebuildCommissionInvoiceLinesFromEvent(PDO $pdo, int $invoiceId, int $adminUserId): int|string
+{
+    ensureCommissionInvoiceSchema($pdo);
+
+    $invoice = getCommissionInvoiceById($pdo, $invoiceId);
+    if (!$invoice) {
+        return 'Invoice not found.';
+    }
+
+    $eventId = (int) $invoice['event_id'];
+    $lines   = buildCommissionInvoiceLinesFromEvent($pdo, $eventId);
+    $totals  = recomputeCommissionInvoiceTotals($lines);
+
+    try {
+        $pdo->beginTransaction();
+
+        $update = $pdo->prepare(
+            'UPDATE commission_invoices SET
+                staff_count = :staff_count,
+                total_hours_worked = :total_hours_worked,
+                total_hours_billed = :total_hours_billed,
+                subtotal_amount = :subtotal_amount,
+                total_amount = :total_amount
+             WHERE id = :id'
+        );
+        $update->execute([
+            'staff_count'        => $totals['staff_count'],
+            'total_hours_worked' => $totals['total_hours_worked'],
+            'total_hours_billed' => $totals['total_hours_billed'],
+            'subtotal_amount'    => $totals['subtotal_amount'],
+            'total_amount'       => $totals['total_amount'],
+            'id'                 => $invoiceId,
+        ]);
+
+        $pdo->prepare('DELETE FROM commission_invoice_lines WHERE invoice_id = :id')
+            ->execute(['id' => $invoiceId]);
+
+        $lineInsert = $pdo->prepare(
+            'INSERT INTO commission_invoice_lines (
+                invoice_id, attendance_id, registration_id, staff_name, staff_role,
+                hours_worked, hours_billed, hourly_rate, line_amount, amount_override, note, sort_order
+            ) VALUES (
+                :invoice_id, :attendance_id, :registration_id, :staff_name, :staff_role,
+                :hours_worked, :hours_billed, :hourly_rate, :line_amount, :amount_override, :note, :sort_order
+            )'
+        );
+
+        foreach ($lines as $line) {
+            $lineInsert->execute([
+                'invoice_id'       => $invoiceId,
+                'attendance_id'    => $line['attendance_id'],
+                'registration_id'  => $line['registration_id'],
+                'staff_name'       => $line['staff_name'],
+                'staff_role'       => $line['staff_role'] !== '' ? $line['staff_role'] : null,
+                'hours_worked'     => $line['hours_worked'],
+                'hours_billed'     => $line['hours_billed'],
+                'hourly_rate'      => $line['hourly_rate'],
+                'line_amount'      => $line['line_amount'],
+                'amount_override'  => 0,
+                'note'             => $line['note'] !== '' ? $line['note'] : null,
+                'sort_order'       => $line['sort_order'],
+            ]);
+        }
+
+        $pdo->commit();
+
+        return $invoiceId;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        return 'Could not rebuild invoice lines. ' . $e->getMessage();
+    }
+}
+
+/**
+ * Mark a commission invoice as void (hidden from default lists; event slot remains reserved).
+ *
+ * @return int|string Invoice ID on success, error message on failure
+ */
+function voidCommissionInvoice(PDO $pdo, int $invoiceId): int|string
+{
+    ensureCommissionInvoiceSchema($pdo);
+
+    $invoice = getCommissionInvoiceById($pdo, $invoiceId);
+    if (!$invoice) {
+        return 'Invoice not found.';
+    }
+
+    if ((string) ($invoice['status'] ?? '') === 'void') {
+        return 'Invoice is already void.';
+    }
+
+    $stmt = $pdo->prepare("UPDATE commission_invoices SET status = 'void' WHERE id = :id");
+    $stmt->execute(['id' => $invoiceId]);
+
+    return $invoiceId;
+}
+
+/**
+ * Permanently delete a draft or void commission invoice and its lines.
+ * Frees the event so a new invoice can be created.
+ *
+ * @return int|string Deleted invoice ID on success, error message on failure
+ */
+function deleteCommissionInvoice(PDO $pdo, int $invoiceId): int|string
+{
+    ensureCommissionInvoiceSchema($pdo);
+
+    $invoice = getCommissionInvoiceById($pdo, $invoiceId);
+    if (!$invoice) {
+        return 'Invoice not found.';
+    }
+
+    $status = (string) ($invoice['status'] ?? 'draft');
+    if (!in_array($status, ['draft', 'void'], true)) {
+        return 'Only draft or void invoices can be deleted. Use Void for sent or paid invoices.';
+    }
+
+    try {
+        $pdo->beginTransaction();
+
+        $pdo->prepare('DELETE FROM commission_invoice_lines WHERE invoice_id = :id')
+            ->execute(['id' => $invoiceId]);
+        $pdo->prepare('DELETE FROM commission_invoices WHERE id = :id')
+            ->execute(['id' => $invoiceId]);
+
+        $pdo->commit();
+
+        return $invoiceId;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        return 'Could not delete invoice. ' . $e->getMessage();
+    }
 }
 
 function generateCommissionInvoiceNumber(PDO $pdo, string $invoiceDate): string

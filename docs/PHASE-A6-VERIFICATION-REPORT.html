@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Phase A.6 Verification Report — Autosave Visibility</title>
+<style>
+body { font-family: system-ui, sans-serif; max-width: 960px; margin: 2rem auto; line-height: 1.5; color: #111; }
+h1 { font-size: 1.55rem; }
+.meta { color: #64748b; font-size: 0.9rem; margin-bottom: 1.5rem; }
+h2 { font-size: 1.12rem; margin-top: 2rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.35rem; }
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.88rem; }
+th, td { border: 1px solid #cbd5e1; padding: 0.45rem 0.65rem; text-align: left; vertical-align: top; }
+th { background: #f1f5f9; }
+.pass { color: #047857; font-weight: 700; }
+.fail { color: #b91c1c; font-weight: 700; }
+.verdict { margin: 1.5rem 0; padding: 1rem 1.15rem; border-radius: 10px; border: 1px solid #6ee7b7; background: #ecfdf5; }
+.screens { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin: 1rem 0; }
+.screens figure { margin: 0; }
+.screens img { width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; }
+.screens figcaption { font-size: 0.75rem; color: #64748b; margin-top: 0.35rem; }
+code { background: #f1f5f9; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85em; }
+</style>
+</head>
+<body>
+
+<h1>Phase A.6 Verification Report</h1>
+<p class="meta">Autosave visibility &amp; resume UX | Generated 2026-06-06 | Flag <code>feature_registration_wizard_v2</code>: OFF</p>
+
+<div class="verdict">
+<strong>Overall verdict: PASS</strong> — Autosave status, last-saved time, and resume experience implemented. No database or submit-path changes. Legacy registration unaffected when flag is OFF. Approved to plan Phase A.7 after review.
+</div>
+
+<h2>1. Requirements checklist</h2>
+<table>
+<tr><th>Requirement</th><th>Status</th><th>Evidence</th></tr>
+<tr><td>Improve autosave visibility</td><td class="pass">PASS</td><td><code>reg-wizard__save-status</code> in wizard shell</td></tr>
+<tr><td>Draft saved status clearly shown</td><td class="pass">PASS</td><td>Green indicator + “Draft saved” copy</td></tr>
+<tr><td>Last saved time</td><td class="pass">PASS</td><td><code>formatSavedTime()</code> in saved state</td></tr>
+<tr><td>Saving indicator</td><td class="pass">PASS</td><td>“Saving draft…” + pulse animation</td></tr>
+<tr><td>Resume application experience</td><td class="pass">PASS</td><td>Enhanced resume card with step name, time, shifts</td></tr>
+<tr><td>Unobtrusive indicators</td><td class="pass">PASS</td><td>Single-line 0.72rem status below progress</td></tr>
+<tr><td>Clean mobile UX</td><td class="pass">PASS</td><td>Stacked resume buttons &lt;400px; screenshots at 390px</td></tr>
+<tr><td>No database changes</td><td class="pass">PASS</td><td>localStorage only</td></tr>
+<tr><td>No submit.php changes</td><td class="pass">PASS</td><td>Automated grep check</td></tr>
+<tr><td>Legacy unaffected (flag OFF)</td><td class="pass">PASS</td><td>Wizard scripts gated in <code>index.php</code></td></tr>
+</table>
+
+<h2>2. Automated verification (21/21 PASS)</h2>
+<p>Command: <code>powershell -ExecutionPolicy Bypass -File scripts\verify-phase-a6.ps1</code></p>
+<table>
+<tr><th>Area</th><th>Checks</th><th>Result</th></tr>
+<tr><td>Wizard shell mount</td><td>1</td><td class="pass">PASS</td></tr>
+<tr><td>Autosave JS (status, time, localStorage)</td><td>7</td><td class="pass">PASS</td></tr>
+<tr><td>Resume prompt JS</td><td>6</td><td class="pass">PASS</td></tr>
+<tr><td>CSS styles</td><td>5</td><td class="pass">PASS</td></tr>
+<tr><td>Wizard gating + submit.php</td><td>2</td><td class="pass">PASS</td></tr>
+</table>
+
+<h2>3. Manual / visual verification</h2>
+<table>
+<tr><th>Scenario</th><th>Status</th><th>Method</th></tr>
+<tr><td>Resume prompt on return visit</td><td class="pass">PASS</td><td><code>wizard-screenshot-preview.php?step=1&amp;mode=resume</code></td></tr>
+<tr><td>Save status on review step</td><td class="pass">PASS</td><td><code>wizard-screenshot-preview.php?step=8</code> with saved indicator</td></tr>
+<tr><td>Full CSS stack loads</td><td class="pass">PASS</td><td>HTTP probe in <code>capture-wizard-screenshots-styled.ps1</code></td></tr>
+<tr><td>Flag OFF legacy form</td><td class="pass">PASS</td><td>No autosave scripts when <code>data-wizard-mode="0"</code></td></tr>
+</table>
+
+<h2>4. Screenshots (styled, full CSS)</h2>
+<div class="screens">
+<figure>
+<img src="screenshots/a6-verification/styled/mobile/step-01-welcome-resume.png" alt="Resume prompt mobile">
+<figcaption>Resume prompt — mobile (390px)</figcaption>
+</figure>
+<figure>
+<img src="screenshots/a6-verification/styled/mobile/step-08-review-saved.png" alt="Save status on review mobile">
+<figcaption>Draft saved indicator on Step 8 — mobile</figcaption>
+</figure>
+<figure>
+<img src="screenshots/a6-verification/styled/tablet/step-01-welcome-resume.png" alt="Resume prompt tablet">
+<figcaption>Resume prompt — tablet (768px)</figcaption>
+</figure>
+</div>
+<p>Capture command: <code>powershell -File scripts\run-a6-screenshots.ps1</code></p>
+
+<h2>5. Rollback &amp; scope safety</h2>
+<table>
+<tr><th>Check</th><th>Status</th></tr>
+<tr><td>Instant rollback via flag OFF</td><td class="pass">PASS</td></tr>
+<tr><td>No server-side persistence added</td><td class="pass">PASS</td></tr>
+<tr><td>Employer/organiser workflow unchanged</td><td class="pass">PASS</td></tr>
+</table>
+
+<h2>6. Phase A.7 gate</h2>
+<p><strong>Proceed to Phase A.7</strong> (mobile QA + accessibility) when this report is accepted. Do not enable wizard flag until Phase A.8.</p>
+
+</body>
+</html>

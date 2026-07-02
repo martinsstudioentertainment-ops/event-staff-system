@@ -47,6 +47,17 @@
         if (busy || decodedText === lastScan) {
             return;
         }
+
+        var bibInput = document.getElementById('scan-bib-number');
+        var bibNumber = bibInput ? String(bibInput.value || '').trim() : '';
+        if (!bibNumber) {
+            showResult('error', 'Enter the staff member\'s BIB number before scanning.');
+            if (bibInput) {
+                bibInput.focus();
+            }
+            return;
+        }
+
         busy = true;
         lastScan = decodedText;
 
@@ -54,6 +65,7 @@
         body.append('csrf_token', csrf);
         body.append('scan_data', decodedText);
         body.append('event_id', eventId);
+        body.append('bib_number', bibNumber);
 
         fetch('scan-checkin-action.php', {
             method: 'POST',
@@ -65,8 +77,8 @@
             })
             .then(function (data) {
                 if (data.ok) {
-                    showResult('success', 'Checked in: ' + data.name, escapeHtml(data.role + ' · ' + data.event));
-                    addRecent(data.name, data.event, data.time);
+                    showResult('success', 'Checked in: ' + data.name, escapeHtml((data.bib ? 'BIB ' + data.bib + ' · ' : '') + data.role + ' · ' + data.event));
+                    addRecent(data.name + (data.bib ? ' · BIB ' + data.bib : ''), data.event, data.time);
                 } else {
                     showResult(data.already ? 'warning' : 'error', data.error || 'Scan failed', data.name ? escapeHtml(data.name) : '');
                 }

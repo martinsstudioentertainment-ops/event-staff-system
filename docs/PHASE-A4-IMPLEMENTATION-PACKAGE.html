@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Phase A.4 — Implementation Package</title>
+<style>
+body { font-family: "Segoe UI", sans-serif; font-size: 10pt; padding: 20px 28px; max-width: 800px; line-height: 1.45; }
+h1 { font-size: 18pt; } h2 { font-size: 11pt; background: #030712; color: #fff; padding: 6px 12px; margin: 18px 0 10px; }
+table { width: 100%; border-collapse: collapse; font-size: 9pt; margin: 10px 0; }
+th, td { border-bottom: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; }
+th { background: #1e293b; color: #fff; }
+code { background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<h1>Phase A.4 — Payroll, PSA &amp; Review Polish</h1>
+<p><strong>Date:</strong> 6 June 2026 · <strong>Flag:</strong> <code>feature_registration_wizard_v2</code> (OFF) · <strong>Pre-work:</strong> A.3 observations resolved</p>
+
+<h2>1. Deliverables</h2>
+<table>
+<tr><th>Item</th><th>Implementation</th></tr>
+<tr><td>A.3 observation fixes</td><td>UTF-8, review summary, contact panel, width utilisation, payroll disclaimer</td></tr>
+<tr><td>Step 6 Payroll</td><td>Strengthened platform-only notice; two-column layout on tablet+</td></tr>
+<tr><td>Step 7 PSA</td><td>Camera-first upload cards with <code>capture="environment"</code> and file status</td></tr>
+<tr><td>Step 8 Review</td><td>Live summary: role, contact, personal, masked payroll, PSA, events</td></tr>
+<tr><td>Layout</td><td>680px tablet / 720px desktop; 2-col form grid; contact panel split</td></tr>
+</table>
+
+<h2>2. Files</h2>
+<ul>
+<li><code>assets/js/registration-wizard-review.js</code> (new)</li>
+<li><code>assets/js/registration-wizard-psa.js</code> (new)</li>
+<li><code>assets/js/registration-wizard.js</code></li>
+<li><code>assets/css/registration-wizard.css</code></li>
+<li><code>index.php</code></li>
+<li><code>includes/public/registration-wizard-shell.php</code></li>
+<li><code>docs/PHASE-A3-OBSERVATIONS-LOG.html</code></li>
+</ul>
+
+<h2>3. Production rules</h2>
+<ul>
+<li>No database changes</li>
+<li>No submit.php changes</li>
+<li>No route or permission changes</li>
+<li>Flag-gated; rollback = flag OFF</li>
+</ul>
+
+<h2>4. Verification</h2>
+<ul>
+<li>Flag ON: Step 8 shows populated review summary before consent checkbox</li>
+<li>Step 7: file pick shows camera on mobile; status updates on selection</li>
+<li>Step 6: payroll notice visible with employer/payroll/contractor disclaimer</li>
+<li>Step 5: contact panel fills step on mobile and tablet</li>
+<li>No mojibake in wizard UI (test en-dash/em-dash replaced with ASCII)</li>
+<li>Flag OFF: legacy form unchanged</li>
+</ul>
+
+<h2>5. Next phase</h2>
+<p><strong>A.5</strong> — Server error restore on review step, final submit polish (per master plan).</p>
+
+</body>
+</html>

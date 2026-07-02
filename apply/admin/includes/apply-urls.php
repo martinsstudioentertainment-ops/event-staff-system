@@ -31,3 +31,17 @@ function apply_asset_url(string $storedPath): string
 
     return apply_url($storedPath);
 }
+
+function apply_safe_redirect_path(string $path, string $default = 'dashboard.php'): string
+{
+    $path = trim($path);
+    if ($path === '' || str_contains($path, '://') || str_starts_with($path, '//')) {
+        return $default;
+    }
+
+    if (preg_match('/^[a-zA-Z0-9_./?=&%-]+$/', $path) !== 1) {
+        return $default;
+    }
+
+    return ltrim($path, '/');
+}

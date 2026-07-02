@@ -1,5 +1,5 @@
 /**
- * Admin event form — Eircode lookup + venue GPS pin (100m sign-in).
+ * Admin event form — Eircode lookup + venue GPS pin (sign-in radius from events.signin_radius_m).
  */
 (function () {
     'use strict';
@@ -10,6 +10,7 @@
     }
 
     var apiKey = window.GOOGLE_MAPS_API_KEY || '';
+    var geocodeUrl = (mapEl.dataset.geocodeUrl || 'geocode-eircode.php').trim();
     var mapsEnabled = mapEl.dataset.mapsEnabled === '1' && apiKey !== '';
     var defaultLat = 53.3498;
     var defaultLng = -6.2603;
@@ -104,6 +105,46 @@
         });
     }
 
+    function showStaticMapPreview(lat, lng) {
+        if (!mapEl || !apiKey) {
+            return;
+        }
+
+        var embedUrl = 'https://www.google.com/maps/embed/v1/view?key=' + encodeURIComponent(apiKey)
+            + '&center=' + encodeURIComponent(lat + ',' + lng)
+            + '&zoom=17&maptype=roadmap';
+        mapEl.innerHTML = '<iframe title="Venue map preview" style="width:100%;height:100%;border:0;" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="'
+            + embedUrl + '"></iframe>';
+    }
+
+    function ensureInteractiveMap(lat, lng) {
+        if (typeof google !== 'undefined' && google.maps) {
+            if (!map) {
+                initMap();
+            }
+            if (map) {
+                applyCoords(lat, lng, '');
+                return;
+            }
+        }
+        showStaticMapPreview(lat, lng);
+    }
+
+    function applyCoords(lat, lng, formattedAddress) {
+        setCoords(lat, lng);
+        var f = fields();
+        if (f.search && formattedAddress) {
+            f.search.value = formattedAddress;
+        }
+        if (marker) {
+            marker.setPosition({ lat: lat, lng: lng });
+        }
+        if (map) {
+            map.panTo({ lat: lat, lng: lng });
+            map.setZoom(17);
+        }
+    }
+
     function applyPlace(place) {
         if (!place || !place.geometry || !place.geometry.location) {
             return;
@@ -113,7 +154,7 @@
         var lng = place.geometry.location.lng();
         var f = fields();
 
-        setCoords(lat, lng);
+        applyCoords(lat, lng, place.formatted_address || '');
         if (f.location && place.formatted_address) {
             // Keep venue name short — full address belongs in Eircode/GPS, not location label.
             var shortName = place.name || '';
@@ -127,13 +168,92 @@
         if (f.search && place.formatted_address) {
             f.search.value = place.formatted_address;
         }
+    }
 
-        if (marker) {
-            marker.setPosition({ lat: lat, lng: lng });
+    function geocodeEircodeViaServer(eircode, onDone) {
+        var url = geocodeUrl + (geocodeUrl.indexOf('?') >= 0 ? '&' : '?') + 'eircode=' + encodeURIComponent(eircode);
+        fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' }, cache: 'no-store' })
+            .then(function (response) {
+                return response.text().then(function (text) {
+                    var data = null;
+                    try {
+                        data = text ? JSON.parse(text) : null;
+                    } catch (error) {
+                        data = null;
+                    }
+
+                    if (!data || typeof data !== 'object') {
+                        if (response.status === 401 || response.status === 403) {
+                            return { ok: false, error: 'Session expired — refresh the page and sign in again.' };
+                        }
+                        return {
+                            ok: false,
+                            error: 'Server lookup failed (HTTP ' + response.status + '). Refresh and try again.'
+                        };
+                    }
+
+                    return data;
+                });
+            })
+            .then(function (data) {
+                onDone(data);
+            })
+            .catch(function () {
+                onDone({ ok: false, error: 'Network error while looking up Eircode.' });
+            });
+    }
+
+    function geocodeEircodeViaClient(eircode, onDone) {
+        if (!geocoder) {
+            onDone({ ok: false, error: 'Google Maps is required to look up GPS from Eircode.' });
+            return;
         }
-        if (map) {
-            map.panTo({ lat: lat, lng: lng });
-            map.setZoom(17);
+
+        geocoder.geocode({
+            address: eircode + ', Ireland',
+            componentRestrictions: { country: 'IE' }
+        }, function (results, status) {
+            if (status !== 'OK' || !results || !results[0]) {
+                onDone({
+                    ok: false,
+                    error: 'Could not find GPS for that Eircode (Google Maps: ' + status + ').'
+                });
+                return;
+            }
+
+            var place = results[0];
+            onDone({
+                ok: true,
+                lat: place.geometry.location.lat(),
+                lng: place.geometry.location.lng(),
+                formatted_address: place.formatted_address || '',
+                place: place
+            });
+        });
+    }
+
+    function finishGeocodeLookup(eircode, result) {
+        if (!result || !result.ok) {
+            pendingSaveAfterGeocode = false;
+            setGpsStatus((result && result.error) || 'Could not find GPS for that Eircode.', true);
+            return;
+        }
+
+        if (result.place) {
+            applyPlace(result.place);
+        } else {
+            applyCoords(result.lat, result.lng, result.formatted_address || '');
+            ensureInteractiveMap(result.lat, result.lng);
+        }
+
+        setGpsStatus('GPS found for ' + eircode + '. Adjust the pin if needed.', false);
+
+        if (pendingSaveAfterGeocode) {
+            pendingSaveAfterGeocode = false;
+            var form = mapEl.closest('form');
+            if (form && fields().lat && fields().lat.value) {
+                form.requestSubmit();
+            }
         }
     }
 
@@ -149,33 +269,38 @@
             return;
         }
 
-        if (!geocoder) {
-            setGpsStatus('Google Maps is required to look up GPS from Eircode.', true);
-            return;
-        }
-
         setGpsStatus('Looking up GPS for ' + eircode + '…', false);
 
-        geocoder.geocode({
-            address: eircode + ', Ireland',
-            componentRestrictions: { country: 'IE' }
-        }, function (results, status) {
-            if (status !== 'OK' || !results || !results[0]) {
-                pendingSaveAfterGeocode = false;
-                setGpsStatus('Could not find GPS for that Eircode. Try search or drag the pin.', true);
+        if (f.eircodeBtn) {
+            f.eircodeBtn.disabled = true;
+        }
+
+        function finishLookup() {
+            if (f.eircodeBtn) {
+                f.eircodeBtn.disabled = false;
+            }
+        }
+
+        geocodeEircodeViaServer(eircode, function (serverResult) {
+            if (serverResult && serverResult.ok) {
+                finishLookup();
+                finishGeocodeLookup(eircode, serverResult);
                 return;
             }
 
-            applyPlace(results[0]);
-            setGpsStatus('GPS found for ' + eircode + '. Adjust the pin if needed.', false);
-
-            if (pendingSaveAfterGeocode) {
-                pendingSaveAfterGeocode = false;
-                var form = mapEl.closest('form');
-                if (form && fields().lat && fields().lat.value) {
-                    form.requestSubmit();
+            geocodeEircodeViaClient(eircode, function (clientResult) {
+                finishLookup();
+                if (clientResult && clientResult.ok) {
+                    finishGeocodeLookup(eircode, clientResult);
+                    return;
                 }
-            }
+
+                pendingSaveAfterGeocode = false;
+                var message = (serverResult && serverResult.error)
+                    || (clientResult && clientResult.error)
+                    || 'Could not find GPS for that Eircode.';
+                setGpsStatus(message, true);
+            });
         });
     }
 
@@ -271,17 +396,25 @@
 
     function loadMaps(callback) {
         if (typeof google !== 'undefined' && google.maps) {
-            callback();
+            callback(true);
             return;
         }
-        if (!apiKey) return;
+        if (!apiKey) {
+            callback(false);
+            return;
+        }
 
         var script = document.createElement('script');
         script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(apiKey)
-            + '&libraries=places&callback=initAdminEventVenueMap';
+            + '&loading=async&libraries=places&callback=initAdminEventVenueMap';
         script.async = true;
         script.defer = true;
-        window.initAdminEventVenueMap = callback;
+        script.onerror = function () {
+            callback(false);
+        };
+        window.initAdminEventVenueMap = function () {
+            callback(typeof google !== 'undefined' && !!google.maps);
+        };
         document.head.appendChild(script);
     }
 
@@ -291,6 +424,7 @@
         bindFormSubmit();
 
         if (!mapsEnabled) {
+            setGpsStatus('Add a Google Maps API key in Settings → Security to enable map preview. Eircode lookup still works.', true);
             return;
         }
 
@@ -298,15 +432,23 @@
             el.remove();
         });
 
-        loadMaps(function () {
-            initMap();
-            initAutocomplete();
+        loadMaps(function (mapsLoaded) {
+            if (!mapsLoaded) {
+                setGpsStatus(
+                    'Interactive map could not load — Eircode lookup will still set GPS and show a map preview.',
+                    true
+                );
+            } else {
+                initMap();
+                initAutocomplete();
+            }
 
             var f = fields();
             if (f.eircode && isValidEircode(f.eircode.value) && f.lat && !f.lat.value) {
                 geocodeEircode();
             } else if (f.lat && f.lat.value) {
                 setGpsStatus('GPS: ' + f.lat.value + ', ' + f.lng.value, false);
+                ensureInteractiveMap(parseFloat(f.lat.value), parseFloat(f.lng.value));
             }
         });
     }

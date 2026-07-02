@@ -4,16 +4,21 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/staff-repository.php';
 require_once __DIR__ . '/../includes/attendance-repository.php';
+require_once __DIR__ . '/../includes/attendance-roster-helpers.php';
+require_once __DIR__ . '/../includes/registration-bib.php';
 require_once __DIR__ . '/../includes/admin-pagination.php';
 
 requireAdminCapability('attendance');
 
 $pdo     = getDB();
 $eventId = (int) ($_GET['event_id'] ?? 0);
-$events  = getEventsForFilter($pdo);
+$events  = getEventsForAttendanceFilter($pdo);
+$bibEnabled = registrationBibColumnEnabled($pdo);
 $page    = adminListPage();
 $listTotal = countAttendanceList($pdo, $eventId);
-$list    = getAttendanceList($pdo, $eventId, adminListPerPage(), adminListOffset($page));
+$list    = $eventId > 0
+    ? getAttendanceList($pdo, $eventId)
+    : getAttendanceList($pdo, 0, adminAttendanceListPerPage(), adminListOffset($page));
 $stats   = getAttendanceStats($pdo, $eventId);
 $flash   = getAdminFlash();
 $selectedEvent = $eventId > 0 ? getEventById($pdo, $eventId) : null;
@@ -40,12 +45,32 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <div class="toolbar toolbar--compact no-print">
             <?php if ($eventId > 0): ?>
                 <a href="staff-message.php?event_id=<?= (int) $eventId ?>" class="btn btn--primary">Email staff</a>
+                <form method="post" action="send-shift-reminder-action.php" class="toolbar-inline-form">
+                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                    <input type="hidden" name="action" value="event">
+                    <input type="hidden" name="event_id" value="<?= (int) $eventId ?>">
+                    <input type="hidden" name="redirect" value="attendance.php?event_id=<?= (int) $eventId ?>">
+                    <button type="submit" class="btn btn--secondary">Send shift reminders</button>
+                </form>
+                <form method="post" action="send-shift-reminder-action.php" class="toolbar-inline-form">
+                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                    <input type="hidden" name="action" value="open_shift_broadcast">
+                    <input type="hidden" name="event_id" value="<?= (int) $eventId ?>">
+                    <input type="hidden" name="redirect" value="attendance.php?event_id=<?= (int) $eventId ?>">
+                    <button type="submit" class="btn btn--secondary">Broadcast open shift</button>
+                </form>
             <?php endif; ?>
             <a href="export-attendance.php<?= $eventId > 0 ? '?event_id=' . (int) $eventId : '' ?>" class="btn btn--secondary">Export CSV</a>
             <a href="work-hours.php<?= $eventId > 0 ? '?event_id=' . (int) $eventId : '' ?>" class="btn btn--secondary">Work hours</a>
+            <?php if (in_array(getAdminRole(), ['admin', 'manager'], true)): ?>
+                <a href="manual-signin.php<?= $eventId > 0 ? '?event_id=' . (int) $eventId : '' ?>" class="btn btn--primary">Manual sign-in</a>
+            <?php endif; ?>
             <?php if ($eventId > 0): ?>
                 <a href="scan-checkin.php?event_id=<?= (int) $eventId ?>" class="btn btn--secondary">Scan QR</a>
                 <a href="print-roster.php?event_id=<?= (int) $eventId ?>" class="btn btn--secondary">Print Roster</a>
+                <?php if (function_exists('adminCan') && adminCan('export')): ?>
+                    <a href="contractor-sheet.php?event_id=<?= (int) $eventId ?>" class="btn btn--secondary">Contractor sheet</a>
+                <?php endif; ?>
                 <a href="print-qr.php?event_id=<?= (int) $eventId ?>" class="btn btn--secondary">Print Staff QR</a>
                 <a href="event-sign-qr.php?id=<?= (int) $eventId ?>" class="btn btn--secondary">Sign-in Links</a>
             <?php endif; ?>
@@ -62,7 +87,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <p class="stat-card__label">Checked in</p>
         </div>
         <div class="stat-card">
-            <p class="stat-card__value" id="live-stat-missing"><?= (int) $stats['missing'] ?></p>
+            <p class="stat-card__value" id="live-stat-missing"><?= (int) ($stats['missing'] ?? $stats['awaiting'] ?? 0) ?></p>
             <p class="stat-card__label">Not yet arrived</p>
         </div>
         <div class="stat-card">
@@ -114,7 +139,12 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 <section class="card">
     <div class="card__header">
         <h2 class="card__title">Check-in roster</h2>
-        <p class="card__subtitle">QR check-in for approved staff only.</p>
+        <p class="card__subtitle">
+            Approved staff for this event — signed-in staff are listed first.
+            <?php if ($eventId > 0 && $listTotal > 0): ?>
+                Showing all <strong><?= (int) $listTotal ?></strong> approved staff.
+            <?php endif; ?>
+        </p>
     </div>
 
     <form method="get" class="filter-bar filter-bar--attendance">
@@ -123,7 +153,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <option value="">All events</option>
                 <?php foreach ($events as $event): ?>
                     <option value="<?= (int) $event['id'] ?>"<?= $eventId === (int) $event['id'] ? ' selected' : '' ?>>
-                        <?= h($event['name'] . ' — ' . date('d.m.Y', strtotime($event['event_date']))) ?>
+                        <?= h(formatEventFilterOptionLabel($event)) ?>
                     </option>
                 <?php endforeach; ?>
             </select>
@@ -139,6 +169,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <thead>
                 <tr>
                     <th>Name</th>
+                    <?php if ($bibEnabled): ?><th>Bib #</th><?php endif; ?>
                     <th>Event</th>
                     <th>Role</th>
                     <th>Check-in Status</th>
@@ -147,30 +178,45 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 </tr>
             </thead>
             <tbody>
+                <?php
+                $rosterCols = 6 + ($bibEnabled ? 1 : 0);
+                ?>
                 <?php if ($list === []): ?>
                     <tr>
-                        <td colspan="6" class="data-table__empty">No approved staff found for this filter.</td>
+                        <td colspan="<?= $rosterCols ?>" class="data-table__empty">No approved staff found for this filter.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($list as $row): ?>
                         <tr>
                             <td><?= h($row['first_name'] . ' ' . $row['surname']) ?></td>
+                            <?php if ($bibEnabled): ?>
+                            <td><?= h(formatRegistrationBibDisplay($row['assigned_bib_number'] ?? null)) ?></td>
+                            <?php endif; ?>
                             <td><?= h(formatEventLabel($row)) ?></td>
                             <td><?= h(formatRoleLabel($row['staff_role'])) ?></td>
                             <td>
-                                <?php if ((int) $row['is_checked_in'] === 1): ?>
+                                <?php if (isAttendanceRosterCheckedIn($row)): ?>
                                     <span class="badge badge--approved">Checked In</span>
+                                <?php elseif (isAttendanceMarkedNoShow($row)): ?>
+                                    <span class="badge badge--rejected">No show</span>
                                 <?php else: ?>
                                     <span class="badge badge--pending">Waiting</span>
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <?= $row['checked_in_at'] ? h(date('d.m.Y H:i', strtotime($row['checked_in_at']))) : '—' ?>
+                                <?= $row['checked_in_at'] ? h(formatSystemDateTime((string) $row['checked_in_at'], $pdo)) : '—' ?>
                             </td>
                             <td>
                                 <div class="action-group">
                                     <a href="qr.php?id=<?= (int) $row['id'] ?>" class="btn btn--small btn--secondary">QR Code</a>
-                                    <?php if ((int) $row['is_checked_in'] === 0): ?>
+                                    <?php if (isAttendanceRosterCheckedIn($row) || isAttendanceMarkedNoShow($row)): ?>
+                                        <form method="post" action="checkin-reset-action.php" onsubmit="return confirm('Reset check-in for this staff member? They can sign in again.');">
+                                            <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                                            <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
+                                            <input type="hidden" name="event_id" value="<?= $eventId ?>">
+                                            <button type="submit" class="btn btn--small btn--secondary">Reset check-in</button>
+                                        </form>
+                                    <?php else: ?>
                                         <form method="post" action="checkin-action.php">
                                             <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                                             <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
@@ -186,9 +232,9 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             </tbody>
         </table>
     </div>
-    <?php
-    renderAdminPagination($page, $listTotal, 'attendance.php', $eventId > 0 ? ['event_id' => $eventId] : []);
-    ?>
+    <?php if ($eventId <= 0): ?>
+        <?php renderAdminPagination($page, $listTotal, 'attendance.php', [], adminAttendanceListPerPage()); ?>
+    <?php endif; ?>
 </section>
 
 <?php

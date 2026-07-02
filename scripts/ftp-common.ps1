@@ -40,6 +40,53 @@ function Get-FtpUri {
     return "ftp://$Server$dir/$rel"
 }
 
+function Download-FtpFile {
+    param(
+        [string]$LocalPath,
+        [string]$RemoteRelativePath,
+        [string]$RemoteBase,
+        [hashtable]$Deploy
+    )
+    $uri = Get-FtpUri -Server $Deploy.FtpServer -RemoteDir $RemoteBase -RelativePath $RemoteRelativePath
+    $dir = Split-Path $LocalPath -Parent
+    if ($dir -and -not (Test-Path $dir)) {
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    }
+    $client = New-Object System.Net.WebClient
+    $client.Credentials = New-Object System.Net.NetworkCredential($Deploy.FtpUser, $Deploy.FtpPassword)
+    try {
+        $client.DownloadFile($uri, $LocalPath)
+        return (Get-Item $LocalPath).Length
+    } finally {
+        $client.Dispose()
+    }
+}
+
+function Get-FtpDirectoryNames {
+    param(
+        [string]$RemoteRelativePath,
+        [string]$RemoteBase,
+        [hashtable]$Deploy
+    )
+    $rel = $RemoteRelativePath.Trim('/')
+    $uriPath = if ($rel) { "$rel/" } else { '' }
+    $uri = Get-FtpUri -Server $Deploy.FtpServer -RemoteDir $RemoteBase -RelativePath $uriPath
+    $req = [System.Net.FtpWebRequest]::Create($uri)
+    $req.Method = [System.Net.WebRequestMethods+Ftp]::ListDirectory
+    $req.Credentials = New-Object System.Net.NetworkCredential($Deploy.FtpUser, $Deploy.FtpPassword)
+    $req.UsePassive = $true
+    $req.Timeout = 60000
+    $resp = $req.GetResponse()
+    try {
+        $reader = New-Object System.IO.StreamReader($resp.GetResponseStream())
+        $listing = $reader.ReadToEnd()
+        $reader.Close()
+    } finally {
+        $resp.Close()
+    }
+    return @($listing -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
+}
+
 function Ensure-FtpDirectory {
     param([string]$Server, [string]$RemoteDir, [hashtable]$Deploy)
     $uri = "ftp://$Server$($RemoteDir.TrimEnd('/'))/"
@@ -70,10 +117,18 @@ function Send-FtpFile {
         [string]$LocalPath,
         [string]$RemoteRelativePath,
         [string]$RemoteBase,
-        [hashtable]$Deploy
+        [hashtable]$Deploy,
+        [switch]$AllowEmpty
     )
     if (-not (Test-Path $LocalPath)) {
         throw "Local file missing: $LocalPath"
+    }
+    if ((Get-Item $LocalPath).Length -eq 0) {
+        if ($AllowEmpty) {
+            Write-Host "  !! skipped empty file (allowed): $RemoteRelativePath" -ForegroundColor Yellow
+            return
+        }
+        throw "Refusing 0-byte upload: $RemoteRelativePath ($LocalPath)"
     }
     $uri = Get-FtpUri -Server $Deploy.FtpServer -RemoteDir $RemoteBase -RelativePath $RemoteRelativePath
     Write-Host "  -> $RemoteRelativePath" -ForegroundColor Cyan

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Returning User Wizard — Production Investigation</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+h3{font-size:.98rem;margin-top:1.25rem;color:#334155}
+.meta{color:#64748b;font-size:.9rem}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #fcd34d;background:#fffbeb}
+.verdict.fail{border-color:#fca5a5;background:#fef2f2}
+.verdict.ok{border-color:#6ee7b7;background:#ecfdf5}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.85rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.pass{color:#047857;font-weight:700}.fail{color:#b91c1c;font-weight:700}.high{color:#c2410c;font-weight:600}.med{color:#1d4ed8}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.82em}
+pre{background:#0f172a;color:#e2e8f0;padding:.85rem;border-radius:8px;overflow:auto;font-size:.74rem;white-space:pre-wrap}
+.flow{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:1rem;margin:1rem 0;font-family:ui-monospace,monospace;font-size:.82rem}
+.shots{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;margin:1rem 0}
+.shot{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
+.shot img{width:100%;display:block}
+.shot iframe{width:100%;height:260px;border:0}
+.shot figcaption{padding:.5rem .65rem;font-size:.78rem;background:#f8fafc}
+ul.compact li{margin:.3rem 0}
+.note{font-size:.88rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.75rem 1rem}
+@media(max-width:720px){.shots{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<h1>Returning User Wizard — Production Investigation</h1>
+<p class="meta">Generated 6 June 2026 · Production: <a href="https://register.olasentra.com/index.php">register.olasentra.com</a> · <strong>Audit only — no code changes</strong></p>
+
+<div class="verdict"><strong>Summary:</strong> Returning-user <em>prefill works</em>, but the wizard is still architected as an <strong>8-step linear flow</strong> with no fast-track for complete profiles. Production issues (duplicate Continue + Submit, “None selected”, perceived jump to review) stem from <strong>nav chrome design</strong>, <strong>shift selection loss after email lookup</strong>, <strong>draft/resume bypasses</strong>, and <strong>missing returning-user short path</strong> — not from prefill failure. P0 shift-validation patches are in repo but do not deliver the 3-step experience users expect.</div>
+
+<h2>1. Reported production flow</h2>
+<div class="flow">Existing user enters email
+  → Profile auto-loads correctly
+  → User selects event
+  → Wizard jumps to review / confirmation (perceived)
+  → Continue + Submit Registration both visible
+  → Continue not useful
+  → User expects: Select event → Confirm profile → Submit (3 steps)</div>
+
+<h2>2. Expected vs actual</h2>
+<table>
+<tr><th>Expected (returning complete profile)</th><th>Actual (production)</th></tr>
+<tr><td>3-step fast-track: events → confirm → submit</td><td class="fail">8 steps always shown in progress chrome</td></tr>
+<tr><td>Skip re-entry of PSA, PPS, IBAN, address, phone</td><td class="pass">Fields prefilled; user still clicks Continue through Steps 4–7</td></tr>
+<tr><td>Review shows Back + Submit only</td><td class="fail">Continue can appear alongside Submit when nav chrome desyncs</td></tr>
+<tr><td>Selected opportunities always listed on review</td><td class="fail">Can show “None selected” when shift pick cleared after lookup or draft bypass</td></tr>
+</table>
+
+<h2>3. Root cause analysis</h2>
+
+<h3>3.1 No fast-track path exists</h3>
+<p>Code review confirms <strong>no</strong> returning-user shortcut to a 3-step flow:</p>
+<ul class="compact">
+<li><code>api/registrant-lookup.php</code> returns <code>profile_complete</code> but wizard does not change step count.</li>
+<li><code>registration-wizard-returning.js</code> — prefill + welcome card; CTA “Pick new events” only calls <code>showStep(2)</code>.</li>
+<li><code>registration-wizard.js</code> — fixed <code>TOTAL = 8</code>; navigation is always 1→2→…→8.</li>
+<li>Complete profile users still traverse Steps 4–7 with validation gates — fields pass instantly because prefilled, which feels like a “jump” to review after event selection.</li>
+</ul>
+
+<h3>3.2 “None selected” on review</h3>
+<table>
+<tr><th>Cause</th><th>Mechanism</th></tr>
+<tr><td>Shift cleared after email lookup</td><td>Step 3 lookup → <code>setRegisteredEventIds()</code> → <code>refreshShiftPicker()</code> rebuilds cards; prior Step 2 selections for already-registered events become disabled and drop from <code>:checked:not(:disabled)</code>.</td></tr>
+<tr><td>Step 2 validation not re-run</td><td><code>goNext()</code> validates only the active step. Once past Step 2, forward navigation does not re-check <code>event_ids[]</code> (P0 patch adds Step 8 + submit gate + lookup redirect — may not be on production cache yet).</td></tr>
+<tr><td>Draft / resume bypass</td><td><code>showStep(n)</code> without validation — resume prompt, <code>REG_WIZARD_RESTORE_STEP</code>, server error restore to Step 8.</td></tr>
+</table>
+
+<h3>3.3 Duplicate Continue + Submit Registration</h3>
+<p>Structural duplicate nav in markup:</p>
+<pre>index.php Step 8 panel:
+  .form-actions--wizard-hidden  → hidden Submit (CSS)
+registration-wizard-shell.php:
+  #reg-wizard-nav              → Back + Continue/Review
+  #reg-wizard-nav-submit        → Back + Submit</pre>
+<p><code>updateChrome()</code> in <code>registration-wizard.js</code> should hide <code>#reg-wizard-nav</code> on Step 8 and show <code>#reg-wizard-nav-submit</code> when <code>body.registration-page--wizard-review</code> is set.</p>
+<p class="high"><strong>Duplicate buttons appear when:</strong></p>
+<ul class="compact">
+<li><code>current !== 8</code> but review panel visible (unlikely — same <code>showStep</code> controls both), OR</li>
+<li><code>#reg-wizard-nav</code> not hidden — stale JS, cached assets, or <code>mainNav.hidden</code> not applied, OR</li>
+<li>User sees <strong>Continue from Step 7</strong> (label “Review”) while Step 8 inline consent + hidden form-actions still affect layout on small viewports, OR</li>
+<li><code>.reg-wizard__nav--submit</code> has <code>display:none</code> until body review class — functional Submit hidden while a non-functional Continue remains visible.</li>
+</ul>
+
+<h3>3.4 “Jumps directly to review after selecting event”</h3>
+<p><strong>Not a single automatic <code>showStep(8)</code> after event pick</strong> in code. Observed behaviour is explained by:</p>
+<ol class="compact">
+<li>Prefilled Steps 4–7 validate on first Continue click each — user advances quickly.</li>
+<li>Local draft resume may restore high step numbers.</li>
+<li>User mental model: email + event + confirm = done; 8-step chrome contradicts expectation.</li>
+</ol>
+
+<h2>4. Screenshots</h2>
+
+<h3>4.1 Reported defect patterns</h3>
+<div class="shots">
+<figure class="shot">
+<iframe src="screenshots/returning-shift-p0/before-review-none-selected-mock.html" title="Review none selected"></iframe>
+<figcaption><strong>Reported:</strong> Review with “None selected” and duplicate nav (mock from bug report)</figcaption>
+</figure>
+<figure class="shot">
+<img src="screenshots/returning-psa/before-step8.png" alt="Returning PSA before step 8">
+<figcaption><strong>Prior audit:</strong> Step 8 before PSA copy fix — review reachable with incomplete summary</figcaption>
+</figure>
+</div>
+
+<h3>4.2 Reference — correct Step 8 chrome (when nav sync works)</h3>
+<div class="shots">
+<figure class="shot">
+<img src="screenshots/a7-mobile-qa/iphone-safari/step-08-review.png" alt="Step 8 iPhone — Back + Submit only">
+<figcaption><strong>QA reference (iPhone):</strong> Back + Submit only — no Continue. Selected shift shown.</figcaption>
+</figure>
+<figure class="shot">
+<iframe src="screenshots/a3-review/html/step-08-review-desktop.html" title="Step 8 desktop review"></iframe>
+<figcaption><strong>QA reference (desktop):</strong> Review summary with event context</figcaption>
+</figure>
+</div>
+
+<h2>5. Should returning users bypass Steps 4–7?</h2>
+<table>
+<tr><th>Criterion</th><th>Assessment</th></tr>
+<tr><td>Business need</td><td class="pass"><strong>Yes</strong> — complete profile + PSA on file + valid PPS/IBAN should not require 4 redundant confirmation steps.</td></tr>
+<tr><td>Current implementation</td><td class="fail"><strong>No bypass</strong> — only field prefill and PSA “on file” relaxation.</td></tr>
+<tr><td>Risk if bypass added carelessly</td><td class="high">Stale profile data; user never sees updated payroll/legal copy; GDPR re-consent still needed.</td></tr>
+<tr><td>Impact on existing staff registrations</td><td class="med">Positive — faster re-registration for new events. No DB schema change required. Server <code>submit.php</code> already validates full payload.</td></tr>
+</table>
+
+<h2>6. P0 patch status (shift validation)</h2>
+<p>Repo contains P0 changes (not re-verified on production in this audit):</p>
+<ul class="compact">
+<li><code>validateStep(8)</code> requires <code>event_ids[]</code></li>
+<li>Lookup redirect to Step 2 when selection lost</li>
+<li>Review banner instead of passive “None selected”</li>
+</ul>
+<p class="note">These address <strong>blocking bugs</strong> but do <strong>not</strong> implement the 3-step fast-track UX users describe.</p>
+
+<h2>7. Risk assessment</h2>
+<table>
+<tr><th>Risk</th><th>Severity</th><th>Notes</th></tr>
+<tr><td>Abandonment — returning users confused by 8 steps</td><td class="high">UX / conversion</td></tr>
+<tr><td>Submit with zero events (pre-P0 / cache)</td><td class="high">Dead-end review</td></tr>
+<tr><td>Duplicate nav buttons</td><td class="med">Trust / accessibility</td></tr>
+<tr><td>Data integrity on fast-track</td><td class="med">Mitigate with confirm summary + server validation</td></tr>
+<tr><td>Regression for new applicants</td><td class="low">Fast-track gated on <code>profile_complete</code></td></tr>
+</table>
+
+<h2>8. Recommended solution (awaiting approval)</h2>
+
+<h3>Phase A — UX defects (extends P0)</h3>
+<ol class="compact">
+<li>Consolidate Step 8 nav to single source — remove duplicate <code>.form-actions</code> submit from wizard mode entirely.</li>
+<li>Ensure <code>updateChrome()</code> and CSS always toggle together; add defensive <code>hidden</code> on Continue when <code>current === 8</code>.</li>
+<li>Block <code>showStep(8)</code> without valid events (close draft bypass — P1 from prior report).</li>
+</ol>
+
+<h3>Phase B — Returning fast-track (new feature)</h3>
+<p>For <code>profile_complete === true</code> + PSA on file + lookup success:</p>
+<ol class="compact">
+<li><strong>Step A — Your gigs</strong> (event selection, registered events greyed)</li>
+<li><strong>Step B — Confirm profile</strong> (read-only summary: contact, payroll masks, PSA on file, consent)</li>
+<li><strong>Step C — Submit</strong></li>
+</ol>
+<p>Implementation options:</p>
+<ul class="compact">
+<li><strong>Option 1 (recommended):</strong> Dynamic step map in wizard JS — 3 visible steps, internal validation unchanged.</li>
+<li><strong>Option 2:</strong> Keep 8 steps but auto-skip 4–7 with non-blocking banners (less clean UX).</li>
+</ul>
+
+<h3>Phase C — Verification</h3>
+<ul class="compact">
+<li>Production CDP script: returning complete profile → select open event → confirm ≤3 user actions to submit.</li>
+<li>Screenshots: iPhone Safari, Android Chrome, desktop — review nav and selected events.</li>
+</ul>
+
+<h2>9. Rollback / scope</h2>
+<p>Investigation only — no code changed. Prior P0 wizard patches can be rolled back per <code>docs/RETURNING-USER-SHIFT-VALIDATION-P0-FIX-REPORT.html</code> if needed.</p>
+
+<h2>10. Related documents</h2>
+<ul class="compact">
+<li><code>docs/RETURNING-USER-SHIFT-VALIDATION-BUG-REPORT.html</code> — original shift validation audit</li>
+<li><code>docs/RETURNING-USER-REGISTRATION-AUDIT.html</code> — prefill PASS</li>
+<li><code>docs/RETURNING-USER-SHIFT-VALIDATION-P0-FIX-REPORT.html</code> — P0 patch delivery</li>
+</ul>
+
+</body>
+</html>

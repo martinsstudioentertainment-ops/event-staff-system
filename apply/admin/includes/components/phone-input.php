@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/phone-numbers.php';
+if (!function_exists('defaultPhoneCountryIso')) {
+    require_once dirname(__DIR__) . '/phone-numbers.php';
+}
 
 if (!function_exists('h')) {
     /**

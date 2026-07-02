@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Returning User Shift Validation — P0 Fix Report</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+h3{font-size:.98rem;margin-top:1.25rem;color:#334155}
+.meta{color:#64748b;font-size:.9rem}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #6ee7b7;background:#ecfdf5}
+.verdict.warn{border-color:#fcd34d;background:#fffbeb}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.85rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.pass{color:#047857;font-weight:700}.fail{color:#b91c1c;font-weight:700}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.82em}
+pre{background:#0f172a;color:#e2e8f0;padding:.85rem;border-radius:8px;overflow:auto;font-size:.74rem;white-space:pre-wrap}
+.shots{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0}
+.shots figure{margin:0;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
+.shots figcaption{padding:.5rem .65rem;font-size:.78rem;background:#f8fafc}
+.shots iframe{width:100%;height:280px;border:0}
+@media(max-width:720px){.shots{grid-template-columns:1fr}}
+ul.compact li{margin:.3rem 0}
+.note{font-size:.88rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.75rem 1rem}
+</style>
+</head>
+<body>
+
+<h1>Returning User Shift Validation — P0 Fix Report</h1>
+<p class="meta">Generated 6 June 2026 · Production: <a href="https://register.olasentra.com/index.php">register.olasentra.com</a> · Scope: P0 only · <code>submit.php</code> and DB unchanged</p>
+
+<div class="verdict"><strong>P0 fix deployed.</strong> Step 8 and submit now require at least one enabled <code>event_ids[]</code> selection. Returning-user email lookup that clears shift picks redirects to Step 2 with an explicit error. Review no longer shows passive “None selected” when submission would be allowed. Happy-path returning users with a valid open event selection are unchanged.</div>
+
+<h2>1. Root cause confirmation</h2>
+<p>Matches <a href="RETURNING-USER-SHIFT-VALIDATION-BUG-REPORT.html">RETURNING-USER-SHIFT-VALIDATION-BUG-REPORT.html</a>:</p>
+<ul class="compact">
+<li>Step 2 event validation ran only when leaving Step 2 — not on Steps 3–8 or submit.</li>
+<li>Step 3 returning lookup called <code>refreshShiftPicker()</code>, rebuilding cards and dropping disabled/registered selections.</li>
+<li><code>validateStep(8)</code> checked consent only.</li>
+<li>Review rendered “None selected” without blocking submission UX.</li>
+</ul>
+
+<h2>2. P0 changes implemented</h2>
+<table>
+<tr><th>#</th><th>Requirement</th><th>Implementation</th></tr>
+<tr><td>1</td><td>Step 8 requires valid <code>event_ids[]</code></td><td><code>requireValidEventSelection()</code> in <code>validateStep(8)</code></td></tr>
+<tr><td>2</td><td>Submit refuses empty selection</td><td>Form submit handler redirects to Step 2 when <code>!hasValidEventSelection()</code></td></tr>
+<tr><td>3–4</td><td>Detect + redirect after lookup rebuild</td><td><code>handleShiftSelectionAfterLookup()</code> in returning module after <code>setRegisteredEventIds()</code></td></tr>
+<tr><td>5</td><td>Review never “None selected” for submittable state</td><td>Shift-required banner + “Action required” copy; events section marked error with Fix → Step 2</td></tr>
+<tr><td>6</td><td>Preserve happy path</td><td>Redirect only when zero enabled picks after lookup; open-event path unchanged</td></tr>
+<tr><td>7–8</td><td>No <code>submit.php</code> / DB changes</td><td class="pass">Client-side only</td></tr>
+</table>
+
+<h2>3. Files changed</h2>
+<table>
+<tr><th>File</th><th>Change</th></tr>
+<tr><td><code>assets/js/registration-wizard-validation.js</code></td><td><code>hasValidEventSelection()</code>, <code>countValidSelectedEvents()</code>, <code>requireValidEventSelection()</code>; Step 8 event gate</td></tr>
+<tr><td><code>assets/js/registration-wizard.js</code></td><td>Block Step 7→8 without events; submit redirect to Step 2; <code>redirectToStep2ForMissingEvents()</code></td></tr>
+<tr><td><code>assets/js/registration-wizard-returning.js</code></td><td><code>handleShiftSelectionAfterLookup()</code> after email prefill rebuild</td></tr>
+<tr><td><code>assets/js/registration-wizard-review.js</code></td><td>Shift-required banner; valid-only event names; no “None selected”</td></tr>
+<tr><td><code>assets/css/registration-wizard.css</code></td><td>Styles for <code>.reg-review-summary__shift-banner</code></td></tr>
+<tr><td><code>scripts/verify-returning-shift-p0.php</code></td><td>Production verification script (P0 scenarios)</td></tr>
+</table>
+
+<h2>4. Production verification</h2>
+<table>
+<tr><th>Check</th><th>Result</th><th>Evidence</th></tr>
+<tr><td>Deploy to <code>register.olasentra.com</code></td><td class="pass">PASS</td><td><code>deploy.ps1</code> uploaded all five wizard JS + CSS (6 June 2026)</td></tr>
+<tr><td>Returning happy path regression</td><td class="pass">PASS</td><td><code>php scripts/verify-returning-registration.php --json</code> — verdict PASS, review shows “Nick Cave”, prefill intact</td></tr>
+<tr><td>Step 8 validation includes events</td><td class="pass">PASS</td><td>Local + deployed source: <code>validateStep(8)</code> calls <code>requireValidEventSelection()</code></td></tr>
+<tr><td>P0 scenario automation</td><td class="fail">CDP flaky</td><td><code>verify-returning-shift-p0.php</code> timed out (Edge CDP); manual re-test checklist below</td></tr>
+</table>
+
+<h3>Manual re-test checklist (production)</h3>
+<ol class="compact">
+<li>Hard refresh <a href="https://register.olasentra.com/index.php">register.olasentra.com/index.php</a></li>
+<li><strong>Loss path:</strong> Step 2 → select an event you are already registered for → Step 3 → enter returning email → confirm redirect to Step 2 with red error message</li>
+<li><strong>Happy path:</strong> Step 2 → select a new open event → Step 3 → returning email → continue to Review → confirm shift name shown (not “None selected”)</li>
+<li><strong>Submit gate:</strong> On Review without consent or without events → submit blocked / redirect to Step 2</li>
+</ol>
+
+<h2>5. Screenshots — before and after</h2>
+<p class="note">CDP screenshot capture was unavailable in this session. Mocks document the UX delta; live verification uses the checklist above.</p>
+<div class="shots">
+<figure>
+<figcaption><strong>Before</strong> — Review with no shifts, duplicate nav (defect)</figcaption>
+<iframe src="screenshots/returning-shift-p0/before-review-none-selected-mock.html" title="Before fix"></iframe>
+</figure>
+<figure>
+<figcaption><strong>After</strong> — Auto redirect to Step 2 after lookup clears selection</figcaption>
+<iframe src="screenshots/returning-shift-p0/after-step2-redirect-mock.html" title="After redirect"></iframe>
+</figure>
+<figure>
+<figcaption><strong>After</strong> — Valid review when open event remains selected</figcaption>
+<iframe src="screenshots/returning-shift-p0/after-step8-valid-mock.html" title="After valid review"></iframe>
+</figure>
+</div>
+
+<h2>6. Rollback instructions</h2>
+<pre>1. Revert these files from git (or pre-deploy backup):
+   - assets/js/registration-wizard-validation.js
+   - assets/js/registration-wizard.js
+   - assets/js/registration-wizard-returning.js
+   - assets/js/registration-wizard-review.js
+   - assets/css/registration-wizard.css
+
+2. Redeploy:
+   powershell -ExecutionPolicy Bypass -File .\deploy.ps1
+
+3. Or restore from local backup created at deploy:
+   storage/backups/pre-deploy-20260606-211145.zip
+   (extract the five paths above, then deploy.ps1)
+
+4. Verify rollback: returning user can again reach Review with zero shifts
+   (defect behaviour — confirms rollback only; do not leave rolled back in production)</pre>
+
+<h2>7. Out of scope (awaiting approval)</h2>
+<ul class="compact">
+<li>P1: <code>showStep(n)</code> guards for draft resume / server restore bypass</li>
+<li>P1: Tighter <code>hasMeaningfulDraft()</code> event requirement</li>
+<li>P2: Duplicate nav chrome consolidation on Step 8</li>
+</ul>
+
+<p class="meta">Prior investigation: <code>docs/RETURNING-USER-SHIFT-VALIDATION-BUG-REPORT.html</code> · Verify: <code>php scripts/verify-returning-shift-p0.php --screenshots</code></p>
+
+</body>
+</html>

@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase B — Public Platform Audit</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+h3{font-size:.98rem;margin-top:1.25rem;color:#334155}
+.meta{color:#64748b;font-size:.9rem}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #fcd34d;background:#fffbeb}
+.scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.75rem;margin:1.25rem 0}
+.score{padding:1rem;border:1px solid #e2e8f0;border-radius:10px;text-align:center;background:#f8fafc}
+.score strong{display:block;font-size:1.5rem;color:#1e40af}
+.score span{font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.04em}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.85rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.badge{display:inline-block;padding:.15rem .5rem;border-radius:5px;font-size:.75rem;font-weight:700}
+.badge.ok{background:#dcfce7;color:#166534}.badge.warn{background:#fef3c7;color:#92400e}.badge.gap{background:#fee2e2;color:#991b1b}.badge.partial{background:#e0e7ff;color:#3730a3}
+.pass{color:#047857;font-weight:700}.warn{color:#b45309;font-weight:700}.gap{color:#b91c1c;font-weight:700}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.82em}
+pre{background:#0f172a;color:#e2e8f0;padding:.85rem;border-radius:8px;overflow:auto;font-size:.78rem}
+ul.compact li{margin:.3rem 0}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;margin:1rem 0}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin:1rem 0}
+@media(max-width:900px){.grid,.grid-3{grid-template-columns:1fr}}
+.shot{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#f8fafc}
+.shot img{display:block;width:100%;height:auto}
+.shot figcaption{padding:.5rem .65rem;font-size:.78rem;color:#475569;background:#fff;border-top:1px solid #e2e8f0}
+.note{font-size:.88rem;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.75rem 1rem;margin:1rem 0}
+.tier{margin:1rem 0;padding:.85rem 1rem;border-radius:8px;border-left:4px solid}
+.tier.qw{border-color:#22c55e;background:#f0fdf4}
+.tier.med{border-color:#f59e0b;background:#fffbeb}
+.tier.maj{border-color:#6366f1;background:#eef2ff}
+</style>
+</head>
+<body>
+
+<h1>Phase B — Public Platform Audit</h1>
+<p class="meta">Generated 6 June 2026 · <strong>Audit only — no code changes, no redesign</strong> · Production probed live · Screenshots captured before recommendations</p>
+
+<div class="verdict"><strong>Scope:</strong> Full public platform review across marketing site, registration entry, mobile experience, navigation, trust, SEO, conversion, accessibility, performance, branding, and four-domain architecture. Phase A (registration wizard) and email encoding fixes are accepted prerequisites. This document inventories current state and prioritizes Phase B implementation work — it does not prescribe a redesign.</div>
+
+<h2>1. Executive summary</h2>
+<p>The public platform is <strong>functionally complete</strong> for its core job: marketing pages explain the model, registration wizard converts on <code>register.olasentra.com</code>, and staff PWA exists. The premium homepage (~70% of UX Master Plan vision) is credible and data-driven. The largest gaps are <strong>visual/theme inconsistency</strong> (dark premium home vs light inner pages), <strong>SEO canonical misconfiguration</strong> (marketing pages canonicalize to register subdomain), <strong>missing About page</strong>, and <strong>brand/name drift</strong> (production site name “Security Update” vs Olasentra positioning in docs).</p>
+
+<div class="scores">
+<div class="score"><strong>68</strong><span>UX score</span></div>
+<div class="score"><strong>72</strong><span>Mobile score</span></div>
+<div class="score"><strong>74</strong><span>Trust score</span></div>
+<div class="score"><strong>62</strong><span>Conversion score</span></div>
+<div class="score"><strong>71</strong><span>Accessibility score</span></div>
+<div class="score"><strong>70</strong><span>Performance score</span></div>
+<div class="score"><strong>65</strong><span>Visual design score</span></div>
+</div>
+
+<p class="meta">Scoring method: weighted rubric from production probe (<code>storage/reports/phase-b-public-platform-snapshot.json</code>), source review, Phase A mobile QA baseline, and 18 live screenshots. Scores are relative to UX Master Plan v2 targets, not generic web benchmarks.</p>
+
+<h2>2. Page inventory (captured before recommendations)</h2>
+
+<h3>2.1 Marketing site — olasentra.com</h3>
+<table>
+<tr><th>Page</th><th>File</th><th>Production URL</th><th>HTTP</th><th>Theme</th><th>H1</th><th>OG meta</th><th>Canonical</th></tr>
+<tr><td>Homepage</td><td><code>home.php</code></td><td><a href="https://olasentra.com/home.php">olasentra.com/home.php</a></td><td class="pass">200</td><td><span class="badge ok">Premium dark</span></td><td>1</td><td class="pass">Yes</td><td class="gap">register.olasentra.com ⚠</td></tr>
+<tr><td>Roles</td><td><code>roles.php</code></td><td><a href="https://olasentra.com/roles.php">olasentra.com/roles.php</a></td><td class="pass">200</td><td><span class="badge partial">Light</span></td><td>1</td><td class="pass">Yes</td><td class="gap">register.olasentra.com ⚠</td></tr>
+<tr><td>Events</td><td><code>events-page.php</code></td><td><a href="https://olasentra.com/events-page.php">olasentra.com/events-page.php</a></td><td class="pass">200</td><td><span class="badge partial">Light</span></td><td>1</td><td class="pass">Yes</td><td class="gap">register.olasentra.com ⚠</td></tr>
+<tr><td>How it works</td><td><code>how-it-works.php</code></td><td><a href="https://olasentra.com/how-it-works.php">olasentra.com/how-it-works.php</a></td><td class="pass">200</td><td><span class="badge partial">Light</span></td><td>1</td><td class="pass">Yes</td><td class="gap">register.olasentra.com ⚠</td></tr>
+<tr><td>FAQ</td><td><code>faq.php</code></td><td><a href="https://olasentra.com/faq.php">olasentra.com/faq.php</a></td><td class="pass">200</td><td><span class="badge partial">Light</span></td><td>1</td><td class="pass">Yes</td><td class="gap">register.olasentra.com ⚠</td></tr>
+<tr><td>Contact</td><td><code>contact.php</code></td><td><a href="https://olasentra.com/contact.php">olasentra.com/contact.php</a></td><td class="pass">200</td><td><span class="badge partial">Light</span></td><td>1</td><td class="pass">Yes</td><td class="gap">register.olasentra.com ⚠</td></tr>
+<tr><td>Privacy</td><td><code>privacy.php</code></td><td><a href="https://olasentra.com/privacy.php">olasentra.com/privacy.php</a></td><td class="pass">200</td><td><span class="badge gap">Legacy card</span></td><td>1</td><td class="gap">No</td><td class="gap">Missing</td></tr>
+<tr><td>About</td><td>—</td><td>—</td><td class="gap">N/A</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+</table>
+
+<h3>2.2 Registration &amp; staff — register.olasentra.com</h3>
+<table>
+<tr><th>Page</th><th>File</th><th>Production URL</th><th>HTTP</th><th>Notes</th></tr>
+<tr><td>Registration wizard</td><td><code>index.php</code></td><td><a href="https://register.olasentra.com/">register.olasentra.com/</a></td><td class="pass">200</td><td>8-step wizard ON (<code>feature_registration_wizard_v2</code>); Phase A verified</td></tr>
+<tr><td>Form submit</td><td><code>submit.php</code></td><td>POST only</td><td>—</td><td>Handler, not a screen</td></tr>
+<tr><td>Staff hub / PWA</td><td><code>staff-app.php</code></td><td><a href="https://register.olasentra.com/staff-app.php">register.olasentra.com/staff-app.php</a></td><td class="pass">200</td><td>PWA entry; weak page title (“Security Update” only)</td></tr>
+<tr><td>Staff portal</td><td><code>staff-portal.php</code></td><td>/staff-portal.php</td><td>—</td><td>Returning staff sign-in</td></tr>
+<tr><td>Status lookup</td><td><code>status.php</code></td><td>/status.php</td><td>—</td><td>Application status</td></tr>
+<tr><td>Check-in</td><td><code>check-in.php</code></td><td>/check-in.php?token=…</td><td>—</td><td>Event day; email-linked</td></tr>
+<tr><td>Staff profile</td><td><code>staff-profile.php</code></td><td>/staff-profile.php</td><td>—</td><td>Profile completion gate</td></tr>
+<tr><td>Messages / notifications</td><td><code>staff-messages.php</code>, <code>staff-notifications.php</code></td><td>—</td><td>—</td><td>Staff comms</td></tr>
+<tr><td>PWA manifest</td><td><code>manifest.php</code></td><td>/manifest.php</td><td>—</td><td>Installable app metadata</td></tr>
+<tr><td>Offline fallback</td><td><code>offline.php</code></td><td>/offline.php</td><td>—</td><td>Service worker fallback</td></tr>
+</table>
+
+<h3>2.3 Admin ERP — admin.olasentra.com</h3>
+<table>
+<tr><th>Surface</th><th>Entry</th><th>Public relationship</th></tr>
+<tr><td>Manager login</td><td><code>/login.php</code> → <code>admin/login.php</code></td><td>Footer “Admin” link on marketing site; <code>olasentra.com/admin/*</code> 302s here</td></tr>
+<tr><td>Website CMS</td><td><code>admin/website-*.php</code></td><td>Edits all marketing copy (home, roles, events, how, FAQ, contact, global)</td></tr>
+<tr><td>Feature flags</td><td><code>admin/feature-flags.php</code></td><td><code>feature_public_premium_v2</code>, <code>feature_registration_wizard_v2</code></td></tr>
+<tr><td>Settings / branding</td><td><code>admin/settings-site.php</code></td><td>Site name, domain URLs, logo — drives all four hosts</td></tr>
+</table>
+
+<h3>2.4 Apply satellite — apply.olasentra.com</h3>
+<table>
+<tr><th>Surface</th><th>Path</th><th>Public relationship</th></tr>
+<tr><td>Apply ERP login</td><td><code>/admin/admin/login.php</code></td><td>Payroll/PSA ops; SSO from main admin</td></tr>
+<tr><td>Legacy apply form</td><td><code>/admin/index.php</code></td><td>Separate <code>staff_master</code> flow — not primary registration path</td></tr>
+<tr><td>Profile update</td><td><code>/admin/update-details.php</code></td><td>Staff self-service on apply DB</td></tr>
+<tr><td>Robots</td><td>—</td><td><code>noindex, nofollow</code> in apply secure layout — correct for ERP</td></tr>
+</table>
+
+<h3>2.5 Shared infrastructure</h3>
+<table>
+<tr><th>Asset / file</th><th>Role</th></tr>
+<tr><td><code>.htaccess</code></td><td>Host-based routing: marketing on olasentra.com, registration on register, admin ERP on admin</td></tr>
+<tr><td><code>includes/public/layout-top.php</code></td><td>Marketing shell; premium CSS gated to <code>pageSlug === 'home'</code></td></tr>
+<tr><td><code>includes/share-meta.php</code></td><td>OG/Twitter/canonical — uses <code>getRegistrationSiteUrl()</code> for canonical (SEO issue on marketing)</td></tr>
+<tr><td><code>includes/website-content.php</code></td><td>CMS defaults, nav items, footer columns</td></tr>
+<tr><td><code>assets/css/website.css</code> (21 KB)</td><td>Inner marketing pages</td></tr>
+<tr><td><code>assets/css/home-premium.css</code> (19 KB)</td><td>Homepage only</td></tr>
+<tr><td><code>assets/css/registration-wizard.css</code> (19 KB)</td><td>Wizard on register subdomain</td></tr>
+<tr><td><code>robots.txt</code> / <code>sitemap.xml</code></td><td><span class="badge gap">Not in repo</span></td></tr>
+</table>
+
+<h2>3. Production screenshots</h2>
+<p class="meta">Captured 6 June 2026 via <code>scripts/capture-phase-b-public-screenshots.ps1</code> → <code>docs/screenshots/phase-b/</code> (Edge headless, live production URLs).</p>
+
+<h3>3.1 Homepage</h3>
+<div class="grid">
+<figure class="shot"><img src="screenshots/phase-b/home-desktop.png" alt="Homepage desktop"><figcaption><strong>Desktop 1280px</strong> — Premium dark hero, live badge, stats bar, hero aside panel</figcaption></figure>
+<figure class="shot"><img src="screenshots/phase-b/home-mobile.png" alt="Homepage mobile"><figcaption><strong>Mobile 390px</strong> — Stacked hero, notice bar, Register CTA visible</figcaption></figure>
+</div>
+
+<h3>3.2 Inner marketing pages</h3>
+<div class="grid-3">
+<figure class="shot"><img src="screenshots/phase-b/roles-desktop.png" alt="Roles desktop"><figcaption>Roles — light theme</figcaption></figure>
+<figure class="shot"><img src="screenshots/phase-b/events-desktop.png" alt="Events desktop"><figcaption>Events — CMS types, no live DB grid</figcaption></figure>
+<figure class="shot"><img src="screenshots/phase-b/how-desktop.png" alt="How it works desktop"><figcaption>How it works — 4-step cards</figcaption></figure>
+<figure class="shot"><img src="screenshots/phase-b/faq-desktop.png" alt="FAQ desktop"><figcaption>FAQ — accordion, mint section bg</figcaption></figure>
+<figure class="shot"><img src="screenshots/phase-b/contact-desktop.png" alt="Contact desktop"><figcaption>Contact — email, phone, WhatsApp</figcaption></figure>
+<figure class="shot"><img src="screenshots/phase-b/privacy-desktop.png" alt="Privacy desktop"><figcaption>Privacy — legacy card layout (disconnected)</figcaption></figure>
+</div>
+
+<h3>3.3 Registration entry points</h3>
+<div class="grid">
+<figure class="shot"><img src="screenshots/phase-b/register-desktop.png" alt="Registration wizard desktop"><figcaption><strong>register.olasentra.com</strong> — Wizard Step 1 desktop</figcaption></figure>
+<figure class="shot"><img src="screenshots/phase-b/register-mobile.png" alt="Registration wizard mobile"><figcaption><strong>register.olasentra.com</strong> — Wizard Step 1 mobile (Phase A quality)</figcaption></figure>
+</div>
+<figure class="shot" style="max-width:640px"><img src="screenshots/phase-b/staff-app-mobile.png" alt="Staff app mobile"><figcaption><strong>staff-app.php</strong> — Staff hub / PWA entry (mobile)</figcaption></figure>
+
+<h2>4. Domain architecture</h2>
+<pre>olasentra.com          → Marketing canonical (home, roles, events, how, FAQ, contact, privacy)
+                         /index.php → 302 register.olasentra.com
+                         /admin/*   → 302 admin.olasentra.com
+
+register.olasentra.com → Registration wizard + staff PWA (index.php default)
+                         Marketing paths → 302 olasentra.com
+
+admin.olasentra.com    → ERP for ops managers (login, roster, events, website CMS)
+                         Same public_html; paths rewritten to /admin/
+
+apply.olasentra.com    → Payroll/PSA satellite (separate deploy: apply/admin/)
+                         SSO bridge from main admin; noindex</pre>
+
+<table>
+<tr><th>Relationship</th><th>Current state</th><th>Risk</th></tr>
+<tr><td>olasentra.com → register</td><td>All Register CTAs point to <code>getRegistrationFormUrl()</code> → register subdomain</td><td class="pass">Correct conversion path</td></tr>
+<tr><td>olasentra.com → admin</td><td>Footer Admin link; subdomain redirect</td><td class="warn">Public footer exposes admin entry (acceptable for ops platform)</td></tr>
+<tr><td>register → olasentra.com</td><td>.htaccess 302 for marketing PHP on register host</td><td class="pass">Prevents duplicate content on wrong host</td></tr>
+<tr><td>Canonical URLs</td><td>Marketing pages emit <code>register.olasentra.com/…</code> canonical</td><td class="gap">SEO split — search engines may index wrong host</td></tr>
+<tr><td>OG image host</td><td><code>share-meta.php</code> uses registration URL base</td><td class="warn">Social previews may show register host for marketing shares</td></tr>
+<tr><td>apply.olasentra.com</td><td>Isolated; staff PSA/payroll; not linked from main nav</td><td class="pass">Correct separation; coordinator announcements link staff-portal on register</td></tr>
+<tr><td>Brand name</td><td>Production CMS name: “Security Update”</td><td class="gap">Docs/UX plan say “Olasentra” — trust and SEO confusion</td></tr>
+</table>
+
+<h2>5. Area-by-area audit</h2>
+
+<h3>5.1 Homepage <span class="badge ok">Strong</span></h3>
+<ul class="compact">
+<li>Premium dark theme live (<code>feature_public_premium_v2</code>); hero, live events grid, animated stats, trust chips, testimonials, staff portal band, final CTA.</li>
+<li>Live data from DB: open events count, registrations this week, approved staff.</li>
+<li>Hero aside logo card consumes prime fold space (conversion risk — see B-H1).</li>
+<li>Stats animate from SSR values in production screenshot (numbers populated after JS); prior audit noted flash-of-zero risk when DB empty.</li>
+<li>Hero lead copy on production mentions “steward” jobs; site notice says stewarding not listed — copy tension.</li>
+</ul>
+
+<h3>5.2 Events page <span class="badge partial">Partial</span></h3>
+<ul class="compact">
+<li><code>events-page.php</code> is CMS educational content (event types, 4-step flow) — not a live events directory.</li>
+<li>Homepage live grid is the real event discovery surface; events page does not mirror it.</li>
+<li>No deep links from category tiles on home to events page anchors.</li>
+<li>CTA band points to registration — good conversion exit.</li>
+</ul>
+
+<h3>5.3 About page <span class="badge gap">Missing</span></h3>
+<ul class="compact">
+<li>No <code>about.php</code>; UX Master Plan and Implementation Master Plan list it as planned.</li>
+<li><code>how-it-works.php</code> partially covers company story via <code>getCompanyTrustPoints()</code>.</li>
+<li>No dedicated team, mission, or “who operates this portal” narrative beyond notice bar and FAQ.</li>
+</ul>
+
+<h3>5.4 Contact page <span class="badge ok">Adequate</span></h3>
+<ul class="compact">
+<li>Email, phone, WhatsApp, hours from CMS; contact cards with clear hierarchy.</li>
+<li>No contact form (email/tel links only) — reduces spam risk but adds friction for some users.</li>
+<li>Same light theme and shared nav as other inner pages.</li>
+</ul>
+
+<h3>5.5 FAQ page <span class="badge ok">Adequate</span></h3>
+<ul class="compact">
+<li>Native <code>&lt;details&gt;</code> accordion — accessible pattern, no JS required.</li>
+<li>6 CMS questions; covers pay model, duplicates, approval — aligned with employer-wording audit.</li>
+<li>Slim CTA band links to contact and registration.</li>
+<li>Could expand: PSA licence requirements, check-in process, data retention.</li>
+</ul>
+
+<h3>5.6 Registration entry points <span class="badge ok">Strong</span></h3>
+<ul class="compact">
+<li>Primary: header Register CTA, hero CTA, live event cards, footer Register, roles page per-form links, FAQ/contact CTA bands.</li>
+<li>All resolve to <code>register.olasentra.com</code> wizard (verified in HTML probe: 13–28 register mentions per page).</li>
+<li>Deep links: <code>index.php?form={slug}</code> for role-locked forms.</li>
+<li>Secondary: staff-portal, staff-app, status.php for returning users.</li>
+<li>Visual jump: premium/light marketing → wizard dark compact — related but not unified token set.</li>
+</ul>
+
+<h3>5.7 Mobile experience <span class="badge ok">Good</span></h3>
+<ul class="compact">
+<li><code>mobile.css</code> (13 KB) + responsive header hamburger (<code>website.js</code>).</li>
+<li>Registration wizard mobile QA completed in Phase A.7 — strong touch targets, progress bar, autosave indicator.</li>
+<li>Homepage mobile screenshot: hero stacks cleanly; notice bar scrolls; CTAs reachable.</li>
+<li>Inner pages: functional but less polished than wizard; FAQ accordion works on small screens.</li>
+<li>No homepage PWA install prompt; staff-app promotion absent on marketing site.</li>
+</ul>
+
+<h3>5.8 Public navigation <span class="badge ok">Consistent</span></h3>
+<ul class="compact">
+<li>Header: Home, Roles, Events, How it works, FAQ, Contact + Register CTA (<code>getWebsiteNavItems()</code>).</li>
+<li>Footer: Explore column, Apply column, Contact column, bar links (registration, privacy, admin).</li>
+<li>Active state on current page; mobile menu toggle with <code>aria-expanded</code>.</li>
+<li>Missing About nav item; privacy only in footer bar not header.</li>
+<li>Premium nav styling not applied — header looks pre-premium on all pages including home.</li>
+</ul>
+
+<h3>5.9 Trust signals <span class="badge ok">Good with gaps</span></h3>
+<ul class="compact">
+<li>Site notice bar: employer model disclaimer, PSA focus, free portal — strong compliance copy.</li>
+<li>Homepage trust chips, compliance list, testimonials (hardcoded), live registration counts.</li>
+<li>Wizard trust row: free, mobile friendly, secure storage, platform note.</li>
+<li>Gaps: privacy page uses different visual system and states “process payroll” (may overstate portal role); no physical address on contact; testimonials not CMS-editable; production brand name “Security Update” undermines credibility.</li>
+</ul>
+
+<h3>5.10 SEO foundations <span class="badge warn">Weak</span></h3>
+<ul class="compact">
+<li>Per-page <code>&lt;title&gt;</code> and meta description via <code>renderShareMeta()</code> — present on marketing + register.</li>
+<li>OG image via <code>og-image.php</code> or branding logo — good for social.</li>
+<li><strong>Critical:</strong> canonical + og:url use <code>register.olasentra.com</code> for pages served on <code>olasentra.com</code>.</li>
+<li>No JSON-LD (Organization, WebSite, Event).</li>
+<li>No <code>robots.txt</code> or sitemap.</li>
+<li>Privacy page: no OG, no canonical, no description.</li>
+<li><code>DirectoryIndex home.php</code> — root may serve home without redirect canonicalization to <code>/home.php</code>.</li>
+</ul>
+
+<h3>5.11 Conversion funnel <span class="badge warn">Friction points</span></h3>
+<ol class="compact">
+<li><strong>Awareness:</strong> Home hero + organic — premium look builds interest.</li>
+<li><strong>Consideration:</strong> Roles, How, FAQ, Events — light pages; theme drop may reduce confidence.</li>
+<li><strong>Intent:</strong> Register CTA ubiquitous — good.</li>
+<li><strong>Action:</strong> Wizard Step 1 — strong (Phase A); autosave, time estimate, open event count.</li>
+<li><strong>Friction:</strong> Hero aside distracts; no urgency on event cards; no “resume application” on homepage; brand name confusion; events page doesn’t show live openings.</li>
+</ol>
+
+<h3>5.12 Accessibility <span class="badge partial">Baseline</span></h3>
+<ul class="compact">
+<li><code>lang="en"</code> on html; nav <code>aria-label</code>; menu button <code>aria-label</code>; notice <code>role="region"</code>.</li>
+<li>FAQ uses native details/summary — keyboard accessible.</li>
+<li>Wizard: progressbar ARIA, live regions for save status (Phase A).</li>
+<li>Gaps: privacy page minimal semantics; focus ring consistency unknown on premium buttons; color contrast on mint FAQ section untested; no skip-to-main link; decorative SVGs mostly <code>aria-hidden</code> on home.</li>
+</ul>
+
+<h3>5.13 Performance <span class="badge partial">Acceptable</span></h3>
+<ul class="compact">
+<li>CSS payloads moderate (21 KB website + 19 KB premium on home; wizard 19 KB on register).</li>
+<li>Google Fonts (Inter) loaded only on premium home — extra round trip.</li>
+<li><code>home-premium.js</code> for counter animation — non-blocking at end of body.</li>
+<li>No evidence of image lazy-loading on homepage; QR/external images on emails not relevant here.</li>
+<li>Single shared hosting — no CDN; acceptable for current scale.</li>
+</ul>
+
+<h3>5.14 Branding consistency <span class="badge warn">Split</span></h3>
+<ul class="compact">
+<li>Logo renders in header/footer; theme color from settings.</li>
+<li>Three visual systems: (1) premium dark home, (2) light marketing inner, (3) wizard/staff compact dark.</li>
+<li>Production site name “Security Update” vs “Olasentra” in documentation and wizard platform note.</li>
+<li>Privacy page: legacy <code>login-page</code> card — breaks brand continuity.</li>
+<li>Inter font home-only; inner pages use system stack.</li>
+</ul>
+
+<h2>6. Score rationale</h2>
+<table>
+<tr><th>Score</th><th>Value</th><th>Key factors</th></tr>
+<tr><td>UX</td><td><strong>68</strong></td><td>Strong home + wizard; theme fracture, missing About, events page disconnect</td></tr>
+<tr><td>Mobile</td><td><strong>72</strong></td><td>Wizard excellent; marketing responsive; no PWA promo on home</td></tr>
+<tr><td>Trust</td><td><strong>74</strong></td><td>Compliance notice + FAQ pay clarity; brand name + privacy layout hurt</td></tr>
+<tr><td>Conversion</td><td><strong>62</strong></td><td>Many CTAs but hero aside, canonical SEO risk, no urgency badges, theme drop</td></tr>
+<tr><td>Accessibility</td><td><strong>71</strong></td><td>Good nav/FAQ/wizard patterns; no skip link, contrast unverified, privacy gap</td></tr>
+<tr><td>Performance</td><td><strong>70</strong></td><td>Lean CSS; font request on home; JS animation optional</td></tr>
+<tr><td>Visual design</td><td><strong>65</strong></td><td>Home ~78 alone; inner pages ~55; platform average pulled down by inconsistency</td></tr>
+</table>
+
+<h2>7. Findings register</h2>
+<table>
+<tr><th>ID</th><th>Severity</th><th>Finding</th><th>Evidence</th></tr>
+<tr><td>B-P1</td><td class="gap">High</td><td>Marketing canonical URLs point to register subdomain</td><td><code>share-meta.php</code> + production probe: all olasentra.com pages → <code>register.olasentra.com/…</code></td></tr>
+<tr><td>B-P2</td><td class="gap">High</td><td>Inner pages not premium-themed</td><td><code>layout-top.php</code> premium gate home-only; screenshots faq/roles vs home</td></tr>
+<tr><td>B-P3</td><td class="gap">High</td><td>About page missing</td><td>No <code>about.php</code>; UX Master Plan planned</td></tr>
+<tr><td>B-P4</td><td class="warn">Medium</td><td>Production brand name “Security Update”</td><td>All page titles in probe; settings-site.php controls name</td></tr>
+<tr><td>B-P5</td><td class="warn">Medium</td><td>Privacy page off-brand, weak SEO</td><td>Standalone layout; no OG/canonical; payroll wording</td></tr>
+<tr><td>B-P6</td><td class="warn">Medium</td><td>Events page not live-data driven</td><td><code>events-page.php</code> CMS only; home has live grid</td></tr>
+<tr><td>B-P7</td><td class="warn">Medium</td><td>Hero aside logo card wastes fold</td><td>home-desktop.png; B-H1 from homepage audit</td></tr>
+<tr><td>B-P8</td><td class="warn">Medium</td><td>No JSON-LD / sitemap / robots.txt</td><td>Repo search; probe <code>jsonld: false</code></td></tr>
+<tr><td>B-P9</td><td class="warn">Medium</td><td>Steward wording vs PSA-only notice</td><td>Hero lead production copy vs site notice</td></tr>
+<tr><td>B-P10</td><td>Low</td><td>Testimonials hardcoded</td><td><code>getHomepageTestimonials()</code></td></tr>
+<tr><td>B-P11</td><td>Low</td><td>No PWA promotion on homepage</td><td>staff-app exists; home has staff portal band only</td></tr>
+<tr><td>B-P12</td><td>Low</td><td>Header nav not premium-styled on home</td><td>Screenshot: light header on dark hero</td></tr>
+</table>
+
+<h2>8. Recommendations (post-inventory — no implementation in this phase)</h2>
+
+<div class="tier qw"><h3>Quick wins</h3>
+<ul class="compact">
+<li><strong>B-QW1:</strong> Fix canonical/OG URL to use <code>getMarketingSiteUrl()</code> on marketing pages; keep register URL only on register host.</li>
+<li><strong>B-QW2:</strong> Restore production site name to intended public brand (Admin → Settings → Site name).</li>
+<li><strong>B-QW3:</strong> Align hero lead copy with PSA-only notice — remove “steward” if not offered.</li>
+<li><strong>B-QW4:</strong> Add meta description + OG tags to <code>privacy.php</code>; wrap in marketing shell or match footer link style.</li>
+<li><strong>B-QW5:</strong> Add “Resume registration” link on homepage staff portal band (wizard autosave exists).</li>
+<li><strong>B-QW6:</strong> Add <code>robots.txt</code> allowing marketing + register; disallow <code>/admin/</code>, <code>/cron/</code>, apply host.</li>
+</ul>
+</div>
+
+<div class="tier med"><h3>Medium improvements</h3>
+<ul class="compact">
+<li><strong>B-M1:</strong> Extend premium theme (or shared dark shell) to Roles, Events, How, FAQ, Contact — single <code>feature_public_premium_v2</code> scope expansion.</li>
+<li><strong>B-M2:</strong> Replace hero aside logo card with urgency module (open events, closing shifts).</li>
+<li><strong>B-M3:</strong> SSR final stat values in homepage HTML; animate as progressive enhancement.</li>
+<li><strong>B-M4:</strong> Create <code>about.php</code> CMS page — mission, operator model, link from nav/footer.</li>
+<li><strong>B-M5:</strong> Events page: embed live open-events strip from <code>getHomepageLiveData()</code> or link to home anchor.</li>
+<li><strong>B-M6:</strong> Move testimonials to CMS (<code>admin/website-home.php</code> or new section).</li>
+<li><strong>B-M7:</strong> Add Organization + WebSite JSON-LD on home; FAQPage schema on FAQ.</li>
+<li><strong>B-M8:</strong> Premium header/nav styling when premium theme active.</li>
+<li><strong>B-M9:</strong> Homepage PWA band — “Add to home screen” linking to staff-app + manifest.</li>
+<li><strong>B-M10:</strong> Privacy page rewrite for employer-model accuracy; unified layout.</li>
+</ul>
+</div>
+
+<div class="tier maj"><h3>Major redesign opportunities</h3>
+<ul class="compact">
+<li><strong>B-X1:</strong> Unified public design system — shared tokens across marketing, wizard, staff-app (UX Master Plan “Event Operations” DNA without ERP chrome on public surfaces).</li>
+<li><strong>B-X2:</strong> Live events as first-class public directory — searchable/filterable events page backed by DB, not CMS taxonomy only.</li>
+<li><strong>B-X3:</strong> Full marketing information architecture — About, Careers, For organisers, Case studies (if B2B expansion).</li>
+<li><strong>B-X4:</strong> Marketing site static generation or edge cache layer for home stats/events (performance + SEO).</li>
+<li><strong>B-X5:</strong> Cross-domain analytics dashboard — funnel from olasentra.com CTA → wizard step completion (wire registration-analytics to marketing events).</li>
+</ul>
+</div>
+
+<h2>9. Phase B implementation waves (suggested sequencing)</h2>
+<table>
+<tr><th>Wave</th><th>Scope</th><th>Addresses</th></tr>
+<tr><td>B1 — SEO &amp; canonical fix</td><td>share-meta host logic, robots.txt, sitemap, privacy meta</td><td>B-P1, B-P5, B-P8, B-QW1, B-QW4, B-QW6</td></tr>
+<tr><td>B2 — Brand &amp; copy</td><td>Site name, hero copy, privacy wording, employer consistency</td><td>B-P4, B-P9, B-QW2, B-QW3, B-M10</td></tr>
+<tr><td>B3 — Premium shell expansion</td><td>Inner pages + nav + footer parity</td><td>B-P2, B-P12, B-M1, B-M8</td></tr>
+<tr><td>B4 — Conversion polish</td><td>Hero aside, urgency badges, resume link, PWA band</td><td>B-P7, B-P11, B-M2, B-M3, B-M9, B-QW5</td></tr>
+<tr><td>B5 — Content &amp; trust</td><td>About page, CMS testimonials, events live strip</td><td>B-P3, B-P6, B-P10, B-M4, B-M5, B-M6</td></tr>
+</table>
+
+<h2>10. Out of scope (unchanged per project rules)</h2>
+<ul class="compact">
+<li>Registration wizard changes (Phase A closed)</li>
+<li>Email encoding (verified and accepted)</li>
+<li>Phase F fraud enforcement</li>
+<li>Admin ERP UI redesign</li>
+<li>Database migrations</li>
+</ul>
+
+<h2>11. Artifacts</h2>
+<table>
+<tr><th>Artifact</th><th>Path</th></tr>
+<tr><td>This report</td><td><code>docs/PHASE-B-PUBLIC-PLATFORM-AUDIT.html</code></td></tr>
+<tr><td>Production probe JSON</td><td><code>storage/reports/phase-b-public-platform-snapshot.json</code></td></tr>
+<tr><td>Homepage probe JSON</td><td><code>storage/reports/phase-b-homepage-audit-snapshot.json</code></td></tr>
+<tr><td>Screenshots (18)</td><td><code>docs/screenshots/phase-b/*.png</code></td></tr>
+<tr><td>Screenshot script</td><td><code>scripts/capture-phase-b-public-screenshots.ps1</code></td></tr>
+<tr><td>Prior homepage audit</td><td><code>docs/PHASE-B-HOMEPAGE-AUDIT.html</code></td></tr>
+<tr><td>UX Master Plan</td><td><code>docs/UX-MASTER-PLAN.html</code></td></tr>
+</table>
+
+</body>
+</html>

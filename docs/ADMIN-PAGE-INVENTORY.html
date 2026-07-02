@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Event Staff System — Admin Page Inventory</title>
+    <style>
+        @page { size: A4 landscape; margin: 12mm 10mm; }
+        * { box-sizing: border-box; }
+        body {
+            font-family: "Segoe UI", system-ui, sans-serif;
+            font-size: 9pt;
+            line-height: 1.35;
+            color: #0f172a;
+            margin: 0;
+            padding: 16px;
+        }
+        h1 { font-size: 18pt; margin: 0 0 4px; color: #1e1b4b; }
+        h2 {
+            font-size: 11pt;
+            margin: 18px 0 6px;
+            padding: 6px 10px;
+            background: linear-gradient(90deg, #4f46e5, #7c3aed);
+            color: #fff;
+            border-radius: 4px;
+            page-break-after: avoid;
+        }
+        .meta { font-size: 8.5pt; color: #64748b; margin-bottom: 14px; }
+        .legend {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 14px;
+            padding: 10px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 8pt;
+        }
+        .legend strong { color: #334155; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 8px;
+            font-size: 7.5pt;
+        }
+        th {
+            background: #1e293b;
+            color: #f8fafc;
+            text-align: left;
+            padding: 5px 4px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        td {
+            border-bottom: 1px solid #e2e8f0;
+            padding: 4px;
+            vertical-align: top;
+        }
+        tr:nth-child(even) td { background: #f8fafc; }
+        .crit { color: #b91c1c; font-weight: 700; }
+        .high { color: #15803d; font-weight: 600; }
+        .summary {
+            margin-top: 16px;
+            padding: 10px;
+            background: #eef2ff;
+            border-radius: 6px;
+            font-size: 8.5pt;
+        }
+        .summary table { font-size: 8.5pt; }
+        .summary th { background: #4338ca; }
+        code { font-size: 7pt; background: #f1f5f9; padding: 1px 3px; border-radius: 2px; }
+        .page-break { page-break-before: always; }
+        .toc { columns: 2; font-size: 8.5pt; margin-bottom: 12px; }
+        .toc li { margin: 2px 0; }
+    </style>
+</head>
+<body>
+
+<h1>Event Staff System — Complete Admin Page Inventory</h1>
+<p class="meta">
+    <strong>Base URL:</strong> https://admin.olasentra.com/admin/ &nbsp;|&nbsp;
+    <strong>Generated:</strong> 6 June 2026 &nbsp;|&nbsp;
+    <strong>Total files:</strong> 109 PHP pages in /admin/
+</p>
+
+<div class="legend">
+    <div>
+        <strong>Roles</strong><br>
+        <strong>Administrator</strong> — full access (*)<br>
+        <strong>Manager</strong> — dashboard, staff, events, attendance, invoices, export, audit, apply<br>
+        <strong>Staff</strong> — dashboard, attendance only<br>
+        <strong>Public</strong> — login/logout/index (unauthenticated)
+    </div>
+    <div>
+        <strong>Frequency:</strong> High = daily/event-day &nbsp; Medium = weekly &nbsp; Low = occasional<br>
+        <strong>Criticality:</strong> <span class="crit">Critical</span> = operations stop without it &nbsp;
+        Important = business impact &nbsp; Optional = nice-to-have
+    </div>
+</div>
+
+<ul class="toc">
+    <li>1. Dashboard (4)</li>
+    <li>2. Staff (14)</li>
+    <li>3. Events (19)</li>
+    <li>4. Attendance (6)</li>
+    <li>5. Messaging (2)</li>
+    <li>6. Payroll (2)</li>
+    <li>7. Invoicing (17)</li>
+    <li>8. Finance (7)</li>
+    <li>9. Reports (5)</li>
+    <li>10. CMS (11)</li>
+    <li>11. Settings (14)</li>
+    <li>12. Security (6)</li>
+    <li>13. Utilities (4)</li>
+</ul>
+
+<h2>1. Dashboard</h2>
+<table>
+    <tr><th>File</th><th>URL</th><th>Menu</th><th>Purpose</th><th>Roles</th><th>Tables</th><th>Freq</th><th>Crit</th></tr>
+    <tr><td><code>dashboard.php</code></td><td>/admin/dashboard.php</td><td>Home → Dashboard</td><td>Operations hub: stats, pending queue, events, messages</td><td>Admin, Manager, Staff</td><td>staff_registrations, staff, events, attendance, staff_messages</td><td class="high">High</td><td class="crit">Critical</td></tr>
+    <tr><td><code>notifications.php</code></td><td>/admin/notifications.php</td><td>Home → Notifications</td><td>Admin in-app notification inbox</td><td>Admin, Manager, Staff</td><td>app_notifications</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>ops-checklist.php</code></td><td>/admin/ops-checklist.php</td><td>System → Ops checklist</td><td>Pre-event operational checklist</td><td>Admin, Manager, Staff</td><td>system_settings</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>ops-checklist-action.php</code></td><td>/admin/ops-checklist-action.php</td><td>— POST</td><td>Save checklist state</td><td>Admin, Manager, Staff</td><td>system_settings</td><td>Low</td><td>Important</td></tr>
+</table>
+
+<h2>2. Staff</h2>
+<table>
+    <tr><th>File</th><th>URL</th><th>Menu</th><th>Purpose</th><th>Roles</th><th>Tables</th><th>Freq</th><th>Crit</th></tr>
+    <tr><td><code>staff.php</code></td><td>/admin/staff.php</td><td>People → Staff queue</td><td>Registration queue filtered by event/status</td><td>Admin, Manager</td><td>staff_registrations, events, staff</td><td class="high">High</td><td class="crit">Critical</td></tr>
+    <tr><td><code>staff-directory.php</code></td><td>/admin/staff-directory.php</td><td>People → Directory</td><td>Master staff profiles (PSA, bank, contact)</td><td>Admin, Manager</td><td>staff, staff_registrations</td><td class="high">High</td><td class="crit">Critical</td></tr>
+    <tr><td><code>blacklist.php</code></td><td>/admin/blacklist.php</td><td>People → Blacklist</td><td>Blocked staff emails</td><td>Admin, Manager</td><td>staff_blacklist, staff</td><td>Low</td><td>Important</td></tr>
+    <tr><td><code>view-staff.php</code></td><td>/admin/view-staff.php?id=</td><td>— drill-down</td><td>Single registration detail</td><td>Admin, Manager</td><td>staff_registrations, attendance</td><td class="high">High</td><td class="crit">Critical</td></tr>
+    <tr><td><code>staff-edit.php</code></td><td>/admin/staff-edit.php?id=</td><td>— from view</td><td>Edit registration/staff fields</td><td>Admin, Manager</td><td>staff_registrations, staff</td><td class="high">High</td><td class="crit">Critical</td></tr>
+    <tr><td><code>update-status.php</code></td><td>/admin/update-status.php</td><td>— POST</td><td>Approve/reject; sends emails</td><td>Admin, Manager</td><td>staff_registrations, app_notifications</td><td class="high">High</td><td class="crit">Critical</td></tr>
+    <tr><td><code>bulk-status.php</code></td><td>/admin/bulk-status.php</td><td>— POST</td><td>Bulk approve/reject</td><td>Admin, Manager</td><td>staff_registrations</td><td>Medium</td><td class="crit">Critical</td></tr>
+    <tr><td><code>bulk_status.php</code></td><td>/admin/bulk_status.php</td><td>— alias</td><td>Legacy redirect to bulk-status</td><td>Admin, Manager</td><td>—</td><td>Low</td><td>—</td></tr>
+    <tr><td><code>staff-delete.php</code></td><td>/admin/staff-delete.php</td><td>— POST</td><td>Delete registration</td><td>Admin, Manager</td><td>staff_registrations</td><td>Low</td><td>Important</td></tr>
+    <tr><td><code>staff-send-profile-link.php</code></td><td>/admin/staff-send-profile-link.php</td><td>— action</td><td>Email profile update link</td><td>Admin, Manager</td><td>staff, system_settings</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>staff-regenerate-token.php</code></td><td>/admin/staff-regenerate-token.php</td><td>— action</td><td>Regenerate status/check-in tokens</td><td>Admin, Manager</td><td>staff_registrations</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>staff-message.php</code></td><td>/admin/staff-message.php</td><td>— action</td><td>Send message to staff</td><td>Admin, Manager</td><td>staff_messages, staff</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>blacklist-action.php</code></td><td>/admin/blacklist-action.php</td><td>— POST</td><td>Add/remove blacklist</td><td>Admin, Manager</td><td>staff_blacklist, staff</td><td>Low</td><td>Important</td></tr>
+    <tr><td><code>import-roster.php</code></td><td>/admin/import-roster.php</td><td>— utility</td><td>Import roster into registrations</td><td>Admin, Manager</td><td>staff_registrations, events</td><td>Low</td><td>Optional</td></tr>
+</table>
+
+<h2>3. Events</h2>
+<table>
+    <tr><th>File</th><th>URL</th><th>Menu</th><th>Purpose</th><th>Roles</th><th>Tables</th><th>Freq</th><th>Crit</th></tr>
+    <tr><td><code>events.php</code></td><td>/admin/events.php</td><td>Events → Events</td><td>List and manage events</td><td>Admin, Manager</td><td>events</td><td class="high">High</td><td class="crit">Critical</td></tr>
+    <tr><td><code>event-form.php</code></td><td>/admin/event-form.php</td><td>— from Events</td><td>Create/edit event</td><td>Admin, Manager</td><td>events, venues</td><td class="high">High</td><td class="crit">Critical</td></tr>
+    <tr><td><code>save-event.php</code></td><td>/admin/save-event.php</td><td>— POST</td><td>Save event; may notify staff</td><td>Admin, Manager</td><td>events, app_notifications</td><td class="high">High</td><td class="crit">Critical</td></tr>
+    <tr><td><code>toggle-event.php</code></td><td>/admin/toggle-event.php</td><td>— POST</td><td>Activate/deactivate event</td><td>Admin, Manager</td><td>events, app_notifications</td><td>Medium</td><td class="crit">Critical</td></tr>
+    <tr><td><code>venues.php</code></td><td>/admin/venues.php</td><td>Events → Venues</td><td>Venue directory</td><td>Admin, Manager</td><td>venues</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>venue-form.php</code></td><td>/admin/venue-form.php</td><td>— from Venues</td><td>Edit venue</td><td>Admin, Manager</td><td>venues</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>save-venue.php</code></td><td>/admin/save-venue.php</td><td>— POST</td><td>Save venue</td><td>Admin, Manager</td><td>venues</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>venue-action.php</code></td><td>/admin/venue-action.php</td><td>— POST</td><td>Delete/toggle venue</td><td>Admin, Manager</td><td>venues</td><td>Low</td><td>Important</td></tr>
+    <tr><td><code>work-types.php</code></td><td>/admin/work-types.php</td><td>Events → Work types</td><td>Role type definitions</td><td>Admin, Manager</td><td>work_types</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>work-type-form.php</code></td><td>/admin/work-type-form.php</td><td>— form</td><td>Edit work type</td><td>Admin, Manager</td><td>work_types</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>save-work-type.php</code></td><td>/admin/save-work-type.php</td><td>— POST</td><td>Save work type</td><td>Admin, Manager</td><td>work_types</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>work-type-action.php</code></td><td>/admin/work-type-action.php</td><td>— POST</td><td>Delete work type</td><td>Admin, Manager</td><td>work_types</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>events-sheets-action.php</code></td><td>/admin/events-sheets-action.php</td><td>— POST</td><td>Google Sheets link/create</td><td>Admin, Manager</td><td>events, system_settings</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>events-roster-action.php</code></td><td>/admin/events-roster-action.php</td><td>— POST</td><td>Roster sync actions</td><td>Admin, Manager</td><td>staff_registrations, events</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>event-sign-qr.php</code></td><td>/admin/event-sign-qr.php</td><td>— utility</td><td>Event sign-in QR</td><td>Admin, Manager</td><td>events</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>qr.php</code></td><td>/admin/qr.php</td><td>— utility</td><td>QR generator</td><td>Admin, Manager</td><td>events</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>print-qr.php</code></td><td>/admin/print-qr.php</td><td>— print</td><td>Printable check-in QR</td><td>Admin, Manager</td><td>events, staff_registrations</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>print-roster.php</code></td><td>/admin/print-roster.php</td><td>— print</td><td>Printable approved roster</td><td>Admin, Manager</td><td>staff_registrations, events</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>roster-diagnostic.php</code></td><td>/admin/roster-diagnostic.php</td><td>— diagnostic</td><td>Debug registration counts</td><td>Admin, Manager</td><td>staff_registrations, events</td><td>Low</td><td>Optional</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2>4. Attendance</h2>
+<table>
+    <tr><th>File</th><th>URL</th><th>Menu</th><th>Purpose</th><th>Roles</th><th>Tables</th><th>Freq</th><th>Crit</th></tr>
+    <tr><td><code>attendance.php</code></td><td>/admin/attendance.php</td><td>Events → Attendance</td><td>Check-in log and filters</td><td>Admin, Manager, Staff</td><td>attendance, staff_registrations, events</td><td class="high">High</td><td class="crit">Critical</td></tr>
+    <tr><td><code>scan-checkin.php</code></td><td>/admin/scan-checkin.php</td><td>Events → Scan check-in</td><td>Camera QR scanner at venue</td><td>Admin, Manager, Staff</td><td>attendance, staff_registrations</td><td class="high">High</td><td class="crit">Critical</td></tr>
+    <tr><td><code>scan-checkin-action.php</code></td><td>/admin/scan-checkin-action.php</td><td>— POST</td><td>Process QR check-in</td><td>Admin, Manager, Staff</td><td>attendance</td><td class="high">High</td><td class="crit">Critical</td></tr>
+    <tr><td><code>checkin-action.php</code></td><td>/admin/checkin-action.php</td><td>— POST</td><td>Manual check-in</td><td>Admin, Manager, Staff</td><td>attendance</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>work-hours.php</code></td><td>/admin/work-hours.php</td><td>Events → Work hours</td><td>Hours worked per shift</td><td>Admin, Manager, Staff</td><td>attendance, staff_registrations</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>work-hours-action.php</code></td><td>/admin/work-hours-action.php</td><td>— POST</td><td>Save hour adjustments</td><td>Admin, Manager, Staff</td><td>attendance</td><td>Medium</td><td>Important</td></tr>
+</table>
+
+<h2>5. Messaging</h2>
+<table>
+    <tr><th>File</th><th>URL</th><th>Menu</th><th>Purpose</th><th>Roles</th><th>Tables</th><th>Freq</th><th>Crit</th></tr>
+    <tr><td><code>staff-inbox.php</code></td><td>/admin/staff-inbox.php</td><td>Home → Messages</td><td>Staff message thread list</td><td>Admin, Manager</td><td>staff_messages, staff</td><td class="high">High</td><td>Important</td></tr>
+    <tr><td><code>staff-inbox-thread.php</code></td><td>/admin/staff-inbox-thread.php</td><td>— thread view</td><td>Conversation + reply</td><td>Admin, Manager</td><td>staff_messages</td><td class="high">High</td><td>Important</td></tr>
+</table>
+
+<h2>6. Payroll</h2>
+<p style="font-size:8pt;color:#64748b;margin:0 0 6px;">Payroll runs on Apply subdomain (apply.olasentra.com/admin). Main admin only has the bridge.</p>
+<table>
+    <tr><th>File</th><th>URL</th><th>Menu</th><th>Purpose</th><th>Roles</th><th>Tables</th><th>Freq</th><th>Crit</th></tr>
+    <tr><td><code>apply-portal.php</code></td><td>/admin/apply-portal.php</td><td>Site → Apply admin</td><td>SSO bridge to Apply admin (payroll, PSA)</td><td>Admin, Manager</td><td>Apply DB (staff_master)</td><td>Low</td><td>Important</td></tr>
+    <tr><td><code>apply-sync-ping.php</code></td><td>/admin/apply-sync-ping.php</td><td>— background</td><td>Trigger staff sync to Apply</td><td>Admin (logged in)</td><td>staff, Apply staff_master</td><td>Low</td><td>Optional</td></tr>
+</table>
+
+<h2>7. Invoicing</h2>
+<table>
+    <tr><th>File</th><th>URL</th><th>Menu</th><th>Purpose</th><th>Roles</th><th>Tables</th><th>Freq</th><th>Crit</th></tr>
+    <tr><td><code>invoices.php</code></td><td>/admin/invoices.php</td><td>Finance → Invoices</td><td>Commission invoice hub</td><td>Admin, Manager</td><td>commission_invoices, commission_invoice_lines</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>invoice-form.php</code></td><td>/admin/invoice-form.php</td><td>— form</td><td>Full invoice editor</td><td>Admin, Manager</td><td>commission_invoices</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>invoice-quick.php</code></td><td>/admin/invoice-quick.php</td><td>— utility</td><td>Quick invoice create</td><td>Admin, Manager</td><td>commission_invoices</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>invoice-action.php</code></td><td>/admin/invoice-action.php</td><td>— POST</td><td>Save/delete invoice</td><td>Admin, Manager</td><td>commission_invoices</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>invoice-import.php</code></td><td>/admin/invoice-import.php</td><td>— utility</td><td>Import invoices</td><td>Admin, Manager</td><td>commission_invoices</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>invoice-import-action.php</code></td><td>/admin/invoice-import-action.php</td><td>— POST</td><td>Process import</td><td>Admin, Manager</td><td>commission_invoices</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>invoice-import-template.php</code></td><td>/admin/invoice-import-template.php</td><td>— download</td><td>CSV template</td><td>Admin, Manager</td><td>—</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>job-records.php</code></td><td>/admin/job-records.php</td><td>Invoices sub</td><td>Saved job records</td><td>Admin, Manager</td><td>saved_job_records</td><td>Low</td><td>Important</td></tr>
+    <tr><td><code>job-record-form.php</code></td><td>/admin/job-record-form.php</td><td>— form</td><td>Job record editor</td><td>Admin, Manager</td><td>saved_job_records</td><td>Low</td><td>Important</td></tr>
+    <tr><td><code>job-record-action.php</code></td><td>/admin/job-record-action.php</td><td>— POST</td><td>Save job record</td><td>Admin, Manager</td><td>saved_job_records</td><td>Low</td><td>Important</td></tr>
+    <tr><td><code>personal-invoices.php</code></td><td>/admin/personal-invoices.php</td><td>Invoices sub</td><td>Personal invoice list</td><td>Admin, Manager</td><td>personal_invoice_lines</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>personal-invoice-form.php</code></td><td>/admin/personal-invoice-form.php</td><td>— form</td><td>Personal invoice editor</td><td>Admin, Manager</td><td>personal_invoice_lines</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>personal-work-log-form.php</code></td><td>/admin/personal-work-log-form.php</td><td>— form</td><td>Work log lines</td><td>Admin, Manager</td><td>personal_invoice_lines, attendance</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>print-invoice.php</code></td><td>/admin/print-invoice.php</td><td>— print</td><td>Print commission invoice</td><td>Admin, Manager</td><td>commission_invoices</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>print-invoice-quick.php</code></td><td>/admin/print-invoice-quick.php</td><td>— print</td><td>Quick print invoice</td><td>Admin, Manager</td><td>commission_invoices</td><td>Low</td><td>Important</td></tr>
+    <tr><td><code>print-invoices-month.php</code></td><td>/admin/print-invoices-month.php</td><td>— print</td><td>Monthly batch print</td><td>Admin, Manager</td><td>commission_invoices</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>print-job-record.php</code></td><td>/admin/print-job-record.php</td><td>— print</td><td>Print job record</td><td>Admin, Manager</td><td>saved_job_records</td><td>Low</td><td>Optional</td></tr>
+</table>
+
+<h2>8. Finance (Exports)</h2>
+<table>
+    <tr><th>File</th><th>URL</th><th>Menu</th><th>Purpose</th><th>Roles</th><th>Tables</th><th>Freq</th><th>Crit</th></tr>
+    <tr><td><code>export-staff.php</code></td><td>/admin/export-staff.php</td><td>Finance → Export</td><td>Export hub (staff, attendance, hours)</td><td>Admin, Manager</td><td>staff_registrations, staff, attendance</td><td class="high">High</td><td>Important</td></tr>
+    <tr><td><code>export.php</code></td><td>/admin/export.php</td><td>— redirect</td><td>→ export-staff.php</td><td>Admin, Manager</td><td>—</td><td>Low</td><td>—</td></tr>
+    <tr><td><code>exports.php</code></td><td>/admin/exports.php</td><td>— redirect</td><td>→ export-staff.php</td><td>Admin, Manager</td><td>—</td><td>Low</td><td>—</td></tr>
+    <tr><td><code>export-attendance.php</code></td><td>/admin/export-attendance.php</td><td>— export</td><td>CSV check-ins</td><td>Admin, Manager</td><td>attendance</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>export-work-hours.php</code></td><td>/admin/export-work-hours.php</td><td>— export</td><td>Export worked hours</td><td>Admin, Manager</td><td>attendance</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>export-invoice.php</code></td><td>/admin/export-invoice.php</td><td>— export</td><td>Export single invoice</td><td>Admin, Manager</td><td>commission_invoices</td><td>Low</td><td>Important</td></tr>
+    <tr><td><code>export-invoices-month.php</code></td><td>/admin/export-invoices-month.php</td><td>— export</td><td>Monthly invoice export</td><td>Admin, Manager</td><td>commission_invoices</td><td>Low</td><td>Important</td></tr>
+</table>
+
+<h2>9. Reports &amp; Diagnostics</h2>
+<table>
+    <tr><th>File</th><th>URL</th><th>Menu</th><th>Purpose</th><th>Roles</th><th>Tables</th><th>Freq</th><th>Crit</th></tr>
+    <tr><td><code>audit-log.php</code></td><td>/admin/audit-log.php</td><td>System → Activity logs</td><td>Admin action audit trail</td><td>Admin, Manager</td><td>admin_audit_log</td><td>Low</td><td>Important</td></tr>
+    <tr><td><code>visitor-locations.php</code></td><td>/admin/visitor-locations.php</td><td>System → Visitors</td><td>Public site visitor geo map</td><td>Admin, Manager</td><td>website_visits</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>geo-audits.php</code></td><td>/admin/geo-audits.php</td><td>System → Geo audits</td><td>Login geo + check-in locations</td><td>Admin, Manager</td><td>admin_audit_log, attendance</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>roster-diagnostic.php</code></td><td>/admin/roster-diagnostic.php</td><td>— diagnostic</td><td>Registration count debug</td><td>Admin, Manager</td><td>staff_registrations</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>google-sheets-diagnostic.php</code></td><td>/admin/google-sheets-diagnostic.php</td><td>Settings tab</td><td>Google Sheets connection test</td><td>Admin only</td><td>system_settings</td><td>Low</td><td>Important</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2>10. CMS (Website &amp; Forms)</h2>
+<table>
+    <tr><th>File</th><th>URL</th><th>Menu</th><th>Purpose</th><th>Roles</th><th>Tables</th><th>Freq</th><th>Crit</th></tr>
+    <tr><td><code>forms.php</code></td><td>/admin/forms.php</td><td>Site → Forms</td><td>Registration form config</td><td>Admin only</td><td>system_settings</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>form-new.php</code></td><td>/admin/form-new.php</td><td>— form</td><td>Create form slug</td><td>Admin only</td><td>system_settings</td><td>Low</td><td>Important</td></tr>
+    <tr><td><code>form-edit.php</code></td><td>/admin/form-edit.php</td><td>— form</td><td>Edit form fields</td><td>Admin only</td><td>system_settings</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>website-global.php</code></td><td>/admin/website-global.php</td><td>System → Website CMS</td><td>Global CMS + settings</td><td>Admin only</td><td>system_settings</td><td>Medium</td><td>Important</td></tr>
+    <tr><td><code>website.php</code></td><td>/admin/website.php</td><td>— redirect</td><td>CMS tab router</td><td>Admin only</td><td>—</td><td>Low</td><td>—</td></tr>
+    <tr><td><code>website-home.php</code></td><td>/admin/website-home.php</td><td>— CMS tab</td><td>Homepage content</td><td>Admin only</td><td>system_settings</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>website-events.php</code></td><td>/admin/website-events.php</td><td>— CMS tab</td><td>Events page content</td><td>Admin only</td><td>system_settings</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>website-faq.php</code></td><td>/admin/website-faq.php</td><td>— CMS tab</td><td>FAQ content</td><td>Admin only</td><td>system_settings</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>website-how.php</code></td><td>/admin/website-how.php</td><td>— CMS tab</td><td>How it works page</td><td>Admin only</td><td>system_settings</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>website-contact.php</code></td><td>/admin/website-contact.php</td><td>— CMS tab</td><td>Contact page</td><td>Admin only</td><td>system_settings</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>website-roles.php</code></td><td>/admin/website-roles.php</td><td>— CMS tab</td><td>Roles marketing page</td><td>Admin only</td><td>system_settings</td><td>Low</td><td>Optional</td></tr>
+</table>
+
+<h2>11. Settings</h2>
+<table>
+    <tr><th>File</th><th>URL</th><th>Menu</th><th>Purpose</th><th>Roles</th><th>Tables</th><th>Freq</th><th>Crit</th></tr>
+    <tr><td><code>settings-site.php</code></td><td>/admin/settings-site.php</td><td>System → Settings</td><td>Company, URLs, site config</td><td>Admin only</td><td>system_settings</td><td>Medium</td><td class="crit">Critical</td></tr>
+    <tr><td><code>settings-production.php</code></td><td>/admin/settings-production.php</td><td>Settings tab</td><td>Google Sheets, integrations</td><td>Admin only</td><td>system_settings</td><td>Medium</td><td class="crit">Critical</td></tr>
+    <tr><td><code>settings-email.php</code></td><td>/admin/settings-email.php</td><td>Settings tab</td><td>SMTP and mail alerts</td><td>Admin only</td><td>system_settings</td><td>Medium</td><td class="crit">Critical</td></tr>
+    <tr><td><code>settings-theme.php</code></td><td>/admin/settings-theme.php</td><td>Settings tab</td><td>Brand colours and UI</td><td>Admin only</td><td>system_settings</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>settings-account.php</code></td><td>/admin/settings-account.php</td><td>Footer → Profile</td><td>Change own password</td><td>All roles</td><td>admin_users</td><td>Medium</td><td class="crit">Critical</td></tr>
+    <tr><td><code>settings-security.php</code></td><td>/admin/settings-security.php</td><td>Settings tab</td><td>Security policies</td><td>Admin only</td><td>system_settings, admin_users</td><td>Medium</td><td class="crit">Critical</td></tr>
+    <tr><td><code>settings.php</code></td><td>/admin/settings.php</td><td>— redirect</td><td>→ settings-site.php</td><td>Admin only</td><td>—</td><td>Low</td><td>—</td></tr>
+    <tr><td><code>go-live.php</code></td><td>/admin/go-live.php</td><td>System → Go live</td><td>Production readiness wizard</td><td>Admin only</td><td>system_settings</td><td>Low</td><td>Important</td></tr>
+    <tr><td><code>go-live-action.php</code></td><td>/admin/go-live-action.php</td><td>— POST</td><td>Execute go-live steps</td><td>Admin only</td><td>system_settings</td><td>Low</td><td>Important</td></tr>
+    <tr><td><code>backups.php</code></td><td>/admin/backups.php</td><td>Settings linked</td><td>Backup list and create</td><td>Admin only</td><td>storage/backups</td><td>Low</td><td class="crit">Critical</td></tr>
+    <tr><td><code>backup-run.php</code></td><td>/admin/backup-run.php</td><td>— POST</td><td>Run backup job</td><td>Admin only</td><td>storage/backups</td><td>Low</td><td class="crit">Critical</td></tr>
+    <tr><td><code>backup-download.php</code></td><td>/admin/backup-download.php</td><td>— download</td><td>Download backup ZIP</td><td>Admin only</td><td>storage/backups</td><td>Low</td><td>Important</td></tr>
+    <tr><td><code>backups-export.php</code></td><td>/admin/backups-export.php</td><td>— export</td><td>Export backup bundle</td><td>Admin only</td><td>storage/backups</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>system-cleanup.php</code></td><td>/admin/system-cleanup.php</td><td>— utility</td><td>Purge old data</td><td>Admin only</td><td>multiple</td><td>Low</td><td>Optional</td></tr>
+</table>
+
+<h2>12. Security</h2>
+<table>
+    <tr><th>File</th><th>URL</th><th>Menu</th><th>Purpose</th><th>Roles</th><th>Tables</th><th>Freq</th><th>Crit</th></tr>
+    <tr><td><code>users.php</code></td><td>/admin/users.php</td><td>System → Team users</td><td>Admin account management</td><td>Admin only</td><td>admin_users</td><td>Low</td><td class="crit">Critical</td></tr>
+    <tr><td><code>user-action.php</code></td><td>/admin/user-action.php</td><td>— POST</td><td>Create/edit/deactivate users</td><td>Admin only</td><td>admin_users</td><td>Low</td><td class="crit">Critical</td></tr>
+    <tr><td><code>settings-security.php</code></td><td>/admin/settings-security.php</td><td>Settings tab</td><td>Security configuration</td><td>Admin only</td><td>system_settings</td><td>Medium</td><td class="crit">Critical</td></tr>
+    <tr><td><code>blacklist.php</code></td><td>/admin/blacklist.php</td><td>People → Blacklist</td><td>Block staff registrations</td><td>Admin, Manager</td><td>staff_blacklist</td><td>Low</td><td>Important</td></tr>
+    <tr><td><code>geo-audits.php</code></td><td>/admin/geo-audits.php</td><td>System → Geo audits</td><td>Login location monitoring</td><td>Admin, Manager</td><td>admin_audit_log</td><td>Low</td><td>Optional</td></tr>
+    <tr><td><code>audit-log.php</code></td><td>/admin/audit-log.php</td><td>System → Activity logs</td><td>Change history</td><td>Admin, Manager</td><td>admin_audit_log</td><td>Low</td><td>Important</td></tr>
+</table>
+
+<h2>13. Utilities</h2>
+<table>
+    <tr><th>File</th><th>URL</th><th>Menu</th><th>Purpose</th><th>Roles</th><th>Tables</th><th>Freq</th><th>Crit</th></tr>
+    <tr><td><code>index.php</code></td><td>/admin/index.php</td><td>—</td><td>Router → dashboard or login</td><td>Public / All</td><td>—</td><td class="high">High</td><td class="crit">Critical</td></tr>
+    <tr><td><code>login.php</code></td><td>/admin/login.php</td><td>—</td><td>Admin authentication</td><td>Public</td><td>admin_users</td><td class="high">High</td><td class="crit">Critical</td></tr>
+    <tr><td><code>logout.php</code></td><td>/admin/logout.php</td><td>Footer → Logout</td><td>End session</td><td>All</td><td>session</td><td class="high">High</td><td class="crit">Critical</td></tr>
+    <tr><td><code>google-drive-oauth-callback.php</code></td><td>/admin/google-drive-oauth-callback.php</td><td>— OAuth</td><td>Google Drive OAuth return</td><td>Admin</td><td>system_settings</td><td>Low</td><td>Important</td></tr>
+</table>
+
+<div class="summary">
+    <h2 style="background:#4338ca;margin-top:0;">Summary &amp; Reference</h2>
+    <table>
+        <tr><th>Metric</th><th>Value</th><th>Sidebar menu pages</th><th>URL</th></tr>
+        <tr><td>Total PHP files</td><td>109</td><td>Dashboard</td><td>dashboard.php</td></tr>
+        <tr><td>Sidebar menu items</td><td>22</td><td>Notifications</td><td>notifications.php</td></tr>
+        <tr><td>Critical pages</td><td>18</td><td>Messages</td><td>staff-inbox.php</td></tr>
+        <tr><td>Admin-only pages</td><td>28</td><td>Staff queue</td><td>staff.php</td></tr>
+        <tr><td>Action/POST handlers</td><td>~35</td><td>Directory</td><td>staff-directory.php</td></tr>
+        <tr><td></td><td></td><td>Blacklist</td><td>blacklist.php</td></tr>
+        <tr><td></td><td></td><td>Events</td><td>events.php</td></tr>
+        <tr><td></td><td></td><td>Venues</td><td>venues.php</td></tr>
+        <tr><td></td><td></td><td>Work types</td><td>work-types.php</td></tr>
+        <tr><td></td><td></td><td>Attendance</td><td>attendance.php</td></tr>
+        <tr><td></td><td></td><td>Work hours</td><td>work-hours.php</td></tr>
+        <tr><td></td><td></td><td>Scan check-in</td><td>scan-checkin.php</td></tr>
+        <tr><td></td><td></td><td>Invoices</td><td>invoices.php</td></tr>
+        <tr><td></td><td></td><td>Export</td><td>export-staff.php</td></tr>
+        <tr><td></td><td></td><td>Forms</td><td>forms.php</td></tr>
+        <tr><td></td><td></td><td>Apply admin</td><td>apply-portal.php</td></tr>
+        <tr><td></td><td></td><td>Ops checklist</td><td>ops-checklist.php</td></tr>
+        <tr><td></td><td></td><td>Go live</td><td>go-live.php</td></tr>
+        <tr><td></td><td></td><td>Settings</td><td>settings-site.php</td></tr>
+        <tr><td></td><td></td><td>Website CMS</td><td>website-global.php</td></tr>
+        <tr><td></td><td></td><td>Visitors</td><td>visitor-locations.php</td></tr>
+        <tr><td></td><td></td><td>Geo audits</td><td>geo-audits.php</td></tr>
+        <tr><td></td><td></td><td>Activity logs</td><td>audit-log.php</td></tr>
+        <tr><td></td><td></td><td>Team users</td><td>users.php</td></tr>
+    </table>
+    <p style="margin:8px 0 0;"><strong>Core tables:</strong> staff_registrations, staff, events, venues, attendance, staff_messages, app_notifications, commission_invoices, commission_invoice_lines, saved_job_records, personal_invoice_lines, system_settings, admin_users, admin_audit_log, staff_blacklist, work_types, website_visits</p>
+    <p style="margin:4px 0 0;font-size:7.5pt;color:#64748b;">Event Staff System — Olasentra — Confidential internal documentation</p>
+</div>
+
+</body>
+</html>

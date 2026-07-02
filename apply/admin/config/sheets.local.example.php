@@ -9,7 +9,9 @@ declare(strict_types=1);
 return [
     'spreadsheet_id' => '12WiqfB2KS3FeiKeA_APANAvAWJ_QYcGsVbt7iPR7UWM',
     'tab_payroll'    => 'Payroll Staff',
-  // Main roster — try Master Sheet first, then Overall
-    'tab_master'     => 'Master Sheet',
-    'tab_master_alt' => 'Overall',
+    // Tab 3 on the apply spreadsheet — exact name must match Google Sheets
+    'tab_master'     => 'Master Staff Database',
+    'tab_master_alt' => 'Master Sheet',
+    'tab_psa'        => 'PSA Compliance',
+    'tab_psa_alt'    => 'PSA',
 ];

@@ -27,6 +27,96 @@ $pdo       = getDB();
 $adminUser = getAdminUser();
 $eventId   = (int) ($_POST['event_id'] ?? 0);
 $invoiceId = (int) ($_POST['invoice_id'] ?? 0);
+$action    = trim((string) ($_POST['action'] ?? 'save'));
+
+if ($action === 'void' && $invoiceId > 0) {
+    $existing = getCommissionInvoiceById($pdo, $invoiceId);
+    if (!$existing) {
+        setAdminFlash('error', 'Invoice not found.');
+        header('Location: invoices.php');
+        exit;
+    }
+
+    $result = voidCommissionInvoice($pdo, $invoiceId);
+    if (!is_int($result)) {
+        setAdminFlash('error', (string) $result);
+        header('Location: invoice-form.php?id=' . $invoiceId);
+        exit;
+    }
+
+    logAdminAudit(
+        $pdo,
+        'commission_invoice_void',
+        'commission_invoice',
+        $result,
+        (string) ($existing['invoice_number'] ?? 'Invoice') . ' — event #' . (int) $existing['event_id']
+    );
+
+    setAdminFlash('success', 'Commission invoice marked as void. It is hidden from normal lists but still linked to this event.');
+    header('Location: invoices.php');
+    exit;
+}
+
+if ($action === 'delete' && $invoiceId > 0) {
+    $existing = getCommissionInvoiceById($pdo, $invoiceId);
+    if (!$existing) {
+        setAdminFlash('error', 'Invoice not found.');
+        header('Location: invoices.php');
+        exit;
+    }
+
+    $result = deleteCommissionInvoice($pdo, $invoiceId);
+    if (!is_int($result)) {
+        setAdminFlash('error', (string) $result);
+        header('Location: invoice-form.php?id=' . $invoiceId);
+        exit;
+    }
+
+    logAdminAudit(
+        $pdo,
+        'commission_invoice_delete',
+        'commission_invoice',
+        $result,
+        (string) ($existing['invoice_number'] ?? 'Invoice') . ' — event #' . (int) $existing['event_id']
+    );
+
+    setAdminFlash('success', 'Commission invoice deleted. You can create a new invoice for this event if needed.');
+    header('Location: invoices.php');
+    exit;
+}
+
+if ($action === 'reload_checked_in') {
+    if ($invoiceId < 1) {
+        setAdminFlash('error', 'Invoice not found.');
+        header('Location: invoices.php');
+        exit;
+    }
+
+    $result = rebuildCommissionInvoiceLinesFromEvent($pdo, $invoiceId, (int) $adminUser['id']);
+    if (!is_int($result)) {
+        setAdminFlash('error', (string) $result);
+        header('Location: invoice-form.php?id=' . $invoiceId);
+        exit;
+    }
+
+    logAdminAudit(
+        $pdo,
+        'commission_invoice_reload_checked_in',
+        'commission_invoice',
+        $result,
+        'Reloaded lines from checked-in staff — event #' . $eventId
+    );
+
+    $lineCount = count(getCommissionInvoiceLines($pdo, $result));
+    setAdminFlash(
+        'success',
+        $lineCount === 0
+            ? 'Invoice cleared — no checked-in staff for this event.'
+            : 'Invoice lines updated to checked-in staff only.'
+    );
+    header('Location: invoice-form.php?id=' . $result);
+    exit;
+}
 
 $header = [
     'invoice_number' => trim((string) ($_POST['invoice_number'] ?? '')),

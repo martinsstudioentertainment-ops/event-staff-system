@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPS Attendance V2 — Implementation Plan</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+h3{font-size:.98rem;margin-top:1.25rem;color:#334155}
+.meta{color:#64748b;font-size:.9rem}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #93c5fd;background:#eff6ff}
+.warn{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #fcd34d;background:#fffbeb}
+.ok{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #6ee7b7;background:#ecfdf5}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.85rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.pass{color:#047857;font-weight:700}
+.partial{color:#b45309;font-weight:700}
+.gap{color:#b91c1c;font-weight:700}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.82em}
+pre{background:#0f172a;color:#e2e8f0;padding:.85rem;border-radius:8px;overflow:auto;font-size:.74rem;white-space:pre-wrap}
+ul.compact li{margin:.3rem 0}
+.phase{display:inline-block;padding:.15rem .45rem;border-radius:4px;font-size:.75rem;font-weight:700;margin-right:.25rem}
+.p1{background:#dbeafe;color:#1e40af}.p15{background:#e0e7ff;color:#3730a3}.p2{background:#fef3c7;color:#92400e}.p3{background:#d1fae5;color:#065f46}.p4{background:#fce7f3;color:#9d174d}
+.flow{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:1rem;margin:1rem 0;font-family:ui-monospace,monospace;font-size:.8rem;white-space:pre-wrap}
+.status-dot{display:inline-block;width:.65rem;height:.65rem;border-radius:50%;margin-right:.35rem;vertical-align:middle}
+.dot-yellow{background:#eab308}.dot-green{background:#22c55e}.dot-orange{background:#f97316}.dot-red{background:#ef4444}
+</style>
+</head>
+<body>
+
+<h1>GPS Attendance V2 — Implementation Plan</h1>
+<p class="meta">Generated 7 June 2026 · Approved business requirements · Feature flag: <code>feature_gps_attendance_v2</code> · Companion docs: <code>GPS-PHASE1-IMPLEMENTATION-REPORT.html</code>, <code>GPS-ATTENDANCE-SYSTEM-DESIGN-REPORT.html</code></p>
+
+<div class="verdict"><strong>Purpose:</strong> This plan maps the final GPS Attendance V2 business requirements to a four-phase delivery sequence. <strong>Phase 1 is implemented</strong> (foundation). Phases 2–4 are planned only — do not start Phase 2 until Phase 1 is verified on production.</div>
+
+<h2>1. Core principle</h2>
+<p>Attendance is fully GPS-controlled. Staff never manually sign out. The system owns sign-in, activation, monitoring, and automatic sign-out based on GPS, event timing, and attendance rules — all behind <code>feature_gps_attendance_v2</code>.</p>
+
+<div class="flow">Staff opens venue sign-in
+  → GPS mandatory gate (permission + coords + accuracy + server geofence)
+  → PRE_CHECKED_IN (hibernated) OR ACTIVE
+  → [Phase 2] continuous heartbeat every 30–60 s
+  → ACTIVE while inside zone | LOCATION_PENDING on GPS issues (2 min grace)
+  → AUTO_SIGNED_OUT (geofence / GPS / permission / verify fail / event end)
+  → Payroll: activated_at → checked_out_at</div>
+
+<h2>2. Requirements → phase mapping</h2>
+<table>
+<tr><th>Business requirement</th><th>Phase</th><th>Status</th></tr>
+<tr><td>1000 m default radius; server-side distance</td><td><span class="phase p1">P1</span></td><td class="pass">Done — <code>getEventSigninRadiusMeters()</code> + Haversine server-side in <code>isWithinEventVenue()</code></td></tr>
+<tr><td>Pre-check up to 1 h before start → PRE_CHECKED_IN</td><td><span class="phase p1">P1</span></td><td class="pass">Done — <code>recordCheckin()</code> branches on event start</td></tr>
+<tr><td>Hibernation — no work/payroll hours</td><td><span class="phase p1">P1</span></td><td class="pass">Done — work hours skip until <code>activated_at</code></td></tr>
+<tr><td>Auto activation at event start</td><td><span class="phase p1">P1</span> <span class="phase p15">P1.5</span></td><td class="partial">Partial — cron + page-load activation; <strong>missing GPS-in-zone check at activation</strong></td></tr>
+<tr><td>GPS snapshot at initial check-in</td><td><span class="phase p1">P1</span></td><td class="pass">Done — lat/lng/accuracy/timestamp columns</td></tr>
+<tr><td>Mandatory GPS — no GPS = no sign-in</td><td><span class="phase p1">P1</span> <span class="phase p15">P1.5</span></td><td class="partial">Partial — venue QR flow only; token check-in + admin scan bypass GPS</td></tr>
+<tr><td>GPS accuracy threshold</td><td><span class="phase p15">P1.5</span></td><td class="gap">Not started</td></tr>
+<tr><td>Disabled sign-in button + mandated error copy</td><td><span class="phase p15">P1.5</span></td><td class="gap">Not started — panels hidden, not explicit disabled state + BR message</td></tr>
+<tr><td>Activation requires still in zone + GPS available</td><td><span class="phase p15">P1.5</span></td><td class="gap">Not started</td></tr>
+<tr><td>Continuous GPS monitoring (30–60 s)</td><td><span class="phase p2">P2</span></td><td class="gap">Not started</td></tr>
+<tr><td>LOCATION_PENDING + 2 min grace</td><td><span class="phase p2">P2</span></td><td class="gap">Not started</td></tr>
+<tr><td>AUTO_SIGNED_OUT (5 rules)</td><td><span class="phase p2">P2</span></td><td class="gap">Not started</td></tr>
+<tr><td>No manual sign-out</td><td><span class="phase p2">P2</span></td><td class="pass">Aligned today — no sign-out UI exists; must stay that way</td></tr>
+<tr><td>Payroll: activated_at → checked_out_at</td><td><span class="phase p2">P2</span></td><td class="partial">Start done; end requires <code>checked_out_at</code></td></tr>
+<tr><td>GPS audit trail (every heartbeat)</td><td><span class="phase p3">P3</span></td><td class="gap">Not started</td></tr>
+<tr><td>Dashboard colour states + totals</td><td><span class="phase p3">P3</span></td><td class="gap">Not started — <code>admin/attendance.php</code> has binary checked-in only</td></tr>
+<tr><td>Fraud / spoof / velocity</td><td><span class="phase p4">P4</span></td><td class="gap">Not started</td></tr>
+</table>
+
+<h2>3. Attendance status model</h2>
+<table>
+<tr><th>Status</th><th>Colour</th><th>Meaning</th><th>Phase</th></tr>
+<tr><td><code>pre_checked_in</code></td><td><span class="status-dot dot-yellow"></span>Yellow</td><td>Inside radius, waiting for event start; hibernated</td><td>P1</td></tr>
+<tr><td><code>active</code></td><td><span class="status-dot dot-green"></span>Green</td><td>Attendance active; hours counting</td><td>P1</td></tr>
+<tr><td><code>location_pending</code></td><td><span class="status-dot dot-orange"></span>Orange</td><td>GPS issue; 2 min grace before auto sign-out</td><td>P2</td></tr>
+<tr><td><code>auto_signed_out</code></td><td><span class="status-dot dot-red"></span>Red</td><td>System ended attendance</td><td>P2</td></tr>
+</table>
+<p>Sign-out reasons (enum <code>sign_out_reason</code>): <code>left_geofence</code>, <code>gps_disabled</code>, <code>permission_revoked</code>, <code>location_verify_failed</code>, <code>event_ended</code>.</p>
+
+<h2>4. Phase 1 — completed foundation</h2>
+<div class="ok"><strong>Deployed.</strong> See <code>docs/GPS-PHASE1-IMPLEMENTATION-REPORT.html</code> for file list, migration, rollback, and verification checklist.</div>
+
+<h3>4.1 Phase 1 database (live)</h3>
+<pre>-- migrate-phase52-gps-attendance-phase1.sql (applied)
+attendance.attendance_status   VARCHAR(32) DEFAULT 'active'
+attendance.activated_at        DATETIME NULL
+attendance.check_in_lat        DECIMAL(10,7) NULL
+attendance.check_in_lng        DECIMAL(10,7) NULL
+attendance.check_in_accuracy_m SMALLINT UNSIGNED NULL
+attendance.check_in_gps_at     DATETIME NULL</pre>
+
+<h3>4.2 Phase 1 gaps vs final BR (Phase 1.5 — complete before Phase 2)</h3>
+<p>Small hardening release to close gaps between Phase 1 and the mandatory-GPS spec. Estimated: <strong>2–3 dev days</strong>.</p>
+<table>
+<tr><th>Gap</th><th>Remediation</th></tr>
+<tr><td>Token check-in (<code>check-in.php</code>) and admin scan bypass GPS</td><td>When flag ON: reject check-in without valid GPS POST; redirect staff to venue QR flow; block admin scan check-in or require supervisor override flag</td></tr>
+<tr><td>No GPS accuracy gate</td><td>Add <code>GPS_MAX_ACCURACY_M</code> setting (default 100 m); server rejects coords where <code>accuracy_m</code> exceeds threshold</td></tr>
+<tr><td>Sign-in button not explicitly disabled</td><td><code>event-sign-location.js</code>: disable submit + show BR message: <em>"Location access is required for attendance…"</em></td></tr>
+<tr><td>Activation without in-zone GPS proof</td><td><code>activateHibernatedAttendance()</code>: only activate if latest heartbeat or check-in coords still inside radius; else remain hibernated or auto sign-out</td></tr>
+<tr><td>Hibernation message wording</td><td>Align copy to BR: <em>"You are successfully checked in. Attendance will activate automatically when the event starts."</em></td></tr>
+<tr><td>Client-side-only geofence trust</td><td>Already server-validated on POST; remove client-only pass-through — server is authoritative (keep JS for UX only)</td></tr>
+</table>
+
+<h2>5. Phase 2 — heartbeat monitoring &amp; automatic sign-out</h2>
+<p><strong>Goal:</strong> While ACTIVE, monitor GPS every 30–60 s; enforce geofence, grace periods, and event-end sign-out. No manual sign-out anywhere.</p>
+<p class="meta">Estimated effort: <strong>2–3 weeks</strong> · Depends on Phase 1 production verification + Phase 1.5 GPS hardening</p>
+
+<h3>5.1 Database changes</h3>
+<pre>-- migrate-phase53-gps-attendance-phase2.sql
+
+ALTER TABLE attendance
+  ADD COLUMN checked_out_at DATETIME NULL AFTER activated_at,
+  ADD COLUMN sign_out_reason VARCHAR(32) NULL AFTER checked_out_at,
+  ADD COLUMN location_pending_since DATETIME NULL AFTER sign_out_reason,
+  ADD COLUMN last_heartbeat_at DATETIME NULL AFTER location_pending_since,
+  ADD COLUMN last_heartbeat_lat DECIMAL(10,7) NULL,
+  ADD COLUMN last_heartbeat_lng DECIMAL(10,7) NULL,
+  ADD COLUMN last_heartbeat_accuracy_m SMALLINT UNSIGNED NULL,
+  ADD COLUMN last_distance_m INT UNSIGNED NULL,
+  ADD COLUMN device_fingerprint VARCHAR(64) NULL,
+  ADD INDEX idx_attendance_status_event (event_id, attendance_status),
+  ADD INDEX idx_attendance_active_heartbeat (attendance_status, last_heartbeat_at);
+
+-- Optional settings (system_settings)
+gps_heartbeat_interval_sec     = 30
+gps_heartbeat_max_interval_sec = 60
+gps_grace_period_sec           = 120
+gps_max_accuracy_m             = 100</pre>
+
+<h3>5.2 API changes</h3>
+<table>
+<tr><th>Endpoint</th><th>Method</th><th>Purpose</th></tr>
+<tr><td><code>api/attendance-heartbeat.php</code></td><td>POST</td><td>Staff device sends heartbeat while ACTIVE or PRE_CHECKED_IN (pre-start zone watch)</td></tr>
+<tr><td><code>api/attendance-status.php</code></td><td>GET</td><td>Poll current status, grace countdown, distance, messages for staff UI</td></tr>
+<tr><td><code>api/attendance-live-board.php</code></td><td>GET</td><td>Admin live board JSON — colour counts per event (feeds Phase 3 UI)</td></tr>
+</table>
+
+<h4>Heartbeat request (POST)</h4>
+<pre>{
+  "attendance_id": 12345,          // or signed session token
+  "event_id": 99,
+  "lat": 53.3498,
+  "lng": -6.2603,
+  "accuracy_m": 12,
+  "timestamp": "2026-07-18T14:30:00Z",
+  "device": {
+    "user_agent": "...",
+    "platform": "iPhone",
+    "screen": "390x844"
+  },
+  "gps_state": "ok" | "denied" | "unavailable" | "timeout"
+}</pre>
+
+<h4>Heartbeat server logic (authoritative)</h4>
+<ol class="compact">
+<li>Verify flag ON, attendance exists, status in (<code>active</code>, <code>location_pending</code>, <code>pre_checked_in</code>).</li>
+<li>Recompute Haversine distance server-side — <strong>never trust client distance</strong>.</li>
+<li>If distance &gt; 1000 m (or event radius): → <code>auto_signed_out</code>, reason <code>left_geofence</code>, set <code>checked_out_at</code>, finalize work hours.</li>
+<li>If <code>gps_state</code> ≠ ok or coords invalid: → <code>location_pending</code>; start/continue 2 min grace timer.</li>
+<li>If grace expires: → <code>auto_signed_out</code> with mapped reason.</li>
+<li>If inside zone + GPS ok while ACTIVE: remain <code>active</code>; clear grace.</li>
+<li>Update <code>last_heartbeat_*</code> columns.</li>
+<li>Return JSON: status, distance_m, grace_seconds_remaining, message.</li>
+</ol>
+
+<h3>5.3 Frontend changes</h3>
+<table>
+<tr><th>Asset</th><th>Change</th></tr>
+<tr><td><code>assets/js/attendance-gps-monitor.js</code></td><td><strong>New.</strong> Service-worker-friendly heartbeat loop (30 s default, backoff to 60 s). Uses <code>watchPosition</code> where available. Survives tab visibility via Page Visibility API + wake on focus.</td></tr>
+<tr><td><code>assets/js/event-sign-location.js</code></td><td>After successful check-in, hand off to monitor module instead of stopping polls.</td></tr>
+<tr><td><code>includes/event-sign-flow.php</code></td><td>Post-check-in panel: live status badge (green/orange/red), grace countdown, no sign-out button.</td></tr>
+<tr><td><code>staff-app.php</code> / status page</td><td>Optional: show active attendance card with GPS status for signed-in staff on event day.</td></tr>
+<tr><td>PWA / background</td><td>Document limitation: browsers throttle background tabs; recommend keeping sign-in page open or installed PWA on event day. True background GPS requires native app (out of scope).</td></tr>
+</table>
+
+<h3>5.4 Cron jobs (Phase 2)</h3>
+<table>
+<tr><th>Job</th><th>Schedule</th><th>Role</th></tr>
+<tr><td><code>cron/attendance-activate.php</code></td><td>Every 1–5 min</td><td>PRE_CHECKED_IN → ACTIVE at event start <strong>with GPS proof</strong> (Phase 1.5+)</td></tr>
+<tr><td><code>cron/attendance-signout.php</code></td><td>Every 1–5 min</td><td>Expire LOCATION_PENDING past grace → AUTO_SIGNED_OUT; event-end mass sign-out</td></tr>
+<tr><td><code>cron/attendance-stale-heartbeat.php</code></td><td>Every 1 min</td><td>ACTIVE with no heartbeat &gt; 90 s → LOCATION_PENDING → grace → sign-out</td></tr>
+</table>
+
+<h3>5.5 Payroll integration (Phase 2)</h3>
+<ul class="compact">
+<li>Work start: <code>activated_at</code> (already in Phase 1).</li>
+<li>Work end: <code>checked_out_at</code> on auto sign-out or event end.</li>
+<li>Update <code>calculateWorkHoursForCheckin()</code> → new <code>finalizeWorkHoursOnSignOut()</code> using <code>activated_at</code> → <code>checked_out_at</code>.</li>
+<li>Hibernated time (PRE_CHECKED_IN) never counted — already enforced.</li>
+<li>LOCATION_PENDING time: business decision — plan recommends <strong>hours pause during grace</strong>, stop at sign-out (document in ops manual).</li>
+</ul>
+
+<h2>6. Phase 3 — dashboard, colours &amp; GPS audit trail</h2>
+<p><strong>Goal:</strong> Live ops visibility and full compliance history. Estimated: <strong>1–2 weeks</strong>.</p>
+
+<h3>6.1 Database changes</h3>
+<pre>-- migrate-phase54-gps-attendance-audit.sql
+
+CREATE TABLE attendance_gps_log (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  attendance_id INT UNSIGNED NOT NULL,
+  event_id INT UNSIGNED NOT NULL,
+  registration_id INT UNSIGNED NOT NULL,
+  staff_id INT UNSIGNED NULL,
+  attendance_status VARCHAR(32) NOT NULL,
+  lat DECIMAL(10,7) NOT NULL,
+  lng DECIMAL(10,7) NOT NULL,
+  accuracy_m SMALLINT UNSIGNED NULL,
+  distance_m INT UNSIGNED NULL,
+  heartbeat_at DATETIME NOT NULL,
+  device_user_agent VARCHAR(512) NULL,
+  device_platform VARCHAR(64) NULL,
+  ip_address VARCHAR(45) NULL,
+  sign_out_reason VARCHAR(32) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_gps_log_attendance (attendance_id, heartbeat_at),
+  INDEX idx_gps_log_event (event_id, heartbeat_at)
+);</pre>
+<p>Retention policy: recommend 90-day hot storage + archive; configurable via <code>gps_log_retention_days</code>.</p>
+
+<h3>6.2 Admin dashboard changes</h3>
+<table>
+<tr><th>Page</th><th>Change</th></tr>
+<tr><td><code>admin/attendance.php</code></td><td>Replace binary “checked in” with colour-coded rows + stat cards: Green / Yellow / Orange / Red counts per event</td></tr>
+<tr><td><code>api/attendance-live-board.php</code></td><td>Powers 15 s auto-refresh board (extend existing live board pattern)</td></tr>
+<tr><td><code>admin/geo-audits.php</code></td><td>Link to per-staff GPS timeline; map view optional</td></tr>
+<tr><td><code>admin/view-staff.php</code></td><td>Event attendance history with status transitions + reasons</td></tr>
+<tr><td><code>assets/css/admin-attendance-gps.css</code></td><td>Status badge colours matching BR</td></tr>
+</table>
+
+<h3>6.3 Export &amp; compliance</h3>
+<ul class="compact">
+<li>CSV export: add status, activated_at, checked_out_at, sign_out_reason, last_distance_m.</li>
+<li>GDPR: GPS logs are personal data — document lawful basis (employment/contract), retention, and access controls.</li>
+</ul>
+
+<h2>7. Phase 4 — fraud detection &amp; payroll verification</h2>
+<p><strong>Goal:</strong> Detect GPS spoofing, impossible travel, and payroll anomalies. Estimated: <strong>2+ weeks</strong> (R&amp;D heavy).</p>
+
+<h3>7.1 Detection signals</h3>
+<table>
+<tr><th>Signal</th><th>Method</th></tr>
+<tr><td>Velocity anomaly</td><td>Distance between heartbeats / Δt &gt; plausible speed (e.g. &gt; 200 km/h)</td></tr>
+<tr><td>Accuracy mismatch</td><td>Reported accuracy 3 m but 2 km jump</td></tr>
+<tr><td>Mock location patterns</td><td>Perfectly static coords over long period; zero accuracy variance</td></tr>
+<tr><td>IP vs GPS region</td><td>Coarse check — Irish event, non-IE IP with shifting GPS</td></tr>
+<tr><td>Device fingerprint change</td><td>Mid-shift device swap on same attendance_id</td></tr>
+</table>
+
+<h3>7.2 Database / API</h3>
+<pre>attendance.fraud_score TINYINT UNSIGNED NULL
+attendance.fraud_flags  JSON NULL
+admin/fraud-review.php  -- queue for flagged shifts</pre>
+
+<h2>8. Geofence rules (authoritative)</h2>
+<table>
+<tr><th>Condition</th><th>Zone</th><th>Action</th></tr>
+<tr><td>Distance ≤ 1000 m</td><td>Inside event zone</td><td>Allow sign-in / maintain ACTIVE</td></tr>
+<tr><td>Distance ≥ 1001 m</td><td>Outside event zone</td><td>Block sign-in; if ACTIVE → AUTO_SIGNED_OUT (<code>left_geofence</code>)</td></tr>
+</table>
+<p>Per-event override via <code>events.signin_radius_m</code>. Server function: <code>isWithinEventVenue($event, $lat, $lng, $pdo)</code> — already exists; extend to heartbeat handler.</p>
+
+<h2>9. Security rules</h2>
+<ul class="compact">
+<li><strong>No GPS = no sign-in</strong> — enforced server-side on every check-in path when flag ON (Phase 1.5).</li>
+<li><strong>No permission = no attendance</strong> — client detects; server rejects missing coords.</li>
+<li><strong>GPS must stay on during shift</strong> — Phase 2 heartbeat + grace enforcement.</li>
+<li><strong>Heartbeat auth</strong> — signed token tied to registration + attendance row; rate limit per IP; CSRF on POST.</li>
+<li><strong>Admin bypass</strong> — supervisor scan check-in should log override reason or be disabled under v2 (ops decision).</li>
+</ul>
+
+<h2>10. Feature flag behaviour</h2>
+<table>
+<tr><th>feature_gps_attendance_v2</th><th>Behaviour</th></tr>
+<tr><td>OFF (0)</td><td>Legacy 100 m one-time check-in; immediate work hours; no heartbeat; no auto sign-out</td></tr>
+<tr><td>ON (1)</td><td>Full GPS Attendance V2 per phase maturity (P1 now; P2+ as each ships)</td></tr>
+</table>
+<p>Consider sub-flags later (<code>feature_gps_heartbeat</code>, <code>feature_gps_fraud</code>) only if partial rollout needed within v2.</p>
+
+<h2>11. Rollback strategy</h2>
+<table>
+<tr><th>Level</th><th>Action</th><th>Effect</th></tr>
+<tr><td>L0 — Instant</td><td>Set <code>feature_gps_attendance_v2 = 0</code></td><td>Reverts to legacy attendance immediately</td></tr>
+<tr><td>L1 — Stop monitoring</td><td>Disable heartbeat cron jobs</td><td>Stops auto sign-outs; manual ops fallback</td></tr>
+<tr><td>L2 — Schema</td><td>Run rollback SQL per phase (52 → 53 → 54)</td><td>Drop columns/tables; <strong>only if no compliance need for GPS logs</strong></td></tr>
+<tr><td>L3 — Code</td><td>Redeploy pre-v2 commit via <code>deploy.ps1</code></td><td>Full code revert</td></tr>
+</table>
+<div class="warn"><strong>Data retention:</strong> After Phase 3, GPS logs may be legally required for payroll disputes — do not drop <code>attendance_gps_log</code> without legal review.</div>
+
+<h2>12. Risk assessment</h2>
+<table>
+<tr><th>Risk</th><th>Likelihood</th><th>Impact</th><th>Mitigation</th></tr>
+<tr><td>Browser background throttling stops heartbeats</td><td>High</td><td>False auto sign-outs</td><td>Staff guidance to keep page open/PWA; stale-heartbeat cron with grace; visible orange state</td></tr>
+<tr><td>iOS Safari permission UX</td><td>Medium</td><td>Sign-in friction</td><td>Clear BR error copy; test on iPhone + Chrome Android; venue QR signage</td></tr>
+<tr><td>GPS accuracy poor at large venues (1 km)</td><td>Medium</td><td>Edge false positives at boundary</td><td>Configurable radius; accuracy threshold; 1001 m hard edge per BR</td></tr>
+<tr><td>Admin scan bypass undermines GPS policy</td><td>Medium</td><td>Compliance gap</td><td>Phase 1.5 — disable or audit-log override</td></tr>
+<tr><td>DB growth from GPS logs</td><td>High (Phase 3)</td><td>Storage/cost</td><td>Retention job; index by event_date; archive old events</td></tr>
+<tr><td>Payroll disputes on grace-period hours</td><td>Medium</td><td>Financial</td><td>Document policy; store status transitions with timestamps</td></tr>
+<tr><td>Staff spoofing GPS</td><td>Low–Medium</td><td>Fraud</td><td>Phase 4 velocity + anomaly scoring</td></tr>
+</table>
+
+<h2>13. Mobile testing plan</h2>
+<table>
+<tr><th>Scenario</th><th>Device</th><th>Pass criteria</th></tr>
+<tr><td>GPS denied at sign-in</td><td>iPhone Safari, Android Chrome</td><td>Button disabled; BR message shown; no attendance row</td></tr>
+<tr><td>Pre-check 45 min before start, inside zone</td><td>Mobile at venue</td><td>PRE_CHECKED_IN; yellow state; no hours</td></tr>
+<tr><td>Activation at start</td><td>Mobile in zone</td><td>ACTIVE; green; hours begin</td></tr>
+<tr><td>Walk outside 1 km while active</td><td>Mobile</td><td>AUTO_SIGNED_OUT within one heartbeat cycle</td></tr>
+<tr><td>Toggle GPS off mid-shift</td><td>Mobile</td><td>LOCATION_PENDING orange; 2 min grace; then red sign-out</td></tr>
+<tr><td>Revoke permission mid-shift</td><td>Mobile</td><td>Same as GPS off — reason PERMISSION_REVOKED</td></tr>
+<tr><td>Tab backgrounded 5 min</td><td>Mobile</td><td>Document expected behaviour; stale-heartbeat cron handles</td></tr>
+<tr><td>Poor accuracy (&gt;100 m)</td><td>Mobile indoors</td><td>Sign-in blocked until accuracy acceptable</td></tr>
+</table>
+
+<h2>14. Production deployment plan</h2>
+
+<h3>14.1 Phase 1 (current)</h3>
+<ol class="compact">
+<li>Apply <code>migrate-phase52-gps-attendance-phase1.sql</code></li>
+<li>Deploy code (done via FTP)</li>
+<li>Schedule <code>cron/attendance-activate.php</code></li>
+<li>Enable flag on test event only</li>
+<li>Run Phase 1 verification checklist</li>
+<li>Sign-off before Phase 1.5</li>
+</ol>
+
+<h3>14.2 Phase 1.5 (GPS hardening)</h3>
+<ol class="compact">
+<li>Close mandatory-GPS gaps (all check-in paths)</li>
+<li>Accuracy threshold + BR UI copy</li>
+<li>Activation requires in-zone proof</li>
+<li>Re-verify on production test event</li>
+</ol>
+
+<h3>14.3 Phase 2 rollout</h3>
+<ol class="compact">
+<li>Apply migrate-phase53</li>
+<li>Deploy heartbeat API + <code>attendance-gps-monitor.js</code></li>
+<li>Enable crons: sign-out, stale-heartbeat</li>
+<li>Pilot one live event with ops on standby</li>
+<li>Monitor false sign-out rate for 48 h</li>
+<li>Full rollout all events</li>
+</ol>
+
+<h3>14.4 Phase 3 rollout</h3>
+<ol class="compact">
+<li>Apply migrate-phase54</li>
+<li>Deploy dashboard colours + GPS log viewer</li>
+<li>Train ops on colour meanings</li>
+</ol>
+
+<h3>14.5 Phase 4 rollout</h3>
+<ol class="compact">
+<li>Shadow mode — log fraud scores without blocking</li>
+<li>Review flagged shifts with ops</li>
+<li>Enable enforcement thresholds</li>
+</ol>
+
+<h2>15. File impact summary (all phases)</h2>
+<table>
+<tr><th>Area</th><th>Key files</th></tr>
+<tr><td>Core logic</td><td><code>includes/attendance-gps-phase1.php</code> → expand to <code>attendance-gps-v2.php</code>; <code>includes/attendance-repository.php</code>; <code>includes/work-hours-repository.php</code>; <code>includes/maps.php</code></td></tr>
+<tr><td>API</td><td><code>api/attendance-heartbeat.php</code>, <code>api/attendance-status.php</code>, <code>api/attendance-live-board.php</code> (new)</td></tr>
+<tr><td>Staff UI</td><td><code>includes/event-sign-flow.php</code>, <code>event-sign.php</code>, <code>assets/js/event-sign-location.js</code>, <code>assets/js/attendance-gps-monitor.js</code> (new)</td></tr>
+<tr><td>Admin UI</td><td><code>admin/attendance.php</code>, <code>admin/geo-audits.php</code>, <code>admin/work-hours.php</code></td></tr>
+<tr><td>Cron</td><td><code>cron/attendance-activate.php</code>, <code>cron/attendance-signout.php</code>, <code>cron/attendance-stale-heartbeat.php</code> (new)</td></tr>
+<tr><td>Schema</td><td><code>database/migrate-phase52…</code> (done), <code>migrate-phase53…</code>, <code>migrate-phase54…</code></td></tr>
+<tr><td>Config</td><td><code>includes/feature-flags.php</code>, system_settings GPS keys</td></tr>
+</table>
+
+<h2>16. Decision log / open questions</h2>
+<table>
+<tr><th>Question</th><th>Recommendation</th><th>Owner</th></tr>
+<tr><td>Are hours paid during LOCATION_PENDING grace?</td><td>No — pause at grace start; resume if GPS restored before sign-out</td><td>Ops / payroll</td></tr>
+<tr><td>Admin QR scan under v2?</td><td>Disable by default; optional supervisor override with audit log</td><td>Ops</td></tr>
+<tr><td>Max GPS accuracy for sign-in?</td><td>100 m default (configurable)</td><td>Ops</td></tr>
+<tr><td>PRE_CHECKED_IN staff leaves zone before start?</td><td>Remain hibernated but flag orange warning; block activation until back in zone</td><td>Product</td></tr>
+<tr><td>Native app for background GPS?</td><td>Out of scope v2 — browser PWA with documented limitations</td><td>Product</td></tr>
+</table>
+
+<h2>17. Success criteria (full V2)</h2>
+<ul class="compact">
+<li>100% of event-day attendance under flag ON uses GPS sign-in (no bypass paths)</li>
+<li>Zero manual sign-out UI</li>
+<li>Dashboard shows correct Green/Yellow/Orange/Red totals per event in real time</li>
+<li>Every status transition has timestamp + reason</li>
+<li>Payroll hours = <code>activated_at</code> → <code>checked_out_at</code> for all auto-signed-out shifts</li>
+<li>GPS audit trail queryable per staff per event</li>
+<li>Rollback to legacy in &lt; 60 s via feature flag</li>
+</ul>
+
+<p class="meta" style="margin-top:2.5rem">End of plan · Do not begin Phase 2 until Phase 1 production verification is complete and signed off.</p>
+
+</body>
+</html>

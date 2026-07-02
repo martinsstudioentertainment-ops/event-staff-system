@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPS Attendance Phase 1 — Implementation Report</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+h3{font-size:.98rem;margin-top:1.25rem;color:#334155}
+.meta{color:#64748b;font-size:.9rem}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #93c5fd;background:#eff6ff}
+.warn{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #fcd34d;background:#fffbeb}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.85rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.pass{color:#047857;font-weight:700}
+.crit{color:#b91c1c;font-weight:700}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.82em}
+pre{background:#0f172a;color:#e2e8f0;padding:.85rem;border-radius:8px;overflow:auto;font-size:.74rem;white-space:pre-wrap}
+ul.compact li{margin:.3rem 0}
+</style>
+</head>
+<body>
+
+<h1>GPS Attendance Phase 1 — Implementation Report</h1>
+<p class="meta">Generated 6 June 2026 · Feature flag <code>feature_gps_attendance_v2</code> (default OFF) · Phase 2+ not started</p>
+
+<div class="verdict"><strong>Status: IMPLEMENTED — pending production verification</strong> — Phase 1 foundation is behind <code>feature_gps_attendance_v2</code>. When OFF, legacy 100 m check-in and immediate work-hours behaviour is unchanged. When ON: configurable radius via <code>events.signin_radius_m</code> (default 1000 m), pre-check-in hibernation, auto activation at event start, GPS snapshot at check-in.</div>
+
+<div class="warn"><strong>Deploy steps before testing:</strong> (1) Run <code>deploy.ps1</code> to upload PHP/JS. (2) Apply migration <code>database/migrate-phase52-gps-attendance-phase1.sql</code> on production (or visit a page that triggers <code>ensureAttendanceGpsPhase1Schema()</code>). (3) Enable <code>feature_gps_attendance_v2</code> in Admin → Feature flags only when ready to test. (4) Schedule <code>cron/attendance-activate.php</code> every 1–5 minutes on event days.</div>
+
+<h2>1. Objectives delivered</h2>
+<table>
+<tr><th>Objective</th><th>Implementation</th></tr>
+<tr><td>Replace hardcoded 100 m radius</td><td><code>getEventSigninRadiusMeters($event, $pdo)</code> reads <code>events.signin_radius_m</code> when flag ON; legacy 100 m when OFF</td></tr>
+<tr><td>Default 1000 m when null</td><td><code>EVENT_SIGNIN_RADIUS_DEFAULT_M = 1000</code> in <code>includes/maps.php</code></td></tr>
+<tr><td>Pre-checked-in state</td><td><code>attendance_status = pre_checked_in</code> when check-in occurs before event start (within existing 1 h window)</td></tr>
+<tr><td>Hibernation</td><td>No work hours until activation; UI message on sign-in page</td></tr>
+<tr><td>Auto activation</td><td><code>cron/attendance-activate.php</code> + opportunistic activation on page load sets <code>active</code> + <code>activated_at</code> at event start</td></tr>
+<tr><td>GPS storage</td><td><code>check_in_lat/lng/accuracy_m/gps_at</code> on initial check-in (venue sign-in flow)</td></tr>
+<tr><td>Feature flag</td><td><code>feature_gps_attendance_v2</code> in <code>includes/feature-flags.php</code></td></tr>
+<tr><td>Payroll preserved</td><td>Work hours still use existing <code>calculateWorkHoursForCheckin()</code>; start time uses <code>activated_at</code> when set</td></tr>
+</table>
+
+<h2>2. Hardcoded 100 m locations (audit)</h2>
+<table>
+<tr><th>File</th><th>Before</th><th>After (flag-aware)</th></tr>
+<tr><td><code>includes/maps.php</code></td><td><code>EVENT_SIGNIN_RADIUS_M = 100</code>; getter ignored DB</td><td>Legacy constant retained; getter uses DB + flag</td></tr>
+<tr><td><code>includes/events-repository.php</code></td><td>Always saved 100</td><td><code>resolveEventSigninRadiusForSave()</code></td></tr>
+<tr><td><code>admin/event-form.php</code></td><td>UI + hidden field 100 m</td><td>Dynamic label/value</td></tr>
+<tr><td><code>admin/event-sign-qr.php</code></td><td>“100 m” copy</td><td><code>formatEventSigninRadiusLabel()</code></td></tr>
+<tr><td><code>admin/geo-audits.php</code></td><td>“100 m radius”</td><td>Flag-aware description</td></tr>
+<tr><td><code>assets/js/admin-event-venue.js</code></td><td>Comment “100m”</td><td>Updated comment</td></tr>
+<tr><td><code>includes/event-sign-flow.php</code></td><td>Fallback <code>100</code> in data attribute</td><td><code>EVENT_SIGNIN_RADIUS_LEGACY_M</code> + PDO-aware getter</td></tr>
+</table>
+
+<h2>3. Files created</h2>
+<ul class="compact">
+<li><code>includes/attendance-gps-phase1-schema.php</code> — runtime schema ensure</li>
+<li><code>includes/attendance-gps-phase1.php</code> — status helpers, hibernation message, activation</li>
+<li><code>database/migrate-phase52-gps-attendance-phase1.sql</code></li>
+<li><code>database/rollback-phase52-gps-attendance-phase1.sql</code></li>
+<li><code>cron/attendance-activate.php</code></li>
+<li><code>docs/GPS-PHASE1-IMPLEMENTATION-REPORT.html</code> (this file)</li>
+</ul>
+
+<h2>4. Files modified</h2>
+<table>
+<tr><th>File</th><th>Change</th></tr>
+<tr><td><code>includes/maps.php</code></td><td>Radius constants, <code>getEventSigninRadiusMeters()</code>, <code>formatEventSigninRadiusLabel()</code></td></tr>
+<tr><td><code>includes/attendance-repository.php</code></td><td>GPS parse (accuracy), PDO-aware geofence, extended <code>recordCheckin()</code></td></tr>
+<tr><td><code>includes/work-hours-repository.php</code></td><td>Skip pre-checked-in; use <code>activated_at</code> as work start</td></tr>
+<tr><td><code>includes/event-sign-flow.php</code></td><td>GPS POST fields, hibernation messages, radius data attribute</td></tr>
+<tr><td><code>includes/feature-flags.php</code></td><td>New flag definition</td></tr>
+<tr><td><code>includes/events-repository.php</code></td><td><code>resolveEventSigninRadiusForSave()</code></td></tr>
+<tr><td><code>includes/database-migrations.php</code></td><td>Register phase 52 migration</td></tr>
+<tr><td><code>check-in.php</code></td><td>Handle <code>pre_checked_in</code> result</td></tr>
+<tr><td><code>assets/js/event-sign-location.js</code></td><td>Submit <code>sign_accuracy_m</code></td></tr>
+<tr><td><code>admin/event-form.php</code>, <code>event-sign-qr.php</code>, <code>geo-audits.php</code></td><td>Radius copy</td></tr>
+<tr><td><code>assets/js/admin-event-venue.js</code></td><td>Comment only</td></tr>
+</table>
+<p class="meta"><strong>Unchanged callers:</strong> <code>admin/checkin-action.php</code>, <code>admin/scan-checkin-action.php</code> — still call <code>recordCheckin($pdo, $id, $method)</code>; when flag ON they follow v2 rules (no GPS coords, pre-check if before start).</p>
+
+<h2>5. Database changes</h2>
+<pre>ALTER TABLE attendance
+  ADD attendance_status VARCHAR(32) NOT NULL DEFAULT 'active',
+  ADD activated_at DATETIME NULL,
+  ADD check_in_lat DECIMAL(10,7) NULL,
+  ADD check_in_lng DECIMAL(10,7) NULL,
+  ADD check_in_accuracy_m SMALLINT UNSIGNED NULL,
+  ADD check_in_gps_at DATETIME NULL;</pre>
+<p>Existing rows default to <code>active</code> — no behaviour change until flag ON for new check-ins.</p>
+
+<h2>6. Rollback procedure</h2>
+<ol class="compact">
+<li>Set <code>feature_gps_attendance_v2 = 0</code> in Admin → Feature flags (immediate — no deploy).</li>
+<li>Optionally run <code>database/rollback-phase52-gps-attendance-phase1.sql</code> to drop new columns (only if no production data depends on GPS columns).</li>
+<li>Redeploy previous code via git/FTP if needed.</li>
+</ol>
+
+<h2>7. Behaviour matrix</h2>
+<table>
+<tr><th>Flag</th><th>Radius</th><th>Before event start</th><th>At/after event start</th><th>Work hours</th></tr>
+<tr><td>OFF</td><td>100 m (fixed)</td><td>Check-in allowed in 1 h window → immediate active</td><td>Same</td><td>From <code>checked_in_at</code> (unchanged)</td></tr>
+<tr><td>ON</td><td><code>signin_radius_m</code> or 1000 m</td><td><code>pre_checked_in</code> — hibernation message</td><td><code>active</code> immediately on check-in</td><td>From <code>activated_at</code> (event start for hibernated rows)</td></tr>
+</table>
+
+<h2>8. Cron — auto activation</h2>
+<pre>php cron/attendance-activate.php
+# Web: https://admin.olasentra.com/cron/attendance-activate.php?key=REMINDER_CRON_KEY</pre>
+<p>Activates all <code>pre_checked_in</code> rows whose event <code>start_time</code> has passed. Sets <code>activated_at</code> to event start and initializes work hours.</p>
+
+<h2>9. Production verification checklist</h2>
+<h3>Prerequisites</h3>
+<ul class="compact">
+<li>Migration applied</li>
+<li><code>feature_gps_attendance_v2</code> enabled</li>
+<li>Test event with venue Eircode + GPS configured</li>
+<li>Cron scheduled for activation (or wait and reload sign-in page after start)</li>
+</ul>
+
+<h3>Flag OFF (regression)</h3>
+<ul class="compact">
+<li>Check-in inside ~100 m succeeds (venue QR flow)</li>
+<li>Check-in outside ~100 m blocked</li>
+<li>Work hours appear immediately after check-in</li>
+</ul>
+
+<h3>Flag ON</h3>
+<ul class="compact">
+<li>Check-in inside 1000 m (or event radius) succeeds</li>
+<li>Check-in outside radius fails with distance message</li>
+<li>Pre-check up to 1 h before start → success + hibernation message, no work hours</li>
+<li>Before start, reload sign-in page → same hibernation message</li>
+<li>At event start, cron (or page load) activates → <code>attendance_status=active</code>, <code>activated_at</code> set, work hours populated</li>
+<li>GPS columns populated on venue sign-in (lat/lng/accuracy/timestamp)</li>
+</ul>
+
+<h3>Mobile verification</h3>
+<ul class="compact">
+<li>iPhone/Android at venue: allow location → email lookup → check in</li>
+<li>Pre-start: green success alert with hibernation copy</li>
+<li>Post-start: standard checked-in state</li>
+</ul>
+
+<h3>Desktop verification</h3>
+<ul class="compact">
+<li>Admin → Feature flags — toggle visible and saves</li>
+<li>Admin → Event form — radius copy shows 1 km when flag ON</li>
+<li>Admin → Event sign-in QR — radius text matches event</li>
+<li>Work hours page — hours only after activation for pre-checked staff</li>
+</ul>
+
+<h2>10. Out of scope (Phase 2+)</h2>
+<p>Continuous GPS monitoring, heartbeats, auto sign-out, GPS history logs, dashboard colour states, payroll recalculation, fraud detection, device fingerprinting.</p>
+
+<h2>11. Do not proceed to Phase 2 until</h2>
+<ul class="compact">
+<li>All checklist items above pass on production</li>
+<li>At least one real event day validated with flag ON</li>
+<li>Stakeholder sign-off recorded</li>
+</ul>
+
+</body>
+</html>

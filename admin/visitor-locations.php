@@ -120,7 +120,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <?php else: ?>
                     <?php foreach ($rows as $row): ?>
                         <tr>
-                            <td><?= h(date('d.m.Y H:i', strtotime((string) $row['visited_at']))) ?></td>
+                            <td><?= h(formatSystemDateTime((string) $row['visited_at'], $pdo)) ?></td>
                             <td><?= h(formatWebsiteVisitLocation($row)) ?></td>
                             <td><code><?= h((string) ($row['ip_address'] ?? '—')) ?></code></td>
                             <td><?= h(formatWebsiteVisitAreaLabel((string) ($row['site_area'] ?? ''))) ?></td>

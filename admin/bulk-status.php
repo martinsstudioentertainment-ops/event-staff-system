@@ -9,8 +9,7 @@ require_once __DIR__ . '/../includes/staff-registration-schema.php';
 require_once __DIR__ . '/../includes/event-reporting-schema.php';
 require_once __DIR__ . '/../includes/admin-capabilities.php';
 require_once __DIR__ . '/../includes/staff-onboarding.php';
-require_once __DIR__ . '/../includes/google-sheets-sync.php';
-require_once __DIR__ . '/../includes/apply-remote-sync.php';
+require_once __DIR__ . '/../includes/status-change-post-save.php';
 
 requireAdminCapability('staff');
 
@@ -56,10 +55,10 @@ if ($emails !== []) {
 
 $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $id): bool => $id > 0)));
 
-$updated            = 0;
-$skippedIncomplete  = 0;
-$allowIncomplete    = isAdminSuperUser();
-$notifyIds          = [];
+$updated           = 0;
+$skippedIncomplete = 0;
+$allowIncomplete   = isAdminSuperUser();
+$notifyIds         = [];
 
 foreach ($ids as $rawId) {
     $id = (int) $rawId;
@@ -87,36 +86,15 @@ foreach ($ids as $rawId) {
     } catch (Throwable $e) {
         error_log('[EventStaff] bulk-status id=' . $id . ': ' . $e->getMessage());
     }
-
-    try {
-        if (isGoogleSheetsSyncEnabled($pdo)) {
-            syncRegistrationToGoogleSheet($pdo, $id);
-        }
-    } catch (Throwable $e) {
-        error_log('[EventStaff] bulk-status sheet sync id=' . $id . ': ' . $e->getMessage());
-    }
-}
-
-if ($notifyIds !== [] && in_array($status, ['approved', 'rejected'], true)) {
-    try {
-        notifyStaffStatusChanges($pdo, $notifyIds, $status);
-    } catch (Throwable $e) {
-        error_log('[EventStaff] bulk-status notify: ' . $e->getMessage());
-    }
-}
-
-if ($updated > 0 && in_array($status, ['approved', 'rejected'], true)) {
-    try {
-        triggerApplyPortalSyncAsync($pdo, true);
-    } catch (Throwable $applySyncErr) {
-        error_log('[EventStaff] Apply portal bulk sync trigger: ' . $applySyncErr->getMessage());
-    }
 }
 
 logAdminAudit($pdo, 'bulk_status_change', 'registration', null, 'Updated ' . $updated . ' to ' . $status);
 
-$label = formatStatusLabel($status);
+$label   = formatStatusLabel($status);
 $message = 'Updated ' . $updated . ' registration(s) to ' . $label . '.';
+if ($updated > 0) {
+    $message .= ' Emails and Google Sheets sync run in the background.';
+}
 if ($skippedIncomplete > 0) {
     $message .= ' Skipped ' . $skippedIncomplete . ' — profile incomplete (send profile link from Staff Directory).';
     if (!$allowIncomplete) {
@@ -128,6 +106,12 @@ setAdminFlash($skippedIncomplete > 0 && $updated === 0 ? 'warning' : 'success', 
 $redirect = 'staff.php';
 if (!empty($_POST['redirect_query'])) {
     $redirect .= '?' . ltrim((string) $_POST['redirect_query'], '?');
+}
+
+if ($updated > 0 && $notifyIds !== []) {
+    flushHttpResponse($redirect);
+    runBulkStatusChangePostJobs($pdo, $notifyIds, $status);
+    exit;
 }
 
 header('Location: ' . $redirect);

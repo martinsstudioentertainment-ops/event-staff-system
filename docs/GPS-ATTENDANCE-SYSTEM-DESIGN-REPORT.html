@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPS Automatic Event Attendance — Design Report</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+h3{font-size:.98rem;margin-top:1.25rem;color:#334155}
+.meta{color:#64748b;font-size:.9rem}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #fcd34d;background:#fffbeb}
+.verdict.warn{border-color:#93c5fd;background:#eff6ff}
+.verdict.block{border-color:#fca5a5;background:#fef2f2}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.85rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.pass{color:#047857;font-weight:700}.fail{color:#b91c1c;font-weight:700}.partial{color:#b45309;font-weight:700}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.82em}
+pre{background:#0f172a;color:#e2e8f0;padding:.85rem;border-radius:8px;overflow:auto;font-size:.74rem;white-space:pre-wrap}
+.flow{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:1rem;margin:1rem 0;font-family:ui-monospace,monospace;font-size:.82rem}
+ul.compact li{margin:.35rem 0}
+.note{font-size:.88rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.75rem 1rem}
+</style>
+</head>
+<body>
+
+<h1>GPS-Based Automatic Event Attendance — Design Report</h1>
+<p class="meta">Generated 7 June 2026 · Production: <a href="https://register.olasentra.com">register.olasentra.com</a> · <strong>Planning &amp; impact assessment — not implemented in this deliverable</strong></p>
+
+<div class="verdict warn">
+<strong>Executive summary:</strong> The platform has <strong>one-time geofenced check-in</strong> (100&nbsp;m radius, GPS verified at sign-in only). It does <strong>not</strong> implement continuous GPS monitoring, pre-checked-in hibernation, automatic activation at event start, automatic sign-out, or live colour-coded attendance status. Moving to the specified 1&nbsp;km automatic attendance system is a <strong>major feature expansion</strong> requiring schema changes, a heartbeat API, background jobs, and a new staff monitoring client. Recommended as a <strong>phased rollout</strong> behind a feature flag.
+</div>
+
+<h2>1. Specification vs current system</h2>
+
+<table>
+<tr><th>Requirement</th><th>Specified behaviour</th><th>Current implementation</th><th>Gap</th></tr>
+<tr>
+  <td>Geofence radius</td>
+  <td>Default <strong>1,000&nbsp;m</strong> per event</td>
+  <td><code>EVENT_SIGNIN_RADIUS_M = 100</code> in <code>includes/maps.php</code>; <code>getEventSigninRadiusMeters()</code> <strong>ignores</strong> DB column <code>events.signin_radius_m</code> (also defaults 100). UI copy says “100&nbsp;m”.</td>
+  <td class="fail">Wrong radius; DB field unused</td>
+</tr>
+<tr>
+  <td>Pre-check window</td>
+  <td>Sign in up to <strong>1 hour before</strong> start → <strong>Pre-Checked In</strong> (hibernated)</td>
+  <td><code>CHECKIN_WINDOW_HOURS = 1</code> opens window 1&nbsp;h before start, but check-in immediately creates active attendance + work hours.</td>
+  <td class="fail">No hibernation state</td>
+</tr>
+<tr>
+  <td>Activation at event start</td>
+  <td>Auto-activate at official start; hours begin then</td>
+  <td><code>calculateWorkHoursForCheckin()</code> uses check-in time vs event start immediately on <code>recordCheckin()</code>.</td>
+  <td class="fail">No deferred activation</td>
+</tr>
+<tr>
+  <td>Continuous GPS monitoring</td>
+  <td>Every <strong>30–60&nbsp;s</strong> while active</td>
+  <td><code>event-sign-location.js</code> polls every <strong>45&nbsp;s</strong> only until first successful check-in; no post-check-in monitoring.</td>
+  <td class="fail">No active monitoring</td>
+</tr>
+<tr>
+  <td>Auto sign-out &gt;1&nbsp;km</td>
+  <td>Stop timer at 1,001&nbsp;m+; log reason + coords</td>
+  <td>No sign-out concept; <code>attendance</code> has only <code>checked_in_at</code>.</td>
+  <td class="fail">Not implemented</td>
+</tr>
+<tr>
+  <td>GPS disabled / permission revoked</td>
+  <td>Immediate auto sign-out</td>
+  <td>Blocks initial sign-in only; no ongoing watch.</td>
+  <td class="fail">Not implemented</td>
+</tr>
+<tr>
+  <td>2-minute verification failure</td>
+  <td>Auto sign-out if GPS unverifiable 2&nbsp;min</td>
+  <td>No failure counter or timeout logic.</td>
+  <td class="fail">Not implemented</td>
+</tr>
+<tr>
+  <td>Event end automation</td>
+  <td>Auto sign-out all active staff at end time</td>
+  <td>Check-in window closes 1&nbsp;h <em>after</em> end; no mass sign-out job.</td>
+  <td class="fail">Not implemented</td>
+</tr>
+<tr>
+  <td>No manual sign-out</td>
+  <td>Staff cannot end attendance manually</td>
+  <td>Check-in UI has no sign-out button today (one-time check-in only). Future risk if sign-out added elsewhere.</td>
+  <td class="pass">Aligned today; must preserve</td>
+</tr>
+<tr>
+  <td>Audit &amp; compliance logs</td>
+  <td>Full GPS history, distances, device, IP, reasons</td>
+  <td><code>admin/geo-audits.php</code> lists check-ins; explicitly states <strong>coordinates are not stored</strong>.</td>
+  <td class="fail">No GPS audit trail</td>
+</tr>
+<tr>
+  <td>Live dashboard colours</td>
+  <td>Green / Yellow / Orange / Red by status</td>
+  <td><code>attendance-live.js</code> shows counts only (approved / checked-in / missing).</td>
+  <td class="fail">No status colours</td>
+</tr>
+<tr>
+  <td>Anti-fraud</td>
+  <td>Spoofing, tampering, duplicate sessions</td>
+  <td>Server geofence at sign-in POST only; PPS last-4 optional identity check.</td>
+  <td class="partial">Minimal</td>
+</tr>
+</table>
+
+<h2>2. Target architecture</h2>
+
+<h3>2.1 Attendance state machine</h3>
+<pre>
+                    ┌─────────────────────────────────────┐
+  (approved staff)    │  PRE_CHECKED_IN (hibernated)        │  Yellow
+  within 1 km,        │  checked_in_at set                  │
+  1h before start     │  activated_at = NULL                │
+  until event start   │  hours_worked = 0                   │
+                    └──────────────┬──────────────────────┘
+                                   │ cron / server: now >= event_start
+                                   ▼
+                    ┌─────────────────────────────────────┐
+                    │  ACTIVE (present)                   │  Green
+                    │  activated_at set                   │
+                    │  hours counting                     │
+                    │  GPS heartbeat every 30s            │
+                    └──────────────┬──────────────────────┘
+           ┌──────────────────────┼──────────────────────┐
+           │                      │                      │
+           ▼                      ▼                      ▼
+  distance &gt; 1000m      GPS off / denied      2 min verify fail
+  OR event end          OR permission revoked
+           │                      │                      │
+           └──────────────────────┴──────────────────────┘
+                                   ▼
+                    ┌─────────────────────────────────────┐
+                    │  AUTO_SIGNED_OUT                    │  Red
+                    │  checked_out_at set                 │
+                    │  sign_out_reason enum               │
+                    │  final GPS + distance stored        │
+                    └─────────────────────────────────────┘
+
+  Transitional: LOCATION_PENDING (Orange) — heartbeat overdue &lt; 2 min</pre>
+
+<h3>2.2 Components</h3>
+<table>
+<tr><th>Layer</th><th>Component</th><th>Purpose</th></tr>
+<tr><td>Staff client</td><td><code>assets/js/attendance-monitor.js</code> (new)</td><td><code>watchPosition</code> + 30&nbsp;s heartbeat POST; detect permission loss; keep screen awake hint; no sign-out UI</td></tr>
+<tr><td>API</td><td><code>api/attendance-heartbeat.php</code></td><td>Validate token, server-side distance, update status, append GPS log, return instructions (stay / signed_out)</td></tr>
+<tr><td>API</td><td><code>api/attendance-checkin.php</code> (or extend sign-in flow)</td><td>Initial pre-check with coords; creates PRE_CHECKED_IN or ACTIVE if already past start</td></tr>
+<tr><td>Repository</td><td><code>includes/attendance-repository.php</code></td><td>State transitions, sign-out reasons, radius 1000&nbsp;m</td></tr>
+<tr><td>Repository</td><td><code>includes/attendance-gps-log.php</code> (new)</td><td>Insert/query verification history</td></tr>
+<tr><td>Cron</td><td><code>cron/attendance-lifecycle.php</code></td><td>Activate hibernated rows at event start; sign out all ACTIVE at event end</td></tr>
+<tr><td>Admin</td><td><code>admin/attendance.php</code> + <code>attendance-live.js</code></td><td>Colour-coded live board; filter by status</td></tr>
+<tr><td>Work hours</td><td><code>includes/work-hours-repository.php</code></td><td>Count hours only between <code>activated_at</code> and <code>checked_out_at</code></td></tr>
+</table>
+
+<h3>2.3 Database changes (proposed migration phase 52)</h3>
+<pre>-- attendance table extensions
+attendance_status ENUM(
+  'pre_checked_in','active','location_pending','auto_signed_out'
+) NOT NULL DEFAULT 'pre_checked_in',
+activated_at       DATETIME NULL,
+checked_out_at     DATETIME NULL,
+sign_out_reason    VARCHAR(64) NULL,  -- left_geofence, gps_disabled, permission_revoked,
+                                      -- verify_failed, event_ended
+check_in_lat       DECIMAL(10,7) NULL,
+check_in_lng       DECIMAL(10,7) NULL,
+check_in_distance_m INT UNSIGNED NULL,
+check_out_lat      DECIMAL(10,7) NULL,
+check_out_lng      DECIMAL(10,7) NULL,
+check_out_distance_m INT UNSIGNED NULL,
+last_heartbeat_at  DATETIME NULL,
+last_verified_lat  DECIMAL(10,7) NULL,
+last_verified_lng  DECIMAL(10,7) NULL,
+last_distance_m    INT UNSIGNED NULL,
+device_info        VARCHAR(255) NULL,
+client_ip          VARCHAR(45) NULL,
+
+-- new table
+attendance_gps_log (
+  id, attendance_id, recorded_at, lat, lng, distance_m,
+  accuracy_m, source ENUM('heartbeat','checkin','checkout','cron'),
+  within_geofence TINYINT(1), raw_json TEXT NULL
+)
+
+-- events default radius
+UPDATE events SET signin_radius_m = 1000 WHERE signin_radius_m &lt; 1000;
+ALTER events MODIFY signin_radius_m SMALLINT UNSIGNED NOT NULL DEFAULT 1000;</pre>
+
+<h3>2.4 Geofence rule (1&nbsp;km)</h3>
+<ul class="compact">
+<li><strong>Within geofence:</strong> distance ≤ 1,000&nbsp;m (inclusive).</li>
+<li><strong>Outside / auto sign-out:</strong> distance ≥ 1,001&nbsp;m.</li>
+<li>Server recomputes distance on every heartbeat using event <code>venue_lat</code> / <code>venue_lng</code> (Haversine — already in <code>includes/maps.php</code>).</li>
+<li>Fix <code>getEventSigninRadiusMeters()</code> to read <code>signin_radius_m</code> with default <strong>1000</strong>.</li>
+</ul>
+
+<h3>2.5 Staff experience (no manual sign-out)</h3>
+<pre>1. Staff opens check-in link (token) on mobile at venue
+2. Browser requests location permission (required)
+3. If within 1 km and window open:
+   - Before event start → "Pre-Checked In — hours start at [time]"
+   - At/after start → "Active — attendance monitoring"
+4. Page stays open (or PWA) sending heartbeats every 30s
+5. Status updates on screen (colour badge)
+6. Auto sign-out messages explain reason; link to status page
+7. No "Sign out" button anywhere on attendance UI</pre>
+
+<h2>3. Anti-fraud (server-authoritative)</h2>
+<table>
+<tr><th>Threat</th><th>Mitigation</th></tr>
+<tr><td>GPS spoofing / fake coords</td><td>Server distance check; reject accuracy &gt; 200&nbsp;m; velocity check (impossible jumps between 30&nbsp;s pings); optional Google Play Integrity / iOS attestation (phase 3)</td></tr>
+<tr><td>Browser tampering</td><td>Heartbeats signed with session nonce + registration token; rate limit; ignore client-reported distance</td></tr>
+<tr><td>Session cloning</td><td>One active attendance per registration; new heartbeat from different IP/device flags fraud review</td></tr>
+<tr><td>Multiple simultaneous check-ins</td><td>UNIQUE on <code>registration_id</code> (already exists); reject second ACTIVE</td></tr>
+<tr><td>Stale tab / background throttling</td><td>Mark LOCATION_PENDING after 60&nbsp;s no heartbeat; sign out after 120&nbsp;s (spec: 2&nbsp;min verify fail)</td></tr>
+</table>
+<p class="note"><strong>Limitation:</strong> Browser GPS cannot fully prevent sophisticated spoofing. Server-side rules reduce casual fraud; high-risk events may need native app or hardware verification later.</p>
+
+<h2>4. Live dashboard colour mapping</h2>
+<table>
+<tr><th>Colour</th><th>Status</th><th>Condition</th></tr>
+<tr><td style="background:#22c55e;color:#fff">Green</td><td>Present</td><td><code>active</code> + last heartbeat ≤ 60&nbsp;s + within 1&nbsp;km</td></tr>
+<tr><td style="background:#eab308">Yellow</td><td>Pre-Checked In</td><td><code>pre_checked_in</code> before <code>event_start</code></td></tr>
+<tr><td style="background:#f97316;color:#fff">Orange</td><td>Verification pending</td><td><code>active</code> but heartbeat overdue &lt; 2&nbsp;min</td></tr>
+<tr><td style="background:#ef4444;color:#fff">Red</td><td>Auto signed out</td><td><code>auto_signed_out</code> or missing heartbeat &gt; 2&nbsp;min</td></tr>
+</table>
+
+<h2>5. Implementation phases</h2>
+
+<h3>Phase 1 — Foundation (P0)</h3>
+<ol>
+<li>Migration: attendance status columns + GPS log table; default radius 1,000&nbsp;m.</li>
+<li>Fix <code>getEventSigninRadiusMeters()</code> to use per-event radius.</li>
+<li>Extend <code>recordCheckin()</code> → pre-check vs active based on event start time.</li>
+<li>Store check-in coordinates + distance + IP.</li>
+<li>Update admin/event-form copy (100&nbsp;m → 1&nbsp;km).</li>
+</ol>
+
+<h3>Phase 2 — Continuous monitoring (P0)</h3>
+<ol>
+<li><code>attendance-monitor.js</code> + <code>api/attendance-heartbeat.php</code>.</li>
+<li>Auto sign-out: left geofence, GPS denied, 2&nbsp;min verify failure.</li>
+<li>Work hours: compute from <code>activated_at</code> → <code>checked_out_at</code> only.</li>
+</ol>
+
+<h3>Phase 3 — Lifecycle automation (P1)</h3>
+<ol>
+<li>Cron: activate hibernated at event start; sign out all at event end.</li>
+<li>Live dashboard colour states + GPS log viewer in admin.</li>
+</ol>
+
+<h3>Phase 4 — Hardening (P2)</h3>
+<ol>
+<li>Velocity / accuracy fraud rules; admin alerts.</li>
+<li>Feature flag <code>feature_gps_attendance_v2</code> for gradual rollout.</li>
+<li>Update <code>scripts/verify-*</code> and payroll export for new hours model.</li>
+</ol>
+
+<h2>6. Files affected</h2>
+
+<table>
+<tr><th>File</th><th>Change type</th></tr>
+<tr><td><code>includes/maps.php</code></td><td>Default radius 1000; use event column</td></tr>
+<tr><td><code>includes/attendance-repository.php</code></td><td>State machine, sign-out, heartbeat handler</td></tr>
+<tr><td><code>includes/work-hours-repository.php</code></td><td>Hours from activation → checkout</td></tr>
+<tr><td><code>includes/event-sign-flow.php</code></td><td>Pre-check flow + monitor bootstrap</td></tr>
+<tr><td><code>assets/js/event-sign-location.js</code></td><td>Replace/merge into attendance-monitor</td></tr>
+<tr><td><code>check-in.php</code>, <code>event-sign.php</code>, <code>sign-in.php</code></td><td>Monitoring UI, no sign-out</td></tr>
+<tr><td><code>api/attendance-heartbeat.php</code></td><td><strong>New</strong></td></tr>
+<tr><td><code>includes/attendance-gps-log.php</code></td><td><strong>New</strong></td></tr>
+<tr><td><code>cron/attendance-lifecycle.php</code></td><td><strong>New</strong></td></tr>
+<tr><td><code>database/migrate-phase52-gps-attendance.sql</code></td><td><strong>New</strong></td></tr>
+<tr><td><code>admin/attendance.php</code>, <code>assets/js/attendance-live.js</code></td><td>Colour status board</td></tr>
+<tr><td><code>admin/event-form.php</code></td><td>1&nbsp;km copy + default radius field</td></tr>
+<tr><td><code>admin/geo-audits.php</code></td><td>Show stored GPS + reasons</td></tr>
+<tr><td><code>includes/events-repository.php</code></td><td>Default signin_radius_m 1000</td></tr>
+</table>
+
+<h2>7. Production impact assessment</h2>
+
+<table>
+<tr><th>Area</th><th>Impact</th><th>Risk</th></tr>
+<tr><td>Existing check-ins</td><td>Migration must backfill <code>attendance_status = active</code> for same-day events</td><td class="partial">Medium</td></tr>
+<tr><td>Payroll / invoices</td><td>Work hours formula changes — commission lines may differ</td><td class="partial">Medium</td></tr>
+<tr><td>Staff UX</td><td>Must keep browser open with GPS — training required</td><td class="partial">Medium</td></tr>
+<tr><td>Battery / data</td><td>30&nbsp;s GPS polling on mobile</td><td class="partial">Medium</td></tr>
+<tr><td>1&nbsp;km radius</td><td>More permissive than 100&nbsp;m — intentional per spec; increases remote check-in risk</td><td class="partial">Medium</td></tr>
+<tr><td>Cron dependency</td><td>Activation at start + mass sign-out requires reliable scheduler</td><td class="partial">Medium</td></tr>
+<tr><td>Indoor venues</td><td>GPS accuracy 20–50&nbsp;m+ indoors; 1&nbsp;km helps but false sign-outs still possible near boundary</td><td class="partial">Medium</td></tr>
+</table>
+
+<h2>8. Rollback plan</h2>
+<ol>
+<li>Disable <code>feature_gps_attendance_v2</code> → revert to one-time <code>recordCheckin()</code> flow.</li>
+<li>Keep new DB columns (nullable) — old code ignores them.</li>
+<li>Restore <code>EVENT_SIGNIN_RADIUS_M = 100</code> if needed via settings override.</li>
+<li>Stop cron <code>attendance-lifecycle.php</code> on server crontab.</li>
+<li>Payroll: admin can still manually adjust <code>hours_paid</code> via existing work-hours UI.</li>
+</ol>
+
+<h2>9. Verification checklist (post-implementation)</h2>
+<ul class="compact">
+<li>Pre-check 59&nbsp;min before start → Yellow, hours = 0.</li>
+<li>At event start (cron) → Green, <code>activated_at</code> set, hours begin.</li>
+<li>Simulate 1,001&nbsp;m → Red, reason <code>left_geofence</code>, timer stopped.</li>
+<li>Revoke location permission → immediate Red, <code>permission_revoked</code>.</li>
+<li>No heartbeat 2&nbsp;min → <code>verify_failed</code>.</li>
+<li>Event end cron → all active signed out, <code>event_ended</code>.</li>
+<li>No sign-out button in staff UI.</li>
+<li>Admin live board shows four colours correctly.</li>
+<li>GPS log rows for every heartbeat.</li>
+</ul>
+
+<h2>10. Recommendation</h2>
+
+<div class="verdict warn">
+<strong>Proceed in phases</strong> behind <code>feature_gps_attendance_v2</code>. Do <strong>not</strong> flip 1&nbsp;km continuous monitoring on for all events in one release. Start with Phase 1 (radius + pre-check state + stored coords) on staging, then Phase 2 heartbeat monitoring on a pilot event, then cron automation and dashboard colours.
+
+<strong>Quick win (can ship independently):</strong> Update geofence default to 1,000&nbsp;m and fix <code>getEventSigninRadiusMeters()</code> to honour <code>events.signin_radius_m</code> — ~3 files, low risk, aligns with spec radius only (no continuous monitoring yet).
+</div>
+
+<p class="meta">Related code entry points: <code>check-in.php</code>, <code>event-sign.php</code>, <code>includes/event-sign-flow.php</code>, <code>assets/js/event-sign-location.js</code>, <code>includes/attendance-repository.php</code>.</p>
+
+</body>
+</html>

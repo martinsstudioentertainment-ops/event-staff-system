@@ -32,6 +32,70 @@ apply/admin.zip
 apply/*.sql
 *.sql.gz
 
+# Recovery / forensic / temp audit artifacts (not production baseline)
+/_recovery-staging/
+/_tmp-restore/
+/_phase3_recovery_contents/
+/_probe-prod/
+/_audit*.json
+/_fv*.json
+/_scan*.json
+/_backfill*.json
+/_cleanup*.json
+/_self-test*.json
+/_live-event*.json
+/_notif*.json
+/_final-*.json
+/_gap*.json
+/_psa*.json
+/_bib-*.json
+/_submit-*.json
+/_extract_*/
+/_reconstructed_*/
+/_prod-*.json
+/_tmp-*.json
+/_phase3_*.json
+/assets/c__Users_*/
+/extract_transcripts/
+/decompiled/
+
+# Android client (separate release track; exclude build artifacts from PHP baseline)
+/android/
+/play-store-assets/
+
+# Handover / local secrets package (never commit)
+/handover-package/
+
+# Pre-deploy backup zips (local only)
+/storage/backups/pre-deploy-*.zip
+
+# Runtime reports / temp (not baseline)
+/storage/reports/
+/storage/temp/
+/storage/tmp-*
+
+# Root-level probe/debug scratch files
+/_probe*
+/_tmp*
+/_submit-*
+/_reconstructed_*
+/_staff-bib*
+/_backfill*
+/_cleanup*
+/_self-test*
+/_live-event*
+/_notif*
+/_final-*
+/_gap*
+/_psa*
+/_bib-*
+/_extract_*
+/_prod-*
+/_phase3_*
+/_audit*
+/_fv*
+/_scan*
+
 # Cursor (optional)
 /.cursor/
 storage/staff-template-ods/

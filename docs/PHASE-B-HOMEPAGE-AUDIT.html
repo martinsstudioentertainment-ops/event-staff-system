@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase B — Homepage Audit</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+h3{font-size:.98rem;margin-top:1.25rem}
+.meta{color:#64748b;font-size:.9rem}
+.badge{display:inline-block;padding:.2rem .6rem;border-radius:5px;font-size:.78rem;font-weight:700}
+.badge.done{background:#dcfce7;color:#166534}.badge.partial{background:#fef3c7;color:#92400e}.badge.gap{background:#fee2e2;color:#991b1b}.badge.ok{background:#e0e7ff;color:#3730a3}
+.scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem;margin:1.25rem 0}
+.score{padding:1rem;border:1px solid #e2e8f0;border-radius:10px;text-align:center;background:#f8fafc}
+.score strong{display:block;font-size:1.6rem;color:#1e40af}
+.score span{font-size:.75rem;color:#64748b;text-transform:uppercase;letter-spacing:.04em}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.87rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.callout{margin:1rem 0;padding:.9rem 1rem;border-radius:8px;border:1px solid #cbd5e1;background:#f8fafc}
+.callout.warn{border-color:#fcd34d;background:#fffbeb}
+.callout.ok{border-color:#6ee7b7;background:#ecfdf5}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.85em}
+ul.compact li{margin:.3rem 0}
+</style>
+</head>
+<body>
+<h1>Phase B — Homepage Audit</h1>
+<p class="meta">Generated 6 June 2026 | Audit only — no homepage coding in this phase | Production URL: <a href="https://admin.olasentra.com/home.php">admin.olasentra.com/home.php</a> | Flag: <code>feature_public_premium_v2</code> (default ON)</p>
+
+<div class="callout ok"><strong>Scope:</strong> Review current premium homepage against UX Master Plan v2.0 and Phase A registration wizard alignment. Identify gaps, conversion risks, and a prioritized implementation backlog for Phase B coding (not started here). Phase F fraud work remains approved but unscheduled.</div>
+
+<h2>Executive summary</h2>
+<p>The premium homepage is <strong>~70% complete</strong> and live in production. Core structure (hero, live events, stats, trust, staff portal CTA) delivers a credible “event operations” brand. Remaining work is mostly <strong>conversion polish</strong>, <strong>inner-page theme parity</strong>, <strong>SSR/SEO for live metrics</strong>, and <strong>visual alignment with the registration wizard</strong> completed in Phase A.</p>
+
+<div class="scores">
+<div class="score"><strong>72</strong><span>Overall UX</span></div>
+<div class="score"><strong>78</strong><span>Visual design</span></div>
+<div class="score"><strong>65</strong><span>Conversion</span></div>
+<div class="score"><strong>70</strong><span>Content trust</span></div>
+<div class="score"><strong>68</strong><span>Mobile</span></div>
+<div class="score"><strong>74</strong><span>A11y baseline</span></div>
+</div>
+
+<h2>Production snapshot (automated)</h2>
+<p class="meta">Captured via <code>scripts/audit-homepage-production.ps1</code> → <code>storage/reports/phase-b-homepage-audit-snapshot.json</code></p>
+<table>
+<tr><th>Signal</th><th>Production</th></tr>
+<tr><td>HTTP</td><td class="badge ok">200 OK</td></tr>
+<tr><td><code>site-page--premium-home</code></td><td class="badge done">Present</td></tr>
+<tr><td><code>home-premium.css</code> / <code>home-premium.js</code></td><td class="badge done">Linked</td></tr>
+<tr><td>Hero (<code>hp-hero</code>)</td><td class="badge done">Present</td></tr>
+<tr><td>Live events grid</td><td class="badge done">Present</td></tr>
+<tr><td>Animated counters (<code>data-hp-count</code>)</td><td>10 nodes</td></tr>
+<tr><td>Register / Apply CTAs</td><td>16 mentions in HTML</td></tr>
+<tr><td>Staff portal section</td><td class="badge done">Present</td></tr>
+<tr><td>Testimonials</td><td class="badge done">Present</td></tr>
+</table>
+
+<h2>Section inventory</h2>
+<table>
+<thead><tr><th>#</th><th>Section</th><th>Status</th><th>Source</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Premium hero (live badge, dual CTA, trust chips)</td><td><span class="badge done">Done</span></td><td><code>home.php</code></td><td>Strong entry; competes with hero aside panel for fold space</td></tr>
+<tr><td>2</td><td>Hero aside — brand logo card + mini stats</td><td><span class="badge partial">Review</span></td><td><code>home.php</code></td><td>Logo card consumes prime conversion space (UX Master Plan H2)</td></tr>
+<tr><td>3</td><td>Animated statistics bar</td><td><span class="badge partial">Partial</span></td><td><code>homepage-live.php</code>, <code>home-premium.js</code></td><td>SSR renders <code>0</code> until JS animates — flash of empty metrics</td></tr>
+<tr><td>4</td><td>Live event opportunities grid</td><td><span class="badge done">Done</span></td><td><code>getHomepageLiveData()</code></td><td>DB-driven; links to registration URL</td></tr>
+<tr><td>5</td><td>Platform pulse / activity</td><td><span class="badge done">Done</span></td><td><code>home.php</code></td><td>Reinforces “alive” platform narrative</td></tr>
+<tr><td>6</td><td>Roles preview grid</td><td><span class="badge done">Done</span></td><td>CMS content</td><td>Links to roles page</td></tr>
+<tr><td>7</td><td>How it works timeline</td><td><span class="badge done">Done</span></td><td>CMS + <code>home.php</code></td><td>Does not yet reference 8-step wizard explicitly</td></tr>
+<tr><td>8</td><td>Event categories</td><td><span class="badge done">Done</span></td><td><code>getHomepageEventCategories()</code></td><td>Static taxonomy; not filtered live data</td></tr>
+<tr><td>9</td><td>Trust indicators + compliance list</td><td><span class="badge done">Done</span></td><td><code>homepage-live.php</code></td><td>Employer wording aligned (“connect you to events”)</td></tr>
+<tr><td>10</td><td>Testimonials</td><td><span class="badge partial">Partial</span></td><td>Hardcoded in PHP</td><td>Not CMS-editable; no photos/video</td></tr>
+<tr><td>11</td><td>Staff portal band</td><td><span class="badge done">Done</span></td><td><code>home.php</code></td><td>Clear returning-staff path</td></tr>
+<tr><td>12</td><td>Final CTA band</td><td><span class="badge done">Done</span></td><td>CMS</td><td>Register + contact</td></tr>
+<tr><td>13</td><td>Mobile app / PWA promotion</td><td><span class="badge gap">Missing</span></td><td>—</td><td>Staff PWA exists; homepage does not promote install</td></tr>
+<tr><td>14</td><td>Premium theme on inner pages (FAQ, How, Events, Contact)</td><td><span class="badge gap">Missing</span></td><td><code>faq.php</code>, etc.</td><td>Light <code>website.css</code> theme only — visual disconnect</td></tr>
+<tr><td>15</td><td>Footer premium variant</td><td><span class="badge partial">Partial</span></td><td><code>layout-bottom.php</code></td><td>Premium footer class when home flag on</td></tr>
+</tbody>
+</table>
+
+<h2>Alignment with Phase A (registration wizard)</h2>
+<table>
+<thead><tr><th>Area</th><th>Homepage today</th><th>Wizard (Phase A)</th><th>Gap</th></tr></thead>
+<tbody>
+<tr><td>Visual tokens</td><td>Dark purple glass (<code>home-premium.css</code>)</td><td>Dark compact wizard (<code>registration-wizard.css</code>)</td><td>Close but not shared design tokens / component library</td></tr>
+<tr><td>Live events</td><td>Marketing cards → registration URL</td><td>Step 2 selectable cards from <code>registration-options</code></td><td>Homepage events may differ in count/labels vs form — acceptable but should cross-link “see all on form”</td></tr>
+<tr><td>Returning staff</td><td>Staff portal CTA</td><td>Step 3 lookup + resume draft</td><td>Homepage could mention “resume application” for parity</td></tr>
+<tr><td>Trust / employer model</td><td>Trust chips + compliance copy</td><td>Platform note in returning UX</td><td>Consistent messaging — maintain in Phase B copy pass</td></tr>
+<tr><td>Conversion path</td><td>Multiple Register CTAs</td><td>8-step wizard ON in production</td><td>Ensure all CTAs hit same wizard entry (register subdomain)</td></tr>
+</tbody>
+</table>
+
+<h2>UX findings (prioritized)</h2>
+<table>
+<thead><tr><th>ID</th><th>Severity</th><th>Finding</th><th>Evidence</th><th>Phase B recommendation</th></tr></thead>
+<tbody>
+<tr><td>B-H1</td><td>High</td><td>Hero aside logo card wastes above-the-fold conversion space</td><td>Session report §3.3; hero grid in <code>home.php</code></td><td>Replace with urgency module (open event count, next closing shift) or remove card</td></tr>
+<tr><td>B-H2</td><td>High</td><td>Stats show 0 until JavaScript runs</td><td><code>data-hp-count</code> SSR defaults; <code>home-premium.js</code></td><td>SSR final values in HTML; animate from SSR number (progressive enhancement)</td></tr>
+<tr><td>B-H3</td><td>High</td><td>Inner public pages not premium-themed</td><td><code>layout-top.php</code> only loads premium assets when <code>pageSlug === 'home'</code></td><td>Extend premium shell to FAQ, How, Events, Roles, Contact (or shared “public premium” flag)</td></tr>
+<tr><td>B-H4</td><td>Medium</td><td>No event urgency on homepage</td><td>UX Master Plan H2; live cards lack closing date / capacity signal</td><td>Add “closes soon” / staff-needed badge from DB where available</td></tr>
+<tr><td>B-H5</td><td>Medium</td><td>Testimonials hardcoded</td><td><code>getHomepageTestimonials()</code></td><td>Move to CMS or admin-managed snippets; add optional photo</td></tr>
+<tr><td>B-H6</td><td>Medium</td><td>No PWA / mobile app promotion</td><td>Staff PWA shipped; homepage section missing</td><td>Add compact “Add to home screen” band linking to staff-app</td></tr>
+<tr><td>B-H7</td><td>Medium</td><td>Category tiles are decorative</td><td>Static <code>getHomepageEventCategories()</code></td><td>Link to filtered events page or anchor on live grid</td></tr>
+<tr><td>B-H8</td><td>Low</td><td>Inter font loaded only on home</td><td><code>layout-top.php</code></td><td>Centralize font stack when premium expands</td></tr>
+<tr><td>B-H9</td><td>Low</td><td>Header nav unchanged from pre-premium</td><td><code>site-header</code> in layout</td><td>Premium nav styling + sticky blur to match hero</td></tr>
+<tr><td>B-H10</td><td>Low</td><td>No structured data (Event / Organization JSON-LD)</td><td>Not in <code>layout-top.php</code></td><td>SEO enhancement for live events</td></tr>
+</tbody>
+</table>
+
+<h2>Conversion funnel audit</h2>
+<ol class="compact">
+<li><strong>Entry:</strong> Organic / direct → <code>home.php</code> — premium dark theme establishes trust.</li>
+<li><strong>Intent:</strong> Hero primary CTA + live events grid + final CTA band → <code>register.olasentra.com</code> (wizard Step 1).</li>
+<li><strong>Friction:</strong> Hero aside draws eye away from primary CTA; stats at 0 may imply inactive platform before JS.</li>
+<li><strong>Returning path:</strong> Staff portal band is clear; could cross-link wizard resume/autosave story.</li>
+<li><strong>Drop-off risk:</strong> Visual jump when leaving premium home for light-themed FAQ/How pages.</li>
+</ol>
+
+<h2>Technical / maintainability</h2>
+<table>
+<tr><th>Topic</th><th>Assessment</th></tr>
+<tr><td>Feature flag</td><td><code>feature_public_premium_v2</code> — safe rollback to legacy home</td></tr>
+<tr><td>Data layer</td><td><code>includes/public/homepage-live.php</code> — single source for stats/events; good separation</td></tr>
+<tr><td>Assets</td><td><code>assets/css/home-premium.css</code>, <code>assets/js/home-premium.js</code> — home-only; will duplicate if inner pages premium-ized without refactor</td></tr>
+<tr><td>Performance</td><td>Google Fonts + animated orbs — acceptable; watch LCP on mobile (hero background)</td></tr>
+<tr><td>Accessibility</td><td>Semantic sections; decorative orbs <code>aria-hidden</code>; verify contrast on glass buttons; no skip-link on public site</td></tr>
+</table>
+
+<h2>Recommended Phase B implementation waves (coding — not started)</h2>
+<div class="callout warn"><strong>Audit output only.</strong> The following is a suggested backlog for approval before any Phase B commits.</div>
+<table>
+<thead><tr><th>Wave</th><th>Items</th><th>Effort</th><th>Dependency</th></tr></thead>
+<tbody>
+<tr><td>B1</td><td>B-H2 SSR stats + B-H1 hero aside redesign</td><td>2–3 days</td><td>None</td></tr>
+<tr><td>B2</td><td>B-H3 premium inner pages shell</td><td>4–5 days</td><td>Shared layout tokens</td></tr>
+<tr><td>B3</td><td>B-H4 event urgency badges + B-H7 category deep links</td><td>2–3 days</td><td>Events repository fields</td></tr>
+<tr><td>B4</td><td>B-H5 testimonials CMS + B-H6 PWA promo band</td><td>2–3 days</td><td>Content admin or settings</td></tr>
+<tr><td>B5</td><td>B-H9 nav refresh + B-H10 JSON-LD + a11y pass</td><td>2 days</td><td>B2 layout</td></tr>
+</tbody>
+</table>
+
+<h2>Out of scope (confirmed)</h2>
+<ul class="compact">
+<li>Phase F fraud tables, queues, scoring, workflows — approved architecture only</li>
+<li>Command Center, Unified Inbox, Client Portal — later UX Master Plan phases</li>
+<li>Homepage code changes in this audit deliverable</li>
+</ul>
+
+<h2>Sign-off checklist (before Phase B coding)</h2>
+<ul class="compact">
+<li>Step 2 registration defect verified resolved (<a href="STEP2-EVENT-SELECTION-ROOT-CAUSE-REPORT.html">root cause report</a>)</li>
+<li>Phase B backlog priority agreed (B1 vs B2 first)</li>
+<li>Design token sharing decision: extend <code>home-premium.css</code> vs new <code>public-premium.css</code></li>
+<li>Stakeholder approval on removing/replacing hero logo card (B-H1)</li>
+</ul>
+
+<p class="meta">Related: <a href="SESSION-REPORT-2026-06-06.html">Session report §4</a> · <a href="PHASE-A-CLOSURE-REPORT.html">Phase A closure</a> · <a href="PHASE-F-FRAUD-ARCHITECTURE-PACKAGE.html">Phase F architecture (approved, unscheduled)</a></p>
+</body>
+</html>

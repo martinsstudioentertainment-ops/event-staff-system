@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Security Hardening Report</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+.crit{color:#b91c1c;font-weight:700}.high{color:#b45309}.med{color:#ca8a04}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.84rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.pos{color:#047857}
+.meta{color:#64748b;font-size:.9rem}
+</style>
+</head>
+<body>
+
+<h1>Security Hardening Report</h1>
+<p class="meta">Generated 7 June 2026 · Findings only — no code changes in this pass</p>
+
+<h2>1. Authentication</h2>
+<table>
+<tr><th>Surface</th><th>Mechanism</th><th>Finding</th></tr>
+<tr><td>Main admin</td><td>Session + <code>password_verify</code></td><td class="pos">Strong — DB refresh, inactive user logout, default-password gate in production</td></tr>
+<tr><td>Apply admin</td><td>SSO HMAC cookie + main DB bridge</td><td class="med">Uses plain <code>session_start()</code>; manager/admin only</td></tr>
+<tr><td>Staff portal</td><td>Email + DOB</td><td class="med">Weak factor; acceptable for low-sensitivity portal</td></tr>
+<tr><td>Staff check-in</td><td>Token / venue flow</td><td class="pos">Tokens are long random hex</td></tr>
+</table>
+
+<h2>2. Session handling</h2>
+<ul>
+<li>Idle TTL: 300 s (<code>includes/app-environment.php</code>)</li>
+<li>Client idle: <code>session-idle-timeout.js</code> on staff + admin</li>
+<li class="high"><strong>Gap:</strong> <code>api/admin-staff-search.php</code>, <code>api/notifications.php</code> use <code>isAdminLoggedIn()</code> without idle check</li>
+</ul>
+<p><strong>Mitigation:</strong> Call <code>requireAdmin()</code> or replicate idle check. <strong>Rollback:</strong> Revert API auth change.</p>
+
+<h2>3. CSRF</h2>
+<table>
+<tr><th>Area</th><th>Status</th></tr>
+<tr><td>Admin mutating POST</td><td class="pos">Widespread <code>verifyCsrf()</code></td></tr>
+<tr><td><code>submit.php</code> registration</td><td class="pos">CSRF required</td></tr>
+<tr><td>Wizard analytics API</td><td class="pos">CSRF in JSON body</td></tr>
+<tr><td><code>staff-profile.php</code></td><td class="high">No CSRF on profile/PSA POST</td></tr>
+<tr><td>Apply admin forms</td><td class="high">No CSRF layer found</td></tr>
+</table>
+
+<h2>4. File uploads</h2>
+<table>
+<tr><th>Path</th><th>Validation</th></tr>
+<tr><td><code>includes/staff-psa.php</code></td><td class="pos">MIME, size, random filename → <code>uploads/psa/</code></td></tr>
+<tr><td><code>uploads/.htaccess</code></td><td class="pos">Blocks script execution</td></tr>
+<tr><td><code>apply/admin/update-details.php</code></td><td class="med">Uses <code>basename()</code> on original name</td></tr>
+<tr><td><code>apply/admin/uploads/</code></td><td class="med">No <code>.htaccess</code> in repo</td></tr>
+</table>
+
+<h2>5. Attendance APIs</h2>
+<table>
+<tr><th>Endpoint</th><th>Auth</th><th>Severity</th></tr>
+<tr><td><code>api/attendance-live.php</code></td><td>Admin capability</td><td class="pos">OK</td></tr>
+<tr><td><code>api/attendance-gps-ping.php</code></td><td>None</td><td class="high">registration_id + event_id guessable</td></tr>
+</table>
+
+<h2>6. Registration APIs</h2>
+<table>
+<tr><th>Endpoint</th><th>Issue</th></tr>
+<tr><td><code>api/registrant-lookup.php</code></td><td class="crit">Email alone returns PPS, IBAN, address, PSA status</td></tr>
+<tr><td><code>api/registration-options.php</code></td><td class="pos">Public by design — no PII</td></tr>
+<tr><td><code>apply/admin/api/check-staff.php</code></td><td class="crit">Email + mobile → full registration row, no auth</td></tr>
+</table>
+
+<h2>7. Admin permissions</h2>
+<p>RBAC via <code>admin-capabilities.php</code>: admin (*), manager (subset), staff (dashboard + attendance).</p>
+<ul>
+<li class="med"><code>admin/apply-sync-ping.php</code> — <code>requireAdmin()</code> only; staff role can trigger sync</li>
+<li class="pos"><code>admin/feature-flags.php</code> — super-user gate</li>
+</ul>
+
+<h2>8. Apply portal permissions</h2>
+<p>Stricter role filter than main admin. SSO secret derivation from DB creds in dev — ensure <code>sso.local.php</code> set in production.</p>
+
+<h2>9. Positive controls</h2>
+<ul>
+<li>Login rate limit (5 attempts / 15 min)</li>
+<li><code>database/.htaccess</code> deny web access</li>
+<li>Production config excluded from FTP deploy</li>
+<li>Notification mark-read scoped by staff email</li>
+</ul>
+
+<h2>10. Hardening priority (future work)</h2>
+<ol>
+<li>Protect <code>registrant-lookup.php</code> and <code>check-staff.php</code></li>
+<li>Add signed token to <code>attendance-gps-ping.php</code></li>
+<li>CSRF on <code>staff-profile.php</code> and apply admin</li>
+<li>Idle timeout on admin JSON APIs</li>
+<li><code>.htaccess</code> on apply uploads</li>
+</ol>
+
+<p class="meta">All items should ship with rollback notes. No changes applied in this overnight pass.</p>
+</body>
+</html>

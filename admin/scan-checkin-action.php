@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/attendance-repository.php';
+require_once __DIR__ . '/../includes/checkin-bib.php';
 require_once __DIR__ . '/../includes/audit-log.php';
 
 requireAdminCapability('attendance');
@@ -47,12 +48,6 @@ if ($row['status'] !== 'approved') {
     exit;
 }
 
-$window = getEventCheckinWindow($row);
-if (!$window['is_open']) {
-    echo json_encode(['ok' => false, 'error' => formatCheckinWindowMessage($window)]);
-    exit;
-}
-
 if (hasCheckedIn($pdo, (int) $row['id'])) {
     echo json_encode([
         'ok'      => false,
@@ -63,7 +58,8 @@ if (hasCheckedIn($pdo, (int) $row['id'])) {
     exit;
 }
 
-$result = recordCheckin($pdo, (int) $row['id'], 'scan');
+$bibNumber = trim((string) ($_POST['bib_number'] ?? ''));
+$result = recordCheckin($pdo, (int) $row['id'], 'scan', null, $bibNumber !== '' ? $bibNumber : null);
 if ($result !== true) {
     echo json_encode(['ok' => false, 'error' => (string) $result]);
     exit;
@@ -77,4 +73,5 @@ echo json_encode([
     'event' => formatEventLabel($row),
     'role'  => formatRoleLabel($row['staff_role']),
     'time'  => date('H:i'),
+    'bib'   => normalizeCheckinBibNumber($bibNumber),
 ]);

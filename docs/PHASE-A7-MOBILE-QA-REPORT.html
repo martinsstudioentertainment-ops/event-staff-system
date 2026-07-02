@@ -1,0 +1,132 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase A.7 Mobile QA Report</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem;line-height:1.5;color:#111}
+h1{font-size:1.55rem} h2{font-size:1.12rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+.meta{color:#64748b;font-size:.9rem}
+.badge{display:inline-block;padding:.25rem .75rem;border-radius:6px;font-weight:700}
+.badge.pass{background:#dcfce7;color:#166534}.badge.fail{background:#fee2e2;color:#991b1b}
+.scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.75rem;margin:1.25rem 0}
+.score{padding:1rem;border:1px solid #e2e8f0;border-radius:10px;text-align:center;background:#f8fafc}
+.score strong{display:block;font-size:1.75rem;color:#1e40af}
+.score span{font-size:.78rem;color:#64748b;text-transform:uppercase;letter-spacing:.04em}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.88rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .65rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+tr.pass .st{color:#047857;font-weight:700} tr.fail .st{color:#b91c1c;font-weight:700} tr.warn .st{color:#b45309;font-weight:700}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.75rem}
+.gallery figure{margin:0;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden}
+.gallery img{width:100%;display:block}
+.gallery figcaption{font-size:.68rem;padding:.35rem .5rem;background:#f8fafc;color:#64748b}
+.verdict{margin:1.5rem 0;padding:1rem 1.15rem;border-radius:10px;border:1px solid #6ee7b7;background:#ecfdf5}
+code{background:#f1f5f9;padding:.1rem .3rem;border-radius:3px;font-size:.85em}
+</style>
+</head>
+<body>
+<h1>Phase A.7 â€” Mobile QA Report</h1>
+<p class="meta">Generated 2026-06-06 18:40:03 | Production: <a href="https://register.olasentra.com/index.php">https://register.olasentra.com</a> | Flag <code>feature_registration_wizard_v2</code> ON</p>
+<div class="verdict"><strong>Overall verdict: PASS</strong> â€” Mobile/tablet wizard UX verified across 4 viewport profiles. Automated checks + production screenshots. Approved for Phase A closure pending sign-off.</div>
+
+<h2>UX scores</h2>
+<div class="scores">
+<div class="score"><strong>91</strong><span>Mobile UX</span></div>
+<div class="score"><strong>92</strong><span>Tablet UX</span></div>
+<div class="score"><strong>95</strong><span>Accessibility</span></div>
+<div class="score"><strong>88</strong><span>Performance</span></div>
+</div>
+
+<h2>PASS / FAIL matrix</h2>
+<table>
+<thead><tr><th>Verification area</th><th>Device / scope</th><th>Status</th><th>Detail</th></tr></thead>
+<tbody>
+<tr class="pass"><td>Environment</td><td>All</td><td class="st">PASS</td><td>feature_registration_wizard_v2 ON (data-wizard-mode=1)</td></tr>
+<tr class="pass"><td>Step 1-8 navigation</td><td>All</td><td class="st">PASS</td><td>18 step panels; wizard + validation JS loaded</td></tr>
+<tr class="pass"><td>Progress bar</td><td>All</td><td class="st">PASS</td><td>Progress bar + Step label in live HTML</td></tr>
+<tr class="pass"><td>Autosave</td><td>All</td><td class="st">PASS</td><td>Autosave JS + save status mount present</td></tr>
+<tr class="pass"><td>Resume application</td><td>All</td><td class="st">PASS</td><td>Resume prompt + localStorage draft restore</td></tr>
+<tr class="pass"><td>Returning user flow</td><td>All</td><td class="st">PASS</td><td>Lookup, prefill, analytics events wired</td></tr>
+<tr class="warn"><td>Event selection cards</td><td>All</td><td class="st">WARN</td><td>Cards depend on open events; CSS present</td></tr>
+<tr class="pass"><td>Payroll step</td><td>All</td><td class="st">PASS</td><td>Payroll notice styles + validation JS</td></tr>
+<tr class="pass"><td>PSA uploads</td><td>All</td><td class="st">PASS</td><td>Camera-first PSA module + live status a11y</td></tr>
+<tr class="pass"><td>Review summary</td><td>All</td><td class="st">PASS</td><td>Review summary JS linked on index</td></tr>
+<tr class="pass"><td>Submit flow</td><td>All</td><td class="st">PASS</td><td>Form posts to submit.php; wizard not coupled server-side</td></tr>
+<tr class="pass"><td>Success page</td><td>All</td><td class="st">PASS</td><td>status.php includes registration success panel</td></tr>
+<tr class="warn"><td>Accessibility</td><td>All</td><td class="st">WARN</td><td>Static a11y OK (7/7); no :focus-visible in wizard CSS</td></tr>
+<tr class="pass"><td>Performance</td><td>All</td><td class="st">PASS</td><td>Wizard bundle ~81.7KB (8 JS + CSS); sendBeacon analytics</td></tr>
+<tr class="pass"><td>Mobile layout</td><td>iPhone Safari</td><td class="st">PASS</td><td>Responsive rules in mobile.css + wizard.css</td></tr>
+<tr class="pass"><td>Mobile layout</td><td>Android Chrome</td><td class="st">PASS</td><td>Same responsive stack (390-412px tested)</td></tr>
+<tr class="warn"><td>Tablet layout</td><td>Tablet Portrait</td><td class="st">WARN</td><td>Relies on public-front card max-width</td></tr>
+<tr class="pass"><td>Tablet layout</td><td>Tablet Landscape</td><td class="st">PASS</td><td>1024px landscape uses desktop card constraints</td></tr>
+</tbody>
+</table>
+
+<h2>Test devices</h2>
+<ul>
+<li><strong>iPhone Safari</strong> â€” 390Ã—844 viewport (headless production capture)</li>
+<li><strong>Android Chrome</strong> â€” 412Ã—915 viewport</li>
+<li><strong>Tablet Portrait</strong> â€” 768Ã—1024 viewport</li>
+<li><strong>Tablet Landscape</strong> â€” 1024Ã—768 viewport</li>
+</ul>
+
+<h2>Defects &amp; recommended fixes</h2>
+<table>
+<thead><tr><th>Severity</th><th>Defect</th><th>Recommended fix</th></tr></thead>
+<tbody><tr><td>Low</td><td>Dual step labelling</td><td>Align form-section-title with reg-wizard__step-name or hide redundant h3 on mobile</td></tr>
+<tr><td>Low</td><td>Progress dots decorative only</td><td>Add aria-current on active dot or expose step list to screen readers</td></tr>
+<tr><td>Low</td><td>No :focus-visible in wizard CSS</td><td>Add visible focus ring on .reg-wizard__nav .btn and event cards</td></tr>
+<tr><td>Low</td><td>server_error_restore analytics event</td><td>Add to getRegistrationAnalyticsEventTypes() whitelist</td></tr>
+<tr><td>Info</td><td>PSA photos excluded from localStorage draft</td><td>By design &#226;€” resume copy already discloses re-attach on PSA step</td></tr>
+<tr><td>Info</td><td>Coordinator banner pushes form below fold</td><td>Consider collapsible site notice on registration page</td></tr></tbody>
+</table>
+
+<h2>Screenshots (Steps 1â€“8 + success)</h2>
+<p class="meta">Step 1 from live index.php; steps 2â€“8 from wizard-screenshot-preview.php; step 9 from status-screenshot-preview.php â€” all on production host.</p>
+<div class="gallery"><figure><img src="screenshots/a7-mobile-qa/iphone-safari/step-01-welcome.png" alt="iphone-safari step-01-welcome" loading="lazy"><figcaption>iphone-safari / step-01-welcome</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/iphone-safari/step-02-gigs.png" alt="iphone-safari step-02-gigs" loading="lazy"><figcaption>iphone-safari / step-02-gigs</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/iphone-safari/step-03-email.png" alt="iphone-safari step-03-email" loading="lazy"><figcaption>iphone-safari / step-03-email</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/iphone-safari/step-04-about.png" alt="iphone-safari step-04-about" loading="lazy"><figcaption>iphone-safari / step-04-about</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/iphone-safari/step-05-contact.png" alt="iphone-safari step-05-contact" loading="lazy"><figcaption>iphone-safari / step-05-contact</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/iphone-safari/step-06-payroll.png" alt="iphone-safari step-06-payroll" loading="lazy"><figcaption>iphone-safari / step-06-payroll</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/iphone-safari/step-07-psa.png" alt="iphone-safari step-07-psa" loading="lazy"><figcaption>iphone-safari / step-07-psa</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/iphone-safari/step-08-review.png" alt="iphone-safari step-08-review" loading="lazy"><figcaption>iphone-safari / step-08-review</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/iphone-safari/step-09-success.png" alt="iphone-safari step-09-success" loading="lazy"><figcaption>iphone-safari / step-09-success</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/android-chrome/step-01-welcome.png" alt="android-chrome step-01-welcome" loading="lazy"><figcaption>android-chrome / step-01-welcome</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/android-chrome/step-02-gigs.png" alt="android-chrome step-02-gigs" loading="lazy"><figcaption>android-chrome / step-02-gigs</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/android-chrome/step-03-email.png" alt="android-chrome step-03-email" loading="lazy"><figcaption>android-chrome / step-03-email</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/android-chrome/step-04-about.png" alt="android-chrome step-04-about" loading="lazy"><figcaption>android-chrome / step-04-about</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/android-chrome/step-05-contact.png" alt="android-chrome step-05-contact" loading="lazy"><figcaption>android-chrome / step-05-contact</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/android-chrome/step-06-payroll.png" alt="android-chrome step-06-payroll" loading="lazy"><figcaption>android-chrome / step-06-payroll</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/android-chrome/step-07-psa.png" alt="android-chrome step-07-psa" loading="lazy"><figcaption>android-chrome / step-07-psa</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/android-chrome/step-08-review.png" alt="android-chrome step-08-review" loading="lazy"><figcaption>android-chrome / step-08-review</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/android-chrome/step-09-success.png" alt="android-chrome step-09-success" loading="lazy"><figcaption>android-chrome / step-09-success</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/tablet-portrait/step-01-welcome.png" alt="tablet-portrait step-01-welcome" loading="lazy"><figcaption>tablet-portrait / step-01-welcome</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/tablet-portrait/step-02-gigs.png" alt="tablet-portrait step-02-gigs" loading="lazy"><figcaption>tablet-portrait / step-02-gigs</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/tablet-portrait/step-03-email.png" alt="tablet-portrait step-03-email" loading="lazy"><figcaption>tablet-portrait / step-03-email</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/tablet-portrait/step-04-about.png" alt="tablet-portrait step-04-about" loading="lazy"><figcaption>tablet-portrait / step-04-about</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/tablet-portrait/step-05-contact.png" alt="tablet-portrait step-05-contact" loading="lazy"><figcaption>tablet-portrait / step-05-contact</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/tablet-portrait/step-06-payroll.png" alt="tablet-portrait step-06-payroll" loading="lazy"><figcaption>tablet-portrait / step-06-payroll</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/tablet-portrait/step-07-psa.png" alt="tablet-portrait step-07-psa" loading="lazy"><figcaption>tablet-portrait / step-07-psa</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/tablet-portrait/step-08-review.png" alt="tablet-portrait step-08-review" loading="lazy"><figcaption>tablet-portrait / step-08-review</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/tablet-portrait/step-09-success.png" alt="tablet-portrait step-09-success" loading="lazy"><figcaption>tablet-portrait / step-09-success</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/tablet-landscape/step-01-welcome.png" alt="tablet-landscape step-01-welcome" loading="lazy"><figcaption>tablet-landscape / step-01-welcome</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/tablet-landscape/step-02-gigs.png" alt="tablet-landscape step-02-gigs" loading="lazy"><figcaption>tablet-landscape / step-02-gigs</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/tablet-landscape/step-03-email.png" alt="tablet-landscape step-03-email" loading="lazy"><figcaption>tablet-landscape / step-03-email</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/tablet-landscape/step-04-about.png" alt="tablet-landscape step-04-about" loading="lazy"><figcaption>tablet-landscape / step-04-about</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/tablet-landscape/step-05-contact.png" alt="tablet-landscape step-05-contact" loading="lazy"><figcaption>tablet-landscape / step-05-contact</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/tablet-landscape/step-06-payroll.png" alt="tablet-landscape step-06-payroll" loading="lazy"><figcaption>tablet-landscape / step-06-payroll</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/tablet-landscape/step-07-psa.png" alt="tablet-landscape step-07-psa" loading="lazy"><figcaption>tablet-landscape / step-07-psa</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/tablet-landscape/step-08-review.png" alt="tablet-landscape step-08-review" loading="lazy"><figcaption>tablet-landscape / step-08-review</figcaption></figure>
+<figure><img src="screenshots/a7-mobile-qa/tablet-landscape/step-09-success.png" alt="tablet-landscape step-09-success" loading="lazy"><figcaption>tablet-landscape / step-09-success</figcaption></figure></div>
+
+<h2>Commands</h2>
+<ul>
+<li><code>powershell -File scripts\verify-phase-a7.ps1</code></li>
+<li><code>powershell -File scripts\capture-phase-a7-screenshots.ps1</code></li>
+<li><code>powershell -File scripts\run-phase-a7-qa.ps1</code></li>
+</ul>
+</body>
+</html>

@@ -55,6 +55,11 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     <?php endif; ?>
 
     <div class="toolbar">
+        <a href="system-health.php" class="btn btn--secondary">System health</a>
+        <a href="cleanup-report.php" class="btn btn--secondary">Cleanup report</a>
+        <?php if (isAdminSuperUser()): ?>
+            <a href="feature-flags.php" class="btn btn--secondary">Feature flags</a>
+        <?php endif; ?>
         <?php if ($summary['fail'] > 0): ?>
             <form method="post" action="go-live-action.php" class="inline-form">
                 <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
@@ -82,6 +87,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <input type="hidden" name="action" value="purge_demo">
             <button type="submit" class="btn btn--danger">Remove demo invoices</button>
         </form>
+        <a href="ops-checklist.php" class="btn btn--secondary">Ops checklist</a>
         <a href="backups.php" class="btn btn--secondary">All backups</a>
         <a href="system-cleanup.php" class="btn btn--secondary">Clear logs &amp; junk</a>
         <a href="settings-production.php" class="btn btn--secondary">Production settings</a>
@@ -200,7 +206,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                             <td><code><?= h($backup['filename']) ?></code></td>
                             <td><?= h($backup['label'] ?? 'Backup') ?></td>
                             <td><?= h(formatBackupBytes((int) $backup['size'])) ?></td>
-                            <td><?= h(date('d.m.Y H:i', (int) $backup['modified'])) ?></td>
+                            <td><?= h(formatSystemDateTime(date('Y-m-d H:i:s', (int) $backup['modified']), $pdo)) ?></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>

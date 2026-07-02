@@ -40,14 +40,24 @@ try {
     $pdo            = getDB();
     $stats          = runDailyReminders($pdo);
     $blacklistStats = processAllNoShowBlacklists($pdo);
+
+    $sheetsQueueStats = ['success' => 0];
+    require_once dirname(__DIR__) . '/includes/google-sheets-queue.php';
+    if (googleSheetsQueueUsesWorker($pdo)) {
+        $sheetsQueueStats = googleSheetsProcessSyncQueue($pdo, 15);
+        require_once dirname(__DIR__) . '/includes/google-sheets-auto-worker.php';
+        googleSheetsTriggerWorkerAsync($pdo);
+    }
+
     $line           = sprintf(
-        "[%s] Daily reminders — event: %d sent, signup nudges: %d sent, errors: %d; no-show blacklist: %d new, %d scanned\n",
+        "[%s] Daily reminders — event: %d sent, signup nudges: %d sent, errors: %d; no-show blacklist: %d new, %d scanned; sheets queue success: %s\n",
         date('Y-m-d H:i:s'),
         $stats['daily_sent'],
         $stats['nudge_sent'],
         $stats['errors'],
         $blacklistStats['blacklisted'],
-        $blacklistStats['scanned']
+        $blacklistStats['scanned'],
+        is_array($sheetsQueueStats) ? (string) (int) ($sheetsQueueStats['success'] ?? 0) : '—'
     );
 
     $logDir = dirname(__DIR__) . '/storage/logs';

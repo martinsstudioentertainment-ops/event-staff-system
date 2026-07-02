@@ -1,0 +1,170 @@
+/* Staff profile — account polish */
+
+.staff-profile-hero {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
+    border: 1px solid #e2e8f0;
+}
+
+.staff-profile-hero__avatar {
+    flex-shrink: 0;
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 18px;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #fff;
+    background: linear-gradient(135deg, #6366f1, #4338ca);
+    box-shadow: 0 8px 20px rgba(79, 70, 229, 0.25);
+}
+
+.staff-profile-hero__body {
+    min-width: 0;
+    flex: 1;
+}
+
+.staff-profile-hero__name {
+    margin: 0;
+    font-size: clamp(1.125rem, 4vw, 1.35rem);
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.staff-profile-hero__role {
+    margin: 0.2rem 0 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #64748b;
+}
+
+.staff-profile-hero__badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.staff-profile-hero__id {
+    display: inline-flex;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #4338ca;
+    background: #e0e7ff;
+    border: 1px solid #c7d2fe;
+}
+
+.staff-profile-hero__status {
+    display: inline-flex;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.staff-profile-hero__status--success { background: #dcfce7; color: #166534; }
+.staff-profile-hero__status--pending { background: #fef3c7; color: #92400e; }
+.staff-profile-hero__status--warn { background: #ffedd5; color: #9a3412; }
+.staff-profile-hero__status--info { background: #dbeafe; color: #1e40af; }
+.staff-profile-hero__status--neutral { background: #f1f5f9; color: #475569; }
+
+.staff-profile-account {
+    margin-bottom: 1.25rem;
+    padding: 1rem;
+    border-radius: 14px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+}
+
+.staff-profile-account__title,
+.staff-profile-summary__heading {
+    margin: 0 0 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+
+.staff-profile-account__list,
+.staff-profile-summary__list {
+    margin: 0;
+    display: grid;
+    gap: 0.55rem;
+}
+
+.staff-profile-account__list > div,
+.staff-profile-summary__list > div {
+    display: grid;
+    grid-template-columns: 6.5rem 1fr;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.staff-profile-account__list dt,
+.staff-profile-summary__list dt {
+    margin: 0;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.staff-profile-account__list dd,
+.staff-profile-summary__list dd {
+    margin: 0;
+    color: #0f172a;
+    word-break: break-word;
+}
+
+.staff-profile-summary {
+    margin-top: 0.5rem;
+}
+
+.staff-profile-summary__edit {
+    margin-top: 1rem;
+    min-height: 48px;
+}
+
+@media (max-width: 360px) {
+    .staff-profile-hero {
+        padding: 0.85rem;
+        gap: 0.75rem;
+    }
+
+    .staff-profile-hero__avatar {
+        width: 56px;
+        height: 56px;
+        font-size: 1.1rem;
+    }
+
+    .staff-profile-account__list > div,
+    .staff-profile-summary__list > div {
+        grid-template-columns: 1fr;
+        gap: 0.15rem;
+    }
+}
+
+.staff-profile-quick-links {
+    margin: 0 0 1.25rem;
+    padding: 1rem;
+    border-radius: 14px;
+    background: rgba(37, 99, 235, 0.06);
+    border: 1px solid rgba(37, 99, 235, 0.14);
+}
+
+.staff-profile-quick-links__btn {
+    margin-top: 0.65rem;
+}

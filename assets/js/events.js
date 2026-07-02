@@ -277,7 +277,7 @@ function isPlaceholderShiftTime(timeStr) {
     return t === '09:00 – 23:00' || t === '09:00 - 23:00';
 }
 
-function appendShiftCheckboxContent(textEl, event, venueName, isRegistered) {
+function appendShiftCheckboxContent(textEl, event, venueName, isRegistered, isDateBlocked) {
     const title = document.createElement('span');
     title.className = 'event-checkbox__title';
     title.textContent = event.name || 'Event';
@@ -324,7 +324,12 @@ function appendShiftCheckboxContent(textEl, event, venueName, isRegistered) {
     if (isRegistered) {
         const note = document.createElement('span');
         note.className = 'event-checkbox__note';
-        note.textContent = 'Already registered';
+        note.textContent = 'Already Registered';
+        textEl.appendChild(note);
+    } else if (isDateBlocked) {
+        const note = document.createElement('span');
+        note.className = 'event-checkbox__note';
+        note.textContent = 'You already have a shift on this date';
         textEl.appendChild(note);
     }
 }
@@ -462,6 +467,14 @@ function updateShiftSelectionSummary(container) {
 
 
     const count = getSelectedShiftIds(container).length;
+    const pickable = container.querySelectorAll('input[name="event_ids[]"]:not(:disabled)').length;
+    const hasShifts = container.querySelectorAll('input[name="event_ids[]"]').length > 0;
+
+    if (hasShifts && pickable === 0) {
+        summary.textContent = 'No new shifts available for you';
+        summary.classList.remove('shift-picker-summary--active');
+        return;
+    }
 
     summary.textContent = count === 0
 
@@ -529,6 +542,210 @@ function persistShiftSelection(container) {
 
 
 
+function isRegistrationWizardMode() {
+    return typeof document !== 'undefined'
+        && document.body
+        && document.body.dataset.wizardMode === '1';
+}
+
+function extractCountyFromEvent(event, venueName) {
+    const loc = String(event.location || '').trim();
+    if (loc) {
+        const parts = loc.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+        if (parts.length >= 2) {
+            return parts[parts.length - 1];
+        }
+        return loc;
+    }
+    const venue = String(venueName || event.venueName || '').trim();
+    if (venue) {
+        const parts = venue.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+        if (parts.length >= 2) {
+            return parts[parts.length - 1];
+        }
+    }
+    return '—';
+}
+
+function applyRestoredEventSelection(container) {
+    const ids = window.REG_WIZARD_RESTORE_EVENT_IDS;
+    if (!container || !ids || !ids.length) {
+        return;
+    }
+    ids.forEach(function (id) {
+        const input = container.querySelector('input[name="event_ids[]"][value="' + id + '"]:not(:disabled)');
+        if (input) {
+            input.checked = true;
+        }
+    });
+    delete window.REG_WIZARD_RESTORE_EVENT_IDS;
+    enforceOneShiftPerDayOnLoad(container);
+    persistShiftSelection(container);
+}
+
+function getRegisteredEventDates() {
+    return (window.REGISTERED_EVENT_DATES || []).map(function (d) {
+        return String(d).slice(0, 10);
+    });
+}
+
+function getShiftRegistrationBlock(eventId, dayKey, blockedIds) {
+    const id = String(eventId);
+    const day = String(dayKey || '').slice(0, 10);
+    const ids = (blockedIds || window.REGISTERED_EVENT_IDS || []).map(String);
+
+    if (ids.includes(id)) {
+        return { blocked: true, reason: 'registered' };
+    }
+    if (day && getRegisteredEventDates().includes(day)) {
+        return { blocked: true, reason: 'date' };
+    }
+
+    return { blocked: false, reason: null };
+}
+
+function buildWizardEventCard(event, venueName, blockInfo) {
+    const id = String(event.id);
+    const dayKey = String(event.sortDate || '').slice(0, 10);
+    const block = blockInfo || getShiftRegistrationBlock(id, dayKey);
+    const isBlocked = block.blocked;
+    const county = extractCountyFromEvent(event, venueName);
+    const roles = String(event.rolesLabel || event.workTypeLabel || 'Security').trim();
+    const statusText = block.reason === 'registered'
+        ? 'Already Registered'
+        : (block.reason === 'date' ? 'Shift already chosen for this date' : 'Open for registration');
+    const statusClass = isBlocked ? 'reg-event-card__status--registered' : 'reg-event-card__status--open';
+
+    const label = document.createElement('label');
+    label.className = 'reg-event-card' + (isBlocked ? ' reg-event-card--registered' : '');
+    label.setAttribute('data-event-id', id);
+    label.setAttribute('data-event-name', String(event.name || 'Event'));
+
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.className = 'reg-event-card__input';
+    input.name = 'event_ids[]';
+    input.value = id;
+    input.dataset.sortDate = dayKey;
+    input.dataset.venueId = String(event.venueId != null ? event.venueId : '0');
+    if (isBlocked) {
+        input.disabled = true;
+    }
+
+    const body = document.createElement('div');
+    body.className = 'reg-event-card__body';
+
+    const title = document.createElement('h4');
+    title.className = 'reg-event-card__title';
+    title.textContent = event.name || 'Event';
+    body.appendChild(title);
+
+    const grid = document.createElement('dl');
+    grid.className = 'reg-event-card__meta';
+
+    function addRow(term, value) {
+        if (!value || value === '—') {
+            return;
+        }
+        const dt = document.createElement('dt');
+        dt.textContent = term;
+        const dd = document.createElement('dd');
+        dd.textContent = value;
+        grid.appendChild(dt);
+        grid.appendChild(dd);
+    }
+
+    addRow('Venue', venueName || String(event.venueName || '').trim() || String(event.location || '').trim());
+    addRow('Date', event.date || formatShiftDateHeading(dayKey));
+    addRow('County', county !== '—' ? county : null);
+    addRow('Roles', roles);
+    body.appendChild(grid);
+
+    const status = document.createElement('span');
+    status.className = 'reg-event-card__status ' + statusClass;
+    status.textContent = statusText;
+    body.appendChild(status);
+
+    const mark = document.createElement('span');
+    mark.className = 'reg-event-card__check';
+    mark.setAttribute('aria-hidden', 'true');
+
+    label.appendChild(input);
+    label.appendChild(body);
+    label.appendChild(mark);
+
+    return { label: label, input: input };
+}
+
+function populateWizardEventCards(container, registeredIds, events, options) {
+    if (!container) {
+        return;
+    }
+
+    const list = filterOpenRegistrationShifts(Array.isArray(events) ? events : []);
+    const blocked = (registeredIds || window.REGISTERED_EVENT_IDS || []).map(String);
+    const selected = parseSelectedEventIds(container);
+
+    container.innerHTML = '';
+    container.classList.remove('shift-picker-list--error');
+    container.classList.add('shift-picker-list--wizard-cards');
+
+    if (list.length === 0) {
+        const role = (document.getElementById('staff_role') || {}).value || '';
+        const emptyMsg = role === 'static'
+            ? 'No static opportunities open right now — check back later or contact the organiser.'
+            : 'No event opportunities open right now — check back later.';
+        container.innerHTML = '<p class="reg-event-cards__empty">' + emptyMsg + '</p>';
+        updateShiftSelectionSummary(container);
+        updateWaitlistOffer(0);
+        dispatchShiftPickerReady(container, 0, 0);
+        return;
+    }
+
+    const wrap = document.createElement('div');
+    wrap.className = 'reg-event-cards';
+
+    list.forEach(function (event) {
+        const id = String(event.id);
+        const dayKey = String(event.sortDate || '').slice(0, 10);
+        const block = getShiftRegistrationBlock(id, dayKey, blocked);
+        const venueName = getVenueNameForEvent(event, options);
+        const card = buildWizardEventCard(event, venueName, block);
+        if (!block.blocked && selected.includes(id)) {
+            card.input.checked = true;
+        }
+        wrap.appendChild(card.label);
+    });
+
+    container.appendChild(wrap);
+    applyRestoredEventSelection(container);
+    if (!window.REG_WIZARD_RESTORE_EVENT_IDS) {
+        enforceOneShiftPerDayOnLoad(container);
+    }
+    persistShiftSelection(container);
+
+    if (window.RegistrationWizardReview && typeof window.RegistrationWizardReview.render === 'function') {
+        window.RegistrationWizardReview.render();
+    }
+    const pickable = wrap.querySelectorAll('input[name="event_ids[]"]:not(:disabled)').length;
+    dispatchShiftPickerReady(container, list.length, pickable);
+    updateWaitlistOffer(list.length);
+}
+
+function dispatchShiftPickerReady(container, total, pickable) {
+    window.SHIFT_PICKER_READY = true;
+    try {
+        document.dispatchEvent(new CustomEvent('shiftPickerReady', {
+            detail: {
+                count: total,
+                pickable: pickable,
+            },
+        }));
+    } catch (e) {
+        // IE11 fallback not required
+    }
+}
+
 function populateShiftPicker(container, registeredIds, events, options) {
 
     if (!container) {
@@ -537,7 +754,10 @@ function populateShiftPicker(container, registeredIds, events, options) {
 
     }
 
-
+    if (isRegistrationWizardMode()) {
+        populateWizardEventCards(container, registeredIds, events, options);
+        return;
+    }
 
     const list     = filterOpenRegistrationShifts(Array.isArray(events) ? events : []);
 
@@ -560,6 +780,7 @@ function populateShiftPicker(container, registeredIds, events, options) {
             : 'No shifts open for registration right now — check back later.';
         container.innerHTML = '<p class="form-hint">' + emptyMsg + '</p>';
         updateShiftSelectionSummary(container);
+        updateWaitlistOffer(0);
         return;
     }
 
@@ -593,12 +814,18 @@ function populateShiftPicker(container, registeredIds, events, options) {
 
         const id = String(event.id);
 
-        const isRegistered = blocked.includes(id);
+        const block = getShiftRegistrationBlock(id, dayKey, blocked);
+
+        const isBlocked = block.blocked;
+
+        const isRegistered = block.reason === 'registered';
+
+        const isDateBlocked = block.reason === 'date';
 
 
 
         const label = document.createElement('label');
-        label.className = 'event-checkbox' + (isRegistered ? ' event-checkbox--registered' : '');
+        label.className = 'event-checkbox' + (isBlocked ? ' event-checkbox--registered' : '');
 
 
 
@@ -616,7 +843,7 @@ function populateShiftPicker(container, registeredIds, events, options) {
 
 
 
-        if (isRegistered) {
+        if (isBlocked) {
 
             input.disabled = true;
 
@@ -634,7 +861,8 @@ function populateShiftPicker(container, registeredIds, events, options) {
             text,
             event,
             getVenueNameForEvent(event, options),
-            isRegistered
+            isRegistered,
+            isDateBlocked
         );
 
         label.appendChild(input);
@@ -649,6 +877,10 @@ function populateShiftPicker(container, registeredIds, events, options) {
     enforceOneShiftPerDayOnLoad(container);
 
     persistShiftSelection(container);
+
+    const pickable = container.querySelectorAll('input[name="event_ids[]"]:not(:disabled)').length;
+    dispatchShiftPickerReady(container, list.length, pickable);
+    updateWaitlistOffer(list.length);
 
 }
 
@@ -722,6 +954,18 @@ function onShiftCheckboxChange(event) {
 
     container.classList.remove('shift-picker-list--error');
 
+    syncWizardCardSelectedState(container);
+
+}
+
+function syncWizardCardSelectedState(container) {
+    if (!container || !isRegistrationWizardMode()) {
+        return;
+    }
+    container.querySelectorAll('.reg-event-card').forEach(function (card) {
+        const input = card.querySelector('.reg-event-card__input');
+        card.classList.toggle('reg-event-card--selected', !!(input && input.checked && !input.disabled));
+    });
 }
 
 
@@ -736,7 +980,7 @@ function refreshShiftPicker(registeredIds) {
 
     }
 
-
+    window.SHIFT_PICKER_READY = false;
 
     const options = getRegistrationOptions();
 
@@ -746,9 +990,12 @@ function refreshShiftPicker(registeredIds) {
 
 
 
-function setRegisteredEventIds(ids) {
+function setRegisteredEventIds(ids, dates) {
 
     window.REGISTERED_EVENT_IDS = Array.isArray(ids) ? ids.map(String) : [];
+    window.REGISTERED_EVENT_DATES = Array.isArray(dates)
+        ? dates.map(function (d) { return String(d).slice(0, 10); })
+        : [];
 
     refreshShiftPicker(window.REGISTERED_EVENT_IDS);
 
@@ -912,11 +1159,28 @@ function populateEventCheckboxes(containerEl, registeredIds, events) {
 
 
 
-function refreshEventListForVenue(venueId, registeredIds) {
-
-    refreshShiftPicker(registeredIds);
-
+function updateWaitlistOffer(openShiftCount) {
+    const offer = document.getElementById('waitlist-offer');
+    const modeInput = document.getElementById('registration_mode');
+    const joinCb = document.getElementById('join_waiting_list');
+    if (!offer) {
+        return;
+    }
+    const show = openShiftCount === 0;
+    offer.style.display = show ? 'block' : 'none';
+    if (modeInput) {
+        modeInput.value = show && joinCb && joinCb.checked ? 'waitlist' : '';
+    }
+    if (joinCb && !joinCb.dataset.bound) {
+        joinCb.dataset.bound = '1';
+        joinCb.addEventListener('change', function () {
+            if (modeInput) {
+                modeInput.value = joinCb.checked ? 'waitlist' : '';
+            }
+        });
+    }
 }
+
 
 
 

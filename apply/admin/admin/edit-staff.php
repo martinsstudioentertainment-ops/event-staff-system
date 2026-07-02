@@ -7,12 +7,11 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/secure-layout.php';
 require_once __DIR__ . '/../includes/main-admin-bridge.php';
 require_once __DIR__ . '/../includes/psa-sync.php';
+require_once __DIR__ . '/../includes/psa-images.php';
 
-$phoneLib = dirname(__DIR__, 3) . '/includes/phone-numbers.php';
-if (!is_readable($phoneLib)) {
-    $phoneLib = __DIR__ . '/../includes/phone-numbers.php';
+if (!apply_require_main_include('phone-numbers.php')) {
+    require_once __DIR__ . '/../includes/phone-numbers.php';
 }
-require_once $phoneLib;
 require_once __DIR__ . '/../includes/components/phone-input.php';
 
 $id = (int) ($_GET['id'] ?? 0);
@@ -31,6 +30,11 @@ if (!$staff) {
     http_response_code(404);
     die('Staff not found.');
 }
+
+$eventPdo = getMainAdminPdo();
+$staff    = apply_merge_vault_psa_images($staff, $eventPdo);
+$psaFrontPreviewUrl = apply_psa_image_url((string) ($staff['psa_front_image'] ?? ''));
+$psaBackPreviewUrl  = apply_psa_image_url((string) ($staff['psa_back_image'] ?? ''));
 
 $success = '';
 $error   = '';
@@ -292,10 +296,12 @@ if ($error !== '') {
                 <div class="secure-upload">
                     <input type="file" id="psa_front_image" name="psa_front_image" accept="image/jpeg,image/png,image/webp">
                     <div class="secure-upload__hint">JPG, PNG, WebP — max 5MB</div>
-                    <?php if (!empty($staff['psa_front_image']) && file_exists(__DIR__ . '/../' . $staff['psa_front_image'])): ?>
+                    <?php if ($psaFrontPreviewUrl !== ''): ?>
                         <div class="secure-upload__preview">
                             <strong style="font-size:0.8rem;">Current image</strong>
-                            <img src="<?= secure_h('../' . $staff['psa_front_image']) ?>" alt="PSA front">
+                            <a href="<?= secure_h($psaFrontPreviewUrl) ?>" target="_blank" rel="noopener">
+                                <img src="<?= secure_h($psaFrontPreviewUrl) ?>" alt="PSA front">
+                            </a>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -305,10 +311,12 @@ if ($error !== '') {
                 <div class="secure-upload">
                     <input type="file" id="psa_back_image" name="psa_back_image" accept="image/jpeg,image/png,image/webp">
                     <div class="secure-upload__hint">JPG, PNG, WebP — max 5MB</div>
-                    <?php if (!empty($staff['psa_back_image']) && file_exists(__DIR__ . '/../' . $staff['psa_back_image'])): ?>
+                    <?php if ($psaBackPreviewUrl !== ''): ?>
                         <div class="secure-upload__preview">
                             <strong style="font-size:0.8rem;">Current image</strong>
-                            <img src="<?= secure_h('../' . $staff['psa_back_image']) ?>" alt="PSA back">
+                            <a href="<?= secure_h($psaBackPreviewUrl) ?>" target="_blank" rel="noopener">
+                                <img src="<?= secure_h($psaBackPreviewUrl) ?>" alt="PSA back">
+                            </a>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -325,7 +333,7 @@ if ($error !== '') {
             </div>
             <div class="secure-grid__col secure-field">
                 <label class="secure-label">Date of birth</label>
-                <input class="secure-input secure-input--locked" type="text" value="<?= secure_h((string) ($staff['date_of_birth'] ?? '')) ?>" readonly>
+                <input class="secure-input secure-input--locked" type="text" value="<?= secure_h(secure_format_date((string) ($staff['date_of_birth'] ?? ''))) ?>" readonly>
             </div>
             <div class="secure-grid__col secure-field">
                 <label class="secure-label">IBAN</label>

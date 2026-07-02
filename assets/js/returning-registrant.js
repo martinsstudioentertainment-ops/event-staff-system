@@ -8,6 +8,10 @@
         return;
     }
 
+    if (document.body.dataset.wizardMode === '1') {
+        return;
+    }
+
     var lookupTimer = null;
     var lastLookupEmail = '';
 
@@ -60,7 +64,7 @@
         }
     }
 
-    function showReturningNotice(message, registeredEvents) {
+    function showReturningNotice(message, registeredEvents, isWarning) {
         var alertEl = document.getElementById('form-alert');
         if (!alertEl) return;
 
@@ -70,7 +74,7 @@
         }
 
         alertEl.textContent = message + extra;
-        alertEl.className = 'alert alert--success alert--visible';
+        alertEl.className = 'alert alert--' + (isWarning ? 'warning' : 'success') + ' alert--visible';
     }
 
     function applyProfile(profile, payload) {
@@ -102,10 +106,16 @@
         setGender(profile.gender);
 
         if (typeof setRegisteredEventIds === 'function') {
-            setRegisteredEventIds(payload.registered_event_ids || []);
+            setRegisteredEventIds(payload.registered_event_ids || [], payload.registered_event_dates || []);
         }
 
-        showReturningNotice(payload.message || 'Welcome back! Your details are loaded.', payload.registered_events);
+        var complete = payload.profile_complete !== false;
+        var msg = payload.message || 'Welcome back! Your details are loaded.';
+        if (!complete) {
+            msg += ' Fill in any missing details above — shift selection unlocks when everything is complete.';
+        }
+
+        showReturningNotice(msg, payload.registered_events, !complete);
     }
 
     function lookupEmail(email) {
@@ -116,8 +126,16 @@
 
         lastLookupEmail = email;
 
-        fetch('api/registrant-lookup.php?email=' + encodeURIComponent(email), {
-            headers: { 'Accept': 'application/json' }
+        var csrfInput = document.querySelector('input[name="csrf_token"]');
+        var csrf = csrfInput ? String(csrfInput.value || '') : '';
+        var lookupUrl = 'api/registrant-lookup.php?email=' + encodeURIComponent(email);
+        if (csrf) {
+            lookupUrl += '&csrf_token=' + encodeURIComponent(csrf);
+        }
+
+        fetch(lookupUrl, {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin',
         })
             .then(function (response) { return response.json(); })
             .then(function (data) {

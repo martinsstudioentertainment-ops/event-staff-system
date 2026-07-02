@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Olasentra — Complete Implementation Master Plan</title>
+<style>
+@page { size: A4; margin: 11mm 10mm; }
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 8.5pt; line-height: 1.38; color: #0f172a; margin: 0; padding: 14px; }
+.cover { page-break-after: always; text-align: center; padding: 50px 30px; background: #030712; color: #f8fafc; margin: -14px -14px 0; min-height: 96vh; display: flex; flex-direction: column; justify-content: center; }
+.cover h1 { font-size: 20pt; margin: 0 0 8px; }
+.cover p { font-size: 9.5pt; color: #c7d2fe; margin: 4px 0; }
+h1 { font-size: 15pt; color: #1e1b4b; }
+h2 { font-size: 11pt; margin: 18px 0 6px; padding: 5px 10px; background: #030712; color: #fff; border-radius: 4px; page-break-after: avoid; }
+h3 { font-size: 9.5pt; margin: 10px 0 4px; color: #4338ca; page-break-after: avoid; }
+h4 { font-size: 8.5pt; margin: 7px 0 3px; color: #6366f1; }
+.meta { font-size: 7.5pt; color: #64748b; margin-bottom: 10px; }
+table { width: 100%; border-collapse: collapse; margin: 5px 0 8px; font-size: 7pt; }
+th { background: #1e293b; color: #f8fafc; text-align: left; padding: 3px 4px; }
+td { border-bottom: 1px solid #e2e8f0; padding: 3px 4px; vertical-align: top; }
+tr:nth-child(even) td { background: #f8fafc; }
+ul, ol { margin: 4px 0 6px; padding-left: 16px; }
+li { margin: 1px 0; }
+pre { background: #0f172a; color: #e2e8f0; padding: 7px 9px; font-size: 6.5pt; border-radius: 4px; white-space: pre-wrap; margin: 5px 0; }
+.callout { background: #eef2ff; border-left: 3px solid #6366f1; padding: 6px 8px; margin: 6px 0; font-size: 8pt; }
+.warn { background: #fff7ed; border-color: #f59e0b; }
+.ok { background: #f0fdf4; border-color: #22c55e; }
+.page-break { page-break-before: always; }
+code { font-size: 6.5pt; background: #f1f5f9; padding: 1px 3px; }
+.effort { font-weight: 600; color: #4338ca; }
+.p0 { color: #b91c1c; font-weight: 700; }
+.p1 { color: #c2410c; font-weight: 600; }
+.p2 { color: #1d4ed8; }
+.footer { font-size: 7pt; color: #94a3b8; margin-top: 12px; border-top: 1px solid #e2e8f0; padding-top: 5px; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+<p>Event Operations Command Platform</p>
+<h1>Complete Implementation Master Plan</h1>
+<p>Definitive blueprint before development · LIVE production</p>
+<p style="color:#64748b;margin-top:30px;">Version 1.2 · 6 June 2026 · Phase 16 complete · Equipment rental removed from scope</p>
+<p>Lead: Solutions Architect · PHP · UX · Product · Security · DB · DevOps</p>
+</div>
+
+<h1>Implementation Master Plan — Olasentra</h1>
+<p class="meta"><strong>Status:</strong> v1.2 · <strong>Active:</strong> Gate G monitoring · <strong>Next:</strong> P15 Security → P1 Design System · <strong>Constraint:</strong> Zero-downtime phased deploys</p>
+
+<div class="callout ok"><strong>PLATFORM FOCUS:</strong> Event Operations Command Platform — event staffing, workforce ops, attendance, compliance, messaging, payroll, invoicing, client portal, operations intelligence. <strong>Not</strong> equipment rental. See PLATFORM-FOCUS.pdf.</div>
+
+<div class="callout warn"><strong>LIVE PRODUCTION RULE:</strong> Every phase ships independently. New routes wrap existing pages. Feature flags in system_settings. Full backup before each deploy. Rollback = revert FTP + restore DB snapshot.</div>
+
+<h3>Approved development priority (post Gate G)</h3>
+<ol>
+<li>P15 Security Hardening</li>
+<li>P1 Design System</li>
+<li>P2 Operations Command Center</li>
+<li>P3 Event Hub</li>
+<li>P5 Unified Inbox</li>
+<li>P6 Auto Approval Engine</li>
+<li>P7 Staff Intelligence</li>
+<li>P9 Client Portal</li>
+<li>P10 System Health Center (+ P18–P21)</li>
+<li>P12 AI Operations Assistant</li>
+</ol>
+
+<h2>Executive Summary</h2>
+<table>
+<tr><th>Dimension</th><th>Current state</th><th>Target state</th><th>Phases</th></tr>
+<tr><td>Admin pages</td><td>109 PHP files, 22 nav items</td><td>~45 screens + 14 nav + 3 hubs</td><td>P0–P5, P10–P11</td></tr>
+<tr><td>Staff PWA</td><td>7-tile hub</td><td>3-tab shell (Home/Inbox/Account)</td><td>P13</td></tr>
+<tr><td>Intelligence</td><td>Manual approval only</td><td>Auto-approval, trust scores, readiness</td><td>P6–P8</td></tr>
+<tr><td>Client access</td><td>None</td><td>Client portal subdomain</td><td>P9</td></tr>
+<tr><td>Security</td><td>6 open audit items</td><td>All HIGH closed</td><td>P15</td></tr>
+<tr><td>Database</td><td>20 tables, partial migration runner</td><td>28+ tables, consolidated runner</td><td>P6–P8, P16</td></tr>
+<tr><td>Total effort</td><td>—</td><td>~18–24 dev-weeks (1 senior)</td><td>P0–P17</td></tr>
+</table>
+
+<!-- PHASE 0 -->
+<h2>Phase 0 — Full Implementation Analysis</h2>
+<h3>Objective</h3>
+<p>Map UX Master Plan v2.0 to existing codebase. Establish reuse vs build decisions.</p>
+<h3>Business value</h3>
+<p>Eliminates duplicate work; de-risks production changes; defines exact file touch list.</p>
+
+<h3>0.1 Existing modules</h3>
+<table>
+<tr><th>Module</th><th>Primary files</th><th>Repository</th><th>Tables</th></tr>
+<tr><td>Auth &amp; roles</td><td>includes/auth.php, admin-capabilities.php</td><td>admin-users-repository.php</td><td>admin_users</td></tr>
+<tr><td>Staff / registrations</td><td>admin/staff.php, staff-directory.php, view-staff.php</td><td>staff-repository.php</td><td>staff, staff_registrations</td></tr>
+<tr><td>Events &amp; venues</td><td>admin/events.php, event-form.php, venues.php</td><td>events-repository.php, venues-repository.php</td><td>events, venues, work_types</td></tr>
+<tr><td>Attendance</td><td>admin/attendance.php, scan-checkin.php</td><td>attendance-repository.php</td><td>attendance</td></tr>
+<tr><td>Work hours</td><td>admin/work-hours.php</td><td>work-hours-repository.php</td><td>attendance (hours cols)</td></tr>
+<tr><td>Messaging</td><td>admin/staff-inbox.php, staff-messages.php</td><td>staff-messages.php</td><td>staff_messages</td></tr>
+<tr><td>Notifications</td><td>admin/notifications.php, staff-notifications.php</td><td>notification-center.php</td><td>app_notifications</td></tr>
+<tr><td>Finance</td><td>admin/invoices.php, job-records.php</td><td>commission-invoice-repository.php, job-record-repository.php</td><td>commission_invoices, saved_job_records</td></tr>
+<tr><td>CMS / public</td><td>admin/website-*.php, home.php</td><td>website-content.php</td><td>system_settings</td></tr>
+<tr><td>Ops / health</td><td>admin/ops-checklist.php, go-live.php</td><td>ops-checklist.php, go-live.php</td><td>system_settings</td></tr>
+<tr><td>Apply satellite</td><td>apply/admin/admin/*</td><td>main-admin-bridge.php</td><td>Apply DB staff_master</td></tr>
+<tr><td>Integrations</td><td>google-sheets-sync.php, google-drive-oauth.php</td><td>—</td><td>system_settings, events</td></tr>
+</table>
+
+<h3>0.2 Existing APIs (12 endpoints)</h3>
+<table>
+<tr><th>API</th><th>Auth</th><th>Reuse for</th></tr>
+<tr><td>api/admin-staff-search.php</td><td>Admin + staff cap</td><td>P5 inbox, P12 AI search base</td></tr>
+<tr><td>api/attendance-live.php</td><td>Admin + attendance</td><td>P2 Command Center, P4 Live Ops</td></tr>
+<tr><td>api/notifications.php</td><td>Admin/staff session/token</td><td>P5, P11 smart notifications</td></tr>
+<tr><td>api/notifications-mark-read.php</td><td>Same</td><td>P5 inbox</td></tr>
+<tr><td>api/registrant-lookup.php</td><td>Public (OPEN RISK)</td><td>P15 rate limit</td></tr>
+<tr><td>api/events.php, registration-options.php</td><td>Public</td><td>Unchanged</td></tr>
+<tr><td>api/push-subscribe.php, push-vapid-public.php</td><td>Token</td><td>P11, P13 PWA</td></tr>
+<tr><td>api/roster-check.php, health.php</td><td>Public</td><td>P10 health center</td></tr>
+</table>
+
+<h3>0.3 UX Master Plan → File mapping</h3>
+<table>
+<tr><th>UX feature</th><th>Existing</th><th>Modify</th><th>New</th><th>DB</th></tr>
+<tr><td>Command Center</td><td>dashboard.php, getDashboardStats()</td><td>dashboard.php, layout-top.php</td><td>includes/command-center.php, api/command-center.php</td><td>Indexes only</td></tr>
+<tr><td>Activity &amp; Inbox</td><td>notifications.php, staff-inbox.php</td><td>notification-center.php, staff-messages.php</td><td>inbox.php, assets/js/inbox.js</td><td>app_notifications.type enum extend</td></tr>
+<tr><td>Event Hub</td><td>events.php, staff.php, attendance.php…</td><td>Add event_id filter to all</td><td>event.php, includes/event-hub.php</td><td>None</td></tr>
+<tr><td>Live Ops</td><td>scan-checkin.php, attendance-live API</td><td>scan-checkin-action.php</td><td>live-ops.php, assets/js/live-ops.js</td><td>attendance.incident_note (optional)</td></tr>
+<tr><td>Command palette</td><td>header-bar.php erp-search</td><td>header-bar.php, admin.js</td><td>api/admin-search.php, assets/js/command-palette.js</td><td>None</td></tr>
+<tr><td>Design system OOU</td><td>admin-sidebar.css, admin.css</td><td>All admin CSS</td><td>assets/css/ops-ui.css, includes/components/ops-*.php</td><td>None</td></tr>
+<tr><td>Auto approval</td><td>update-status.php, staff-psa.php, blacklist</td><td>submit.php, staff-repository.php</td><td>includes/auto-approval-engine.php</td><td>approval_rules, approval_log tables</td></tr>
+<tr><td>Staff trust score</td><td>attendance, blacklist partial</td><td>staff-directory.php</td><td>includes/staff-intelligence.php</td><td>staff_trust_scores table</td></tr>
+<tr><td>Event readiness</td><td>ops-checklist.php, go-live.php</td><td>ops-checklist.php</td><td>includes/event-readiness.php</td><td>event_readiness_snapshots</td></tr>
+<tr><td>Client portal</td><td>None</td><td>—</td><td>client/* entire subtree</td><td>client_users, client_event_access</td></tr>
+<tr><td>System health</td><td>sidebar-health.php, go-live.php</td><td>go-live.php</td><td>admin/system-health.php</td><td>system_health_checks log</td></tr>
+<tr><td>AI assistant</td><td>admin-staff-search partial</td><td>—</td><td>api/ai-ops.php, includes/ai-ops.php</td><td>ai_query_log</td></tr>
+<tr><td>Staff PWA 2.0</td><td>staff-app.php, staff-messages.php</td><td>staff-app.php, pwa-head.php</td><td>staff-home.php, staff-account.php</td><td>None</td></tr>
+<tr><td>Public redesign</td><td>home.php, website-*.php</td><td>All public pages</td><td>assets/css/public-premium.css</td><td>system_settings CMS keys</td></tr>
+<tr><td>Security hardening</td><td>auth.php, .htaccess</td><td>apply/admin/*, api/registrant-lookup.php</td><td>includes/rate-limiter.php, apply CSRF helper</td><td>rate_limit_log</td></tr>
+</table>
+
+<h3>0.4 Key dependencies</h3>
+<ul>
+<li><strong>Composer:</strong> web-token/jwt-library (push), guzzlehttp (HTTP), spomky-labs/pki-framework — do not break vendor/</li>
+<li><strong>External:</strong> Google Sheets/Drive OAuth, SMTP, VAPID push, Apply SSO, FTP deploy</li>
+<li><strong>Runtime schema:</strong> 24 ensure*Schema() functions — consolidate in P16 before adding more</li>
+<li><strong>Subdomains:</strong> admin.*, register.*, apply.* — client.* new in P9</li>
+</ul>
+
+<h3>Phase 0 deliverables</h3>
+<p>Effort: <span class="effort">Complete (this document)</span> · Risk: None · Rollback: N/A</p>
+
+<div class="page-break"></div>
+
+<!-- PHASE 1 -->
+<h2>Phase 1 — Design System Foundation (OOU)</h2>
+<h3>Objective</h3>
+<p>Establish Olasentra Ops UI tokens, primitives, and component PHP partials used by all subsequent phases.</p>
+<h3>Business value</h3>
+<p>Consistent high-density ops UI; faster phase delivery; one source of truth for Linear/Stripe aesthetic.</p>
+
+<h4>Design tokens (CSS custom properties)</h4>
+<pre>assets/css/ops-ui.css (NEW — loaded after admin.css)
+--ops-bg-base #030712    --ops-bg-canvas #f8fafc / #0b0f19
+--ops-accent #8b5cf6       --ops-live #22c55e    --ops-warn #f59e0b    --ops-critical #ef4444
+--ops-text-xs 11px         --ops-row-h 32px       --ops-radius 6px
+Font: Inter (Google) + JetBrains Mono for KPIs</pre>
+
+<h4>Files to update</h4>
+<table>
+<tr><th>File</th><th>Change</th></tr>
+<tr><td>assets/css/admin.css</td><td>Import ops-ui.css; deprecate duplicate vars</td></tr>
+<tr><td>assets/css/admin-sidebar.css</td><td>Align tokens to ops-ui.css</td></tr>
+<tr><td>includes/admin/layout-top.php</td><td>Load ops-ui.css, Inter font</td></tr>
+<tr><td>assets/css/messages.css, notifications.css</td><td>Extend with OOU badge/thread styles</td></tr>
+<tr><td>assets/js/admin.js</td><td>Extract palette prep; move sidebar to admin-sidebar.js (done)</td></tr>
+</table>
+
+<h4>New files</h4>
+<ul>
+<li><code>assets/css/ops-ui.css</code> — tokens + utilities</li>
+<li><code>includes/components/ops-button.php</code> — renderOpsButton()</li>
+<li><code>includes/components/ops-badge.php</code> — status pills</li>
+<li><code>includes/components/ops-data-table.php</code> — dense table wrapper</li>
+<li><code>includes/components/ops-kpi.php</code> — ribbon + card KPIs</li>
+<li><code>includes/components/ops-attention-card.php</code> — severity stack cards</li>
+<li><code>includes/components/ops-drawer.php</code> — right panel shell</li>
+<li><code>includes/components/ops-empty-state.php</code></li>
+<li><code>assets/js/ops-ui.js</code> — drawer, tabs, toast helpers</li>
+</ul>
+
+<h4>Component library scope (22 components — see Phase 1 checklist in UX Master Plan)</h4>
+<p>Modal: extend existing admin flash pattern. Form: reuse settings form classes. Notification: extend notification-list.php.</p>
+
+<h4>Database / APIs</h4>
+<p>None.</p>
+<h4>Risks</h4>
+<p>CSS regression on 109 pages. Mitigation: scoped .ops-* prefix; visual regression on dashboard + staff + events.</p>
+<h4>Rollback</h4>
+<p>Remove ops-ui.css from layout-top.php. Revert CSS files from backup.</p>
+<h4>Testing</h4>
+<ul>
+<li>Dashboard, staff list, events, scan-checkin render correctly light+dark</li>
+<li>Sidebar collapse 280px→72px unchanged</li>
+<li>Mobile admin drawer works</li>
+<li>Staff PWA unaffected (separate CSS)</li>
+</ul>
+<h4>Deploy</h4>
+<p>CSS-only deploy. No DB. Clear browser cache note in ops checklist.</p>
+<p>Effort: <span class="effort">1 week</span> · Priority: <span class="p0">P0 blocker for P2–P5</span></p>
+
+<!-- PHASE 2 -->
+<h2>Phase 2 — Command Center</h2>
+<h3>Objective</h3>
+<p>Replace dashboard.php hero layout with SOC-style Operations Command Center.</p>
+<h3>Business value</h3>
+<p>Ops managers see prioritized actions in &lt;3 seconds; event-day CTA auto-surfaces; reduces navigation by 40%.</p>
+
+<h4>Features → implementation</h4>
+<table>
+<tr><th>Feature</th><th>Existing code</th><th>Implementation</th></tr>
+<tr><td>Status Ribbon</td><td>getDashboardStats(), getTodayCheckinCount()</td><td>includes/command-center.php → getCommandCenterRibbon()</td></tr>
+<tr><td>Attention Stack</td><td>dashboard.php pending preview, countUnread*</td><td>getCommandCenterAttentionStack() — max 5 severity-sorted</td></tr>
+<tr><td>Event Timeline</td><td>getUpcomingEventsSummary()</td><td>Extend with approved/pending/on-site per event</td></tr>
+<tr><td>Live Activity Feed</td><td>api/attendance-live.php</td><td>Embed poll 30s on event day; reuse getLiveAttendancePayload()</td></tr>
+<tr><td>Event Context Selector</td><td>staff.php event filter</td><td>Header OpsEventSelector; persist ?event_id= + localStorage</td></tr>
+<tr><td>Quick Actions</td><td>dashboard quick strip</td><td>Role-filtered; single primary CTA from attention stack</td></tr>
+<tr><td>Dashboard Intelligence</td><td>ops-checklist getOpsLiveMetrics()</td><td>Merge ops metrics into attention stack</td></tr>
+</table>
+
+<h4>Files affected</h4>
+<p><strong>Modify:</strong> admin/dashboard.php (full restructure), includes/admin/header-bar.php (event selector), includes/staff-repository.php (new queries), includes/admin-capabilities.php (nav label "Command Center")</p>
+<p><strong>New:</strong> includes/command-center.php, api/command-center.php (JSON poll for ribbon/feed), assets/js/command-center.js</p>
+
+<h4>Database</h4>
+<p>Recommended index: <code>staff_registrations(event_id, status)</code> — migration phase 48</p>
+
+<h4>APIs</h4>
+<ul>
+<li><code>GET api/command-center.php?event_id=</code> — ribbon, attention, timeline, feed (admin session)</li>
+</ul>
+
+<h4>Risks</h4>
+<p>Performance on large registration counts. Mitigation: indexed queries, limit feed to 20 rows, cache timeline 5min.</p>
+<h4>Rollback</h4>
+<p>Revert dashboard.php from backup. Remove api/command-center.php.</p>
+<h4>Testing</h4>
+<ul>
+<li>Admin/Manager/Staff role see correct panels</li>
+<li>Event selector filters all panels</li>
+<li>Attention stack links work (pending→staff.php, messages→inbox.php)</li>
+<li>Live feed activates only on event day window</li>
+<li>Nick Cave production: 36 registrations display correctly</li>
+</ul>
+<p>Effort: <span class="effort">1.5 weeks</span> · Depends: P1</p>
+
+<div class="page-break"></div>
+
+<!-- PHASE 3 -->
+<h2>Phase 3 — Event Detail Hub (event.php)</h2>
+<h3>Objective</h3>
+<p>Single event command page with 8 tabs embedding existing functionality.</p>
+<h3>Business value</h3>
+<p>One URL per event for all ops; eliminates 8 disconnected nav hops.</p>
+
+<h4>Tab mapping</h4>
+<table>
+<tr><th>Tab</th><th>Embeds existing</th><th>Query param</th></tr>
+<tr><td>Overview</td><td>NEW stats panel</td><td>event.php?id=X</td></tr>
+<tr><td>Roster</td><td>admin/staff.php</td><td>?event_id=X&amp;embed=1</td></tr>
+<tr><td>Attendance</td><td>admin/attendance.php</td><td>?event_id=X&amp;embed=1</td></tr>
+<tr><td>Hours</td><td>admin/work-hours.php</td><td>?event_id=X&amp;embed=1</td></tr>
+<tr><td>QR &amp; Sign-in</td><td>print-qr.php, event-sign-qr.php</td><td>inline panels</td></tr>
+<tr><td>Sheets</td><td>events-sheets-action UI</td><td>from events.php row actions</td></tr>
+<tr><td>Finance</td><td>invoice-quick.php, job-records filtered</td><td>event_id filter</td></tr>
+<tr><td>Config</td><td>event-form.php fields read-only + quick edit</td><td>work_types, roles_needed</td></tr>
+</table>
+
+<h4>Files</h4>
+<p><strong>New:</strong> admin/event.php, includes/event-hub.php, assets/js/event-hub.js, assets/css/event-hub.css</p>
+<p><strong>Modify:</strong> admin/events.php (link→event.php), staff.php/attendance.php/work-hours.php (embed mode: hide sidebar via <code>$embedMode</code>), includes/admin/layout-top.php (embed layout variant)</p>
+
+<h4>Database</h4>
+<p>None required. Optional: <code>events.briefing_sent_at</code> for readiness (P8).</p>
+
+<h4>APIs</h4>
+<p><code>GET api/event-overview.php?id=</code> — stats JSON for Overview tab</p>
+
+<h4>Risks</h4>
+<p>Embed mode CSS conflicts. Mitigation: .ops-embed-layout body class hides sidebar/header.</p>
+<h4>Rollback</h4>
+<p>events.php links back to old URLs. Delete event.php.</p>
+<h4>Testing</h4>
+<ul>
+<li>All 8 tabs load with correct event filter</li>
+<li>Approve from Roster tab works</li>
+<li>Print QR from QR tab</li>
+<li>Deep link event.php?id=1 matches Nick Cave data</li>
+</ul>
+<p>Effort: <span class="effort">1.5 weeks</span> · Depends: P1, P2 optional</p>
+
+<!-- PHASE 4 -->
+<h2>Phase 4 — Live Ops Mode (live-ops.php)</h2>
+<h3>Objective</h3>
+<p>Full-screen event-day operations: scanner + roster board + live ticker.</p>
+<h3>Business value</h3>
+<p>Venue staff check in 3× faster; real-time on-site visibility; flight-control UX.</p>
+
+<h4>Features</h4>
+<table>
+<tr><th>Feature</th><th>Source</th></tr>
+<tr><td>QR Scanner</td><td>admin/scan-checkin.php + scan-checkin-action.php</td></tr>
+<tr><td>Live Check-ins</td><td>api/attendance-live.php (poll 10s)</td></tr>
+<tr><td>Attendance Board</td><td>attendance-repository getAttendanceList filtered</td></tr>
+<tr><td>Roster Board</td><td>staff.php approved list with on-site status</td></tr>
+<tr><td>Incident Tracking</td><td>NEW optional attendance.incident_note column</td></tr>
+<tr><td>Real-Time Updates</td><td>Extend attendance-live.php with WebSocket future; poll MVP</td></tr>
+</table>
+
+<h4>Files</h4>
+<p><strong>New:</strong> admin/live-ops.php, assets/js/live-ops.js, assets/css/live-ops.css, includes/live-ops.php</p>
+<p><strong>Modify:</strong> admin/scan-checkin.php (redirect to live-ops or embed), includes/admin-capabilities.php (nav: Live Ops), scan-checkin-action.php (return JSON for AJAX scanner)</p>
+
+<h4>Database</h4>
+<p>Optional: <code>ALTER TABLE attendance ADD incident_note VARCHAR(255) NULL</code> — phase 49</p>
+
+<h4>APIs</h4>
+<ul>
+<li>Extend <code>api/attendance-live.php</code> — add roster board payload (approved + checked_in flag)</li>
+<li><code>POST admin/scan-checkin-action.php</code> — ensure JSON response mode</li>
+</ul>
+
+<h4>Auto-activation</h4>
+<p>includes/live-ops.php → <code>shouldActivateEventDayMode($pdo)</code> — checks event window; Command Center CTA links here.</p>
+
+<h4>Risks</h4>
+<p class="p0">Camera permissions on mobile admin PWA. Scanner failure fallback to manual check-in drawer.</p>
+<h4>Rollback</h4>
+<p>scan-checkin.php remains standalone. Remove live-ops nav item.</p>
+<h4>Testing</h4>
+<ul>
+<li>QR scan records attendance (existing flow)</li>
+<li>Roster board updates within 10s</li>
+<li>Manual check-in drawer works</li>
+<li>Staff role lands on Live Ops by default</li>
+<li>Progress bar matches on-site count</li>
+</ul>
+<p>Effort: <span class="effort">2 weeks</span> · Depends: P1, P3 recommended</p>
+
+<!-- PHASE 5 -->
+<h2>Phase 5 — Unified Inbox (inbox.php)</h2>
+<h3>Objective</h3>
+<p>Merge notifications.php + staff-inbox.php into Activity &amp; Inbox with master-detail layout.</p>
+<h3>Business value</h3>
+<p>Single badge; one habit for ops comms; 50% fewer missed alerts.</p>
+
+<h4>Views</h4>
+<table>
+<tr><th>View</th><th>Data source</th><th>Existing functions</th></tr>
+<tr><td>All</td><td>Merged timeline</td><td>NEW mergeInboxTimeline()</td></tr>
+<tr><td>Messages</td><td>staff_messages</td><td>listStaffInboxThreads(), getStaffMessageThread()</td></tr>
+<tr><td>Activity</td><td>app_notifications admin</td><td>getAdminNotifications()</td></tr>
+<tr><td>System</td><td>app_notifications type=system</td><td>Filter by type</td></tr>
+</table>
+
+<h4>Files</h4>
+<p><strong>New:</strong> admin/inbox.php, includes/inbox-repository.php, assets/js/inbox.js</p>
+<p><strong>Modify:</strong> includes/admin-capabilities.php (replace notifications+staff-inbox nav with inbox), includes/admin/sidebar.php (single badge), admin/notifications.php + staff-inbox.php (301→inbox.php?view=), includes/notification-center.php (add category field support P11)</p>
+
+<h4>Database</h4>
+<pre>ALTER TABLE app_notifications ADD category ENUM('staff','events','attendance','finance','security','system') NULL;
+ALTER TABLE app_notifications ADD priority TINYINT UNSIGNED DEFAULT 2;</pre>
+
+<h4>APIs</h4>
+<ul>
+<li><code>GET api/inbox.php?view=&amp;event_id=&amp;q=</code></li>
+<li><code>POST api/inbox-mark-read.php</code></li>
+</ul>
+
+<h4>Risks</h4>
+<p>Timeline merge performance. Mitigation: paginate 50, index (audience, is_read, created_at) exists.</p>
+<h4>Rollback</h4>
+<p>Restore sidebar links to notifications.php + staff-inbox.php.</p>
+<h4>Testing</h4>
+<ul>
+<li>Unread badge = messages + activity combined</li>
+<li>Reply in thread without page reload</li>
+<li>Activity CTA opens correct target</li>
+<li>Filters: unread, today, by event</li>
+</ul>
+<p>Effort: <span class="effort">1.5 weeks</span> · Depends: P1, P11 partial overlap</p>
+
+<div class="page-break"></div>
+
+<!-- PHASE 6 -->
+<h2>Phase 6 — Auto Approval Engine</h2>
+<h3>Objective</h3>
+<p>Intelligent registration routing: auto-approve, manager review, incomplete, auto-reject.</p>
+<h3>Business value</h3>
+<p>Reduce manager workload 60% for repeat staff; faster roster fill; compliance gate automated.</p>
+
+<h4>Check pipeline (ordered)</h4>
+<ol>
+<li>Blacklist → Auto Rejected</li>
+<li>Duplicate email+event → Auto Rejected</li>
+<li>Profile completion (staff.profile_completed) → Incomplete (hold)</li>
+<li>PSA validity (staff.psa_expiry_date) → Incomplete or Manager Review</li>
+<li>Event roles_needed match → Manager Review if mismatch</li>
+<li>Staff trust score &lt; threshold (P7) → Manager Review</li>
+<li>All pass + trust ≥ Gold/Silver → Auto Approved</li>
+</ol>
+
+<h4>Files</h4>
+<p><strong>New:</strong> includes/auto-approval-engine.php, includes/approval-rules.php, admin/approval-rules.php (settings UI)</p>
+<p><strong>Modify:</strong> submit.php (run engine post-insert), admin/update-status.php (log override), includes/staff-repository.php (bulk path), includes/notification-center.php (notify outcome)</p>
+
+<h4>Database</h4>
+<pre>CREATE TABLE approval_rules (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  rule_key VARCHAR(50) NOT NULL UNIQUE,
+  is_enabled TINYINT(1) DEFAULT 1,
+  config_json JSON NULL,
+  updated_at TIMESTAMP
+);
+CREATE TABLE approval_log (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  registration_id INT UNSIGNED NOT NULL,
+  outcome ENUM('auto_approved','manager_review','incomplete','auto_rejected') NOT NULL,
+  rule_results JSON NOT NULL,
+  decided_by ENUM('system','admin') DEFAULT 'system',
+  admin_user_id INT UNSIGNED NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_approval_reg (registration_id)
+);</pre>
+
+<h4>APIs</h4>
+<p><code>POST api/approval-preview.php</code> — dry-run for admin on view-staff.php</p>
+
+<h4>Risks</h4>
+<p class="p0">False auto-approve on production. Mitigation: feature flag <code>auto_approval_enabled=0</code> default OFF; shadow mode logs only for 2 weeks.</p>
+<h4>Rollback</h4>
+<p>Disable flag. Engine skipped in submit.php. approval_log retained for audit.</p>
+<h4>Testing</h4>
+<ul>
+<li>Blacklisted email → rejected</li>
+<li>Incomplete profile → pending + profile_required notification</li>
+<li>Valid returning staff → auto-approved (flag on, staging only first)</li>
+<li>Manager override logged in approval_log</li>
+</ul>
+<p>Effort: <span class="effort">2 weeks</span> · Depends: P7 trust score optional MVP without</p>
+
+<!-- PHASE 7 -->
+<h2>Phase 7 — Staff Intelligence</h2>
+<h3>Objective</h3>
+<p>Staff Trust Score (Gold/Silver/Standard/Review) + event staffing recommendations.</p>
+<h3>Business value</h3>
+<p>Data-driven roster decisions; reduce no-shows; premium staff prioritized.</p>
+
+<h4>Trust score model</h4>
+<table>
+<tr><th>Tier</th><th>Score range</th><th>Criteria weights</th></tr>
+<tr><td>Gold</td><td>85–100</td><td>Attendance 40%, compliance 30%, tenure 20%, ratings 10%</td></tr>
+<tr><td>Silver</td><td>70–84</td><td>Same formula</td></tr>
+<tr><td>Standard</td><td>50–69</td><td>Default new staff</td></tr>
+<tr><td>Review Required</td><td>&lt;50 or flag</td><td>No-shows, blacklist history, PSA gaps</td></tr>
+</table>
+
+<h4>Metrics sources</h4>
+<ul>
+<li>Attendance rate: attendance vs approved registrations per staff_id</li>
+<li>No-shows: approved + no attendance record after event end</li>
+<li>Compliance: staff.psa_expiry_date, profile_completed</li>
+<li>Event history: count approved registrations</li>
+<li>Manager ratings: NEW manual 1–5 on view-staff.php</li>
+</ul>
+
+<h4>AI recommendations (rule-based MVP, not LLM)</h4>
+<p><code>suggestStaffForEvent($pdo, $eventId, $role, $limit)</code> — ranks by trust score + distance (eircode) + role match. Display on event.php Overview tab.</p>
+
+<h4>Files</h4>
+<p><strong>New:</strong> includes/staff-intelligence.php, cron/compute-trust-scores.php, admin/staff-intelligence.php (report)</p>
+<p><strong>Modify:</strong> admin/staff-directory.php (trust badge), admin/view-staff.php (rating input), event.php Overview (suggestions panel)</p>
+
+<h4>Database</h4>
+<pre>CREATE TABLE staff_trust_scores (
+  staff_id INT UNSIGNED PRIMARY KEY,
+  score SMALLINT UNSIGNED NOT NULL DEFAULT 50,
+  tier ENUM('gold','silver','standard','review') NOT NULL DEFAULT 'standard',
+  attendance_rate DECIMAL(5,2) NULL,
+  events_worked INT UNSIGNED DEFAULT 0,
+  no_show_count INT UNSIGNED DEFAULT 0,
+  manager_rating_avg DECIMAL(3,2) NULL,
+  computed_at TIMESTAMP,
+  FOREIGN KEY (staff_id) REFERENCES staff(id)
+);
+CREATE TABLE staff_manager_ratings (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  staff_id INT UNSIGNED NOT NULL,
+  event_id INT UNSIGNED NULL,
+  admin_user_id INT UNSIGNED NOT NULL,
+  rating TINYINT UNSIGNED NOT NULL,
+  note VARCHAR(255) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);</pre>
+
+<h4>Risks</h4>
+<p>Score perceived as unfair. Mitigation: transparent breakdown on directory; manual tier override for admin.</p>
+<h4>Rollback</h4>
+<p>Hide badges UI. Cron stops. Tables retained.</p>
+<p>Effort: <span class="effort">2 weeks</span> · Depends: P16 indexes, P6 optional integration</p>
+
+<!-- PHASE 8 -->
+<h2>Phase 8 — Event Readiness Engine</h2>
+<h3>Objective</h3>
+<p>Event Readiness Score (0–100) evaluating staffing, compliance, roster, sheets, briefing, venue.</p>
+<h3>Business value</h3>
+<p>Pre-event confidence metric; ops checklist automated; client reporting ready.</p>
+
+<h4>Scoring model (100 points)</h4>
+<table>
+<tr><th>Factor</th><th>Max pts</th><th>Source</th></tr>
+<tr><td>Staffing level</td><td>25</td><td>approved / staff_needed</td></tr>
+<tr><td>Compliance</td><td>20</td><td>% approved with valid PSA</td></tr>
+<tr><td>Roster completion</td><td>20</td><td>pending cleared</td></tr>
+<tr><td>Sheets sync</td><td>15</td><td>google_sheet_url set + last sync ok</td></tr>
+<tr><td>Briefing status</td><td>10</td><td>briefing_sent_at or manual checklist</td></tr>
+<tr><td>Venue readiness</td><td>10</td><td>venue GPS + eircode + times_confirmed</td></tr>
+</table>
+
+<h4>Files</h4>
+<p><strong>New:</strong> includes/event-readiness.php</p>
+<p><strong>Modify:</strong> includes/ops-checklist.php (integrate score), admin/event.php Overview, admin/ops-checklist.php, Command Center attention stack</p>
+
+<h4>Database</h4>
+<pre>CREATE TABLE event_readiness_snapshots (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  event_id INT UNSIGNED NOT NULL,
+  score TINYINT UNSIGNED NOT NULL,
+  factors_json JSON NOT NULL,
+  computed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_readiness_event (event_id, computed_at)
+);
+ALTER TABLE events ADD briefing_sent_at TIMESTAMP NULL;</pre>
+
+<h4>APIs</h4>
+<p><code>GET api/event-readiness.php?event_id=</code></p>
+
+<h4>Risks</h4>
+<p>Low — read-only computation.</p>
+<p>Effort: <span class="effort">1 week</span> · Depends: P3 event hub</p>
+
+<div class="page-break"></div>
+
+<!-- PHASE 9 -->
+<h2>Phase 9 — Client Portal</h2>
+<h3>Objective</h3>
+<p>Separate client-facing portal for event clients to view rosters, attendance, invoices, request staff.</p>
+<h3>Business value</h3>
+<p>Revenue retention; reduces email/WhatsApp reporting; professional client experience.</p>
+
+<h4>Architecture</h4>
+<pre>client.olasentra.com (NEW subdomain)
+client/
+  index.php, login.php, logout.php
+  dashboard.php — client events list
+  event.php — roster + attendance read-only
+  invoices.php — commission invoices for their events
+  reports.php — PDF/CSV download
+  request-staff.php — staffing request form → admin notification
+  messages.php — thread with ops (optional P5 integration)</pre>
+
+<h4>Permissions model</h4>
+<table>
+<tr><th>Role</th><th>Access</th></tr>
+<tr><td>client_admin</td><td>All events for client_org</td></tr>
+<tr><td>client_viewer</td><td>Read-only assigned events</td></tr>
+</table>
+
+<h4>Database</h4>
+<pre>CREATE TABLE client_organisations (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(150) NOT NULL,
+  contact_email VARCHAR(150) NOT NULL,
+  is_active TINYINT(1) DEFAULT 1
+);
+CREATE TABLE client_users (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  org_id INT UNSIGNED NOT NULL,
+  email VARCHAR(150) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  role ENUM('admin','viewer') DEFAULT 'viewer',
+  FOREIGN KEY (org_id) REFERENCES client_organisations(id)
+);
+CREATE TABLE client_event_access (
+  client_org_id INT UNSIGNED NOT NULL,
+  event_id INT UNSIGNED NOT NULL,
+  PRIMARY KEY (client_org_id, event_id)
+);
+CREATE TABLE client_staff_requests (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  org_id INT UNSIGNED NOT NULL,
+  event_id INT UNSIGNED NULL,
+  body TEXT NOT NULL,
+  status ENUM('open','acknowledged','closed') DEFAULT 'open',
+  created_at TIMESTAMP
+);</pre>
+
+<h4>Files (all NEW)</h4>
+<p>~15 PHP files under <code>client/</code>, <code>includes/client-auth.php</code>, <code>includes/client-repository.php</code>, <code>assets/css/client-portal.css</code></p>
+<p><strong>Modify:</strong> admin/event-form.php (assign client_org), includes/commission-invoice-repository.php (client filter)</p>
+
+<h4>Risks</h4>
+<p class="p0">PII exposure to clients (roster names). Mitigation: configurable field visibility per org; GDPR consent.</p>
+<h4>Rollback</h4>
+<p>Subdomain not configured = portal unreachable. No impact on main ops.</p>
+<p>Effort: <span class="effort">3 weeks</span> · Depends: P3, P15 security patterns</p>
+
+<!-- PHASE 10 -->
+<h2>Phase 10 — System Health Center</h2>
+<h3>Objective</h3>
+<p>Consolidate go-live.php + sidebar-health into full infrastructure monitoring dashboard.</p>
+
+<h4>Monitors</h4>
+<table>
+<tr><th>Check</th><th>Existing</th><th>Implementation</th></tr>
+<tr><td>Database</td><td>api/health.php, sidebar-health</td><td>PDO ping + table count</td></tr>
+<tr><td>Storage</td><td>api/health.php</td><td>writable storage/ check</td></tr>
+<tr><td>Email</td><td>settings test send</td><td>SMTP connect test</td></tr>
+<tr><td>Google Sheets</td><td>google-sheets-diagnostic.php</td><td>Token + sample read</td></tr>
+<tr><td>Google Drive</td><td>google-drive-oauth.php</td><td>OAuth expiry check</td></tr>
+<tr><td>Push</td><td>pwa-push.php VAPID</td><td>Key presence</td></tr>
+<tr><td>SSL</td><td>NEW</td><td>curl https self-check</td></tr>
+<tr><td>Backups</td><td>admin/backups.php</td><td>Last backup age</td></tr>
+<tr><td>Cron</td><td>ops-checklist</td><td>daily-cleanup last run log</td></tr>
+<tr><td>Apply Sync</td><td>apply-sync-ping.php</td><td>SSO + staff count compare</td></tr>
+</table>
+
+<h4>Files</h4>
+<p><strong>New:</strong> admin/system-health.php, includes/system-health.php, api/system-health.php</p>
+<p><strong>Modify:</strong> admin/go-live.php (link→system-health), includes/admin/sidebar-health.php (delegate), includes/ops-checklist.php</p>
+
+<h4>Database</h4>
+<pre>CREATE TABLE system_health_log (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  check_key VARCHAR(50) NOT NULL,
+  status ENUM('ok','warn','fail') NOT NULL,
+  message VARCHAR(255) NULL,
+  checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_health_time (checked_at)
+);</pre>
+
+<h4>Alerting</h4>
+<p>Failed check → app_notifications (audience=admin, category=system) + optional email if 2 consecutive fails.</p>
+
+<h4>Risks</h4>
+<p>Google API quota on frequent checks. Mitigation: cache 15min per check.</p>
+<p>Effort: <span class="effort">1 week</span> · Depends: P1, P5 notifications</p>
+
+<!-- PHASE 11 -->
+<h2>Phase 11 — Smart Notifications</h2>
+<h3>Objective</h3>
+<p>Upgrade notification system with categories, priority, avatars, event badges, bulk actions, real-time.</p>
+
+<h4>Files</h4>
+<p><strong>Modify:</strong> includes/notification-center.php (category/priority on create), includes/components/notification-list.php (avatar, badges), api/notifications.php (filter params), admin/inbox.php Activity view, staff-notifications.php</p>
+<p><strong>New:</strong> assets/js/notifications-realtime.js (poll 60s admin, 120s staff)</p>
+
+<h4>Database</h4>
+<p>Phase 5 category/priority columns. Add: <code>app_notifications.event_id INT UNSIGNED NULL</code></p>
+
+<h4>Backfill categories</h4>
+<table>
+<tr><th>type prefix</th><th>category</th></tr>
+<tr><td>registration*, status*</td><td>staff</td></tr>
+<tr><td>event_*</td><td>events</td></tr>
+<tr><td>checkin*</td><td>attendance</td></tr>
+<tr><td>invoice*</td><td>finance</td></tr>
+</table>
+
+<h4>Risks</h4>
+<p>Low — extends existing table.</p>
+<p>Effort: <span class="effort">1 week</span> · Depends: P5 inbox</p>
+
+<!-- PHASE 12 -->
+<h2>Phase 12 — AI Operations Assistant</h2>
+<h3>Objective</h3>
+<p>Design Olasentra AI — ops query interface. MVP: structured queries, not generative LLM on PII.</p>
+
+<h4>MVP capabilities (rule-based + SQL templates)</h4>
+<table>
+<tr><th>Query type</th><th>Data source</th></tr>
+<tr><td>"How many approved for Nick Cave?"</td><td>staff_registrations count</td></tr>
+<tr><td>"Staff with expiring PSA"</td><td>staff.psa_expiry_date</td></tr>
+<tr><td>"Event readiness"</td><td>event-readiness.php</td></tr>
+<tr><td>"Payroll summary June"</td><td>attendance hours aggregate</td></tr>
+<tr><td>"Suggest stewards for event X"</td><td>staff-intelligence.php</td></tr>
+</table>
+
+<h4>Architecture (future LLM-ready)</h4>
+<pre>admin AI drawer (⌘K → "Ask Olasentra")
+  → api/ai-ops.php (admin session, rate limited)
+    → includes/ai-ops.php query router
+      → approved SQL templates ONLY (no raw LLM SQL)
+      → log to ai_query_log
+Optional Phase 12b: OpenAI API with anonymized aggregates only</pre>
+
+<h4>Security model</h4>
+<ul>
+<li>Admin role only (not manager initially)</li>
+<li>No PPS/IBAN in AI responses — mask sensitive fields</li>
+<li>10 queries/min rate limit</li>
+<li>Full audit log</li>
+<li>PII fields excluded from any future LLM context</li>
+</ul>
+
+<h4>Files</h4>
+<p><strong>New:</strong> includes/ai-ops.php, api/ai-ops.php, assets/js/ai-ops-drawer.js, admin/ai-ops-settings.php</p>
+
+<h4>Database</h4>
+<pre>CREATE TABLE ai_query_log (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  admin_user_id INT UNSIGNED NOT NULL,
+  query_text VARCHAR(500) NOT NULL,
+  intent VARCHAR(50) NULL,
+  response_summary VARCHAR(255) NULL,
+  created_at TIMESTAMP
+);</pre>
+
+<h4>Risks</h4>
+<p>Scope creep into LLM. Mitigation: MVP ships template queries only; LLM is Phase 12b gated on privacy review.</p>
+<p>Effort: <span class="effort">2 weeks MVP</span> · Depends: P5, P7, P8</p>
+
+<div class="page-break"></div>
+
+<!-- PHASE 13 -->
+<h2>Phase 13 — Staff PWA 2.0</h2>
+<h3>Objective</h3>
+<p>3-tab shell: Home / Inbox / Account for signed-in staff.</p>
+
+<h4>Screen map</h4>
+<table>
+<tr><th>Tab</th><th>Route</th><th>Source</th></tr>
+<tr><td>Home</td><td>staff-home.php (NEW)</td><td>Next shift from staff_registrations; status chips; broadcast</td></tr>
+<tr><td>Inbox</td><td>staff-inbox.php (NEW) or staff-messages.php evolve</td><td>Merge staff-messages + staff-notifications</td></tr>
+<tr><td>Account</td><td>staff-account.php (NEW)</td><td>staff-profile.php compact + PSA + sign out</td></tr>
+</table>
+
+<h4>Files</h4>
+<p><strong>New:</strong> staff-home.php, staff-inbox.php, staff-account.php, includes/staff-app-nav.php, assets/css/staff-tabs.css, assets/js/staff-app.js</p>
+<p><strong>Modify:</strong> staff-app.php (redirect signed-in→staff-home), includes/staff-portal-session.php (landing URL), staff-messages.php + staff-notifications.php (301→staff-inbox), sw.js (cache shell), includes/pwa-head.php</p>
+
+<h4>Database</h4>
+<p>None.</p>
+
+<h4>Risks</h4>
+<p>Token-based access for unsigned users must remain on status.php / inbox ?token=.</p>
+<h4>Testing</h4>
+<ul>
+<li>Install PWA on iOS/Android</li>
+<li>Push notification on approval</li>
+<li>Next shift card accurate</li>
+<li>Sign out returns to staff-app.php hub</li>
+</ul>
+<p>Effort: <span class="effort">2 weeks</span> · Depends: P5 inbox patterns, P11 notifications</p>
+
+<!-- PHASE 14 -->
+<h2>Phase 14 — Public Website Redesign</h2>
+<h3>Objective</h3>
+<p>Premium marketing site — Apple/Netflix/Eventbrite aesthetic.</p>
+
+<h4>Pages</h4>
+<table>
+<tr><th>Page</th><th>File</th><th>Change</th></tr>
+<tr><td>Home</td><td>home.php</td><td>Cinematic hero, event carousel, social proof</td></tr>
+<tr><td>Events</td><td>events-page.php</td><td>Card grid from live events table</td></tr>
+<tr><td>Join Team</td><td>roles.php + CTA→index.php</td><td>Role explainer video/embed</td></tr>
+<tr><td>Services</td><td>NEW services.php</td><td>B2B client offering (feeds P9)</td></tr>
+<tr><td>About</td><td>NEW about.php or CMS section</td><td>Company story</td></tr>
+<tr><td>Contact</td><td>contact.php</td><td>Premium form</td></tr>
+</table>
+
+<h4>Files</h4>
+<p><strong>New:</strong> assets/css/public-premium.css, assets/js/public-premium.js, services.php, about.php</p>
+<p><strong>Modify:</strong> includes/public/layout-top.php, all public pages, admin/website-*.php CMS keys</p>
+
+<h4>Database</h4>
+<p>system_settings: new CMS keys for services/about hero content.</p>
+
+<h4>Risks</h4>
+<p>SEO disruption. Mitigation: preserve URLs; 301 only for new pages.</p>
+<p>Effort: <span class="effort">2 weeks</span> · Independent of admin ops phases</p>
+
+<!-- PHASE 15 -->
+<h2>Phase 15 — Security Hardening</h2>
+<h3>Objective</h3>
+<p>Close all HIGH audit items before intelligence/client portals expand attack surface.</p>
+
+<h4>Task list → files</h4>
+<table>
+<tr><th>Task</th><th>Files</th></tr>
+<tr><td>Apply admin CSRF</td><td>apply/admin/includes/csrf.php (NEW), all apply/admin/admin/*.php POST forms, update-details.php</td></tr>
+<tr><td>Upload validation</td><td>apply/admin/update-details.php — MIME, size, rename, CSRF</td></tr>
+<tr><td>Rate limiting</td><td>includes/rate-limiter.php (NEW), api/registrant-lookup.php, api/ai-ops.php</td></tr>
+<tr><td>Session hardening</td><td>apply/admin/includes/auth.php → initSecureSession()</td></tr>
+<tr><td>SSO secrets</td><td>apply/admin/config/sso.local.php (deploy), remove dev fallback in apply-sso.php</td></tr>
+<tr><td>GET→POST</td><td>admin/import-roster.php, apply/admin/admin/sync-sheets.php, admin/backups-export.php</td></tr>
+<tr><td>Apply uploads htaccess</td><td>apply/admin/uploads/.htaccess (NEW)</td></tr>
+<tr><td>API protection</td><td>api/*.php — X-Requested-With check for JSON endpoints</td></tr>
+</table>
+
+<h4>Database</h4>
+<pre>CREATE TABLE rate_limit_log (
+  ip_hash CHAR(64) NOT NULL,
+  endpoint VARCHAR(80) NOT NULL,
+  hit_count INT UNSIGNED DEFAULT 1,
+  window_start TIMESTAMP,
+  PRIMARY KEY (ip_hash, endpoint)
+);</pre>
+
+<h4>Risks</h4>
+<p class="p0">Apply CSRF breaks bookmarked POST flows. Mitigation: staging test on apply.olasentra.com first.</p>
+<h4>Rollback</h4>
+<p>Revert apply/admin files. Rate limiter disable flag in settings.</p>
+<p>Effort: <span class="effort">1.5 weeks</span> · Priority: <span class="p0">Before P9 client portal</span></p>
+
+<!-- PHASE 16 -->
+<h2>Phase 16 — Database Optimization (PACKAGE READY)</h2>
+<p><strong>Full package:</strong> docs/PHASE-16-IMPLEMENTATION-PACKAGE.pdf · SQL artifacts in database/</p>
+<h3>Objective</h3>
+<p>Consolidate migration runner (phases 11–13, 30–31, 35–51), composite indexes, staff_id backfill, FK gaps, platform ops tables for approved future modules.</p>
+
+<h4>SQL files (generated — not yet applied to production)</h4>
+<table>
+<tr><th>File</th><th>Purpose</th></tr>
+<tr><td>database/phase16-precheck.sql</td><td>Read-only diagnostics BEFORE migrate</td></tr>
+<tr><td>database/migrate-phase48-composite-indexes.sql</td><td>Performance indexes</td></tr>
+<tr><td>database/migrate-phase49-backfill-staff-id.sql</td><td>Link registrations → staff</td></tr>
+<tr><td>database/migrate-phase50-foreign-keys.sql</td><td>FK staff_messages, invoice lines, job records</td></tr>
+<tr><td>database/migrate-phase51-platform-ops-tables.sql</td><td>Cleanup, storage, audit, SSL, emergency (equipment tables dormant — out of scope)</td></tr>
+<tr><td>database/phase16-postcheck.sql</td><td>Verification AFTER migrate</td></tr>
+<tr><td>database/rollback-phase48-51.sql</td><td>Rollback indexes, FKs, new tables</td></tr>
+<tr><td>docs/PHASE-16-RUNNER-MANIFEST.txt</td><td>Exact getDatabaseMigrationFiles() order</td></tr>
+</table>
+
+<h4>PHP changes (Phase 16b — after SQL approved)</h4>
+<ul>
+<li>includes/database-migrations.php — runner manifest (52 files)</li>
+<li>includes/staff-repository.php — deleteStaffProfileCompletely() + messages/notifications/push</li>
+<li>admin/go-live.php — migration status panel</li>
+</ul>
+
+<h4>Execution order</h4>
+<p>Backup → precheck → runner gap SQL (35–47 if missing) → phase48 → phase49 → precheck orphans → phase50 → phase51 → postcheck → deploy PHP runner update.</p>
+<p>Effort: <span class="effort">1 week</span> · <strong>Gate F:</strong> Approve PHASE-16-IMPLEMENTATION-PACKAGE before production SQL run · Phase 15 blocked until P16 complete</p>
+
+<!-- NEW MODULES P18-P22 -->
+<h2>Phase 18 — Cleanup Center</h2>
+<p><strong>Objective:</strong> Unified admin surface for safe log/temp/cache cleanup (evolves system-cleanup.php).</p>
+<p><strong>Reuse:</strong> admin/system-cleanup.php, includes/system-cleanup.php (getStorageUsageReport, runSystemCleanup)</p>
+<p><strong>New:</strong> admin/cleanup-center.php, includes/cleanup-center.php · <strong>DB:</strong> platform_cleanup_log (phase 51)</p>
+<p>Effort: 1 wk · Depends: P16, P10</p>
+
+<h2>Phase 19 — Storage Analyzer</h2>
+<p><strong>Objective:</strong> Deep disk analysis with trends, large-file finder, backup rotation advisor.</p>
+<p><strong>Reuse:</strong> getStorageUsageReport(), directorySizeBytes(), admin/backups.php</p>
+<p><strong>New:</strong> Tab in Cleanup Center · cron/monthly-storage-snapshot.php · <strong>DB:</strong> platform_storage_snapshots</p>
+<p>Effort: 0.5 wk · Depends: P18</p>
+
+<h2>Phase 20 — Monthly System Audit</h2>
+<p><strong>Objective:</strong> Automated monthly audit report (security, DB, backups, registrations, integrations).</p>
+<p><strong>Reuse:</strong> docs/AUDIT-REPORT template, go-live.php checks, ops-checklist.php</p>
+<p><strong>New:</strong> cron/monthly-system-audit.php, includes/monthly-audit.php, admin/audit-reports.php · <strong>DB:</strong> platform_audit_runs</p>
+<p>Effort: 1 wk · Depends: P16, P10</p>
+
+<h2>Phase 21 — Domain &amp; SSL Monitoring</h2>
+<p><strong>Objective:</strong> Monitor admin.*, register.*, apply.*, main domain — SSL expiry, HTTP reachability.</p>
+<p><strong>Reuse:</strong> includes/site-urls.php, api/health.php pattern</p>
+<p><strong>New:</strong> includes/ssl-monitor.php, cron/ssl-check.php, System Health panel · <strong>DB:</strong> platform_ssl_checks</p>
+<p>Effort: 0.5 wk · Depends: P10, P16</p>
+
+<h2>Phase 22 — Emergency Event Mode</h2>
+<p><strong>Objective:</strong> One-click escalation: mass notify, lock roster, fullscreen Live Ops, incident log.</p>
+<p><strong>Reuse:</strong> live-ops.php (P4), event-staff-alerts.php, staff-broadcast.php</p>
+<p><strong>New:</strong> admin/emergency-event.php, includes/emergency-event.php · <strong>DB:</strong> emergency_event_log · Flag: feature_emergency_event_mode</p>
+<p>Effort: 1 wk · Depends: P4, P11</p>
+
+<div class="callout removed" style="border-color:#ef4444;background:#fef2f2;"><strong>Removed from roadmap (v1.2):</strong> Equipment Rental (former P23). Tables <code>equipment_categories</code>, <code>equipment_items</code>, <code>equipment_rentals</code> may exist empty on production — <strong>no development</strong> unless explicitly approved later. Olasentra is not an equipment rental platform.</div>
+
+<!-- PHASE 17 -->
+<h2>Phase 17 — Deployment Strategy</h2>
+
+<h3>Deployment pipeline (every phase)</h3>
+<pre>1. Admin → Backups → Full backup (production)
+2. scripts/pre-deploy-backup.ps1 (local zip)
+3. Git commit (user-requested only)
+4. Staging verification if available (Laragon local)
+5. powershell -ExecutionPolicy Bypass -File .\deploy.ps1
+6. Post-deploy smoke test (see checklist per phase)
+7. Monitor system-health + error logs 24h</pre>
+
+<h3>Phase deployment order (recommended)</h3>
+<table>
+<tr><th>Wave</th><th>Phases</th><th>Rationale</th></tr>
+<tr><td>Wave 1 Foundation</td><td>P16 ✓ → Gate G → P15 → P1</td><td>DB complete; security; design system</td></tr>
+<tr><td>Wave 2 Core Ops</td><td>P2, P3, P4, P5</td><td>Command Center, Event Hub, Live Ops, Inbox</td></tr>
+<tr><td>Wave 3 Intelligence</td><td>P6, P7, P8</td><td>Auto approval, staff intelligence, readiness</td></tr>
+<tr><td>Wave 4 Health &amp; Ops</td><td>P10, P18–P22</td><td>System Health Center, cleanup, SSL, emergency</td></tr>
+<tr><td>Wave 5 Growth</td><td>P9, P13, P12</td><td>Client portal, Staff PWA 2.0, AI ops assistant</td></tr>
+<tr><td>Wave 6 Marketing</td><td>P14</td><td>Public website refresh</td></tr>
+</table>
+
+<h3>Feature flags (system_settings keys)</h3>
+<pre>feature_command_center_v2=0
+feature_event_hub=0
+feature_live_ops=0
+feature_unified_inbox=0
+feature_auto_approval=0
+feature_trust_scores=0
+feature_client_portal=0
+feature_ai_ops=0
+feature_staff_pwa_v2=0</pre>
+
+<h3>Global rollback procedure</h3>
+<ol>
+<li>Restore FTP from pre-deploy-backup zip (scripts/upload-to-server.ps1 reverse manual)</li>
+<li>Restore MySQL from admin/backups download</li>
+<li>Clear opcache if applicable</li>
+<li>Verify api/health.php</li>
+</ol>
+
+<h3>Global production smoke test</h3>
+<ul>
+<li>admin login + dashboard load</li>
+<li>staff.php Nick Cave 36 rows</li>
+<li>register.olasentra.com form submit (test email)</li>
+<li>scan-checkin.php camera init</li>
+<li>staff-app.php load</li>
+<li>apply SSO bridge</li>
+</ul>
+
+<div class="page-break"></div>
+
+<h2>Master Effort Summary</h2>
+<table>
+<tr><th>Phase</th><th>Name</th><th>Effort</th><th>Priority</th><th>Depends</th></tr>
+<tr><td>P0</td><td>Analysis</td><td>Done</td><td>—</td><td>—</td></tr>
+<tr><td>P1</td><td>Design System OOU</td><td>1 wk</td><td class="p0">Critical</td><td>—</td></tr>
+<tr><td>P2</td><td>Command Center</td><td>1.5 wk</td><td class="p0">Critical</td><td>P1</td></tr>
+<tr><td>P3</td><td>Event Hub</td><td>1.5 wk</td><td class="p1">High</td><td>P1</td></tr>
+<tr><td>P4</td><td>Live Ops</td><td>2 wk</td><td class="p0">Critical</td><td>P1,P3</td></tr>
+<tr><td>P5</td><td>Unified Inbox</td><td>1.5 wk</td><td class="p1">High</td><td>P1</td></tr>
+<tr><td>P6</td><td>Auto Approval</td><td>2 wk</td><td class="p1">High</td><td>P16</td></tr>
+<tr><td>P7</td><td>Staff Intelligence</td><td>2 wk</td><td class="p2">Medium</td><td>P16</td></tr>
+<tr><td>P8</td><td>Event Readiness</td><td>1 wk</td><td class="p2">Medium</td><td>P3</td></tr>
+<tr><td>P9</td><td>Client Portal</td><td>3 wk</td><td class="p2">Medium</td><td>P15,P3</td></tr>
+<tr><td>P10</td><td>System Health</td><td>1 wk</td><td class="p1">High</td><td>P1</td></tr>
+<tr><td>P11</td><td>Smart Notifications</td><td>1 wk</td><td class="p2">Medium</td><td>P5</td></tr>
+<tr><td>P12</td><td>AI Ops Assistant</td><td>2 wk</td><td class="p2">Medium</td><td>P5,P7,P8</td></tr>
+<tr><td>P13</td><td>Staff PWA 2.0</td><td>2 wk</td><td class="p1">High</td><td>P5,P11</td></tr>
+<tr><td>P14</td><td>Public Website</td><td>2 wk</td><td class="p2">Medium</td><td>—</td></tr>
+<tr><td>P15</td><td>Security Hardening</td><td>1.5 wk</td><td class="p0">Critical</td><td>—</td></tr>
+<tr><td>P16</td><td>Database Optimization</td><td>1 wk</td><td class="p0">Critical</td><td>—</td></tr>
+<tr><td>P17</td><td>Deployment Strategy</td><td>Ongoing</td><td>—</td><td>All</td></tr>
+<tr><td>P18</td><td>Cleanup Center</td><td>1 wk</td><td class="p1">High</td><td>P16,P10</td></tr>
+<tr><td>P19</td><td>Storage Analyzer</td><td>0.5 wk</td><td class="p2">Medium</td><td>P18</td></tr>
+<tr><td>P20</td><td>Monthly System Audit</td><td>1 wk</td><td class="p1">High</td><td>P16,P10</td></tr>
+<tr><td>P21</td><td>Domain &amp; SSL Monitoring</td><td>0.5 wk</td><td class="p1">High</td><td>P10,P16</td></tr>
+<tr><td>P22</td><td>Emergency Event Mode</td><td>1 wk</td><td class="p1">High</td><td>P4,P11</td></tr>
+<tr><td colspan="2"><strong>Total</strong></td><td><strong>~27 weeks</strong></td><td colspan="2">P16 complete · P15 after Gate G · P23 rental removed</td></tr>
+</table>
+
+<h2>Approval Gates</h2>
+<div class="callout ok">
+<ol>
+<li><strong>Gate A:</strong> UX Master Plan v2 + Implementation Plan v1.0 — <em>APPROVED</em></li>
+<li><strong>Gate F (before P16 production SQL):</strong> Approve PHASE-16-IMPLEMENTATION-PACKAGE.pdf</li>
+<li><strong>Gate G (before P15):</strong> P16 postcheck passed on production + 24h stable</li>
+<li><strong>Gate B (before Wave 2):</strong> P1 component library reviewed on staging</li>
+<li><strong>Gate C (before P6 auto-approve):</strong> Shadow mode 2 weeks minimum on production</li>
+<li><strong>Gate D (before P9 client portal):</strong> P15 security audit re-run; GDPR review</li>
+<li><strong>Gate E (before P12 LLM):</strong> Privacy impact assessment; MVP templates only until approved</li>
+</ol>
+</div>
+
+<p class="footer">Olasentra Event Operations Command Platform · Implementation Master Plan v1.2 · 6 June 2026 · Companion: PLATFORM-FOCUS.pdf, EVERYTHING.pdf</p>
+
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Deployed vs pending — Event Staff</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:2rem;background:#0f172a;color:#e2e8f0;line-height:1.5;max-width:900px}
+h1,h2{color:#f8fafc}
+.card{background:#1e293b;border:1px solid rgba(148,163,184,.2);border-radius:12px;padding:1.25rem;margin:1rem 0}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th,td{padding:.45rem .6rem;border-bottom:1px solid rgba(148,163,184,.15);text-align:left;vertical-align:top}
+th{color:#94a3b8;font-size:.72rem;text-transform:uppercase}
+.ok{color:#4ade80}.pending{color:#fbbf24}.stub{color:#94a3b8}
+</style>
+</head>
+<body>
+<h1>Deployed vs pending features</h1>
+<p>Updated: 2026-06-07 — includes rejection → Google Sheet purge fix</p>
+
+<div class="card">
+<h2>Deployed &amp; working (this release)</h2>
+<ul>
+<li><strong>Reject application</strong> → rebuilds linked event Google Sheet without rejected row (works even if live sync is OFF)</li>
+<li>Single reject (<code>update-status.php</code>) and bulk reject (<code>bulk-status.php</code>)</li>
+<li>Apply portal auth fix, admin V3 contrast fixes, events page declutter</li>
+<li>Staff profile edit for managers, system health page</li>
+<li>Production smoke: admin 95 pages, apply 19 URLs</li>
+</ul>
+</div>
+
+<div class="card">
+<h2>Feature flags — STUB (not wired, leave OFF)</h2>
+<table>
+<thead><tr><th>Flag</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>feature_ops_ui</td><td class="stub">STUB — ops UI design system</td></tr>
+<tr><td>feature_command_center_v2</td><td class="stub">STUB — SOC dashboard</td></tr>
+<tr><td>feature_unified_inbox</td><td class="stub">STUB — merge notifications + messages</td></tr>
+<tr><td>feature_event_hub</td><td class="stub">STUB — per-event command tabs</td></tr>
+<tr><td>feature_live_ops</td><td class="stub">STUB — fullscreen scanner</td></tr>
+<tr><td>feature_auto_approval</td><td class="pending">UNUSED — no engine (0/1/2)</td></tr>
+<tr><td>feature_trust_scores</td><td class="stub">STUB — trust badges</td></tr>
+<tr><td>feature_system_health_center</td><td class="stub">Superseded by system-health.php</td></tr>
+<tr><td>feature_client_portal</td><td class="stub">STUB — client subdomain</td></tr>
+<tr><td>feature_staff_pwa_v2</td><td class="stub">STUB — 3-tab PWA shell</td></tr>
+<tr><td>feature_ai_ops</td><td class="stub">STUB — AI ops drawer</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="card">
+<h2>Built pages — operational but not in main sidebar</h2>
+<table>
+<thead><tr><th>Page</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>job-records.php</td><td class="ok">Working — reach via Invoices area</td></tr>
+<tr><td>personal-invoices.php</td><td class="ok">Working — reach via Invoices area</td></tr>
+<tr><td>feature-flags.php</td><td class="ok">Superuser only — Settings / dashboard link</td></tr>
+<tr><td>cleanup-report.php</td><td class="ok">Settings capability — Go live / system health links</td></tr>
+<tr><td>geo-audits.php</td><td class="ok">Audit capability</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="card">
+<h2>Operator checks (not code blockers)</h2>
+<ul>
+<li>Google Sheets: service account + Drive folder + OAuth connected for sheet purge on reject</li>
+<li>Apply payroll sync: confirm cron or approval trigger after reject</li>
+<li>GPS flag: keep OFF until pilot sign-off</li>
+<li>cPanel cron schedules: confirm manually</li>
+</ul>
+</div>
+</body>
+</html>

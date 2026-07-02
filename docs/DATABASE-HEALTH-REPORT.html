@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Database Health Report — Olasentra Live Platform</title>
+<style>
+@page { size: A4; margin: 10mm 9mm; }
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 7.5pt; line-height: 1.35; color: #0f172a; margin: 0; padding: 12px; }
+.cover { page-break-after: always; text-align: center; padding: 44px 24px; background: #030712; color: #f8fafc; margin: -12px -12px 0; min-height: 96vh; display: flex; flex-direction: column; justify-content: center; }
+.cover h1 { font-size: 18pt; }
+h2 { font-size: 10.5pt; margin: 14px 0 5px; padding: 4px 9px; background: #1e293b; color: #fff; border-radius: 4px; page-break-after: avoid; }
+h3 { font-size: 8.5pt; margin: 8px 0 3px; color: #4338ca; }
+table { width: 100%; border-collapse: collapse; margin: 4px 0 6px; font-size: 6.5pt; }
+th { background: #334155; color: #fff; padding: 3px 5px; text-align: left; }
+td { border-bottom: 1px solid #e2e8f0; padding: 3px 5px; vertical-align: top; }
+tr:nth-child(even) td { background: #f8fafc; }
+pre { background: #0f172a; color: #e2e8f0; padding: 7px; font-size: 6pt; border-radius: 4px; white-space: pre-wrap; }
+.callout { border-left: 3px solid #6366f1; background: #eef2ff; padding: 6px 8px; margin: 5px 0; font-size: 7pt; }
+.ok { border-color: #22c55e; background: #f0fdf4; }
+.warn { border-color: #f59e0b; background: #fff7ed; }
+.crit { border-color: #ef4444; background: #fef2f2; }
+.score { font-size: 14pt; font-weight: 700; color: #4338ca; }
+.page-break { page-break-before: always; }
+code { background: #f1f5f9; padding: 1px 3px; font-size: 6pt; }
+ul, ol { margin: 3px 0; padding-left: 14px; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+<p>Olasentra Event Operations Command Platform</p>
+<h1>Database Health Report</h1>
+<p>Live production audit — read-only analysis</p>
+<p style="color:#94a3b8;margin-top:20px;">6 June 2026 · olastofx_eventstaff · MariaDB 11.4.10</p>
+<p>Post Phase 16 · Gate G monitoring period</p>
+</div>
+
+<h2>Executive Summary (Business)</h2>
+<div class="callout ok">
+<strong>Overall verdict:</strong> Database is <strong>healthy for current scale</strong> (~63 staff, 392 registrations, 32 events). Phase 16 verified: zero orphans, FKs in place, indexes applied.
+</div>
+
+<table>
+<tr><th>Score</th><th>Rating</th><th>Summary</th></tr>
+<tr><td class="score">82</td><td>Overall Health</td><td>Solid live ops; good backup discipline</td></tr>
+<tr><td class="score">78</td><td>Performance</td><td>Fine today; tune before 2,000+ staff</td></tr>
+<tr><td class="score">68</td><td>Security</td><td>FKs improved; secrets in DB settings = main risk</td></tr>
+<tr><td class="score">90</td><td>Storage</td><td>Tiny DB (~0.3 MB); site files dominate disk</td></tr>
+<tr><td class="score">85</td><td>Data Quality</td><td>Clean emails; multi-event regs intentional</td></tr>
+</table>
+
+<h3>Priority issues</h3>
+<table>
+<tr><th>Severity</th><th>Issue</th><th>Impact</th></tr>
+<tr><td class="crit">Critical</td><td>API keys, SMTP password, OAuth tokens in system_settings</td><td>Credential leak if backup exposed</td></tr>
+<tr><td>High</td><td>deleteStaffProfileCompletely() incomplete cascade</td><td>GDPR erasure gap</td></tr>
+<tr><td>High</td><td>getAllEvents() aggregates all registrations per load</td><td>Dashboard slows at scale</td></tr>
+<tr><td>Medium</td><td>LOWER(TRIM(email)) bypasses indexes</td><td>Search slows at 5k+ rows</td></tr>
+<tr><td>Medium</td><td>system_settings MyISAM + latin1</td><td>Engine/charset inconsistency</td></tr>
+<tr><td>Low</td><td>5 platform ops tables (P18–P22) + 3 dormant equipment tables</td><td>Equipment rental out of scope</td></tr>
+</table>
+
+<h2>Section 1 — Database Overview</h2>
+<table>
+<tr><th>Metric</th><th>Value</th></tr>
+<tr><td>Database name</td><td><code>olastofx_eventstaff</code></td></tr>
+<tr><td>Server</td><td>MariaDB 11.4.10-cll-lve (shared hosting)</td></tr>
+<tr><td>Total tables</td><td><strong>27</strong> (19 with data + 8 empty platform P51)</td></tr>
+<tr><td>Total records</td><td><strong>~1,045</strong> rows</td></tr>
+<tr><td>Database size (dump)</td><td><strong>326.5 KB</strong> (~303 KB data payload)</td></tr>
+<tr><td>Index size (est.)</td><td><strong>80–120 KB</strong> (~30–40% of data)</td></tr>
+<tr><td>Storage engines</td><td>InnoDB: 17 tables · MyISAM: 2 (system_settings, push_subscriptions)</td></tr>
+<tr><td>Live health</td><td>app ok · database ok · storage ok</td></tr>
+</table>
+
+<h3>Largest tables</h3>
+<table>
+<tr><th>Rank</th><th>Table</th><th>Rows</th><th>Data KB</th><th>% data</th></tr>
+<tr><td>1</td><td>staff_registrations</td><td>392</td><td>162.1</td><td>53.5%</td></tr>
+<tr><td>2</td><td>app_notifications</td><td>210</td><td>63.2</td><td>20.9%</td></tr>
+<tr><td>3</td><td>staff</td><td>63</td><td>26.2</td><td>8.7%</td></tr>
+<tr><td>4</td><td>admin_audit_log</td><td>154</td><td>16.2</td><td>5.4%</td></tr>
+<tr><td>5</td><td>system_settings</td><td>69 keys</td><td>15.1</td><td>5.0%</td></tr>
+</table>
+
+<h3>Fastest growing</h3>
+<table>
+<tr><th>Table</th><th>Signal</th><th>Rate est.</th></tr>
+<tr><td>staff_registrations</td><td>392 rows in ~4 days</td><td>~200–400/week peak season</td></tr>
+<tr><td>app_notifications</td><td>210 JSON payloads</td><td>~50/day active ops</td></tr>
+<tr><td>admin_audit_log</td><td>154 entries</td><td>~35/day</td></tr>
+<tr><td>ip_geo_cache</td><td>107 lookups</td><td>Grows with traffic</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2>Section 2 — Table Analysis (all 27 tables)</h2>
+<table>
+<tr><th>Table</th><th>Purpose</th><th>Rows</th><th>KB</th><th>Health</th><th>Notes</th></tr>
+<tr><td>staff_registrations</td><td>Per-event registrations</td><td>392</td><td>162</td><td>A</td><td>53% of DB</td></tr>
+<tr><td>app_notifications</td><td>Notification feed</td><td>210</td><td>63</td><td>A-</td><td>Fast growth</td></tr>
+<tr><td>staff</td><td>Canonical profiles</td><td>63</td><td>26</td><td>A</td><td>Unique email</td></tr>
+<tr><td>admin_audit_log</td><td>Admin audit</td><td>154</td><td>16</td><td>A</td><td>Good coverage</td></tr>
+<tr><td>events</td><td>Event master</td><td>32</td><td>8</td><td>A</td><td>Summer roster</td></tr>
+<tr><td>system_settings</td><td>Config + secrets</td><td>69</td><td>15</td><td>C</td><td>MyISAM; secrets</td></tr>
+<tr><td>ip_geo_cache</td><td>Geo cache</td><td>107</td><td>8</td><td>B+</td><td>TTL cleanup</td></tr>
+<tr><td>venues</td><td>Venues</td><td>7</td><td>1</td><td>A</td><td>Reference</td></tr>
+<tr><td>work_types</td><td>Work types</td><td>5</td><td>1</td><td>A</td><td>Seed</td></tr>
+<tr><td>personal_invoice_lines</td><td>Invoice lines</td><td>3</td><td>&lt;1</td><td>A</td><td>FK P16</td></tr>
+<tr><td>saved_job_records</td><td>Job records</td><td>2</td><td>&lt;1</td><td>A</td><td>FK P16</td></tr>
+<tr><td>admin_users</td><td>Admin accounts</td><td>1</td><td>&lt;1</td><td>B</td><td>Single user</td></tr>
+<tr><td>attendance</td><td>Check-ins</td><td>0</td><td>0</td><td>A</td><td>Pre-event</td></tr>
+<tr><td>commission_invoices</td><td>Commission</td><td>0</td><td>0</td><td>A</td><td>Unused</td></tr>
+<tr><td>commission_invoice_lines</td><td>Comm. lines</td><td>0</td><td>0</td><td>A</td><td>Unused</td></tr>
+<tr><td>staff_messages</td><td>Inbox</td><td>0</td><td>0</td><td>A</td><td>FK P16</td></tr>
+<tr><td>staff_blacklist</td><td>Blocked emails</td><td>0</td><td>0</td><td>A</td><td>Empty OK</td></tr>
+<tr><td>push_subscriptions</td><td>PWA push</td><td>0</td><td>0</td><td>B</td><td>MyISAM</td></tr>
+<tr><td>website_visits</td><td>Analytics</td><td>0</td><td>0</td><td>A</td><td>Enabled</td></tr>
+<tr><td>platform_cleanup_log</td><td>P18</td><td>0</td><td>0</td><td>A</td><td>Schema only</td></tr>
+<tr><td>platform_storage_snapshots</td><td>P19</td><td>0</td><td>0</td><td>A</td><td>Schema only</td></tr>
+<tr><td>platform_audit_runs</td><td>P20</td><td>0</td><td>0</td><td>A</td><td>Schema only</td></tr>
+<tr><td>platform_ssl_checks</td><td>P21</td><td>0</td><td>0</td><td>A</td><td>Schema only</td></tr>
+<tr><td>emergency_event_log</td><td>P22</td><td>0</td><td>0</td><td>A</td><td>Schema only</td></tr>
+<tr><td>equipment_categories</td><td>—</td><td>0</td><td>0</td><td>N/A</td><td><strong>Out of scope</strong> — no dev</td></tr>
+<tr><td>equipment_items</td><td>—</td><td>0</td><td>0</td><td>N/A</td><td><strong>Out of scope</strong> — no dev</td></tr>
+<tr><td>equipment_rentals</td><td>—</td><td>0</td><td>0</td><td>N/A</td><td><strong>Out of scope</strong> — no dev</td></tr>
+</table>
+<p><strong>Empty operational:</strong> attendance, commission_*, staff_messages, staff_blacklist, push_subscriptions, website_visits · <strong>Archive candidates:</strong> ip_geo_cache (&gt;90d), admin_audit_log (&gt;12mo)</p>
+
+<h2>Section 3 — Index Analysis</h2>
+<h3>Post-Phase 16 indexes (applied)</h3>
+<ul>
+<li><code>idx_staff_reg_event_status</code> on staff_registrations (event_id, status)</li>
+<li><code>idx_events_active_date</code> on events (is_active, event_date)</li>
+<li><code>idx_staff_email_lower</code> on staff (email)</li>
+<li><code>idx_notif_admin_feed</code> on app_notifications (audience, is_read, created_at)</li>
+</ul>
+
+<table>
+<tr><th>Finding</th><th>Severity</th><th>Detail</th></tr>
+<tr><td>Duplicate indexes</td><td>Medium</td><td>staff.email: UNIQUE + idx_staff_email + idx_staff_email_lower</td></tr>
+<tr><td>Overlapping indexes</td><td>Low</td><td>idx_staff_event + idx_staff_status vs composite</td></tr>
+<tr><td>Missing functional index</td><td>Medium</td><td>LOWER(TRIM(email)) queries bypass btree</td></tr>
+<tr><td>Full scan risk</td><td>Medium</td><td>getAllEvents() GROUP BY all registrations</td></tr>
+</table>
+
+<table>
+<tr><th>Table</th><th>Query</th><th>Suggested index</th><th>Improvement</th></tr>
+<tr><td>staff_registrations</td><td>LOWER(TRIM(email)) lookup</td><td>email_normalized generated column + index</td><td>10× at 5k+ rows</td></tr>
+<tr><td>staff</td><td>Same pattern</td><td>Drop redundant idx_staff_email</td><td>Write efficiency</td></tr>
+<tr><td>events</td><td>Active upcoming</td><td>idx_events_active_date ✅</td><td>Indexed</td></tr>
+<tr><td>app_notifications</td><td>Inbox feed</td><td>idx_notif_admin_feed ✅</td><td>Indexed</td></tr>
+</table>
+
+<h2>Section 4 — Query Performance</h2>
+<table>
+<tr><th>Area</th><th>Query pattern</th><th>Cost now</th><th>Cost @ 5k staff</th><th>Recommendation</th></tr>
+<tr><td>Dashboard</td><td>COUNT pending registrations</td><td>Low</td><td>Low</td><td>✅ Composite index</td></tr>
+<tr><td>Staff list</td><td>event_id + status filter</td><td>Low</td><td>Low</td><td>✅ P16 index</td></tr>
+<tr><td>Staff directory</td><td>LOWER(TRIM(email))</td><td>Medium</td><td>High</td><td>Normalized email column</td></tr>
+<tr><td>Events</td><td>getAllEvents() GROUP BY</td><td>5–15ms</td><td>50–150ms</td><td>Cache registration counts</td></tr>
+<tr><td>Attendance</td><td>Token UNIQUE lookup</td><td>O(1)</td><td>Low</td><td>✅ checkin_token</td></tr>
+<tr><td>Sheets sync</td><td>Per-event API loops</td><td>Medium</td><td>High</td><td>Batch sync</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2>Section 5 — Orphan Record Analysis</h2>
+<div class="callout ok">All checks <strong>zero</strong> post-Phase 16 deploy (verified 2026-06-06 14:44 UTC).</div>
+<table>
+<tr><th>Check</th><th>Count</th><th>Severity</th><th>Action</th></tr>
+<tr><td>missing staff_id</td><td>0</td><td>—</td><td>✅ Phase 49 backfill</td></tr>
+<tr><td>orphan staff_id</td><td>0</td><td>—</td><td>✅</td></tr>
+<tr><td>orphan staff_messages</td><td>0</td><td>—</td><td>✅ FK P16</td></tr>
+<tr><td>orphan invoice_lines</td><td>0</td><td>—</td><td>✅ FK P16</td></tr>
+<tr><td>orphan job event_id</td><td>0</td><td>—</td><td>✅ FK P16</td></tr>
+<tr><td>attendance orphans</td><td>0</td><td>—</td><td>Empty table</td></tr>
+</table>
+
+<h2>Section 6 — Data Quality Report</h2>
+<table>
+<tr><th>Check</th><th>Result</th></tr>
+<tr><td>Duplicate staff emails</td><td>0 (63 unique / 63 staff)</td></tr>
+<tr><td>Duplicate per-event email</td><td>0 (uq_staff_email_event)</td></tr>
+<tr><td>Multi-event registrations</td><td>63 people → 392 regs (avg 6.2 events/person) — by design</td></tr>
+<tr><td>Staff ↔ registration link</td><td>✅ Phase 49 complete</td></tr>
+<tr><td>PSA fields</td><td>Nullable on staff — profile gate enforces</td></tr>
+<tr><td>Invalid event refs</td><td>0 orphan event_id</td></tr>
+<tr><td>system_settings charset</td><td>latin1 MyISAM — migrate recommended</td></tr>
+<tr><td>Secrets in settings</td><td>Present — Phase 15 target</td></tr>
+</table>
+<p><strong>Data Quality Score: 85 / 100</strong></p>
+
+<h2>Section 7 — Storage Analysis</h2>
+<table>
+<tr><th>Item</th><th>Size</th></tr>
+<tr><td>Live DB dump</td><td>326.5 KB</td></tr>
+<tr><td>On-disk est. (data + indexes)</td><td>400–450 KB</td></tr>
+<tr><td>site-files.zip (weekly)</td><td>431.8 MB (1,552 files)</td></tr>
+<tr><td>settings-and-cms.json</td><td>24.1 KB</td></tr>
+</table>
+<table>
+<tr><th>Horizon</th><th>DB size est.</th><th>Driver</th></tr>
+<tr><td>3 months</td><td>1.5–2.5 MB</td><td>Registrations + notifications</td></tr>
+<tr><td>6 months</td><td>4–6 MB</td><td>+ audit + attendance</td></tr>
+<tr><td>12 months</td><td>10–15 MB</td><td>Notifications JSON + audit</td></tr>
+</table>
+
+<h2>Section 8 — Cleanup Opportunities</h2>
+<table>
+<tr><th>Item</th><th>Category</th><th>Savings</th></tr>
+<tr><td>ip_geo_cache &gt; 90 days</td><td>Safe to remove</td><td>5–50 KB</td></tr>
+<tr><td>admin_audit_log &gt; 12 months</td><td>Review required</td><td>Grows over time</td></tr>
+<tr><td>Rejected regs &gt; 24 months</td><td>Review required</td><td>Policy dependent</td></tr>
+<tr><td>Application log files</td><td>Safe to remove</td><td>MB–GB (filesystem)</td></tr>
+<tr><td>Empty platform tables</td><td>Do not remove</td><td>P18–P22 foundation</td></tr>
+<tr><td>equipment_* tables</td><td>Review later</td><td>May drop if approved — not in product roadmap</td></tr>
+<tr><td>Duplicate staff indexes</td><td>Review required</td><td>10–20 KB</td></tr>
+</table>
+
+<h2>Section 9 — Security &amp; Compliance</h2>
+<table>
+<tr><th>FK relationship</th><th>Status</th></tr>
+<tr><td>staff_registrations → staff</td><td>✅</td></tr>
+<tr><td>staff_messages → staff</td><td>✅ P16</td></tr>
+<tr><td>personal_invoice_lines → saved_job_records</td><td>✅ P16</td></tr>
+<tr><td>saved_job_records → events, admin_users</td><td>✅ P16</td></tr>
+<tr><td>attendance → staff_registrations</td><td>⚠️ No FK</td></tr>
+<tr><td>app_notifications</td><td>⚠️ Polymorphic, no FK</td></tr>
+</table>
+<p><strong>Security Score: 68</strong> · <strong>Compliance (GDPR ops): 72</strong> · Weekly backup ✅ · Restore drill ⚠️ unknown</p>
+
+<div class="page-break"></div>
+
+<h2>Section 10 — Operations Readiness</h2>
+<table>
+<tr><th>Module</th><th>Score</th><th>Blockers</th></tr>
+<tr><td>Command Center</td><td>78%</td><td>getAllEvents() aggregation</td></tr>
+<tr><td>Event Hub</td><td>82%</td><td>Ready</td></tr>
+<tr><td>Live Ops</td><td>55%</td><td>attendance empty; emergency schema ready</td></tr>
+<tr><td>Unified Inbox</td><td>60%</td><td>0 messages; delete cascade incomplete</td></tr>
+<tr><td>Auto Approval</td><td>50%</td><td>No rules engine in DB</td></tr>
+<tr><td>Staff Intelligence</td><td>40%</td><td>Trust scores table not created</td></tr>
+<tr><td>Client Portal</td><td>75%</td><td>63 profiles; PSA fields present</td></tr>
+<tr><td>AI Operations Assistant</td><td>15%</td><td>No embeddings/log tables</td></tr>
+</table>
+
+<h2>Section 11 — Future Scale Report</h2>
+<table>
+<tr><th>Scale</th><th>Regs est.</th><th>DB est.</th><th>Bottleneck</th></tr>
+<tr><td>500 staff</td><td>3,000–4,000</td><td>2–3 MB</td><td>getAllEvents() GROUP BY</td></tr>
+<tr><td>1,000 staff</td><td>6,000–8,000</td><td>5–8 MB</td><td>LOWER(TRIM email)</td></tr>
+<tr><td>5,000 staff</td><td>30,000–40,000</td><td>30–50 MB</td><td>Dashboard + Sheets sync</td></tr>
+<tr><td>10,000 staff</td><td>60,000–80,000</td><td>60–100 MB</td><td>Shared hosting query time</td></tr>
+</table>
+
+<h2>Section 12 — Action Plan</h2>
+<table>
+<tr><th>Priority</th><th>Action</th><th>Phase</th></tr>
+<tr><td>Critical</td><td>Externalize secrets from system_settings</td><td>P15</td></tr>
+<tr><td>High</td><td>deleteStaffProfileCompletely cascade fix</td><td>P16b</td></tr>
+<tr><td>High</td><td>Cache event registration counts</td><td>P2 Command Center</td></tr>
+<tr><td>Medium</td><td>Normalized email index</td><td>P16b+</td></tr>
+<tr><td>Medium</td><td>Audit log retention policy</td><td>P18</td></tr>
+<tr><td>Low</td><td>Drop duplicate idx_staff_email</td><td>After EXPLAIN</td></tr>
+</table>
+
+<h3>30-day plan</h3>
+<ol>
+<li>Gate G → Phase 15 security (secrets)</li>
+<li>Phase 16b: runner + delete cascade</li>
+<li>Event count cache + EXPLAIN audit</li>
+<li>P18 Cleanup: geo TTL + audit rotation</li>
+</ol>
+
+<h2>Appendix A — SQL Recommendations (do not execute without approval)</h2>
+<pre>-- DIAGNOSTIC (read-only)
+SELECT table_name, engine, table_rows,
+       ROUND(data_length/1024,1) AS data_kb,
+       ROUND(index_length/1024,1) AS index_kb
+FROM information_schema.tables
+WHERE table_schema = DATABASE()
+ORDER BY data_length DESC;
+
+EXPLAIN SELECT COUNT(*) FROM staff_registrations
+WHERE event_id=1 AND status='pending';
+
+-- ORPHAN RE-CHECK (expect 0)
+SELECT COUNT(*) FROM staff_registrations
+WHERE staff_id IS NULL OR staff_id=0;
+
+-- OPTIMIZATION (change window)
+ALTER TABLE staff_registrations
+  ADD COLUMN email_normalized VARCHAR(150)
+    GENERATED ALWAYS AS (LOWER(TRIM(email))) STORED,
+  ADD INDEX idx_sr_email_normalized (email_normalized);
+
+-- CLEANUP (P18 — review first)
+DELETE FROM ip_geo_cache
+WHERE cached_at &lt; DATE_SUB(NOW(), INTERVAL 90 DAY);</pre>
+
+<h2>Appendix B — Methodology</h2>
+<ul>
+<li>Production mysqldump 2026-06-06 14:43 UTC (326.5 KB) for row/size stats</li>
+<li>Phase 48–51 verified via deploy log 14:44 UTC</li>
+<li>Codebase query review (staff-repository, events-repository, attendance)</li>
+<li>No live information_schema or production SQL executed</li>
+<li>Index sizes estimated; no slow query log available</li>
+</ul>
+
+<p style="font-size:6.5pt;color:#94a3b8;margin-top:14px;">Olasentra · Database Health Report · 6 June 2026 · Confidential · Companion: PHASE-16-DEPLOYMENT-RESULTS.pdf</p>
+
+</body>
+</html>

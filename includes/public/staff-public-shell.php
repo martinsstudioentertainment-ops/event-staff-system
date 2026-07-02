@@ -2,6 +2,9 @@
 
 require_once __DIR__ . '/../theme.php';
 require_once __DIR__ . '/../brand-logo.php';
+require_once __DIR__ . '/../staff-broadcast.php';
+require_once __DIR__ . '/../staff-portal-session.php';
+require_once __DIR__ . '/../staff-portal-dashboard.php';
 
 /**
  * Animated mesh background for staff-facing pages.
@@ -32,7 +35,8 @@ function renderStaffPublicBackground(bool $eventOps = false): void
  *   language_switcher?: bool,
  *   lang_query?: string,
  *   theme_toggle?: bool,
- *   home_url?: string
+ *   home_url?: string,
+ *   portal_staff?: array<string, mixed>|null
  * } $opts
  */
 function renderStaffPublicHeader(?PDO $pdo, string $siteName, array $opts = []): void
@@ -42,6 +46,10 @@ function renderStaffPublicHeader(?PDO $pdo, string $siteName, array $opts = []):
     $langQuery   = (string) ($opts['lang_query'] ?? '');
     $showTheme   = ($opts['theme_toggle'] ?? true) === true;
     $homeUrl     = (string) ($opts['home_url'] ?? 'staff-app.php');
+    $portalStaff = array_key_exists('portal_staff', $opts)
+        ? $opts['portal_staff']
+        : ($pdo ? getStaffFromPortalSession($pdo) : null);
+    $signOutUrl  = staffPortalSignOutUrl($homeUrl);
     ?>
     <header class="staff-public-header">
         <a class="staff-public-header__brand" href="<?= h($homeUrl) ?>">
@@ -52,6 +60,13 @@ function renderStaffPublicHeader(?PDO $pdo, string $siteName, array $opts = []):
             </span>
         </a>
         <div class="staff-public-header__actions">
+            <?php if (is_array($portalStaff) && $portalStaff !== []): ?>
+                <?php $headerDisplayName = getStaffPortalDisplayName($portalStaff, $pdo); ?>
+                <span class="staff-public-header__signed-in" title="<?= h((string) ($portalStaff['email'] ?? '')) ?>">
+                    Hi, <?= h($headerDisplayName) ?>
+                </span>
+                <a class="staff-public-header__signout" href="<?= h($signOutUrl) ?>">Sign out</a>
+            <?php endif; ?>
             <?php if ($showLang && $pdo) {
                 renderLanguageSwitcher($langQuery);
             } ?>

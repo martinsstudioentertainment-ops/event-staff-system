@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Email System Audit — Full Platform Report</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+h3{font-size:1rem;margin-top:1.25rem;color:#334155}
+.meta{color:#64748b;font-size:.9rem}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #fcd34d;background:#fffbeb}
+.verdict.crit{border-color:#fca5a5;background:#fef2f2}
+.verdict.ok{border-color:#6ee7b7;background:#ecfdf5}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.85rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.crit{color:#b91c1c;font-weight:700}
+.high{color:#c2410c;font-weight:600}
+.med{color:#1d4ed8}
+.low{color:#64748b}
+.pass{color:#047857;font-weight:700}
+.fail{color:#b91c1c;font-weight:700}
+.na{color:#64748b}
+code,pre{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.82em}
+pre{display:block;padding:.75rem;overflow:auto;white-space:pre-wrap}
+ul.compact li{margin:.3rem 0}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:.8rem}
+</style>
+</head>
+<body>
+
+<h1>Email System Audit — Full Platform Report</h1>
+<p class="meta">Generated 6 June 2026 · Scope: every email template and generation path · <strong>Audit only — no code changes</strong> · Production host: register.olasentra.com / admin.olasentra.com</p>
+
+<div class="verdict crit"><strong>Overall verdict: ENCODING RISK CONFIRMED</strong> — Source files are valid UTF-8 (no stored mojibake in PHP email generators). Production corruption (<code>â€"</code>, <code>Â·</code>, etc.) is consistent with <strong>Unicode punctuation in subjects and bodies</strong> combined with <strong>inconsistent RFC 2047 subject encoding</strong> and <strong>plain-text-only emails using 8bit transfer</strong>. One admin email path has a broken <code>sendEmail()</code> call (runtime failure, not encoding).</div>
+
+<h2>1. Executive summary</h2>
+<table>
+<tr><th>Area</th><th>Finding</th><th>Severity</th></tr>
+<tr><td>Template inventory</td><td><strong>16</strong> distinct outbound email types/paths identified; <strong>4</strong> requested categories not implemented (password reset, welcome, payroll, standalone verification)</td><td class="na">Info</td></tr>
+<tr><td>Stored mojibake in code</td><td>Search for <code>â€"</code>, <code>â€™</code>, <code>â€œ</code>, <code>Â</code>, <code></code> in <code>includes/**/*.php</code> — <strong>zero matches</strong>. Corruption is at send/render time, not in source literals.</td><td class="pass">PASS (source)</td></tr>
+<tr><td>UTF-8 body headers</td><td>All paths set <code>Content-Type: text/html|plain; charset=UTF-8</code> via <code>buildEmailMimePayload()</code></td><td class="pass">PASS</td></tr>
+<tr><td>Subject encoding (SMTP)</td><td><code>smtpEncodeHeader()</code> Base64-encodes non-ASCII subjects (RFC 2047)</td><td class="pass">PASS (SMTP only)</td></tr>
+<tr><td>Subject encoding (PHP mail)</td><td><code>mail()</code> passes subject raw — <strong>no RFC 2047 encoding</strong></td><td class="fail">FAIL</td></tr>
+<tr><td>Unicode in copy</td><td>Em dash <code>—</code> in <strong>all</strong> staff-facing subjects; en dash <code>–</code> in times; middle dot <code>·</code> in locations/HTML; bullet <code>•</code> in list lines</td><td class="high">HIGH</td></tr>
+<tr><td>Plain-text-only emails</td><td>Check-in, daily reminder, signup nudge — no HTML part; higher client risk</td><td class="med">MEDIUM</td></tr>
+<tr><td>Admin alert email</td><td><code>sendAdminAlertEmail()</code> calls <code>sendEmail()</code> with wrong arguments — PHP 8+ TypeError</td><td class="crit">CRITICAL (broken)</td></tr>
+<tr><td>Apply portal</td><td>No email sending — payroll is sheets/sync only</td><td class="na">N/A</td></tr>
+</table>
+
+<h2>2. Transport layer (all emails)</h2>
+<table>
+<tr><th>Component</th><th>File</th><th>Behaviour</th><th>Encoding notes</th></tr>
+<tr><td>Central sender</td><td><code>includes/mailer.php</code> → <code>sendEmail()</code></td><td>Routes to SMTP, PHP <code>mail()</code>, or log-only</td><td>Default setting: <code>php_mail</code> (admin must switch to SMTP on shared hosting)</td></tr>
+<tr><td>MIME builder</td><td><code>buildEmailMimePayload()</code></td><td>HTML → <code>quoted-printable</code>; plain → <code>8bit</code></td><td>Single-part only (no <code>multipart/alternative</code>)</td></tr>
+<tr><td>SMTP client</td><td><code>includes/smtp-mailer.php</code></td><td>AUTH LOGIN, TLS, full headers incl. <code>Date</code>, <code>Message-ID</code></td><td>Subject via <code>smtpEncodeHeader()</code>; body UTF-8</td></tr>
+<tr><td>PHP mail path</td><td><code>mailer.php</code> L197–211</td><td>Headers: MIME-Version, From, Reply-To, Content-Type, Content-Transfer-Encoding</td><td><strong>Subject not encoded</strong>; From name not encoded if non-ASCII</td></tr>
+<tr><td>Test email</td><td><code>sendTestEmail()</code></td><td>Plain text; subject <code>{site} — Test Email</code></td><td>Contains em dash — reproduces corruption if transport misconfigured</td></tr>
+<tr><td>Shared copy</td><td><code>includes/email-copy.php</code></td><td>Footers, HTML line builder, CTA button</td><td><code>htmlspecialchars(..., ENT_QUOTES, 'UTF-8')</code> on dynamic text</td></tr>
+</table>
+
+<h3>Root cause of production mojibake</h3>
+<p>When UTF-8 bytes for Unicode punctuation are interpreted as ISO-8859-1 / Windows-1252, clients display:</p>
+<table>
+<tr><th>Intended character</th><th>Unicode</th><th>Typical corruption</th><th>Where used in emails</th></tr>
+<tr><td>Em dash</td><td>U+2014 <code>—</code></td><td><code>â€"</code></td><td>All subjects (<code>Site — Registration Received</code>), <code>formatEventLabel()</code>, body copy</td></tr>
+<tr><td>En dash</td><td>U+2013 <code>–</code></td><td><code>â€"</code> or <code>â€“</code></td><td><code>formatEventTimeRangeLabel()</code> (<code>09:00 – 23:00</code>), reminder check-in window</td></tr>
+<tr><td>Middle dot</td><td>U+00B7 <code>·</code></td><td><code>Â·</code></td><td><code>formatEventLocationLabel()</code>, access-pass HTML event row</td></tr>
+<tr><td>Bullet</td><td>U+2022 <code>•</code></td><td><code>â€¢</code></td><td>Rejection, confirmation, nudge list lines</td></tr>
+<tr><td>Right single quote</td><td>U+2019 <code>'</code></td><td><code>â€™</code></td><td>Possible via admin rich-text broadcast (pasted Word copy)</td></tr>
+<tr><td>Left double quote</td><td>U+201C <code>"</code></td><td><code>â€œ</code></td><td>Same — admin-composed broadcast body</td></tr>
+</table>
+<p class="meta">Docs and screenshot HTML under <code>docs/screenshots/a3-review/html/</code> contain stored mojibake from an earlier export pipeline — those files are <strong>not</strong> email templates and are excluded from the live send path.</p>
+
+<h2>3. Complete email template inventory</h2>
+<p>There are <strong>no standalone .html or .txt email template files</strong>. All content is built inline in PHP. Below: every path, trigger, format, and issues.</p>
+
+<h3>3.1 Registration &amp; status</h3>
+<table>
+<tr><th>ID</th><th>Name</th><th>File / function</th><th>Trigger</th><th>Format</th><th>Subject pattern</th><th>Issues</th></tr>
+<tr><td>E01</td><td>Registration confirmation (received)</td><td><code>includes/notifications.php</code> → <code>notifyStaffRegistrationSubmitted()</code></td><td><code>submit.php</code> after new registration; setting <code>notify_on_registration=1</code></td><td>Plain + HTML (<code>buildStaffEmailHtmlFromLines</code>)</td><td><code>{site} — Registration Received</code></td><td class="high">Em dash in subject; bullets <code>•</code> in body; event labels use <code> — </code></td></tr>
+<tr><td>E02</td><td>Registration approved (access pass / QR)</td><td><code>includes/access-pass-email.php</code> → <code>buildConsolidatedAccessPassEmail()</code>, <code>sendConsolidatedAccessPassEmail()</code></td><td><code>notifyStaffStatusChanges()</code> on approve; bulk/single <code>update-status.php</code></td><td>Plain + full HTML (DOCTYPE, table, QR img)</td><td><code>{site} — Registration confirmed</code> or <code>{site} — {N} shifts approved</code></td><td class="high">Subject em dashes; HTML uses <code> · </code> between event name and date; times use en dash via <code>formatEventTimeRangeLabel</code></td></tr>
+<tr><td>E03</td><td>Registration approved (single-event builder)</td><td><code>access-pass-email.php</code> → <code>buildEventAccessPassEmail()</code></td><td>Legacy single path via <code>sendEventAccessPassEmail()</code> (consolidated path preferred)</td><td>Plain + HTML</td><td><code>{site} — Registration confirmed — {event} {date}</code></td><td class="high">Triple em-dash risk in subject when event name long</td></tr>
+<tr><td>E04</td><td>Registration rejected</td><td><code>notifications.php</code> → <code>sendConsolidatedRejectionEmail()</code></td><td>Status → <code>rejected</code> via <code>notifyStaffStatusChanges()</code></td><td>Plain + HTML</td><td><code>{site} — Registration update</code></td><td class="high">Bullets <code>•</code>; lines <code>{event} — {role}</code></td></tr>
+</table>
+
+<h3>3.2 Events, reminders, check-in</h3>
+<table>
+<tr><th>ID</th><th>Name</th><th>File / function</th><th>Trigger</th><th>Format</th><th>Subject pattern</th><th>Issues</th></tr>
+<tr><td>E05</td><td>Event reminder (daily digest)</td><td><code>includes/reminders.php</code> → <code>sendDailyEventsReminderDigest()</code></td><td><code>cron/daily-reminders.php</code> → <code>runDailyReminders()</code></td><td><strong>Plain text only</strong></td><td><code>{site} — Reminder: {event}</code></td><td class="high">No HTML; en dash in check-in window; em dash in “Awaiting approval — …”; location <code>·</code> if eircode set</td></tr>
+<tr><td>E06</td><td>Signup nudge (more events open)</td><td><code>reminders.php</code> → <code>sendSignupNudgeEmail()</code></td><td>Daily cron when delay/interval met</td><td><strong>Plain text only</strong></td><td><code>{site} — More events open for registration</code></td><td class="high">Bullets and em dashes in body; no HTML fallback</td></tr>
+<tr><td>E07</td><td>Check-in confirmation</td><td><code>notifications.php</code> → <code>notifyStaffCheckin()</code></td><td><code>attendance-repository.php</code> after check-in; setting <code>notify_on_checkin</code></td><td><strong>Plain text only</strong></td><td><code>{site} — Check-in confirmed</code></td><td class="med">Subject em dash; datetime via <code>formatSystemDateTime</code> (locale date + <code>H:i</code>)</td></tr>
+<tr><td>E08</td><td>Event staff broadcast (assignment / update)</td><td><code>includes/staff-messaging.php</code> → <code>sendEventStaffBroadcast()</code></td><td><code>admin/staff-message.php</code> POST</td><td>Plain + HTML (admin rich text + event block + links)</td><td>Admin subject or <code>{site} — {event name}</code></td><td class="med">Admin HTML may paste smart quotes; sign-off <code>—</code>; en dash in default times</td></tr>
+<tr><td>E09</td><td>New event alert (registered staff)</td><td><code>includes/event-staff-alerts.php</code> → <code>notifyRegisteredStaffNewEvent()</code></td><td><code>admin/save-event.php</code>, <code>admin/toggle-event.php</code> when event activated</td><td>Plain + HTML (button)</td><td><code>[{site}] New shift — {event}</code></td><td class="high">Em dash in subject and title</td></tr>
+</table>
+
+<h3>3.3 Profile, admin, system</h3>
+<table>
+<tr><th>ID</th><th>Name</th><th>File / function</th><th>Trigger</th><th>Format</th><th>Subject pattern</th><th>Issues</th></tr>
+<tr><td>E10</td><td>Staff profile — complete profile link</td><td><code>includes/staff-profile-email.php</code> → <code>sendStaffProfileUpdateLinkEmail()</code></td><td><code>admin/staff-send-profile-link.php</code>, bulk onboarding</td><td>Plain + HTML fragment (no DOCTYPE)</td><td><code>{site} — complete your staff profile</code></td><td class="med">“Option 1 — …” in plain text; HTML sign-off <code>—</code>; Outlook may strip fragment styles</td></tr>
+<tr><td>E11</td><td>Staff profile — re-verify</td><td><code>staff-profile-email.php</code> → <code>sendStaffProfileReverifyEmail()</code></td><td><code>admin/staff-edit.php</code> cancel verification</td><td>Plain + HTML fragment</td><td><code>{site} — please update your staff profile again</code></td><td class="med">Body “confirm … again — address” em dash</td></tr>
+<tr><td>E12</td><td>Admin — new registration alert</td><td><code>includes/notification-center.php</code> → <code>sendAdminAlertEmail()</code></td><td><code>submit.php</code> → <code>notifyAdminNewRegistration()</code>; setting <code>notify_admin_on_registration</code></td><td>HTML only intended</td><td><code>[{site}] New staff registration</code></td><td class="crit"><strong>BROKEN:</strong> <code>sendEmail($to, $subject, $bodyHtml)</code> missing <code>$pdo</code>; wrong arity — email never sends (caught in submit try/catch)</td></tr>
+<tr><td>E13</td><td>Test email</td><td><code>includes/mailer.php</code> → <code>sendTestEmail()</code></td><td><code>admin/settings-email.php</code></td><td>Plain text</td><td><code>{site} — Test Email</code></td><td class="med">Em dash in subject — good corruption repro case</td></tr>
+</table>
+
+<h3>3.4 In-app only (no email) — listed for completeness</h3>
+<table>
+<tr><th>ID</th><th>Name</th><th>File</th><th>Channel</th></tr>
+<tr><td>N01</td><td>Staff status in-app</td><td><code>notification-center.php</code> → <code>notifyStaffStatusInApp()</code></td><td>DB <code>app_notifications</code></td></tr>
+<tr><td>N02</td><td>Admin in-app registration</td><td><code>notifyAdminInApp()</code></td><td>DB only (email path E12 broken)</td></tr>
+<tr><td>N03</td><td>Flash broadcast</td><td><code>staff-broadcast.php</code> → <code>publishStaffFlashBroadcast()</code></td><td>In-app only</td></tr>
+<tr><td>N04</td><td>Staff inbox reply</td><td><code>staff-messages.php</code> → <code>sendAdminReplyToStaff()</code></td><td>In-app only</td></tr>
+<tr><td>N05</td><td>PWA push on approval</td><td><code>access-pass-email.php</code> + <code>pwa-push.php</code></td><td>Push notification (subject uses em dash)</td></tr>
+</table>
+
+<h3>3.5 Requested categories — not implemented</h3>
+<table>
+<tr><th>Category</th><th>Status</th><th>Notes</th></tr>
+<tr><td>Password reset email</td><td class="na">Not implemented</td><td>Admin password change is in-panel (<code>apply/admin/admin/settings.php</code>); no forgot-password email flow</td></tr>
+<tr><td>Welcome email</td><td class="na">Not implemented</td><td>“Welcome back” is API JSON copy in <code>api/registrant-lookup.php</code>, not email</td></tr>
+<tr><td>Account verification email</td><td class="na">Partial</td><td>Profile link / re-verify (E10, E11) — no tokenised email verification link</td></tr>
+<tr><td>Payroll / payment emails</td><td class="na">Not implemented</td><td>Apply portal syncs payroll to Google Sheets; zero <code>sendEmail</code> in <code>apply/</code></td></tr>
+<tr><td>Standalone QR pass email</td><td class="na">Bundled</td><td>QR embedded in approval email (E02/E03), not separate template</td></tr>
+</table>
+
+<h2>4. Encoding &amp; header verification</h2>
+<table>
+<tr><th>Check</th><th>SMTP transport</th><th>PHP mail() transport</th><th>Notes</th></tr>
+<tr><td>Body charset UTF-8</td><td class="pass">PASS</td><td class="pass">PASS</td><td><code>Content-Type: …; charset=UTF-8</code></td></tr>
+<tr><td>HTML transfer encoding</td><td class="pass">PASS</td><td class="pass">PASS</td><td><code>quoted-printable</code> — Gmail/Outlook friendly</td></tr>
+<tr><td>Plain transfer encoding</td><td class="med">8bit</td><td class="med">8bit</td><td>Relies on MTA preserving UTF-8; some gateways re-encode</td></tr>
+<tr><td>Subject RFC 2047</td><td class="pass">PASS</td><td class="fail">FAIL</td><td>Only <code>smtpEncodeHeader()</code> encodes non-ASCII</td></tr>
+<tr><td>From header encoding</td><td class="med">Partial</td><td class="med">Partial</td><td><code>"{name}" &lt;email&gt;</code> — name not RFC 2047 encoded</td></tr>
+<tr><td>multipart/alternative</td><td class="fail">Not used</td><td class="fail">Not used</td><td>When HTML sent, plain part is separate argument but not bundled as multipart</td></tr>
+<tr><td>HTML meta charset</td><td class="med">Partial</td><td class="med">Partial</td><td>Access pass includes <code>&lt;!DOCTYPE html&gt;</code>; profile emails are bare fragments</td></tr>
+</table>
+
+<h2>5. Date &amp; time formatting in emails</h2>
+<table>
+<tr><th>Helper</th><th>File</th><th>Output in emails</th><th>Risk</th></tr>
+<tr><td><code>formatEventDateLabel()</code></td><td><code>events-repository.php</code></td><td>System date format (default Irish <code>d/m/Y</code>)</td><td class="pass">ASCII digits and slashes</td></tr>
+<tr><td><code>formatEventTimeRangeLabel()</code></td><td><code>events-repository.php</code></td><td><code>HH:MM – HH:MM</code> (en dash U+2013)</td><td class="high">Encoding corruption risk in plain text</td></tr>
+<tr><td><code>formatEventLabel()</code></td><td><code>staff-repository.php</code></td><td><code>{name} — {date}</code> (em dash)</td><td class="high">Used in most email bodies/subjects</td></tr>
+<tr><td><code>formatEventLocationLabel()</code></td><td><code>events-repository.php</code></td><td><code>{venue} · {eircode}</code> when both set</td><td class="high"><code>Â·</code> if mis-decoded</td></tr>
+<tr><td><code>formatSystemDateTime()</code></td><td><code>system-settings.php</code></td><td>Check-in email: <code>{date} H:i</code> (24h)</td><td class="pass">Mostly ASCII</td></tr>
+<tr><td>Reminder check-in window</td><td><code>reminders.php</code> L290–291</td><td><code>{opens} – {closes}</code> with <code>getDisplayDateFormat() . ' H:i'</code></td><td class="high">En dash between datetimes</td></tr>
+<tr><td>Test email timestamp</td><td><code>mailer.php</code></td><td><code>date('Y-m-d H:i:s')</code></td><td class="pass">ISO-like ASCII</td></tr>
+</table>
+
+<h2>6. Client rendering assessment (code review)</h2>
+<table>
+<tr><th>Client</th><th>HTML emails (E02, E08, E10)</th><th>Plain-only (E05–E07)</th><th>Notes</th></tr>
+<tr><td>Gmail (web/mobile)</td><td class="pass">Good</td><td class="med">Depends on charset</td><td>Quoted-printable HTML + UTF-8 header usually correct; plain 8bit UTF-8 usually OK if subject encoded (SMTP)</td></tr>
+<tr><td>Outlook desktop</td><td class="med">Moderate</td><td class="fail">Poor</td><td>Access pass uses tables + inline CSS (good); profile fragments lack <code>&lt;html&gt;</code> wrapper; plain UTF-8 often shows mojibake for dashes</td></tr>
+<tr><td>Outlook.com</td><td class="med">Moderate</td><td class="med">Moderate</td><td>Similar to Gmail for HTML; subject encoding critical</td></tr>
+<tr><td>Mobile (iOS Mail)</td><td class="pass">Good</td><td class="med">Moderate</td><td>Single-part HTML chosen deliberately in <code>mailer.php</code> comment (“avoids raw multipart on mobile”)</td></tr>
+<tr><td>Android Gmail</td><td class="pass">Good</td><td class="med">Moderate</td><td>QR images external (Google Charts API) — requires network</td></tr>
+</table>
+
+<h2>7. Mojibake search results</h2>
+<table>
+<tr><th>Search pattern</th><th>PHP email generators (<code>includes/</code>)</th><th>Platform email paths</th><th>Docs / screenshots only</th></tr>
+<tr><td><code>â€"</code></td><td class="pass">0 matches</td><td class="pass">0</td><td class="fail">Many (export artefact)</td></tr>
+<tr><td><code>â€™</code></td><td class="pass">0</td><td class="pass">0</td><td class="na">Rare</td></tr>
+<tr><td><code>â€œ</code></td><td class="pass">0</td><td class="pass">0</td><td class="na">Rare</td></tr>
+<tr><td><code>Â·</code></td><td class="pass">0</td><td class="pass">0</td><td class="fail">a3-review step-03 HTML mocks</td></tr>
+<tr><td><code>Â</code> (stray)</td><td class="pass">0</td><td class="pass">0</td><td class="fail">Various docs</td></tr>
+<tr><td><code></code> replacement char</td><td class="pass">0</td><td class="pass">0</td><td class="pass">0</td></tr>
+</table>
+<p><strong>Conclusion:</strong> corruption in production is not from corrupted PHP source files; it is from <strong>live UTF-8 punctuation</strong> meeting clients or transports that do not honour UTF-8 end-to-end.</p>
+
+<h2>8. Issue register (prioritised)</h2>
+<table>
+<tr><th>P</th><th>Issue</th><th>Affected templates</th><th>Likely symptom</th></tr>
+<tr><td class="crit">P0</td><td>PHP <code>mail()</code> does not RFC 2047-encode Subject</td><td>All with <code>—</code> in subject</td><td><code>Olasentra â€" Registration Received</code></td></tr>
+<tr><td class="crit">P0</td><td><code>sendAdminAlertEmail()</code> wrong <code>sendEmail()</code> signature</td><td>E12</td><td>Admin email never sent; error logged on registration</td></tr>
+<tr><td class="high">P1</td><td>Em/en dash and middle dot in plain-text bodies (8bit)</td><td>E01, E04–E07, E09, E10–E11</td><td><code>09:00 â€" 23:00</code>, <code>Venue Â· Eircode</code></td></tr>
+<tr><td class="high">P1</td><td>Middle dot in HTML access-pass table</td><td>E02, E03</td><td><code>Event Name Â· 05/07/2026</code> in Outlook plain-view / mis-decoded HTML</td></tr>
+<tr><td class="med">P2</td><td>No <code>multipart/alternative</code> (plain + HTML together)</td><td>All dual-argument sends</td><td>Some clients show HTML only or garble plain fallback</td></tr>
+<tr><td class="med">P2</td><td>Plain-text-only high-volume emails</td><td>E05, E06, E07</td><td>Weaker mobile rendering; encoding more visible</td></tr>
+<tr><td class="med">P2</td><td>Admin broadcast rich text may include smart quotes</td><td>E08</td><td><code>â€™</code> from Word paste</td></tr>
+<tr><td class="low">P3</td><td>Profile email HTML fragments (no DOCTYPE/wrapper)</td><td>E10, E11</td><td>Outlook spacing/font inconsistencies</td></tr>
+<tr><td class="low">P3</td><td>Default transport <code>php_mail</code> in settings</td><td>All</td><td>Shared hosting often misconfigures 8bit + charset</td></tr>
+</table>
+
+<h2>9. Generation path map</h2>
+<pre class="mono">submit.php
+  ├─ notifyStaffRegistrationSubmitted()     → E01
+  └─ notifyAdminNewRegistration()
+        └─ sendAdminAlertEmail()            → E12 (broken)
+
+admin/update-status.php, admin/bulk-status.php
+  └─ notifyStaffStatusChanges()
+        ├─ approved → sendConsolidatedAccessPassEmail() → E02
+        └─ rejected → sendConsolidatedRejectionEmail()   → E04
+
+includes/attendance-repository.php
+  └─ notifyStaffCheckin()                   → E07
+
+cron/daily-reminders.php
+  └─ runDailyReminders()
+        ├─ sendDailyEventsReminderDigest()  → E05
+        └─ sendSignupNudgeEmail()           → E06
+
+admin/save-event.php, admin/toggle-event.php
+  └─ notifyRegisteredStaffNewEvent()        → E09
+
+admin/staff-message.php
+  └─ sendEventStaffBroadcast()              → E08
+
+admin/staff-send-profile-link.php
+  └─ sendStaffProfileUpdateLinkEmail()      → E10
+
+admin/staff-edit.php
+  └─ sendStaffProfileReverifyEmail()        → E11
+
+admin/settings-email.php
+  └─ sendTestEmail()                        → E13</pre>
+
+<h2>10. Recommended fixes (documentation only — not applied)</h2>
+<ol class="compact">
+<li><strong>Confirm production uses SMTP</strong> (<code>admin/settings-email.php</code>) — required for reliable delivery on shared hosting.</li>
+<li><strong>Encode Subject on PHP mail path</strong> — reuse <code>smtpEncodeHeader()</code> or always route through SMTP client.</li>
+<li><strong>ASCII-safe punctuation option</strong> — replace <code>—</code> with <code> - </code>, <code>–</code> with <code>-</code>, <code>·</code> with <code>|</code> or <code>,</code> in email-specific formatters (mirrors Phase A3 wizard fix per <code>PHASE-A3-OBSERVATIONS-LOG.html</code>).</li>
+<li><strong>Fix <code>sendAdminAlertEmail()</code></strong> — <code>sendEmail($pdo, $to, '[' . $siteName . '] ' . $subject, strip_tags($bodyHtml), $bodyHtml)</code>.</li>
+<li><strong>Add HTML parts</strong> to E05, E06, E07 via <code>buildStaffEmailHtmlFromLines()</code>.</li>
+<li><strong>Consider multipart/alternative</strong> when both text and HTML exist.</li>
+<li><strong>Normalize admin broadcast</strong> — strip/replace smart quotes in <code>plainTextFromRich()</code> / outbound HTML.</li>
+<li><strong>Verification script</strong> — send each template to Gmail + Outlook test inboxes; grep raw source for <code>=?UTF-8?</code> in Subject and <code>charset=UTF-8</code> in body.</li>
+</ol>
+
+<h2>11. Files audited (email-related)</h2>
+<ul class="compact">
+<li><code>includes/mailer.php</code>, <code>includes/smtp-mailer.php</code></li>
+<li><code>includes/email-copy.php</code></li>
+<li><code>includes/notifications.php</code></li>
+<li><code>includes/access-pass-email.php</code></li>
+<li><code>includes/reminders.php</code></li>
+<li><code>includes/staff-profile-email.php</code></li>
+<li><code>includes/staff-messaging.php</code></li>
+<li><code>includes/event-staff-alerts.php</code></li>
+<li><code>includes/notification-center.php</code></li>
+<li><code>includes/rich-text.php</code></li>
+<li><code>includes/events-repository.php</code> (date/time/location formatters)</li>
+<li><code>includes/staff-repository.php</code> (<code>formatEventLabel</code>)</li>
+<li><code>includes/date-format.php</code>, <code>includes/system-settings.php</code></li>
+<li>Triggers: <code>submit.php</code>, <code>admin/update-status.php</code>, <code>admin/bulk-status.php</code>, <code>admin/staff-message.php</code>, <code>admin/staff-send-profile-link.php</code>, <code>admin/staff-edit.php</code>, <code>admin/settings-email.php</code>, <code>admin/save-event.php</code>, <code>admin/toggle-event.php</code>, <code>cron/daily-reminders.php</code>, <code>includes/attendance-repository.php</code></li>
+<li>Apply portal: searched — <strong>no email senders</strong></li>
+</ul>
+
+<div class="verdict ok"><strong>Audit complete.</strong> Deliverable: this report. No code modified. Next step: confirm which production email showed corruption (subject vs body, template ID) and whether transport is SMTP or PHP <code>mail()</code> — that narrows fix to P0 subject encoding vs P1 body punctuation.</div>
+
+</body>
+</html>

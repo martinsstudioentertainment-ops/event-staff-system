@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPS Phase 1.5 — Readiness Review</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+.pass{color:#047857;font-weight:700}.gap{color:#b91c1c;font-weight:700}.partial{color:#b45309;font-weight:700}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.84rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.meta{color:#64748b;font-size:.9rem}
+.warn{margin:1rem 0;padding:.85rem;border-radius:8px;border:1px solid #fcd34d;background:#fffbeb}
+</style>
+</head>
+<body>
+
+<h1>GPS Phase 1.5 — Readiness Review</h1>
+<p class="meta">Generated 7 June 2026 · Review only — no implementation in this document · Code + docs reflect implemented Phase 1 + 1.5</p>
+
+<div class="warn"><strong>Gate:</strong> Do not enable <code>feature_gps_attendance_v2</code> on production until items marked GAP are verified or accepted.</div>
+
+<h2>1. Phase 1 implementation status</h2>
+<table>
+<tr><th>Item</th><th>Status</th><th>Notes</th></tr>
+<tr><td>1000 m default radius</td><td class="pass">Implemented</td><td><code>getEventSigninRadiusMeters()</code> + <code>events.signin_radius_m</code></td></tr>
+<tr><td>PRE_CHECKED_IN hibernation</td><td class="pass">Implemented</td><td>Before event start</td></tr>
+<tr><td>Auto activation cron</td><td class="pass">Implemented</td><td><code>cron/attendance-activate.php</code></td></tr>
+<tr><td>GPS snapshot at check-in</td><td class="pass">Implemented</td><td>Phase 52 columns</td></tr>
+<tr><td>Payroll uses activated_at</td><td class="pass">Implemented</td><td>Work hours skip until activation</td></tr>
+<tr><td>Flag OFF legacy 100 m</td><td class="pass">Implemented</td><td>Unchanged production path today</td></tr>
+</table>
+
+<h2>2. Phase 1.5 implementation status</h2>
+<table>
+<tr><th>Requirement</th><th>Status</th></tr>
+<tr><td>Mandatory GPS on venue sign-in</td><td class="pass">Server + client</td></tr>
+<tr><td>Accuracy threshold</td><td class="pass"><code>gps_max_accuracy_m</code> default 100</td></tr>
+<tr><td>Disabled sign-in until verified</td><td class="pass">JS + server</td></tr>
+<tr><td>Token check-in blocked</td><td class="pass">Redirects to venue URL</td></tr>
+<tr><td>Admin scan/manual blocked</td><td class="pass">Error message</td></tr>
+<tr><td>Activation in-zone proof</td><td class="partial">Cron + ping; needs fresh GPS ≤15 min</td></tr>
+<tr><td>BR hibernation message</td><td class="pass">Updated copy</td></tr>
+</table>
+
+<h2>3. Migration status</h2>
+<table>
+<tr><th>Migration</th><th>Local</th><th>Production</th></tr>
+<tr><td><code>migrate-phase52-gps-attendance-phase1.sql</code></td><td>In repo + runtime ensure</td><td class="partial">Pending confirmation</td></tr>
+<tr><td><code>migrate-phase53-gps-attendance-phase15.sql</code></td><td>In repo + runtime ensure</td><td class="partial">Pending confirmation</td></tr>
+</table>
+<p><strong>Rollback:</strong> Flag OFF (L0) → <code>rollback-phase53</code> → <code>rollback-phase52</code> (only if no compliance need for GPS columns).</p>
+
+<h2>4. Feature flag status</h2>
+<table>
+<tr><th>Flag</th><th>Default</th><th>Production expected</th></tr>
+<tr><td><code>feature_gps_attendance_v2</code></td><td>OFF</td><td>OFF until verification complete</td></tr>
+</table>
+
+<h2>5. Radius calculations</h2>
+<ul>
+<li>Server authoritative: <code>isWithinEventVenue()</code> Haversine in <code>includes/maps.php</code></li>
+<li>Client mirror for UX only in <code>event-sign-location.js</code></li>
+<li>Flag OFF: fixed 100 m legacy constant</li>
+<li>Flag ON: DB column or 1000 m default</li>
+</ul>
+
+<h2>6. Activation logic review</h2>
+<table>
+<tr><th>Path</th><th>Behaviour</th><th>Risk</th></tr>
+<tr><td>Cron <code>attendance-activate.php</code></td><td>Activates PRE_CHECKED_IN when event started + GPS proof fresh</td><td>Staff not on page → may not activate until ping</td></tr>
+<tr><td>Page load <code>maybeActivate...</code></td><td>Opportunistic after event start</td><td>Same</td></tr>
+<tr><td><code>attendance-gps-ping.php</code></td><td>Updates last_gps_*; may activate</td><td class="gap">No auth token — ID enumerable</td></tr>
+</table>
+
+<h2>7. GPS storage</h2>
+<table>
+<tr><th>Column</th><th>When set</th></tr>
+<tr><td><code>check_in_lat/lng/accuracy_m/gps_at</code></td><td>Initial check-in</td></tr>
+<tr><td><code>last_gps_*</code></td><td>Ping + check-in update</td></tr>
+<tr><td>Continuous heartbeat log</td><td class="gap">Phase 2 — not implemented</td></tr>
+</table>
+
+<h2>8. Payroll interaction</h2>
+<p class="pass">No payroll formula changes in Phase 1/1.5. When flag ON: work hours start at <code>activated_at</code>. Hibernated time excluded. When flag OFF: unchanged <code>checked_in_at</code> behaviour.</p>
+
+<h2>9. Gaps vs full GPS V2 business requirements</h2>
+<table>
+<tr><th>Requirement</th><th>Phase 1/1.5</th><th>Future phase</th></tr>
+<tr><td>Continuous 30–60 s monitoring</td><td class="gap">No</td><td>Phase 2</td></tr>
+<tr><td>LOCATION_PENDING / AUTO_SIGNED_OUT</td><td class="gap">No</td><td>Phase 2</td></tr>
+<tr><td>checked_out_at</td><td class="gap">No</td><td>Phase 2</td></tr>
+<tr><td>Dashboard colours</td><td class="gap">No</td><td>Phase 3</td></tr>
+<tr><td>GPS audit log table</td><td class="gap">No</td><td>Phase 4</td></tr>
+<tr><td>Fraud detection</td><td class="gap">No</td><td>Phase 5</td></tr>
+</table>
+
+<h2>10. Production verification checklist</h2>
+<ol>
+<li>Apply migrations 52 + 53 (or confirm runtime ensure created columns)</li>
+<li>Run <code>scripts/verify-gps-phase15.php</code> on production</li>
+<li>Flag OFF regression: token check-in, admin scan, 100 m geofence</li>
+<li>Flag ON test event: venue sign-in, pre-check, activation, accuracy block</li>
+<li>Schedule activation cron</li>
+<li>Mobile test iPhone + Android</li>
+</ol>
+
+<h2>11. Recommendation</h2>
+<p><strong>Ready for controlled production pilot</strong> on a single test event after migrations confirmed and verification script passes. <strong>Not ready for Phase 2</strong> until pilot sign-off. Address ping API auth before wider rollout.</p>
+
+<p class="meta">See <code>GPS-PHASE15-IMPLEMENTATION-REPORT.html</code>, <code>GPS-ATTENDANCE-V2-MASTER-PROGRESS-REPORT.html</code></p>
+</body>
+</html>

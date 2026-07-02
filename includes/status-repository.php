@@ -139,21 +139,27 @@ function getStaffStatusRows(PDO $pdo, string $token): array
         return [];
     }
 
-    $sql = 'SELECT sr.*, e.name AS event_name, e.event_date,
-                   a.checked_in_at,
+    $sql = 'SELECT sr.*, e.name AS event_name, e.event_date, e.whatsapp_group_url,
+                   a.id AS attendance_id, a.checked_in_at, a.checked_out_at,
+                   a.hours_worked, a.attendance_status,
                    CASE WHEN a.id IS NULL THEN 0 ELSE 1 END AS is_checked_in
             FROM staff_registrations sr
             INNER JOIN events e ON e.id = sr.event_id
             LEFT JOIN attendance a ON a.registration_id = sr.id
-            WHERE sr.email = :email
+            WHERE LOWER(sr.email) = LOWER(:email)
             ORDER BY e.event_date ASC, sr.created_at ASC';
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute(['email' => $row['email']]);
+    $stmt->execute(['email' => strtolower(trim((string) $row['email']))]);
 
     $rows = $stmt->fetchAll() ?: [];
 
     require_once __DIR__ . '/staff-repository.php';
 
-    return array_map(static fn(array $r): array => mergeRegistrationWithStaff($pdo, $r), $rows);
+    return array_map(static function (array $r) use ($pdo): array {
+        $r = mergeRegistrationWithStaff($pdo, $r);
+        $r = mergeRegistrationWithEvent($pdo, $r);
+
+        return $r;
+    }, $rows);
 }

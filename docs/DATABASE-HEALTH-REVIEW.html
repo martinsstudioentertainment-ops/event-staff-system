@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Database Health Review</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.84rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.meta{color:#64748b;font-size:.9rem}
+.warn{margin:1rem 0;padding:.85rem;border-radius:8px;border:1px solid #93c5fd;background:#eff6ff}
+</style>
+</head>
+<body>
+
+<h1>Database Health Review</h1>
+<p class="meta">Generated 7 June 2026 · Read-only · No schema modifications · Companion: existing <code>DATABASE-HEALTH-REPORT.html</code> (June 2026 snapshot)</p>
+
+<div class="warn"><strong>Note:</strong> This review is architectural. Run <code>database/phase16-precheck.sql</code> on production for live orphan counts before applying phase 50 FKs.</div>
+
+<h2>1. Schema overview</h2>
+<p><strong>56 migration files</strong> (phase 3–53) plus base <code>database.sql</code>. Runtime <code>ensure*Schema()</code> in <code>includes/</code> compensates for missed migrations on shared hosting.</p>
+
+<h2>2. Core tables</h2>
+<table>
+<tr><th>Table</th><th>Purpose</th><th>Health notes</th></tr>
+<tr><td><code>events</code></td><td>Event master</td><td>Venue GPS, signin_token, sheets URL; index <code>idx_events_active_date</code> (phase 48)</td></tr>
+<tr><td><code>staff</code></td><td>Normalized person</td><td>Email unique; PSA columns; <code>idx_staff_email_lower</code></td></tr>
+<tr><td><code>staff_registrations</code></td><td>Per-event registration</td><td>UNIQUE (email, event_id); FK to events; staff_id (phase 37)</td></tr>
+<tr><td><code>attendance</code></td><td>Check-in record</td><td>UNIQUE registration_id; GPS cols 52–53; work hours phase 26</td></tr>
+<tr><td><code>venues</code></td><td>Venue master</td><td>Linked from events.venue_id</td></tr>
+<tr><td><code>system_settings</code></td><td>KV config + flags</td><td>Registration forms JSON blob</td></tr>
+</table>
+
+<h2>3. Indexes (phase 48+)</h2>
+<table>
+<tr><th>Index</th><th>Table</th><th>Purpose</th></tr>
+<tr><td><code>idx_staff_reg_event_status</code></td><td>staff_registrations</td><td>Event staff queues</td></tr>
+<tr><td><code>idx_events_active_date</code></td><td>events</td><td>Upcoming events list</td></tr>
+<tr><td><code>idx_staff_email_lower</code></td><td>staff</td><td>Directory lookup</td></tr>
+<tr><td><code>idx_notif_admin_feed</code></td><td>app_notifications</td><td>Admin inbox</td></tr>
+</table>
+<p><strong>Gap:</strong> No index on <code>attendance.attendance_status</code> yet — recommend in Phase 2/3 when status queries increase.</p>
+
+<h2>4. Foreign keys</h2>
+<table>
+<tr><th>FK</th><th>Migration</th></tr>
+<tr><td>staff_registrations → events</td><td>Base schema</td></tr>
+<tr><td>attendance → staff_registrations, events</td><td>Phase 5</td></tr>
+<tr><td>staff_registrations.staff_id → staff</td><td>Phase 37</td></tr>
+<tr><td>staff_messages, personal_invoice_lines, saved_job_records</td><td>Phase 50</td></tr>
+</table>
+<p>Phase 50 requires zero orphans per <code>phase16-precheck.sql</code> sections 5–7.</p>
+
+<h2>5. Orphan risks</h2>
+<table>
+<tr><th>Check</th><th>Source</th><th>Remediation</th></tr>
+<tr><td>registrations without staff_id</td><td>phase16-precheck §2–4</td><td><code>migrate-phase49-backfill-staff-id.sql</code></td></tr>
+<tr><td>staff_messages bad staff_id</td><td>§5</td><td>Manual fix before phase 50</td></tr>
+<tr><td>invoice line orphans</td><td>§6</td><td>Delete or relink</td></tr>
+<tr><td>attendance without registration</td><td>Should not occur (FK)</td><td>—</td></tr>
+</table>
+
+<h2>6. Duplicate data risks</h2>
+<ul>
+<li><code>UNIQUE (email, event_id)</code> on registrations prevents double-register same event</li>
+<li><code>attendance.registration_id</code> UNIQUE prevents double check-in</li>
+<li>Email normalization split across <code>staff</code> and <code>staff_registrations</code> — phase 49 backfill addresses linkage</li>
+</ul>
+
+<h2>7. GPS attendance columns</h2>
+<table>
+<tr><th>Migration</th><th>Columns</th><th>Rollback</th></tr>
+<tr><td>Phase 52</td><td>attendance_status, activated_at, check_in_*</td><td><code>rollback-phase52</code></td></tr>
+<tr><td>Phase 53</td><td>last_gps_*</td><td><code>rollback-phase53</code></td></tr>
+</table>
+
+<h2>8. Recommended improvements (non-destructive)</h2>
+<ol>
+<li>Run phase 16 precheck on production; document counts</li>
+<li>Apply phase 49 backfill if staff_id gaps remain</li>
+<li>Apply phase 48 indexes if missing (idempotent)</li>
+<li>Defer phase 50 FKs until precheck clean</li>
+<li>Plan <code>attendance_gps_log</code> table in Phase 4 with retention policy</li>
+<li>Add composite index <code>(event_id, attendance_status)</code> before Phase 3 dashboard</li>
+</ol>
+
+<h2>9. Rollback guidance</h2>
+<p>GPS rollbacks: phase 53 → phase 52 → flag OFF. Never drop attendance rows. Full platform rollback: restore <code>storage/backups/pre-deploy-*.zip</code> + DB dump from <code>cron/weekly-backup.php</code>.</p>
+
+<p class="meta">No database modifications performed in this review.</p>
+</body>
+</html>

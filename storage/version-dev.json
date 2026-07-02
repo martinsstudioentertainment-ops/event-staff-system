@@ -1,0 +1,9 @@
+{
+    "version": "1.1.0",
+    "build": 0,
+    "label": "v1.1-dev",
+    "baseline_version": "1.0.0",
+    "baseline_build": 2026062600,
+    "baseline_label": "v1.0-stable",
+    "note": "Development tracking only — not deployed. Production uses storage/version.json"
+}

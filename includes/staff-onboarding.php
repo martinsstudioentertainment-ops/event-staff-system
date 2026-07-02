@@ -8,22 +8,35 @@ require_once __DIR__ . '/staff-repository.php';
 require_once __DIR__ . '/site-urls.php';
 
 /** @return array<string, string> field key => human label */
-function getStaffOnboardingRequiredFields(): array
+function getStaffOnboardingRequiredFields(?array $staff = null): array
 {
-    return [
-        'first_name'       => 'First name',
-        'surname'          => 'Last name',
-        'email'            => 'Email',
-        'mobile'           => 'Phone',
-        'full_address'     => 'Address',
-        'eircode'          => 'Postcode',
-        'date_of_birth'    => 'Date of birth',
-        'bank_iban'        => 'Bank IBAN',
-        'psa_licence'      => 'PSA licence number',
-        'psa_expiry_date'  => 'PSA expiry date',
-        'psa_front_image'  => 'PSA card front photo',
-        'psa_back_image'   => 'PSA card back photo',
+    $fields = [
+        'first_name'    => 'First name',
+        'surname'       => 'Last name',
+        'email'         => 'Email',
+        'mobile'        => 'Phone',
+        'full_address'  => 'Address',
+        'eircode'       => 'Postcode',
+        'date_of_birth' => 'Date of birth',
+        'bank_iban'     => 'Bank IBAN',
     ];
+
+    require_once __DIR__ . '/staff-psa.php';
+    require_once __DIR__ . '/registration-forms.php';
+
+    $role = '';
+    if ($staff !== null) {
+        $role = normalizeStaffRole((string) ($staff['staff_role'] ?? ''));
+    }
+
+    if ($role === '' || staffRoleRequiresPsa($role)) {
+        $fields['psa_licence']     = 'PSA licence number';
+        $fields['psa_expiry_date'] = 'PSA expiry date';
+        $fields['psa_front_image'] = 'PSA card front photo';
+        $fields['psa_back_image']  = 'PSA card back photo';
+    }
+
+    return $fields;
 }
 
 /**
@@ -34,7 +47,7 @@ function getStaffOnboardingMissingFields(array $staff): array
 {
     $missing = [];
 
-    foreach (getStaffOnboardingRequiredFields() as $field => $label) {
+    foreach (getStaffOnboardingRequiredFields($staff) as $field => $label) {
         $value = $staff[$field] ?? '';
         if ($field === 'email') {
             if (!filter_var(trim((string) $value), FILTER_VALIDATE_EMAIL)) {
@@ -72,6 +85,36 @@ function isStaffOnboardingCompleteByEmail(PDO $pdo, string $email): bool
     $staff = getStaffByEmail($pdo, $email);
 
     return isStaffOnboardingComplete($staff);
+}
+
+/**
+ * SQL condition matching isStaffOnboardingComplete() for staff directory filters.
+ */
+function staffOnboardingCompleteSqlCondition(string $tableAlias = 's'): string
+{
+    $t     = $tableAlias . '.';
+    $parts = [];
+
+    foreach (array_keys(getStaffOnboardingRequiredFields()) as $field) {
+        if ($field === 'email') {
+            $parts[] = "{$t}email IS NOT NULL AND TRIM({$t}email) != '' AND {$t}email LIKE '%@%'";
+            continue;
+        }
+
+        if (in_array($field, ['psa_front_image', 'psa_back_image'], true)) {
+            $parts[] = "{$t}{$field} IS NOT NULL AND TRIM({$t}{$field}) != '' AND TRIM({$t}{$field}) != 'pending-upload'";
+            continue;
+        }
+
+        if (in_array($field, ['psa_expiry_date', 'date_of_birth'], true)) {
+            $parts[] = "{$t}{$field} IS NOT NULL AND TRIM({$t}{$field}) != '' AND {$t}{$field} != '0000-00-00'";
+            continue;
+        }
+
+        $parts[] = "{$t}{$field} IS NOT NULL AND TRIM({$t}{$field}) != ''";
+    }
+
+    return '(' . implode(' AND ', $parts) . ')';
 }
 
 /**
@@ -155,6 +198,7 @@ function validateStaffOnboardingPost(array $post, array $staff, array $files = [
             ? trim((string) $post['date_of_birth'])
             : trim((string) ($staff['date_of_birth'] ?? '')),
         'bank_iban'       => trim((string) ($post['bank_iban'] ?? '')),
+        'staff_role'      => trim((string) ($staff['staff_role'] ?? '')),
         'psa_licence'     => trim((string) ($post['psa_licence'] ?? '')),
         'psa_expiry_date' => trim((string) ($post['psa_expiry_date'] ?? '')),
         'psa_front_image' => trim((string) ($staff['psa_front_image'] ?? '')),
@@ -170,13 +214,18 @@ function validateStaffOnboardingPost(array $post, array $staff, array $files = [
 
     $errors = array_merge($errors, validateRegistrationPsa($data, $staff, $files));
 
-    $missing = getStaffOnboardingMissingFields($data);
+    $missing = getStaffOnboardingMissingFields(array_merge($staff, $data));
     if ($missing !== []) {
         $errors['form'] = 'Please complete all required fields: ' . implode(', ', $missing);
     }
 
     require_once __DIR__ . '/financial-field-validation.php';
-    $errors = array_merge($errors, validateFinancialStaffFields($data, true));
+    $finErrors = validateFinancialStaffFields($data, true);
+    require_once __DIR__ . '/registration-forms.php';
+    if (!staffRoleRequiresPsa(normalizeStaffRole((string) ($data['staff_role'] ?? '')))) {
+        unset($finErrors['psa_licence']);
+    }
+    $errors = array_merge($errors, $finErrors);
 
     $mobileError = validateMobileNumber((string) ($data['mobile'] ?? ''));
     if ($mobileError !== null) {
@@ -223,16 +272,17 @@ function autoApprovePendingRegistrationsForStaff(PDO $pdo, int $staffId): int
     $stmt->execute(['staff_id' => $staffId, 'email' => $email]);
     $ids = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
 
-    $approved = 0;
+    $approved    = 0;
+    $approvedIds = [];
     foreach ($ids as $id) {
         if ($id < 1 || !updateStaffStatus($pdo, $id, 'approved')) {
             continue;
         }
 
-        $approved++;
+        ++$approved;
+        $approvedIds[] = $id;
         try {
             ensureCheckinToken($pdo, $id);
-            notifyStaffStatusChange($pdo, $id, 'approved');
             if (isGoogleSheetsSyncEnabled($pdo)) {
                 syncRegistrationToGoogleSheet($pdo, $id);
             }
@@ -241,7 +291,12 @@ function autoApprovePendingRegistrationsForStaff(PDO $pdo, int $staffId): int
         }
     }
 
-    if ($approved > 0) {
+    if ($approvedIds !== []) {
+        try {
+            notifyStaffStatusChanges($pdo, $approvedIds, 'approved');
+        } catch (Throwable $e) {
+            error_log('[EventStaff] auto-approve notify batch: ' . $e->getMessage());
+        }
         error_log('[EventStaff] Auto-approved ' . $approved . ' pending registration(s) for staff id=' . $staffId);
     }
 

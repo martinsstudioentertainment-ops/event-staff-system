@@ -32,6 +32,30 @@ function googleDriveOAuthConfigured(?PDO $pdo = null): bool
     return $access !== '' && $expires > time() + 60;
 }
 
+function googleDriveClearOAuthTokens(PDO $pdo): void
+{
+    setSetting($pdo, 'google_oauth_access_token', '');
+    setSetting($pdo, 'google_oauth_token_expires', '0');
+    setSetting($pdo, 'google_oauth_refresh_token', '');
+    clearSettingsCache();
+}
+
+/**
+ * User-facing hint when sheet create cannot obtain a user OAuth token.
+ */
+function googleDriveOAuthReconnectMessage(?PDO $pdo = null): string
+{
+    $pdo = $pdo ?? getDB();
+
+    if (!googleDriveOAuthConfigured($pdo)) {
+        return 'Connect your Google account in Settings → Google Sheets (Connect Google account button).';
+    }
+
+    return 'Google account connection expired — open Settings → Google Sheets and click Connect Google account again. '
+        . 'Use the same Gmail that owns your Event Staff Sheets folder. '
+        . 'If it keeps failing, remove olasentra.com at https://myaccount.google.com/permissions and connect again.';
+}
+
 function googleDriveOAuthRedirectUri(?PDO $pdo = null): string
 {
     $pdo = $pdo ?? getDB();
@@ -192,10 +216,17 @@ function googleDriveGetUserAccessToken(?PDO $pdo = null): string
         return $cached;
     }
 
+    $refreshToken = trim(getSetting($pdo, 'google_oauth_refresh_token', ''));
+    if ($refreshToken === '') {
+        error_log('[EventStaff] Google OAuth: access token expired and no refresh token stored');
+
+        return '';
+    }
+
     $body = http_build_query([
         'client_id'     => trim(getSetting($pdo, 'google_oauth_client_id', '')),
         'client_secret' => trim(getSetting($pdo, 'google_oauth_client_secret', '')),
-        'refresh_token' => trim(getSetting($pdo, 'google_oauth_refresh_token', '')),
+        'refresh_token' => $refreshToken,
         'grant_type'    => 'refresh_token',
     ]);
 
@@ -212,17 +243,27 @@ function googleDriveGetUserAccessToken(?PDO $pdo = null): string
     curl_close($ch);
 
     if ($codeHttp !== 200 || !is_string($responseBody)) {
+        $data    = is_string($responseBody) ? json_decode($responseBody, true) : null;
+        $errCode = is_array($data) ? (string) ($data['error'] ?? '') : '';
+        error_log('[EventStaff] Google OAuth refresh failed HTTP ' . $codeHttp . ' error=' . $errCode);
+        if ($errCode === 'invalid_grant') {
+            googleDriveClearOAuthTokens($pdo);
+        }
+
         return '';
     }
 
     $data = json_decode($responseBody, true);
     $token = is_array($data) ? (string) ($data['access_token'] ?? '') : '';
     if ($token === '') {
+        error_log('[EventStaff] Google OAuth refresh returned no access_token');
+
         return '';
     }
 
     setSetting($pdo, 'google_oauth_access_token', $token);
     setSetting($pdo, 'google_oauth_token_expires', (string) (time() + (int) ($data['expires_in'] ?? 3600)));
+    clearSettingsCache();
 
     return $token;
 }

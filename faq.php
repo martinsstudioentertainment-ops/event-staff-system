@@ -5,8 +5,11 @@ require_once __DIR__ . '/includes/theme.php';
 require_once __DIR__ . '/includes/site-urls.php';
 require_once __DIR__ . '/includes/company.php';
 require_once __DIR__ . '/includes/website-content.php';
+require_once __DIR__ . '/includes/staff-google-oauth.php';
 
 $pdo = getDB();
+$staffAppUrl = $pdo ? rtrim(getRegistrationSiteUrl($pdo), '/') . '/staff-app.php' : 'staff-app.php';
+$registerHost = $pdo ? (parse_url(getRegistrationSiteUrl($pdo), PHP_URL_HOST) ?: 'register.olasentra.com') : 'register.olasentra.com';
 $web = initPublicWebsite($pdo, 'faq');
 $p   = $web['content']['faq'];
 $pageTitle = $p['title'] ?? 'FAQ';
@@ -25,6 +28,30 @@ include __DIR__ . '/includes/public/page-hero.php';
                 <div class="rich-content"><?= renderRichText($item['a'] ?? '') ?></div>
             </details>
         <?php endforeach; ?>
+    </div>
+</section>
+
+<section class="site-section site-section--alt">
+    <div class="site-section__inner site-faq">
+        <h2 class="site-section__title" style="margin-bottom:1rem;">Returning staff — staff app &amp; Gmail</h2>
+        <details class="site-faq__item" open>
+            <summary>How do I sign in to view my shifts?</summary>
+            <div class="rich-content">
+                <p>Open the <a href="<?= h($staffAppUrl) ?>">staff app</a> and tap <strong>Continue with Google</strong> with the same Gmail you used when registering. You stay signed in on your phone for shift tracking.</p>
+            </div>
+        </details>
+        <details class="site-faq__item">
+            <summary>Why Google sign-in instead of typing my PPS?</summary>
+            <div class="rich-content">
+                <p>Google verifies your identity — you do not type PPS into the staff app. That is more secure on a phone. <strong>Venue QR sign-in</strong> at the event still uses email plus last 4 of PPS once when you arrive.</p>
+            </div>
+        </details>
+        <details class="site-faq__item">
+            <summary>Location and GPS during my shift</summary>
+            <div class="rich-content">
+                <p>Allow <strong>location</strong> for <?= h($registerHost) ?> in your phone settings. Add the staff app to your <strong>home screen</strong> and reopen it during breaks — phones cannot track GPS when the browser is fully closed.</p>
+            </div>
+        </details>
     </div>
 </section>
 

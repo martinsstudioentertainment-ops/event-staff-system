@@ -8,10 +8,86 @@ require_once __DIR__ . '/staff-repository.php';
 require_once __DIR__ . '/staff-onboarding.php';
 require_once __DIR__ . '/production-readiness.php';
 
+/** Roles that do not require PSA licence number, expiry, or card photos on registration. */
+function getStaffRolesExemptFromPsa(): array
+{
+    return ['steward'];
+}
+
+function staffRoleRequiresPsa(string $staffRole): bool
+{
+    $role = strtolower(trim(str_replace(['-', ' '], '_', $staffRole)));
+
+    return !in_array($role, getStaffRolesExemptFromPsa(), true);
+}
+
 /** Accept attribute for PSA photo file inputs (incl. iPhone HEIC). */
 function psaImageFileAcceptAttribute(): string
 {
     return 'image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,image/*';
+}
+
+/**
+ * Google Sheets / exports — blank until staff enter a real licence.
+ */
+function exportPsaLicenceForSheet(?string $licence): string
+{
+    $licence = trim((string) $licence);
+
+    if ($licence === '' || str_starts_with($licence, 'TEMP-PSA-')) {
+        return '';
+    }
+
+    return $licence;
+}
+
+function isStoredPsaImagePath(?string $path): bool
+{
+    $path = trim((string) $path);
+
+    return $path !== '' && $path !== 'pending-upload';
+}
+
+function normalizePsaImageStoredPath(string $path): string
+{
+    $path = trim(str_replace('\\', '/', $path));
+    if (!isStoredPsaImagePath($path)) {
+        return '';
+    }
+
+    return str_starts_with($path, '/') ? $path : '/' . $path;
+}
+
+/**
+ * Public URL for a PSA image path stored on the main ERP site (register/admin subdomain).
+ */
+function psaImagePublicUrl(string $storedPath, ?PDO $pdo = null): string
+{
+    if (!isStoredPsaImagePath($storedPath)) {
+        return '';
+    }
+
+    if (preg_match('#^https?://#i', $storedPath) === 1) {
+        return $storedPath;
+    }
+
+    require_once __DIR__ . '/site-urls.php';
+
+    return getRegistrationSiteUrl($pdo) . normalizePsaImageStoredPath($storedPath);
+}
+
+/**
+ * Absolute filesystem path for a main-site stored PSA image (admin UI file_exists checks).
+ */
+function psaImageFilesystemPath(string $storedPath): string
+{
+    if (!isStoredPsaImagePath($storedPath)) {
+        return '';
+    }
+
+    $relative = ltrim(normalizePsaImageStoredPath($storedPath), '/');
+
+    return dirname(__DIR__) . '/' . $relative;
 }
 
 function ensureStaffPsaSchema(PDO $pdo): void
@@ -103,6 +179,11 @@ function getStaffPsaMissingFields(?array $staff): array
         return array_values(getStaffPsaFieldLabels());
     }
 
+    require_once __DIR__ . '/registration-forms.php';
+    if (!staffRoleRequiresPsa(normalizeStaffRole((string) ($staff['staff_role'] ?? '')))) {
+        return [];
+    }
+
     $missing = [];
     foreach (getStaffPsaFieldLabels() as $field => $label) {
         if (trim((string) ($staff[$field] ?? '')) === '') {
@@ -119,13 +200,62 @@ function isStaffPsaComplete(?array $staff): bool
 }
 
 /**
+ * Whether PSA fields apply for this person (staff record + open registrations).
+ *
+ * @param array<string, mixed>|null $staff
+ * @param list<array<string, mixed>> $registrationRows
+ */
+function staffContextRequiresPsa(?array $staff, array $registrationRows = []): bool
+{
+    require_once __DIR__ . '/registration-forms.php';
+
+    if ($staff !== null) {
+        $staffRole = normalizeStaffRole((string) ($staff['staff_role'] ?? ''));
+        if ($staffRole !== '' && !staffRoleRequiresPsa($staffRole)) {
+            return false;
+        }
+    }
+
+    if ($registrationRows !== []) {
+        foreach ($registrationRows as $row) {
+            if (staffRoleRequiresPsa(normalizeStaffRole((string) ($row['staff_role'] ?? '')))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    if ($staff !== null) {
+        return staffRoleRequiresPsa(normalizeStaffRole((string) ($staff['staff_role'] ?? '')));
+    }
+
+    return true;
+}
+
+/**
  * @param array<string, mixed> $data POST fields
  * @param array<string, mixed>|null $staff Existing staff row (for optional re-upload)
  * @param array<string, mixed> $files $_FILES
+ * @param list<array<string, mixed>> $registrationRows
  * @return array<string, string>
  */
-function validateRegistrationPsa(array $data, ?array $staff, array $files): array
+function validateRegistrationPsa(array $data, ?array $staff, array $files, array $registrationRows = []): array
 {
+    if (!staffContextRequiresPsa($staff, $registrationRows)) {
+        return [];
+    }
+
+    require_once __DIR__ . '/registration-forms.php';
+
+    $role = normalizeStaffRole((string) ($data['staff_role'] ?? ''));
+    if ($role === '' && $staff !== null) {
+        $role = normalizeStaffRole((string) ($staff['staff_role'] ?? ''));
+    }
+    if ($role !== '' && !staffRoleRequiresPsa($role)) {
+        return [];
+    }
+
     $errors = [];
 
     require_once __DIR__ . '/financial-field-validation.php';
@@ -291,7 +421,7 @@ function processStaffPsaFileUploadsWithErrors(int $staffId, array $files): array
  * @param array<string, mixed> $files
  * @return array<string, string> Field errors (empty on success)
  */
-function saveStaffPsaFromForm(PDO $pdo, int $staffId, array $data, array $files): array
+function saveStaffPsaFromForm(PDO $pdo, int $staffId, array $data, array $files, bool $runProfilePostJobs = true): array
 {
     if ($staffId < 1) {
         return [];
@@ -325,7 +455,7 @@ function saveStaffPsaFromForm(PDO $pdo, int $staffId, array $data, array $files)
     if (updateStaffProfile($pdo, $staffId, $update)) {
         $staff = getStaffById($pdo, $staffId);
         if ($staff !== null && isStaffOnboardingComplete($staff)) {
-            markStaffProfileCompleted($pdo, $staffId);
+            markStaffProfileCompleted($pdo, $staffId, $runProfilePostJobs);
         }
     }
 

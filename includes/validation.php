@@ -20,6 +20,27 @@ function isValidEircode(string $value): bool
     return (bool) preg_match('/^[A-Z0-9]{3}\s?[A-Z0-9]{4}$/i', normalizeEircode($value));
 }
 
+/** @return string[] */
+function getAllowedRegistrationGenders(): array
+{
+    return ['male', 'female', 'other', 'prefer_not_to_say'];
+}
+
+/**
+ * Gender choices for registration API payloads.
+ *
+ * @return list<array{value: string, label: string}>
+ */
+function getRegistrationGenderOptions(): array
+{
+    return [
+        ['value' => 'male', 'label' => 'Male'],
+        ['value' => 'female', 'label' => 'Female'],
+        ['value' => 'other', 'label' => 'Other'],
+        ['value' => 'prefer_not_to_say', 'label' => 'Prefer not to say'],
+    ];
+}
+
 /**
  * @param array<string, mixed> $data
  * @return int[]
@@ -36,6 +57,54 @@ function normalizeEventIds(array $data): array
     $ids = array_filter($ids, static fn(int $id): bool => $id > 0);
 
     return array_values(array_unique($ids));
+}
+
+function isWaitlistRegistrationRequest(array $data): bool
+{
+    if (normalizeEventIds($data) !== []) {
+        return false;
+    }
+
+    $mode = strtolower(trim((string) ($data['registration_mode'] ?? '')));
+    if (in_array($mode, ['waitlist', 'waiting_list', 'reserve', 'pending_allocation'], true)) {
+        return true;
+    }
+
+    return !empty($data['join_waiting_list']) || !empty($data['waitlist_interest']);
+}
+
+function normalizeWaitlistAllocationType(array $data): string
+{
+    $type = strtolower(trim((string) ($data['waitlist_allocation_type'] ?? '')));
+    if (in_array($type, ['waiting_list', 'pending_allocation', 'reserve_staff'], true)) {
+        return $type;
+    }
+
+    $mode = strtolower(trim((string) ($data['registration_mode'] ?? '')));
+    if ($mode === 'reserve') {
+        return 'reserve_staff';
+    }
+    if ($mode === 'pending_allocation') {
+        return 'pending_allocation';
+    }
+
+    return 'waiting_list';
+}
+
+/**
+ * @param array<string, mixed> $data
+ * @return array<string, string>
+ */
+function validateWaitlistRegistration(array $data): array
+{
+    $errors = validateRegistration($data);
+    unset($errors['event_ids']);
+
+    if (normalizeEventIds($data) === [] && !isWaitlistRegistrationRequest($data)) {
+        $errors['event_ids'] = 'Please select a shift, or choose to join the waiting list.';
+    }
+
+    return $errors;
 }
 
 /**
@@ -72,7 +141,7 @@ function validateOneShiftPerDay(array $eventIds, ?PDO $pdo = null): ?string
             continue;
         }
         if (isset($seen[$day])) {
-            $label = date('d.m.Y', strtotime($day));
+            $label = formatEventDateLabel($day);
 
             return 'You can only select one shift per day. You chose more than one for ' . $label . '.';
         }
@@ -83,12 +152,310 @@ function validateOneShiftPerDay(array $eventIds, ?PDO $pdo = null): ?string
 }
 
 /**
+ * Existing registrations (non-rejected) on the same calendar date as a new selection.
+ *
+ * @param PDO $pdo
+ * @param string $email
+ * @param int[] $newEventIds
+ * @return array<int, array<string, mixed>>
+ */
+function getSameDayRegistrationConflicts(PDO $pdo, string $email, array $newEventIds): array
+{
+    if ($newEventIds === []) {
+        return [];
+    }
+
+    $email = normalizeRegistrationEmail($email);
+    if ($email === '') {
+        return [];
+    }
+
+    $params = ['email' => $email];
+    $inKeys    = [];
+    $notInKeys = [];
+    foreach ($newEventIds as $index => $eventId) {
+        $inKey    = 'new_in_' . $index;
+        $notInKey = 'new_not_' . $index;
+        $inKeys[]    = ':' . $inKey;
+        $notInKeys[] = ':' . $notInKey;
+        $params[$inKey]    = $eventId;
+        $params[$notInKey] = $eventId;
+    }
+
+    $inNew    = implode(',', $inKeys);
+    $notInNew = implode(',', $notInKeys);
+
+    $sql = "SELECT DISTINCT e_existing.id AS event_id, e_existing.name AS event_name, e_existing.event_date
+            FROM staff_registrations sr
+            INNER JOIN events e_existing ON e_existing.id = sr.event_id
+            INNER JOIN events e_new ON DATE(e_new.event_date) = DATE(e_existing.event_date)
+            WHERE LOWER(sr.email) = :email
+              AND sr.status != 'rejected'
+              AND e_new.id IN ({$inNew})
+              AND e_existing.id NOT IN ({$notInNew})";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+/**
+ * @param PDO $pdo
+ * @param string $email
+ * @param int[] $eventIds
+ */
+function validateNoExistingShiftOnSameDay(PDO $pdo, string $email, array $eventIds): ?string
+{
+    $conflicts = getSameDayRegistrationConflicts($pdo, $email, $eventIds);
+    if ($conflicts === []) {
+        return null;
+    }
+
+    $labels = array_map(static function (array $row): string {
+        $date = !empty($row['event_date'])
+            ? formatEventDateLabel(normalizeEventDateYmd((string) $row['event_date']))
+            : '';
+        $name = (string) ($row['event_name'] ?? 'Event');
+
+        return $date !== '' ? $name . ' (' . $date . ')' : $name;
+    }, $conflicts);
+
+    return 'You can only register for one shift per day. You already have: '
+        . implode(', ', $labels) . '.';
+}
+
+/**
+ * Staff with 2+ non-rejected registrations on the same calendar date.
+ *
+ * @return list<array{
+ *   email: string,
+ *   first_name: string,
+ *   surname: string,
+ *   event_day: string,
+ *   event_count: int,
+ *   registrations: list<array{registration_id: int, event_id: int, event_name: string, status: string}>
+ * }>
+ */
+function getAllSameDayDoubleBookings(PDO $pdo, ?string $fromDateYmd = null): array
+{
+    $params = [];
+    $dateFilter = '';
+    if ($fromDateYmd !== null && $fromDateYmd !== '') {
+        $dateFilter = ' AND DATE(e.event_date) >= :from_date';
+        $params['from_date'] = $fromDateYmd;
+    }
+
+    $sql = "SELECT sr.id AS registration_id,
+                   sr.event_id,
+                   sr.status,
+                   sr.first_name,
+                   sr.surname,
+                   sr.email,
+                   sr.created_at,
+                   e.name AS event_name,
+                   DATE(e.event_date) AS event_day
+            FROM staff_registrations sr
+            INNER JOIN events e ON e.id = sr.event_id
+            WHERE sr.status != 'rejected'
+              AND e.event_date IS NOT NULL
+              {$dateFilter}
+            ORDER BY event_day DESC, LOWER(TRIM(sr.email)), sr.created_at ASC, sr.id ASC";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    $groups = [];
+    foreach ($rows as $row) {
+        $email = strtolower(trim((string) ($row['email'] ?? '')));
+        $day   = (string) ($row['event_day'] ?? '');
+        if ($email === '' || $day === '') {
+            continue;
+        }
+        $key = $email . '|' . $day;
+        if (!isset($groups[$key])) {
+            $groups[$key] = [
+                'email'          => $email,
+                'first_name'     => (string) ($row['first_name'] ?? ''),
+                'surname'        => (string) ($row['surname'] ?? ''),
+                'event_day'      => $day,
+                'event_count'    => 0,
+                'registrations'  => [],
+                '_event_ids'     => [],
+            ];
+        }
+        $eventId = (int) ($row['event_id'] ?? 0);
+        if (isset($groups[$key]['_event_ids'][$eventId])) {
+            continue;
+        }
+        $groups[$key]['_event_ids'][$eventId] = true;
+        $groups[$key]['registrations'][] = [
+            'registration_id' => (int) ($row['registration_id'] ?? 0),
+            'event_id'        => $eventId,
+            'event_name'      => (string) ($row['event_name'] ?? ''),
+            'status'          => (string) ($row['status'] ?? ''),
+            'created_at'      => (string) ($row['created_at'] ?? ''),
+        ];
+        $groups[$key]['event_count'] = count($groups[$key]['registrations']);
+    }
+
+    $out = [];
+    foreach ($groups as $group) {
+        if ($group['event_count'] < 2) {
+            continue;
+        }
+        unset($group['_event_ids']);
+        usort($group['registrations'], static function (array $a, array $b): int {
+            $ta = strtotime((string) ($a['created_at'] ?? '')) ?: 0;
+            $tb = strtotime((string) ($b['created_at'] ?? '')) ?: 0;
+            if ($ta !== $tb) {
+                return $ta <=> $tb;
+            }
+
+            return ((int) ($a['registration_id'] ?? 0)) <=> ((int) ($b['registration_id'] ?? 0));
+        });
+        foreach ($group['registrations'] as $i => &$reg) {
+            $reg['keep'] = ($i === 0);
+        }
+        unset($reg);
+        $out[] = $group;
+    }
+
+    usort($out, static function (array $a, array $b): int {
+        $day = strcmp((string) $b['event_day'], (string) $a['event_day']);
+        if ($day !== 0) {
+            return $day;
+        }
+
+        return strcmp((string) $a['email'], (string) $b['email']);
+    });
+
+    return $out;
+}
+
+/**
+ * Reject later same-day shifts; keep the earliest registration per email + calendar date.
+ *
+ * @return array{
+ *   groups: int,
+ *   kept: int,
+ *   rejected: int,
+ *   errors: list<string>,
+ *   details: list<array<string, mixed>>
+ * }
+ */
+function rejectSameDayDuplicateShifts(PDO $pdo, ?string $fromDateYmd = null): array
+{
+    require_once __DIR__ . '/staff-repository.php';
+    require_once __DIR__ . '/google-sheets-sync.php';
+    require_once __DIR__ . '/audit-log.php';
+    require_once __DIR__ . '/apply-remote-sync.php';
+
+    $stats = [
+        'groups'   => 0,
+        'kept'     => 0,
+        'rejected' => 0,
+        'errors'   => [],
+        'details'  => [],
+    ];
+
+    $conflicts = getAllSameDayDoubleBookings($pdo, $fromDateYmd);
+    if ($conflicts === []) {
+        return $stats;
+    }
+
+    $affectedEvents = [];
+
+    foreach ($conflicts as $group) {
+        $stats['groups']++;
+        $regs = $group['registrations'] ?? [];
+        if (count($regs) < 2) {
+            continue;
+        }
+
+        $keep = $regs[0];
+        $stats['kept']++;
+        $detail = [
+            'email'     => (string) ($group['email'] ?? ''),
+            'event_day' => (string) ($group['event_day'] ?? ''),
+            'kept_id'   => (int) ($keep['registration_id'] ?? 0),
+            'kept_event'=> (string) ($keep['event_name'] ?? ''),
+            'rejected'  => [],
+        ];
+
+        for ($i = 1, $n = count($regs); $i < $n; $i++) {
+            $regId = (int) ($regs[$i]['registration_id'] ?? 0);
+            if ($regId < 1) {
+                continue;
+            }
+
+            try {
+                if (!updateStaffStatus($pdo, $regId, 'rejected')) {
+                    $stats['errors'][] = 'Could not reject registration #' . $regId;
+                    continue;
+                }
+
+                $stats['rejected']++;
+                $eventId = (int) ($regs[$i]['event_id'] ?? 0);
+                if ($eventId > 0) {
+                    $affectedEvents[$eventId] = $eventId;
+                }
+
+                try {
+                    syncRegistrationToGoogleSheetWithOutcome($pdo, $regId);
+                } catch (Throwable $sheetErr) {
+                    error_log('[EventStaff] same-day reject sheet sync #' . $regId . ': ' . $sheetErr->getMessage());
+                }
+
+                logAdminAudit(
+                    $pdo,
+                    'same_day_reject',
+                    'registration',
+                    $regId,
+                    'Auto-rejected duplicate same-day shift; kept #' . (int) ($keep['registration_id'] ?? 0)
+                );
+
+                $detail['rejected'][] = [
+                    'registration_id' => $regId,
+                    'event_name'      => (string) ($regs[$i]['event_name'] ?? ''),
+                ];
+            } catch (Throwable $e) {
+                $stats['errors'][] = 'Registration #' . $regId . ': ' . $e->getMessage();
+            }
+        }
+
+        $stats['details'][] = $detail;
+    }
+
+    if ($stats['rejected'] > 0) {
+        try {
+            triggerApplyPortalSyncAsync($pdo, true);
+        } catch (Throwable $e) {
+            error_log('[EventStaff] same-day reject apply sync: ' . $e->getMessage());
+        }
+
+        logAdminAudit(
+            $pdo,
+            'same_day_reject_bulk',
+            'system',
+            0,
+            'Rejected ' . $stats['rejected'] . ' duplicate shift(s); kept ' . $stats['kept'] . ' first pick(s)'
+        );
+    }
+
+    return $stats;
+}
+
+/**
  * @param array<string, mixed> $data
  * @return array<string, string> field name => error message
  */
 function validateRegistration(array $data): array
 {
     $errors = [];
+
+    require_once __DIR__ . '/staff-psa.php';
 
     $required = [
         'surname'       => 'Surname',
@@ -106,6 +473,10 @@ function validateRegistration(array $data): array
         'staff_role'    => 'Role',
     ];
 
+    if (!staffRoleRequiresPsa(normalizeStaffRole((string) ($data['staff_role'] ?? '')))) {
+        unset($required['psa_licence'], $required['psa_expiry_date']);
+    }
+
     foreach ($required as $field => $label) {
         $value = trim((string) ($data[$field] ?? ''));
         if ($value === '') {
@@ -114,9 +485,9 @@ function validateRegistration(array $data): array
     }
 
     $eventIds = normalizeEventIds($data);
-    if ($eventIds === []) {
+    if ($eventIds === [] && !isWaitlistRegistrationRequest($data)) {
         $errors['event_ids'] = 'Please select at least one shift or event.';
-    } else {
+    } elseif ($eventIds !== []) {
         $pdoForDay = null;
         try {
             $pdoForDay = getDB();
@@ -126,11 +497,19 @@ function validateRegistration(array $data): array
         $perDayError = validateOneShiftPerDay($eventIds, $pdoForDay);
         if ($perDayError !== null) {
             $errors['event_ids'] = $perDayError;
+        } elseif ($pdoForDay !== null) {
+            $emailForDay = normalizeRegistrationEmail((string) ($data['email'] ?? ''));
+            if ($emailForDay !== '' && filter_var($emailForDay, FILTER_VALIDATE_EMAIL)) {
+                $existingDayError = validateNoExistingShiftOnSameDay($pdoForDay, $emailForDay, $eventIds);
+                if ($existingDayError !== null) {
+                    $errors['event_ids'] = $existingDayError;
+                }
+            }
         }
     }
 
     $venueId = (int) ($data['venue_id'] ?? 0);
-    if ($venueId < 1 && $eventIds === []) {
+    if ($venueId < 1 && $eventIds === [] && !isWaitlistRegistrationRequest($data)) {
         $errors['venue_id'] = 'Please select a venue.';
     }
 
@@ -177,7 +556,11 @@ function validateRegistration(array $data): array
     }
 
     require_once __DIR__ . '/financial-field-validation.php';
-    $errors = array_merge($errors, validateFinancialStaffFields($data, true));
+    $finErrors = validateFinancialStaffFields($data, true);
+    if (!staffRoleRequiresPsa(normalizeStaffRole((string) ($data['staff_role'] ?? '')))) {
+        unset($finErrors['psa_licence']);
+    }
+    $errors = array_merge($errors, $finErrors);
 
     return $errors;
 }
@@ -293,6 +676,25 @@ function getInvalidEventIds(PDO $pdo, array $eventIds): array
 function saveRegistration(PDO $pdo, array $data, int $eventId, ?string $staffRoleOverride = null): int
 {
     ensureStaffRegistrationSaveSchema($pdo);
+    require_once __DIR__ . '/platform/canonical-identity.php';
+
+    canonicalIdentityGatewayPush('registration_save');
+    try {
+        $prepared = canonicalIdentityPrepareRegistrationData($pdo, $data, $eventId, 'registration_save');
+        if (!empty($prepared['duplicate_blocked'])) {
+            canonicalIdentityLog(
+                $pdo,
+                'duplicate_blocked',
+                'registration_save',
+                (int) ($prepared['staff_id'] ?? 0),
+                null,
+                canonicalIdentityNormalizeEmail((string) ($data['email'] ?? '')),
+                null,
+                'Duplicate event registration blocked for staff #' . (int) ($prepared['staff_id'] ?? 0)
+            );
+            throw new RuntimeException('This staff member is already registered for this event.');
+        }
+        $data = $prepared['data'];
 
     $statusToken = bin2hex(random_bytes(32));
     $staffRole   = sanitizeStaffRoleForDb(
@@ -353,6 +755,10 @@ function saveRegistration(PDO $pdo, array $data, int $eventId, ?string $staffRol
         'privacy_consented_at' => registrationPrivacyAccepted($data) ? date('Y-m-d H:i:s') : null,
     ];
 
+    if (staffRegistrationColumnExists($pdo, 'submitted_email') && !empty($data['submitted_email'])) {
+        $row['submitted_email'] = normalizeRegistrationEmail((string) $data['submitted_email']);
+    }
+
     $columns = [];
     $params  = [];
     foreach ($row as $column => $value) {
@@ -372,7 +778,10 @@ function saveRegistration(PDO $pdo, array $data, int $eventId, ?string $staffRol
     $stmt         = $pdo->prepare($sql);
     $stmt->execute($params);
 
-    return (int) $pdo->lastInsertId();
+        return (int) $pdo->lastInsertId();
+    } finally {
+        canonicalIdentityGatewayPop();
+    }
 }
 
 /**
@@ -391,14 +800,25 @@ function saveRegistrations(PDO $pdo, array $data, array $eventIds, array $files 
         $email = normalizeRegistrationEmail((string) ($data['email'] ?? ''));
 
         foreach ($eventIds as $eventId) {
-            if (registrationExistsForEmail($pdo, $email, $eventId)) {
+            require_once __DIR__ . '/platform/canonical-identity.php';
+            $prepared = canonicalIdentityPrepareRegistrationData($pdo, $data, $eventId, 'registration_batch_save');
+            if (!empty($prepared['duplicate_blocked'])) {
+                throw new RuntimeException('Duplicate registration blocked for event ' . $eventId);
+            }
+            $saveData = $prepared['data'];
+            $staffId  = (int) ($prepared['staff_id'] ?? 0);
+            if ($staffId > 0 && registrationExistsForStaffOnEvent($pdo, $staffId, $eventId)) {
+                throw new RuntimeException('Duplicate registration blocked for event ' . $eventId);
+            }
+            $regEmail = normalizeRegistrationEmail((string) ($saveData['email'] ?? ''));
+            if ($regEmail !== '' && registrationExistsForEmail($pdo, $regEmail, $eventId)) {
                 throw new RuntimeException('Duplicate registration blocked for event ' . $eventId);
             }
             $event = getEventById($pdo, $eventId);
             $role  = $event !== null
-                ? resolveStaffRoleForEventRegistration((string) ($data['staff_role'] ?? ''), $event)
-                : normalizeStaffRole((string) ($data['staff_role'] ?? ''));
-            $ids[] = saveRegistration($pdo, $data, $eventId, $role);
+                ? resolveStaffRoleForEventRegistration((string) ($saveData['staff_role'] ?? ''), $event)
+                : normalizeStaffRole((string) ($saveData['staff_role'] ?? ''));
+            $ids[] = saveRegistration($pdo, $saveData, $eventId, $role);
         }
         $pdo->commit();
 
@@ -406,12 +826,17 @@ function saveRegistrations(PDO $pdo, array $data, array $eventIds, array $files 
         require_once __DIR__ . '/staff-psa.php';
         $staffId = ensureStaffRecordForEmail($pdo, $email);
         if ($staffId !== null) {
-            saveStaffPsaFromForm($pdo, $staffId, $data, $files);
+            $psaSaveErrors = saveStaffPsaFromForm($pdo, $staffId, $data, $files, false);
+            if ($psaSaveErrors !== []) {
+                error_log('[EventStaff] PSA save after registration for ' . $email . ': ' . json_encode($psaSaveErrors));
+            }
         }
 
         return $ids;
     } catch (Throwable $e) {
-        $pdo->rollBack();
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         throw $e;
     }
 }

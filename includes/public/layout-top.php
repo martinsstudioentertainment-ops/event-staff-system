@@ -8,6 +8,7 @@ require_once __DIR__ . '/../theme.php';
 require_once __DIR__ . '/../brand-logo.php';
 require_once __DIR__ . '/../share-meta.php';
 require_once __DIR__ . '/../rich-text.php';
+require_once __DIR__ . '/../feature-flags.php';
 
 $pageTitle       = $pageTitle ?? $web['companyName'];
 $pageDescription = $pageDescription ?? '';
@@ -15,9 +16,11 @@ $themeColor      = $web['themeColor'];
 $assetBase       = $web['assetBase'];
 $pdo             = $web['pdo'];
 $enablePwa       = false;
+$isPremiumHome   = ($web['pageSlug'] ?? '') === 'home'
+    && isFeatureEnabled($pdo, 'feature_public_premium_v2');
 ?>
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="<?= $isPremiumHome ? 'dark' : 'light' ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -34,8 +37,14 @@ $enablePwa       = false;
     <link rel="stylesheet" href="<?= h($assetBase) ?>assets/css/website.css">
     <link rel="stylesheet" href="<?= h($assetBase) ?>assets/css/mobile.css">
     <link rel="stylesheet" href="<?= h($assetBase) ?>assets/css/site-notice.css">
+    <?php if ($isPremiumHome): ?>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?= h($assetBase) ?>assets/css/home-premium.css">
+    <?php endif; ?>
 </head>
-<body class="site-page" data-page="<?= h($web['pageSlug']) ?>">
+<body class="site-page<?= $isPremiumHome ? ' site-page--premium-home' : '' ?>" data-page="<?= h($web['pageSlug']) ?>">
 
 <header class="site-header">
     <div class="site-header__inner">

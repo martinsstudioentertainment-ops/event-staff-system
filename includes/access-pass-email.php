@@ -9,6 +9,75 @@ require_once __DIR__ . '/maps.php';
 require_once __DIR__ . '/signin-display.php';
 require_once __DIR__ . '/site-urls.php';
 require_once __DIR__ . '/email-copy.php';
+require_once __DIR__ . '/email-layout.php';
+require_once __DIR__ . '/email-branding.php';
+
+/**
+ * @param array<string, mixed> $row
+ */
+function buildEmailAccessPassShiftCard(
+    PDO $pdo,
+    array $row,
+    string $passId,
+    string $eventName,
+    string $dateLabel,
+    string $times,
+    string $location,
+    string $reporting,
+    string $role,
+    string $checkinUrl,
+    string $qrImageUrl,
+    string $mapsUrl
+): string {
+    $brand = getEmailBranding($pdo);
+
+    $html = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;background-color:' . emailEsc($brand['card_bg']) . ';border:2px solid ' . emailEsc($brand['secondary_color']) . ';border-radius:14px;">'
+        . '<tr><td style="padding:18px 20px;">'
+        . '<table style="width:100%;border-collapse:collapse;font-size:14px;">'
+        . '<tr><td style="padding:6px 0;color:#64748b;width:130px;">Pass ID</td><td style="padding:6px 0;font-weight:700;font-family:monospace;">' . emailEsc($passId) . '</td></tr>'
+        . '<tr><td style="padding:6px 0;color:#64748b;">Event</td><td style="padding:6px 0;">' . emailEsc(formatEmailEventNameDateCell($eventName, $dateLabel)) . '</td></tr>';
+
+    $employer = formatEventMainSecurityLabel($row);
+    if ($employer !== '') {
+        $html .= '<tr><td style="padding:6px 0;color:#64748b;">Listed contractor</td><td style="padding:6px 0;font-weight:700;">' . emailEsc($employer) . '</td></tr>';
+    }
+
+    $html .= '<tr><td style="padding:6px 0;color:#64748b;">Reporting time</td><td style="padding:6px 0;">' . emailEsc($times) . '</td></tr>'
+        . '<tr><td style="padding:6px 0;color:#64748b;">Venue</td><td style="padding:6px 0;">' . emailEsc($location) . '</td></tr>';
+
+    if ($reporting !== '') {
+        $html .= '<tr><td style="padding:6px 0;color:#64748b;">Reporting point</td><td style="padding:6px 0;">' . emailEsc($reporting) . '</td></tr>';
+    }
+
+    $hoursLabel = formatEmailShiftHoursLabel($row);
+    $html .= '<tr><td style="padding:6px 0;color:#64748b;">Role</td><td style="padding:6px 0;">' . emailEsc($role) . '</td></tr>';
+    if ($hoursLabel !== '') {
+        $html .= '<tr><td style="padding:6px 0;color:#64748b;">Hours</td><td style="padding:6px 0;">' . emailEsc($hoursLabel) . '</td></tr>';
+    }
+    $payLabel = formatEmailPayRateLabelOptional($pdo, $row);
+    if ($payLabel !== '') {
+        $html .= '<tr><td style="padding:6px 0;color:#64748b;">Pay rate</td><td style="padding:6px 0;">' . emailEsc($payLabel) . '</td></tr>';
+    }
+    $html .= '</table>';
+
+    if ($qrImageUrl !== '') {
+        $html .= '<div style="text-align:center;margin:16px 0 0;">'
+            . '<img src="' . emailEsc($qrImageUrl) . '" width="220" height="220" alt="Check-in QR code" style="display:block;margin:0 auto;border:1px solid #e2e8f0;border-radius:8px;">'
+            . '<p style="font-size:12px;color:#64748b;margin:8px 0 0;">Scan at check-in or save this pass to your phone</p>'
+            . '</div>';
+        if ($checkinUrl !== '') {
+            $html .= buildEmailButton($pdo, $checkinUrl, 'Open check-in link');
+        }
+    }
+
+    if ($mapsUrl !== '') {
+        $html .= '<p style="margin:8px 0 0;font-size:13px;"><a href="' . emailEsc($mapsUrl) . '" style="color:#2563eb;">Open venue in Google Maps</a></p>';
+    }
+
+    $html .= '</td></tr></table>';
+
+    return $html;
+}
 
 /**
  * @param array<string, mixed> $row Registration row with event fields joined
@@ -22,8 +91,8 @@ function buildEventAccessPassEmail(PDO $pdo, array $row): array
     $passId    = formatStaffPassId($regId, $eventDate);
     $eventName = (string) ($row['event_name'] ?? 'Event');
     $dateLabel = $eventDate !== '' ? formatEventDateLabel($eventDate) : '';
-    $times     = formatEventTimeRangeLabel($row);
-    $location  = formatEventLocationLabel($row);
+    $times     = formatEventTimeRangeLabelForEmail($row);
+    $location  = formatEventLocationLabelForEmail($row);
     $reporting = formatEventReportingLabel($row);
     $role      = formatRoleLabel($row['staff_role']);
     $firstName = (string) ($row['first_name'] ?? '');
@@ -36,7 +105,7 @@ function buildEventAccessPassEmail(PDO $pdo, array $row): array
         normalizeCoordinate(isset($row['venue_lng']) ? (string) $row['venue_lng'] : null)
     );
 
-    $subject = $siteName . ' — Registration confirmed — ' . $eventName
+    $subject = $siteName . ' - Registration confirmed - ' . $eventName
         . ($dateLabel !== '' ? ' ' . $dateLabel : '');
 
     $textLines = [
@@ -45,7 +114,7 @@ function buildEventAccessPassEmail(PDO $pdo, array $row): array
         'Your application for this shift has been approved. Use the check-in details below on event day.',
         '',
         'Pass ID: ' . $passId,
-        'Event: ' . formatEventLabel($row),
+        'Event: ' . formatEventLabelForEmail($row),
         'Reporting time: ' . $times,
         'Venue: ' . $location,
     ];
@@ -53,6 +122,10 @@ function buildEventAccessPassEmail(PDO $pdo, array $row): array
         $textLines[] = 'Reporting point: ' . $reporting;
     }
     $textLines[] = 'Role: ' . $role;
+    $payLabel = formatEmailPayRateLabelOptional($pdo, $row);
+    if ($payLabel !== '') {
+        $textLines[] = 'Indicative pay: ' . $payLabel;
+    }
     $onSite = formatEmailOnSiteSecurityLine($pdo, $row);
     if ($onSite !== null) {
         $textLines[] = $onSite;
@@ -75,49 +148,16 @@ function buildEventAccessPassEmail(PDO $pdo, array $row): array
 
     $text = implode("\n", array_filter($textLines, static fn ($line) => $line !== null));
 
-    $esc = static fn (string $v): string => htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
+    $innerHtml = '<p style="margin:0 0 16px;">Dear ' . emailEsc($firstName) . ', your application for this shift is <strong>approved</strong>. Check-in details are below.</p>'
+        . buildEmailAccessPassShiftCard($pdo, $row, $passId, $eventName, $dateLabel, $times, $location, $reporting, $role, $checkinUrl, $qrImageUrl, $mapsUrl)
+        . '<p style="margin:16px 0 0;font-size:13px;color:#475569;">Check-in opens 1 hour before the event starts and closes 1 hour after it ends.</p>';
 
-    $html = '<!DOCTYPE html><html><body style="font-family:Segoe UI,Arial,sans-serif;line-height:1.55;color:#111;max-width:560px;margin:0 auto;padding:16px;">'
-        . '<div style="border:2px solid #2563eb;border-radius:12px;padding:20px;background:#f8fafc;">'
-        . '<p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">' . $esc($siteName) . '</p>'
-        . '<h1 style="margin:0 0 12px;font-size:22px;color:#1e40af;">Registration confirmed</h1>'
-        . '<p style="margin:0 0 16px;">Dear ' . $esc($firstName) . ', your application for this shift is <strong>approved</strong>. Check-in details are below.</p>'
-        . '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:16px;">'
-        . '<tr><td style="padding:6px 0;color:#64748b;width:130px;">Pass ID</td><td style="padding:6px 0;font-weight:700;font-family:monospace;">' . $esc($passId) . '</td></tr>'
-        . '<tr><td style="padding:6px 0;color:#64748b;">Event</td><td style="padding:6px 0;">' . $esc($eventName) . ($dateLabel !== '' ? ' · ' . $esc($dateLabel) : '') . '</td></tr>';
-
-    $employer = formatEventMainSecurityLabel($row);
-    if ($employer !== '') {
-        $html .= '<tr><td style="padding:6px 0;color:#64748b;">Listed contractor (info)</td><td style="padding:6px 0;font-weight:700;">' . $esc($employer) . '</td></tr>';
-    }
-
-    $html .= '<tr><td style="padding:6px 0;color:#64748b;">Reporting time</td><td style="padding:6px 0;">' . $esc($times) . '</td></tr>'
-        . '<tr><td style="padding:6px 0;color:#64748b;">Venue</td><td style="padding:6px 0;">' . $esc($location) . '</td></tr>';
-
-    if ($reporting !== '') {
-        $html .= '<tr><td style="padding:6px 0;color:#64748b;">Reporting point</td><td style="padding:6px 0;">' . $esc($reporting) . '</td></tr>';
-    }
-
-    $html .= '<tr><td style="padding:6px 0;color:#64748b;">Role</td><td style="padding:6px 0;">' . $esc($role) . '</td></tr>'
-        . '</table>';
-
-    if ($qrImageUrl !== '') {
-        $html .= '<div style="text-align:center;margin:16px 0;">'
-            . '<img src="' . $esc($qrImageUrl) . '" width="280" height="280" alt="Check-in QR code" style="display:block;margin:0 auto;border:1px solid #e2e8f0;border-radius:8px;">'
-            . '<p style="font-size:12px;color:#64748b;margin:8px 0 0;">Scan at check-in or save this pass to your phone</p>'
-            . '</div>'
-            . '<p style="text-align:center;margin:0 0 16px;"><a href="' . $esc($checkinUrl) . '" style="color:#2563eb;">Open check-in link</a></p>';
-    }
-
-    if ($mapsUrl !== '') {
-        $html .= '<p style="margin:0 0 8px;font-size:14px;"><a href="' . $esc($mapsUrl) . '" style="color:#2563eb;">Open venue in Google Maps</a></p>';
-    }
-
-    $html .= '<p style="margin:16px 0 0;font-size:13px;color:#475569;">Check-in opens 1 hour before the event starts and closes 1 hour after it ends.</p>'
-        . '<p style="margin:12px 0 0;font-size:11px;color:#94a3b8;">' . $esc(getEmailShortFooter($pdo)) . '</p>'
-        . '</div>'
-        . '<p style="font-size:12px;color:#94a3b8;margin-top:16px;">' . $esc($siteName) . '</p>'
-        . '</body></html>';
+    $html = buildEmailMasterLayout(
+        $pdo,
+        'Registration confirmed',
+        $innerHtml,
+        ['preheader' => 'Your shift is approved. Check-in details inside.', 'subtitle' => $eventName . ($dateLabel !== '' ? ' | ' . $dateLabel : '')]
+    );
 
     return compact('subject', 'text', 'html');
 }
@@ -138,7 +178,7 @@ function buildConsolidatedAccessPassEmail(PDO $pdo, array $rows): ?array
     $siteName  = getSiteName($pdo);
     $firstName = (string) ($rows[0]['first_name'] ?? '');
     $count     = count($rows);
-    $subject   = $siteName . ' — ' . ($count === 1 ? 'Registration confirmed' : $count . ' shifts approved');
+    $subject   = $siteName . ' - ' . ($count === 1 ? 'Registration confirmed' : $count . ' shifts approved');
 
     $textLines = [
         'Dear ' . $firstName . ',',
@@ -149,14 +189,8 @@ function buildConsolidatedAccessPassEmail(PDO $pdo, array $rows): ?array
         '',
     ];
 
-    $esc = static fn (string $v): string => htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
-
-    $html = '<!DOCTYPE html><html><body style="font-family:Segoe UI,Arial,sans-serif;line-height:1.55;color:#111;max-width:560px;margin:0 auto;padding:16px;">'
-        . '<p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;">' . $esc($siteName) . '</p>'
-        . '<h1 style="margin:0 0 12px;font-size:22px;color:#1e40af;">'
-        . $esc($count === 1 ? 'Registration confirmed' : $count . ' shifts approved')
-        . '</h1>'
-        . '<p style="margin:0 0 16px;">Dear ' . $esc($firstName) . ', '
+    $title = $count === 1 ? 'Registration confirmed' : $count . ' shifts approved';
+    $innerHtml = '<p style="margin:0 0 16px;">Dear ' . emailEsc($firstName) . ', '
         . ($count === 1 ? 'your shift is <strong>approved</strong>.' : 'your shifts are <strong>approved</strong>.')
         . ' Details for each are below.</p>';
 
@@ -166,8 +200,8 @@ function buildConsolidatedAccessPassEmail(PDO $pdo, array $rows): ?array
         $passId    = formatStaffPassId($regId, $eventDate);
         $eventName = (string) ($row['event_name'] ?? 'Event');
         $dateLabel = $eventDate !== '' ? formatEventDateLabel($eventDate) : '';
-        $times     = formatEventTimeRangeLabel($row);
-        $location  = formatEventLocationLabel($row);
+        $times     = formatEventTimeRangeLabelForEmail($row);
+        $location  = formatEventLocationLabelForEmail($row);
         $reporting = formatEventReportingLabel($row);
         $role      = formatRoleLabel($row['staff_role']);
 
@@ -181,13 +215,17 @@ function buildConsolidatedAccessPassEmail(PDO $pdo, array $rows): ?array
 
         $textLines[] = '---';
         $textLines[] = 'Pass ID: ' . $passId;
-        $textLines[] = 'Event: ' . formatEventLabel($row);
+        $textLines[] = 'Event: ' . formatEventLabelForEmail($row);
         $textLines[] = 'Reporting time: ' . $times;
         $textLines[] = 'Venue: ' . $location;
         if ($reporting !== '') {
             $textLines[] = 'Reporting point: ' . $reporting;
         }
         $textLines[] = 'Role: ' . $role;
+        $payLabel = formatEmailPayRateLabelOptional($pdo, $row);
+        if ($payLabel !== '') {
+            $textLines[] = 'Indicative pay: ' . $payLabel;
+        }
         $onSite = formatEmailOnSiteSecurityLine($pdo, $row);
         if ($onSite !== null) {
             $textLines[] = $onSite;
@@ -200,27 +238,20 @@ function buildConsolidatedAccessPassEmail(PDO $pdo, array $rows): ?array
         }
         $textLines[] = '';
 
-        $html .= '<div style="border:2px solid #2563eb;border-radius:12px;padding:16px;background:#f8fafc;margin-bottom:16px;">'
-            . '<table style="width:100%;border-collapse:collapse;font-size:14px;">'
-            . '<tr><td style="padding:4px 0;color:#64748b;width:120px;">Pass ID</td><td style="padding:4px 0;font-weight:700;font-family:monospace;">' . $esc($passId) . '</td></tr>'
-            . '<tr><td style="padding:4px 0;color:#64748b;">Event</td><td style="padding:4px 0;">' . $esc($eventName) . ($dateLabel !== '' ? ' · ' . $esc($dateLabel) : '') . '</td></tr>'
-            . '<tr><td style="padding:4px 0;color:#64748b;">Reporting</td><td style="padding:4px 0;">' . $esc($times) . '</td></tr>'
-            . '<tr><td style="padding:4px 0;color:#64748b;">Venue</td><td style="padding:4px 0;">' . $esc($location) . '</td></tr>'
-            . '<tr><td style="padding:4px 0;color:#64748b;">Role</td><td style="padding:4px 0;">' . $esc($role) . '</td></tr>'
-            . '</table>';
-
-        if ($qrImageUrl !== '') {
-            $html .= '<div style="text-align:center;margin:12px 0 0;">'
-                . '<img src="' . $esc($qrImageUrl) . '" width="220" height="220" alt="Check-in QR" style="border:1px solid #e2e8f0;border-radius:8px;">'
-                . '<p style="font-size:12px;color:#64748b;margin:6px 0 0;"><a href="' . $esc($checkinUrl) . '" style="color:#2563eb;">Open check-in link</a></p>'
-                . '</div>';
-        }
-
-        if ($mapsUrl !== '') {
-            $html .= '<p style="margin:8px 0 0;font-size:13px;"><a href="' . $esc($mapsUrl) . '" style="color:#2563eb;">Open venue in Google Maps</a></p>';
-        }
-
-        $html .= '</div>';
+        $innerHtml .= buildEmailAccessPassShiftCard(
+            $pdo,
+            $row,
+            $passId,
+            $eventName,
+            $dateLabel,
+            $times,
+            $location,
+            $reporting,
+            $role,
+            $checkinUrl,
+            $qrImageUrl,
+            $mapsUrl
+        );
     }
 
     $textLines[] = 'Bring this email or the QR codes on event day. Check-in opens 1 hour before start.';
@@ -229,10 +260,14 @@ function buildConsolidatedAccessPassEmail(PDO $pdo, array $rows): ?array
     $textLines[] = 'Regards,';
     $textLines[] = $siteName;
 
-    $html .= '<p style="margin:0;font-size:13px;color:#475569;">Check-in opens 1 hour before each event and closes 1 hour after it ends.</p>'
-        . '<p style="margin:12px 0 0;font-size:11px;color:#94a3b8;">' . $esc(getEmailShortFooter($pdo)) . '</p>'
-        . '<p style="font-size:12px;color:#94a3b8;margin-top:12px;">' . $esc($siteName) . '</p>'
-        . '</body></html>';
+    $innerHtml .= '<p style="margin:0;font-size:13px;color:#475569;">Check-in opens 1 hour before each event and closes 1 hour after it ends.</p>';
+
+    $html = buildEmailMasterLayout(
+        $pdo,
+        $title,
+        $innerHtml,
+        ['preheader' => $count === 1 ? 'Your shift is approved.' : $count . ' shifts approved.']
+    );
 
     return [
         'subject' => $subject,
@@ -272,12 +307,12 @@ function sendConsolidatedAccessPassEmail(PDO $pdo, array $rows): bool
                 $token    = $firstId > 0 ? ensureCheckinToken($pdo, $firstId) : '';
                 $url      = $token ? getCheckinUrl($token, $pdo) : getRegistrationSiteUrl($pdo) . '/staff-app.php';
                 $body     = $count === 1
-                    ? 'You are approved for ' . formatEventLabel($rows[0]) . '. Tap to check in.'
+                    ? 'You are approved for ' . formatEventLabelForEmail($rows[0]) . '. Tap to check in.'
                     : 'You are approved for ' . $count . ' shifts. Tap to view check-in.';
                 notifyRegistrationPush(
                     $pdo,
                     $firstId,
-                    $siteName . ' — Approved',
+                    $siteName . ' - Approved',
                     $body,
                     $url
                 );

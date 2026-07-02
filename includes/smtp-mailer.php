@@ -156,24 +156,28 @@ function sendSmtpMessage(array $config, string $to, string $subject, string $bod
     $payload = smtpDotStuff($payload);
 
     if (!smtpCommand($socket, 'MAIL FROM:<' . $fromEmail . '>', [250])) {
+        $detail = getLastSmtpError();
         fclose($socket);
 
-        return smtpFail('MAIL FROM rejected — From email must match SMTP mailbox', smtpRead($socket));
+        return smtpFail('MAIL FROM rejected — From email must match SMTP mailbox', $detail);
     }
     if (!smtpCommand($socket, 'RCPT TO:<' . $to . '>', [250, 251])) {
+        $detail = getLastSmtpError();
         fclose($socket);
 
-        return smtpFail('RCPT TO rejected', smtpRead($socket));
+        return smtpFail('RCPT TO rejected', $detail);
     }
     if (!smtpCommand($socket, 'DATA', [354])) {
+        $detail = getLastSmtpError();
         fclose($socket);
 
-        return smtpFail('DATA command failed', smtpRead($socket));
+        return smtpFail('DATA command failed', $detail);
     }
     if (fwrite($socket, $payload . "\r\n.\r\n") === false || !smtpExpect($socket, [250])) {
+        $detail = getLastSmtpError();
         fclose($socket);
 
-        return smtpFail('Message body rejected', smtpRead($socket));
+        return smtpFail('Message body rejected', $detail);
     }
 
     smtpCommand($socket, 'QUIT', [221]);
@@ -221,6 +225,10 @@ function smtpCommand($socket, string $command, array $expectedCodes): bool
  */
 function smtpWrite($socket, string $data): bool
 {
+    if (!is_resource($socket)) {
+        return false;
+    }
+
     return fwrite($socket, $data . "\r\n") !== false;
 }
 
@@ -229,6 +237,10 @@ function smtpWrite($socket, string $data): bool
  */
 function smtpRead($socket): string
 {
+    if (!is_resource($socket)) {
+        return '';
+    }
+
     $response = '';
 
     while (($line = fgets($socket, 515)) !== false) {
@@ -257,6 +269,9 @@ function smtpNormalizeBody(string $body): string
 
 function smtpDotStuff(string $payload): string
 {
+    // Normalize to LF first — payload from buildEmailMimePayload() already uses CRLF;
+    // blind \n → \r\n expansion would turn every \r\n into \r\r\n and break multipart.
+    $payload = smtpNormalizeBody($payload);
     $payload = str_replace("\n", "\r\n", $payload);
 
     return preg_replace('/^\./m', '..', $payload) ?? $payload;

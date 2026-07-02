@@ -3,12 +3,13 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/staff-repository.php';
+require_once __DIR__ . '/../includes/attendance-roster-helpers.php';
 
 requireAdminCapability('attendance');
 
 $pdo     = getDB();
 $eventId = (int) ($_GET['event_id'] ?? 0);
-$events  = getEventsForFilter($pdo);
+$events  = getEventsForAttendanceFilter($pdo);
 $event   = $eventId > 0 ? getEventById($pdo, $eventId) : null;
 
 $pageTitle  = 'Scan check-in';
@@ -32,7 +33,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <option value="">All events (any pass)</option>
                 <?php foreach ($events as $ev): ?>
                     <option value="<?= (int) $ev['id'] ?>"<?= $eventId === (int) $ev['id'] ? ' selected' : '' ?>>
-                        <?= h($ev['name'] . ' — ' . date('d.m.Y', strtotime($ev['event_date']))) ?>
+                        <?= h($ev['name'] . ' — ' . formatEventDateLabel((string) $ev['event_date'])) ?>
                     </option>
                 <?php endforeach; ?>
             </select>
@@ -44,6 +45,11 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     <?php endif; ?>
 
     <div id="scan-checkin-root" class="scan-checkin" data-event-id="<?= (int) $eventId ?>" data-csrf="<?= h(csrfToken()) ?>">
+        <div class="form-group scan-checkin__bib">
+            <label class="form-label form-label--required" for="scan-bib-number">BIB number</label>
+            <input class="form-input" type="text" id="scan-bib-number" name="bib_number" maxlength="20" placeholder="Enter bib before scanning pass" autocomplete="off" required>
+            <p class="form-hint">Staff must give the bib number from their vest before you scan their QR pass.</p>
+        </div>
         <div id="scan-reader" class="scan-checkin__reader"></div>
         <div id="scan-result" class="scan-checkin__result" hidden></div>
         <p class="form-hint">Allow camera access when prompted. Hold the staff QR steady in the frame.</p>

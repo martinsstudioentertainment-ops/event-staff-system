@@ -14,27 +14,104 @@ function getApplySsoCookieName(): string
     return 'olasentra_apply_admin';
 }
 
+function apply_sso_secret_from_main_db_config(): ?string
+{
+    $configFile = __DIR__ . '/../config/eventstaff-database.php';
+    if (!is_readable($configFile)) {
+        return null;
+    }
+
+    $host = $db = $user = $pass = '';
+    $eventPdo = null;
+    try {
+        include $configFile;
+    } catch (Throwable $e) {
+        error_log('[ApplySSO] eventstaff-database include: ' . $e->getMessage());
+
+        return null;
+    }
+
+    if ($db !== '' && $pass !== '') {
+        return hash('sha256', (string) $db . '|' . (string) $pass . '|olasentra-apply-sso-v1');
+    }
+
+    return null;
+}
+
+function getApplySsoCookieDomain(): string
+{
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    $host = preg_replace('/:\d+$/', '', $host) ?? $host;
+
+    if ($host === 'olasentra.com' || str_ends_with($host, '.olasentra.com')) {
+        return '.olasentra.com';
+    }
+
+    return '';
+}
+
+function clearApplySsoCookie(): void
+{
+    if (headers_sent()) {
+        return;
+    }
+
+    $secure  = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+    $options = [
+        'expires'  => time() - 3600,
+        'path'     => '/',
+        'secure'   => $secure,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ];
+    $domain = getApplySsoCookieDomain();
+    if ($domain !== '') {
+        $options['domain'] = $domain;
+    }
+
+    setcookie(getApplySsoCookieName(), '', $options);
+}
+
 function getApplySsoSecret(): string
 {
-    loadMainEventStaffConfig();
+    static $secret = null;
+    if (is_string($secret) && $secret !== '') {
+        return $secret;
+    }
 
     if (defined('APPLY_SSO_SECRET') && (string) APPLY_SSO_SECRET !== '') {
-        return (string) APPLY_SSO_SECRET;
+        $secret = (string) APPLY_SSO_SECRET;
+
+        return $secret;
     }
 
     $local = __DIR__ . '/../config/sso.local.php';
     if (is_readable($local)) {
         require $local;
         if (defined('APPLY_SSO_SECRET') && (string) APPLY_SSO_SECRET !== '') {
-            return (string) APPLY_SSO_SECRET;
+            $secret = (string) APPLY_SSO_SECRET;
+
+            return $secret;
         }
     }
 
-    if (defined('DB_NAME') && defined('DB_PASS')) {
-        return hash('sha256', (string) DB_NAME . '|' . (string) DB_PASS . '|olasentra-apply-sso-v1');
+    $env = trim((string) (getenv('APPLY_SSO_SECRET') ?: ''));
+    if ($env !== '') {
+        $secret = $env;
+
+        return $secret;
     }
 
-    return hash('sha256', 'olasentra-apply-sso-dev');
+    $fromMainDb = apply_sso_secret_from_main_db_config();
+    if ($fromMainDb !== null) {
+        $secret = $fromMainDb;
+
+        return $secret;
+    }
+
+    $secret = hash('sha256', 'olasentra-apply-sso-dev');
+
+    return $secret;
 }
 
 /**

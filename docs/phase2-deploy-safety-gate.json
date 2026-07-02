@@ -1,0 +1,20 @@
+﻿{
+    "checked_at":  "2026-07-02T04:11:29.9000075+01:00",
+    "phase":  "PHASE2-20260621-OLASENTRA",
+    "report_only":  true,
+    "critical_missing":  [
+
+                         ],
+    "critical_zero_byte":  [
+
+                           ],
+    "zero_byte_count":  0,
+    "zero_byte_files":  [
+
+                        ],
+    "safe_excluded_count":  22,
+    "deploy_allowed":  true,
+    "block_reasons":  [
+
+                      ]
+}

@@ -1,4 +1,21 @@
 <?php
+
+register_shutdown_function(static function (): void {
+    $err = error_get_last();
+    if ($err === null || !in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        return;
+    }
+    if (headers_sent()) {
+        return;
+    }
+    http_response_code(500);
+    header('Content-Type: text/html; charset=utf-8');
+    echo '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Events error</title></head><body style="font-family:system-ui,sans-serif;padding:2rem;max-width:40rem">';
+    echo '<h1>Events page could not load</h1><p>Send this to support:</p><pre style="background:#f1f5f9;padding:1rem;border-radius:8px;overflow:auto">';
+    echo htmlspecialchars($err['message'] . "\n" . $err['file'] . ':' . $err['line'], ENT_QUOTES, 'UTF-8');
+    echo '</pre><p><a href="dashboard.php">Back to dashboard</a></p></body></html>';
+});
+
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/events-repository.php';
@@ -7,26 +24,75 @@ require_once __DIR__ . '/../includes/google-sheets-sync.php';
 require_once __DIR__ . '/../includes/live-events-sync.php';
 require_once __DIR__ . '/../includes/admin-pagination.php';
 require_once __DIR__ . '/../includes/event-capacity.php';
+require_once __DIR__ . '/../includes/admin-capabilities.php';
 
 requireAdminCapability('events');
 
 $pdo         = getDB();
 $allEvents   = getAllEvents($pdo);
-$totalEvents = count($allEvents);
-$page        = adminListPage();
-$events      = array_slice($allEvents, adminListOffset($page), adminListPerPage());
-$flash       = getAdminFlash();
+$todayYmd    = date('Y-m-d');
+$view        = strtolower(trim((string) ($_GET['view'] ?? 'all')));
+$allowedViews = ['all', 'upcoming', 'past', 'active', 'inactive'];
+if (!in_array($view, $allowedViews, true)) {
+    $view = 'all';
+}
+
+$filteredEvents = array_values(array_filter(
+    $allEvents,
+    static function (array $event) use ($view, $todayYmd): bool {
+        $date   = substr((string) ($event['event_date'] ?? ''), 0, 10);
+        $active = (int) ($event['is_active'] ?? 0) === 1;
+
+        return match ($view) {
+            'upcoming' => $date >= $todayYmd,
+            'past'     => $date !== '' && $date < $todayYmd,
+            'active'   => $active,
+            'inactive' => !$active,
+            default    => true,
+        };
+    }
+));
+
+$eventsPerPage = adminEventsListPerPage();
+$totalEvents   = count($filteredEvents);
+$page          = adminListPage();
+$events        = array_slice($filteredEvents, adminListOffset($page, $eventsPerPage), $eventsPerPage);
+$viewCounts    = [
+    'all'      => count($allEvents),
+    'upcoming' => 0,
+    'past'     => 0,
+    'active'   => 0,
+    'inactive' => 0,
+];
+foreach ($allEvents as $event) {
+    $date   = substr((string) ($event['event_date'] ?? ''), 0, 10);
+    $active = (int) ($event['is_active'] ?? 0) === 1;
+    if ($date >= $todayYmd) {
+        $viewCounts['upcoming']++;
+    }
+    if ($date !== '' && $date < $todayYmd) {
+        $viewCounts['past']++;
+    }
+    if ($active) {
+        $viewCounts['active']++;
+    } else {
+        $viewCounts['inactive']++;
+    }
+}
+$flash         = getAdminFlash();
 $sheetStatus   = countEventsGoogleSheetStatus($pdo);
-$hasSa         = isGoogleServiceAccountConfigured();
-$hasOauth      = googleDriveOAuthConfigured($pdo);
-$hasDriveFolder = getGoogleSheetsDriveParentFolderId($pdo) !== '';
-$canAutoSheet  = $hasSa && $hasDriveFolder;
-$syncEnabled   = isGoogleSheetsSyncEnabled($pdo);
+$hasSa            = isGoogleServiceAccountConfigured();
+$hasOauth         = googleDriveOAuthConfigured($pdo);
+$hasDriveFolder   = getGoogleSheetsDriveParentFolderId($pdo) !== '';
+$manualSheetReady = isGoogleSheetsManualLinkReady($pdo);
+$canAutoSheet     = $hasSa && $hasDriveFolder && $hasOauth && googleDriveGetUserAccessToken($pdo) !== '';
+$syncEnabled      = isGoogleSheetsSyncEnabled($pdo);
+$saEmail          = getGoogleServiceAccountClientEmail();
 $linkedSheets  = (int) ($sheetStatus['total'] - $sheetStatus['missing']);
 $missingSheets = (int) $sheetStatus['missing'];
-$driveSheets    = $canAutoSheet ? listGoogleDriveSpreadsheetsForAdmin($pdo) : [];
-$showSheetBulk  = $events !== [] && ($canAutoSheet || $linkedSheets > 0);
-$tableColCount  = $showSheetBulk ? 12 : 11;
+$driveSheets   = [];
+$showSheetBulk = $events !== [] && ($canAutoSheet || $linkedSheets > 0);
+$tableColCount = $showSheetBulk ? 12 : 11;
 
 $masterContractor     = '';
 $eventsMissingCompany = 0;
@@ -52,7 +118,6 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 <?php if ($flash): ?>
     <div class="alert alert--<?= h($flash['type']) ?> alert--visible"><?= h($flash['message']) ?></div>
 <?php endif; ?>
-
 <?php if ($masterContractor !== '' && $eventsMissingCompany > 0): ?>
     <div class="alert alert--warning alert--visible">
         <strong><?= (int) $eventsMissingCompany ?> event(s)</strong> still have no listed contractor.
@@ -62,112 +127,162 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     </div>
 <?php endif; ?>
 
-<section class="card">
+<?php $eventsGuideOpen = $missingSheets > 0 || !$manualSheetReady || !$syncEnabled || $eventsMissingCompany > 0; ?>
+<section class="card events-page">
     <div class="card__header card__header--row">
         <div>
             <h2 class="card__title">Events</h2>
-            <p class="card__subtitle"><?= (int) $totalEvents ?> event(s) — active events with free slots appear on the registration form. Full events stay active here until you increase staff needed.</p>
+            <p class="card__subtitle">Manage gigs, capacity, and Google Sheet links.</p>
         </div>
-        <div class="toolbar">
-            <a href="event-form.php" class="btn btn--primary">+ Add Event</a>
-            <a href="import-roster.php" class="btn btn--secondary">Import master roster</a>
-            <a href="roster-diagnostic.php" class="btn btn--secondary">Roster diagnostic</a>
-            <form method="post" action="events-roster-action.php" class="inline-form" onsubmit="return confirm('Import all 32 summer events from the master list?');">
-                <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
-                <button type="submit" class="btn btn--secondary">Import (quick)</button>
-            </form>
-            <?php if ($canAutoSheet && $missingSheets > 0): ?>
-                <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Link existing spreadsheets in your Drive folder to the <?= (int) $missingSheets ?> events that have no sheet URL saved?');">
-                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
-                    <input type="hidden" name="action" value="link_from_folder">
-                    <button type="submit" class="btn btn--primary">Link sheets from Drive folder</button>
-                </form>
-                <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Create <?= (int) $missingSheets ?> new Google Sheet(s)? Skip this if sheets already exist in the folder — use Link sheets from Drive folder instead.');">
-                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
-                    <input type="hidden" name="action" value="create_all">
-                    <button type="submit" class="btn btn--secondary">Create <?= (int) $missingSheets ?> Google Sheet(s)</button>
-                </form>
-            <?php endif; ?>
-            <?php if ($syncEnabled): ?>
-                <?php if ($linkedSheets > 0): ?>
-                    <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Push approved registrations to linked Google Sheets and remove pending/rejected rows?');">
-                        <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
-                        <input type="hidden" name="action" value="sync_registrations">
-                        <button type="submit" class="btn btn--secondary">Sync registrations to sheets</button>
-                    </form>
-                <?php else: ?>
-                    <span class="btn btn--secondary" style="opacity:0.55;cursor:not-allowed" title="Create Google Sheet(s) for events first">Sync registrations to sheets</span>
-                <?php endif; ?>
-            <?php endif; ?>
-            <?php if ($linkedSheets > 0): ?>
-                <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Unlink all <?= (int) $linkedSheets ?> event(s) from Google Sheets? Files in Drive are not deleted.');">
-                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
-                    <input type="hidden" name="action" value="unlink_all">
-                    <button type="submit" class="btn btn--secondary">Unlink all sheets</button>
-                </form>
-            <?php endif; ?>
+        <div class="events-page__actions">
+            <a href="event-form.php" class="btn btn--primary">+ Add event</a>
+            <a href="import-roster.php" class="btn btn--secondary">Import roster</a>
+            <details class="events-page__more">
+                <summary class="btn btn--secondary">More actions</summary>
+                <div class="events-page__more-panel">
+                    <div class="events-page__more-group">
+                        <p class="events-page__more-label">Roster</p>
+                        <a href="roster-diagnostic.php" class="btn btn--small btn--secondary">Roster diagnostic</a>
+                        <a href="same-day-conflicts.php" class="btn btn--small btn--secondary">Same-day conflicts</a>
+                        <form method="post" action="events-roster-action.php" class="inline-form" onsubmit="return confirm('Import all summer events from the master list?');">
+                            <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                            <button type="submit" class="btn btn--small btn--secondary">Quick import</button>
+                        </form>
+                    </div>
+                    <?php if ($canAutoSheet || $linkedSheets > 0 || $syncEnabled): ?>
+                        <div class="events-page__more-group">
+                            <p class="events-page__more-label">Google Sheets</p>
+                            <?php if ($canAutoSheet && $missingSheets > 0): ?>
+                                <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Link spreadsheets in Drive to <?= (int) $missingSheets ?> unlinked event(s)?');">
+                                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                                    <input type="hidden" name="action" value="link_from_folder">
+                                    <button type="submit" class="btn btn--small btn--primary">Link from Drive folder</button>
+                                </form>
+                                <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Create <?= (int) $missingSheets ?> new sheet(s)? Use Link from folder if files already exist.');">
+                                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                                    <input type="hidden" name="action" value="create_all">
+                                    <button type="submit" class="btn btn--small btn--secondary">Create <?= (int) $missingSheets ?> sheet(s)</button>
+                                </form>
+                            <?php endif; ?>
+                            <?php if ($syncEnabled && $linkedSheets > 0): ?>
+                                <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Push approved registrations to linked sheets?');">
+                                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                                    <input type="hidden" name="action" value="sync_registrations">
+                                    <button type="submit" class="btn btn--small btn--secondary">Sync registrations</button>
+                                </form>
+                            <?php endif; ?>
+                            <?php if ($linkedSheets > 0): ?>
+                                <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Unlink all <?= (int) $linkedSheets ?> event(s)? Drive files are kept.');">
+                                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                                    <input type="hidden" name="action" value="unlink_all">
+                                    <button type="submit" class="btn btn--small btn--secondary">Unlink all</button>
+                                </form>
+                            <?php endif; ?>
+                            <a href="google-sheets-diagnostic.php" class="btn btn--small btn--secondary">Sheets diagnostic</a>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </details>
         </div>
     </div>
-    <div class="alert alert--info alert--visible" style="margin-bottom:1rem">
-        <p style="margin:0 0 0.5rem"><strong>Summer go-live — do these in order</strong></p>
-        <ol style="margin:0 0 0 1.25rem;padding:0">
-            <li><strong>Import roster</strong> — <a href="import-roster.php">Import master roster</a> → <em>Run import now</em> (loads 32 events + listed contractor from <code>live-events-2026.php</code>). Do not use <code>register.olasentra.com/import-summer-roster.php</code> (often 404).</li>
-            <li><strong>Google Sheets setup</strong> — <a href="settings-production.php#google-sheets">Settings → Google Sheets</a>: service account JSON, Drive folder ID, <em>Connect Google account</em> (Gmail), enable <em>live sync</em>. Optional: <a href="google-sheets-diagnostic.php">Run diagnostic</a>.</li>
-            <li><strong>Link sheets</strong> — Existing files: <strong>Link sheets from Drive folder</strong>. New files: tick events → <strong>Create sheets for selected</strong>, or <strong>Create <?= $missingSheets ?> Google Sheet(s)</strong> for all unlinked. Status: <strong><?= $linkedSheets ?> linked</strong>, <strong><?= $missingSheets ?> not linked</strong>.</li>
-            <?php if ($syncEnabled && $linkedSheets > 0): ?>
-                <li><strong>Sync staff rows</strong> — After sheets exist, click <strong>Sync registrations to sheets</strong> (or approve staff — each approval updates the sheet).</li>
-            <?php elseif ($syncEnabled): ?>
-                <li><strong>Sync staff rows</strong> — Available after step 3 links sheets to events.</li>
-            <?php else: ?>
-                <li><strong>Sync staff rows</strong> — Turn on <em>Enable live sync</em> in Settings after step 3.</li>
-            <?php endif; ?>
-        </ol>
-        <?php if (!$canAutoSheet): ?>
-            <p style="margin:0.75rem 0 0;font-size:0.9rem">
-                <?php if (!$hasSa): ?>Upload the <strong>service account JSON</strong> in Settings.<?php endif; ?>
-                <?php if ($hasSa && !$hasDriveFolder): ?> Paste your shared <strong>Drive folder ID</strong> in Settings.<?php endif; ?>
-                <?php if ($hasSa && $hasDriveFolder && !$hasOauth): ?> <strong>Connect Google account</strong> in Settings so copies use your Gmail storage (required for auto-create).<?php endif; ?>
-            </p>
+
+    <div class="events-page__stats" aria-label="Event summary">
+        <span class="events-page__chip"><strong><?= (int) count($allEvents) ?></strong> events total</span>
+        <span class="events-page__chip"><strong><?= (int) $viewCounts['upcoming'] ?></strong> upcoming</span>
+        <span class="events-page__chip"><strong><?= (int) $viewCounts['past'] ?></strong> past</span>
+        <span class="events-page__chip events-page__chip--ok"><strong><?= (int) $linkedSheets ?></strong> sheets linked</span>
+        <?php if ($missingSheets > 0): ?>
+            <span class="events-page__chip events-page__chip--warn"><strong><?= (int) $missingSheets ?></strong> not linked</span>
+        <?php endif; ?>
+        <?php if ($syncEnabled): ?>
+            <span class="events-page__chip">Live sync on</span>
         <?php endif; ?>
     </div>
+
     <?php if ($missingSheets > 0 && $canAutoSheet): ?>
-        <div class="alert alert--warning alert--visible" style="margin-bottom:1rem">
-            <strong><?= $missingSheets ?> event(s)</strong> are not linked in admin (Google Sheet column shows —).
-            If you already created files in Drive, click <strong>Link sheets from Drive folder</strong> — do not create duplicates.
-        </div>
+        <p class="events-page__nudge">
+            <?= (int) $missingSheets ?> event(s) need a sheet —
+            use <strong>Link from Drive folder</strong> in More actions if files already exist.
+        </p>
     <?php endif; ?>
 
-    <?php if ($canAutoSheet): ?>
-        <div class="alert alert--info alert--visible" style="margin-bottom:1rem">
-            <p style="margin:0 0 0.35rem"><strong>Start fresh (delete old sheets and recreate)</strong></p>
-            <ol style="margin:0 0 0 1.25rem;padding:0;font-size:0.9rem">
-                <li>In Google Drive, delete the old event spreadsheets in your shared folder (or move them to trash).</li>
-                <li>On this page, tick the events you want → <strong>Unlink selected</strong> (or <strong>Unlink all sheets</strong>).</li>
-                <li>Tick the same events → <strong>Create sheets for selected</strong> (you do not need all 32 at once).</li>
-                <li><strong>Sync registrations to sheets</strong> when ready.</li>
+    <details class="events-page__guide"<?= $eventsGuideOpen ? ' open' : '' ?>>
+        <summary>Setup guide &amp; troubleshooting</summary>
+        <div class="events-page__guide-body">
+            <ol class="events-page__steps">
+                <li><strong>Import roster</strong> — <a href="import-roster.php">Import master roster</a> → Run import now.</li>
+                <li>
+                    <strong>Google Sheets (manual — no Gmail Connect)</strong> —
+                    <a href="settings-production.php#google-sheets-manual">Settings</a>:
+                    upload service account JSON, tick <em>Enable live sync</em>, Save.
+                </li>
+                <li>
+                    <strong>Link each event</strong> —
+                    Edit event → create a sheet in your Drive → Share with
+                    <code><?= h($saEmail !== '' ? $saEmail : 'service-account@….iam.gserviceaccount.com') ?></code> as Editor
+                    → paste the sheet URL → set the tab name (usually <code>Sheet1</code>) → Save event.
+                </li>
+                <li><strong>Sync rows</strong> — More actions → Sync registrations<?= $syncEnabled ? '' : ' (enable live sync in Settings first)' ?>.</li>
             </ol>
-            <p style="margin:0.5rem 0 0;font-size:0.85rem">Admin unlink does not delete Drive files — delete them in Drive yourself. Sheets created with your Gmail use your storage; <a href="google-sheets-diagnostic.php">Diagnostic</a> can purge sheets owned by the service account only.</p>
+            <?php if (!$manualSheetReady): ?>
+                <p class="form-hint" style="margin:0.5rem 0 0">Upload the service account JSON in <a href="settings-production.php#google-sheets-manual">Settings → Google Sheets</a> first.</p>
+            <?php elseif (!$syncEnabled): ?>
+                <p class="form-hint" style="margin:0.5rem 0 0">Turn on <strong>Enable live sync</strong> in <a href="settings-production.php#google-sheets-manual">Settings → Google Sheets</a>, then Save.</p>
+            <?php endif; ?>
+            <?php if ($manualSheetReady && !$canAutoSheet): ?>
+                <p class="form-hint" style="margin:0.5rem 0 0">
+                    <strong>Auto-create</strong> (optional) needs Connect Google account in Settings — you do <em>not</em> need that for manual paste on each event.
+                </p>
+            <?php endif; ?>
+            <?php if ($canAutoSheet): ?>
+                <details class="events-page__subguide">
+                    <summary>Start fresh (recreate sheets)</summary>
+                    <ol class="events-page__steps events-page__steps--compact">
+                        <li>Delete old spreadsheets in Google Drive.</li>
+                        <li>Tick events → Unlink selected (or Unlink all).</li>
+                        <li>Tick events → Create sheets for selected.</li>
+                        <li>Sync registrations when ready.</li>
+                    </ol>
+                </details>
+            <?php endif; ?>
         </div>
+    </details>
+
+    <nav class="events-page__filters" aria-label="Filter events">
+        <?php
+        $filterLinks = [
+            'all'      => 'All',
+            'upcoming' => 'Upcoming',
+            'past'     => 'Past',
+            'active'   => 'Active',
+            'inactive' => 'Inactive',
+        ];
+        foreach ($filterLinks as $key => $label):
+            $isActive = $view === $key;
+            $href     = 'events.php' . ($key !== 'all' ? '?view=' . rawurlencode($key) : '');
+            ?>
+            <a href="<?= h($href) ?>" class="events-page__filter<?= $isActive ? ' events-page__filter--active' : '' ?>">
+                <?= h($label) ?> <span class="events-page__filter-count"><?= (int) ($viewCounts[$key] ?? 0) ?></span>
+            </a>
+        <?php endforeach; ?>
+    </nav>
+
+    <?php if ($totalEvents > 0): ?>
+        <?php renderAdminPagination($page, $totalEvents, 'events.php', $view !== 'all' ? ['view' => $view] : [], $eventsPerPage); ?>
     <?php endif; ?>
 
     <?php if ($showSheetBulk): ?>
-        <form method="post" action="events-sheets-action.php" class="bulk-toolbar" id="events-sheets-bulk-form">
+        <form method="post" action="events-sheets-action.php" class="bulk-toolbar events-page__bulk" id="events-sheets-bulk-form">
             <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
             <span class="bulk-toolbar__label"><span id="events-sheet-selected-count">0</span> selected</span>
             <?php if ($canAutoSheet): ?>
-                <button type="submit" name="action" value="create_selected" class="btn btn--small btn--primary">Create sheets for selected</button>
+                <button type="submit" name="action" value="create_selected" class="btn btn--small btn--primary">Create sheets</button>
             <?php endif; ?>
             <?php if ($canAutoSheet && $driveSheets !== []): ?>
-                <button type="submit" name="action" value="link_selected" class="btn btn--small btn--secondary">Link selected from folder</button>
+                <button type="submit" name="action" value="link_selected" class="btn btn--small btn--secondary">Link from folder</button>
             <?php endif; ?>
-            <button type="submit" name="action" value="unlink_selected" class="btn btn--small btn--secondary">Unlink selected</button>
+            <button type="submit" name="action" value="unlink_selected" class="btn btn--small btn--secondary">Unlink</button>
         </form>
-        <p class="form-hint" style="margin:-0.5rem 0 1rem">
-            Tick events below — create new sheets for some events only, link existing files, or unlink.
-            <?php if ($canAutoSheet && $driveSheets !== []): ?>
-                Or use <strong>Pick Google Sheet</strong> on each row to choose a file from your Drive folder.
-            <?php endif; ?>
-        </p>
     <?php endif; ?>
 
     <div class="table-wrap">
@@ -193,7 +308,13 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <tbody>
                 <?php if ($events === []): ?>
                     <tr>
-                        <td colspan="<?= (int) $tableColCount ?>" class="data-table__empty">No events yet. Add your first event.</td>
+                        <td colspan="<?= (int) $tableColCount ?>" class="data-table__empty">
+                            <?php if ($allEvents === []): ?>
+                                No events yet. Add your first event.
+                            <?php else: ?>
+                                No events match this filter. <a href="events.php">Show all <?= (int) count($allEvents) ?> events</a>
+                            <?php endif; ?>
+                        </td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($events as $event): ?>
@@ -272,6 +393,9 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                             <td>
                                 <div class="action-group">
                                     <a href="event-sign-qr.php?id=<?= (int) $event['id'] ?>" class="btn btn--small btn--primary">Sign-in</a>
+                                    <?php if (adminCan('export')): ?>
+                                        <a href="export-event-signins.php?event_id=<?= (int) $event['id'] ?>&format=xlsx" class="btn btn--small btn--secondary">Sign-ins Excel</a>
+                                    <?php endif; ?>
                                     <a href="event-form.php?id=<?= (int) $event['id'] ?>" class="btn btn--small btn--secondary">Edit</a>
                                     <?php if ($sheetUrl !== ''): ?>
                                         <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Unlink this event from its Google Sheet? The file in Drive is not deleted.');">
@@ -282,6 +406,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                                             <button type="submit" class="btn btn--small btn--secondary">Unlink sheet</button>
                                         </form>
                                     <?php endif; ?>
+                                    <a href="event-form.php?id=<?= (int) $event['id'] ?>#cancel-event-shifts" class="btn btn--small btn--danger">Cancel shifts</a>
                                     <form method="post" action="toggle-event.php">
                                         <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                                         <input type="hidden" name="id" value="<?= (int) $event['id'] ?>">
@@ -290,6 +415,10 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                                             <?= (int) $event['is_active'] === 1 ? 'Deactivate' : 'Activate' ?>
                                         </button>
                                     </form>
+                                    <a
+                                        href="delete-event.php?id=<?= (int) $event['id'] ?>"
+                                        class="btn btn--small btn--secondary events-delete-btn"
+                                    >Delete</a>
                                 </div>
                             </td>
                         </tr>
@@ -298,7 +427,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             </tbody>
         </table>
     </div>
-    <?php renderAdminPagination($page, $totalEvents, 'events.php'); ?>
+    <?php renderAdminPagination($page, $totalEvents, 'events.php', $view !== 'all' ? ['view' => $view] : [], $eventsPerPage); ?>
 </section>
 
 <?php include __DIR__ . '/../includes/admin/layout-bottom.php'; ?>

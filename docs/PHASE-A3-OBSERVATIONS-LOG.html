@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Phase A.3 — Post-Review Observations Log</title>
+<style>
+body { font-family: "Segoe UI", sans-serif; font-size: 10pt; padding: 20px 28px; max-width: 760px; line-height: 1.45; }
+h1 { font-size: 17pt; } h2 { font-size: 11pt; background: #030712; color: #fff; padding: 6px 12px; margin: 18px 0 10px; }
+table { width: 100%; border-collapse: collapse; font-size: 9pt; margin: 10px 0; }
+th, td { border-bottom: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; vertical-align: top; }
+th { background: #1e293b; color: #fff; }
+.done { color: #15803d; font-weight: 700; }
+</style>
+</head>
+<body>
+<h1>Phase A.3 — Post-Review Observations Log</h1>
+<p><strong>Date:</strong> 6 June 2026 · <strong>Status:</strong> Approved with observations · <strong>Resolved in:</strong> Phase A.4 pre-work</p>
+
+<h2>Observations and resolution</h2>
+<table>
+<tr><th>#</th><th>Observation</th><th>Resolution</th><th>Status</th></tr>
+<tr><td>1</td><td>UTF-8 mojibake (â€“, Â·) in previews and risk on special punctuation</td><td>ASCII-safe copy in wizard PHP/JS; <code>Content-Type: charset=UTF-8</code> header on <code>index.php</code>; screenshot script uses HTML entities / ASCII</td><td class="done">Done</td></tr>
+<tr><td>2</td><td>Step 8 review placeholder undermines trust</td><td><code>registration-wizard-review.js</code> live summary with masked payroll fields and selected events</td><td class="done">Done</td></tr>
+<tr><td>3</td><td>Step 5 Contact sparse / unused space</td><td>Contact reassurance panel + two-column layout on tablet with phone field</td><td class="done">Done</td></tr>
+<tr><td>4</td><td>Desktop/tablet width underutilised</td><td>680px tablet / 720px desktop max-width; two-column form grid from 640px</td><td class="done">Done</td></tr>
+<tr><td>5</td><td>Payroll disclaimer too weak on employer positioning</td><td><code>reg-wizard__payroll-notice</code> - not employer, payroll provider, or contracting party</td><td class="done">Done</td></tr>
+</table>
+
+<h2>Phase A.4 scope (roadmap)</h2>
+<ul>
+<li>Steps 6-7 polish: payroll notice + PSA camera-first upload UX</li>
+<li>Review summary (pulled forward from A.5 per observation #2)</li>
+<li>Remaining A.5+: server error restore on review step</li>
+</ul>
+
+<p>See <a href="PHASE-A4-IMPLEMENTATION-PACKAGE.html">PHASE-A4-IMPLEMENTATION-PACKAGE.html</a></p>
+</body>
+</html>

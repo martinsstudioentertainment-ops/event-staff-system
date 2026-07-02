@@ -9,6 +9,16 @@ require_once __DIR__ . '/google-sheets-sync.php';
 /** Minimum seconds between automatic sync runs (JS / background pings). */
 function apply_auto_sync_interval_seconds(): int
 {
+    try {
+        require_once __DIR__ . '/main-admin-bridge.php';
+        $mainPdo = getMainAdminPdo();
+        if ($mainPdo instanceof PDO && apply_require_main_include('google-sheets-schedule.php')) {
+            return googleSheetsApplySyncIntervalSeconds($mainPdo);
+        }
+    } catch (Throwable $e) {
+        // fallback
+    }
+
     return 120;
 }
 
@@ -107,12 +117,21 @@ function run_apply_payroll_sync(PDO $applyPdo, bool $force = false): array
 
     try {
         $eventPdo = getMainAdminPdo();
-        if (!$eventPdo instanceof PDO) {
-            throw new RuntimeException('Main ERP database is not connected.');
+        if ($eventPdo instanceof PDO) {
+            $result['import'] = apply_import_approved_from_main($eventPdo, $applyPdo);
+        } else {
+            $result['import'] = [
+                'imported' => 0,
+                'updated'  => 0,
+                'skipped'  => 0,
+                'errors'   => ['Main ERP database is not connected.'],
+            ];
         }
 
-        $result['import']   = apply_import_approved_from_main($eventPdo, $applyPdo);
-        $result['sheet']    = run_apply_google_sheets_sync($applyPdo, $eventPdo);
+        $result['sheet'] = run_apply_google_sheets_sync(
+            $applyPdo,
+            $eventPdo instanceof PDO ? $eventPdo : null
+        );
         $result['ok']       = !empty($result['sheet']['ok']);
         $result['finished'] = gmdate('c');
         apply_auto_sync_write_state($result);

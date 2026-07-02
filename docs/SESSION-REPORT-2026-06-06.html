@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Olasentra — Session Report (6 June 2026)</title>
+<style>
+@page { size: A4; margin: 12mm 10mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 9pt; line-height: 1.42; color: #0f172a; margin: 0; padding: 14px; }
+.cover { page-break-after: always; text-align: center; padding: 48px 28px; background: #030712; color: #f8fafc; margin: -14px -14px 0; min-height: 96vh; display: flex; flex-direction: column; justify-content: center; }
+.cover h1 { font-size: 22pt; margin: 0 0 10px; }
+.cover p { font-size: 10pt; color: #c7d2fe; margin: 6px 0; }
+.cover .meta { color: #64748b; margin-top: 28px; font-size: 9pt; }
+h1 { font-size: 16pt; color: #1e1b4b; margin: 0 0 8px; }
+h2 { font-size: 11pt; margin: 18px 0 6px; padding: 6px 10px; background: #030712; color: #fff; border-radius: 4px; page-break-after: avoid; }
+h3 { font-size: 9.5pt; margin: 10px 0 4px; color: #4338ca; page-break-after: avoid; }
+h4 { font-size: 8.5pt; margin: 8px 0 3px; color: #6366f1; }
+.meta { font-size: 7.5pt; color: #64748b; margin-bottom: 10px; }
+table { width: 100%; border-collapse: collapse; margin: 6px 0 10px; font-size: 7.5pt; }
+th { background: #1e293b; color: #f8fafc; text-align: left; padding: 4px 5px; }
+td { border-bottom: 1px solid #e2e8f0; padding: 4px 5px; vertical-align: top; }
+tr:nth-child(even) td { background: #f8fafc; }
+ul, ol { margin: 4px 0 8px; padding-left: 18px; }
+li { margin: 2px 0; }
+pre { background: #0f172a; color: #e2e8f0; padding: 8px 10px; font-size: 7pt; border-radius: 4px; white-space: pre-wrap; margin: 6px 0; }
+.callout { border-left: 3px solid #6366f1; background: #eef2ff; padding: 8px 10px; margin: 8px 0; font-size: 8pt; }
+.callout.ok { border-color: #22c55e; background: #f0fdf4; }
+.callout.warn { border-color: #f59e0b; background: #fff7ed; }
+.callout.crit { border-color: #ef4444; background: #fef2f2; }
+.page-break { page-break-before: always; }
+code { font-size: 7pt; background: #f1f5f9; padding: 1px 4px; border-radius: 2px; }
+.done { color: #15803d; font-weight: 600; }
+.partial { color: #c2410c; font-weight: 600; }
+.planned { color: #1d4ed8; font-weight: 600; }
+.score { font-weight: 700; }
+.toc { font-size: 8.5pt; margin: 12px 0; }
+.toc li { margin: 4px 0; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+<p>Event Operations Command Platform</p>
+<h1>Session Report — Full Deliverables</h1>
+<p>Homepage · UX audits · Transformation program · Production safety · Registration redesign</p>
+<p class="meta">Olasentra Event Staff System · 6 June 2026<br>Prepared before Phase 2 implementation<br>Source of truth alignment: EVERYTHING.pdf / Implementation Master Plan v1.2</p>
+</div>
+
+<h1>Session Report — What Was Done</h1>
+<p class="meta"><strong>Session scope:</strong> Visual transformation planning and partial implementation on live production (admin.olasentra.com, register.olasentra.com). <strong>No new planning PDFs</strong> were requested beyond this session summary.</p>
+
+<div class="callout ok"><strong>Deployed to production:</strong> Premium homepage, production safety layer (feature flags + cleanup audit + deploy pipeline updates). <strong>Not yet coded:</strong> Registration wizard, Command Center, Unified Inbox, Auto Approval, Client Portal, AI Ops.</div>
+
+<h2>Table of contents</h2>
+<ol class="toc">
+<li>Executive summary</li>
+<li>Step 1 — Page inventory (summary)</li>
+<li>Step 2 — Platform UX audit</li>
+<li>Premium homepage redesign (implemented)</li>
+<li>Visual transformation program (9 steps)</li>
+<li>Production safety layer (implemented)</li>
+<li>Registration experience redesign (plan only)</li>
+<li>Files created and modified</li>
+<li>Feature flags reference</li>
+<li>Ranked issue backlog</li>
+<li>Recommended next actions</li>
+<li>Explicitly not done / blocked</li>
+</ol>
+
+<h2>1. Executive summary</h2>
+<table>
+<tr><th>Area</th><th>Status</th><th>Outcome</th></tr>
+<tr><td>Premium public homepage</td><td class="done">Deployed</td><td>Dark luxury theme, live events, stats, trust, testimonials, staff portal CTA</td></tr>
+<tr><td>Production safety (flags + cleanup)</td><td class="done">Deployed</td><td>Zero-downtime rollout infrastructure; admin UI for flags and cleanup reports</td></tr>
+<tr><td>Platform UX audit</td><td class="done">Complete</td><td>10 surfaces scored; 39 ranked issues; platform average 65/100</td></tr>
+<tr><td>9-step transformation program</td><td class="done">Documented</td><td>Steps 1–9 defined with phases, flags, effort, acceptance criteria</td></tr>
+<tr><td>Registration wizard redesign</td><td class="planned">Plan only</td><td>8-step architecture, wireframes, mobile layouts — no code yet</td></tr>
+<tr><td>Command Center (P2)</td><td class="planned">Not started</td><td>Behind <code>feature_command_center_v2</code></td></tr>
+<tr><td>Unified Inbox (P5)</td><td class="planned">Not started</td><td>Behind <code>feature_unified_inbox</code></td></tr>
+<tr><td>Auto Approval (P6)</td><td class="planned">Not started</td><td>Shadow mode design; flag <code>feature_auto_approval</code></td></tr>
+<tr><td>Design system OOU (P1)</td><td class="planned">Not started</td><td><code>ops-ui.css</code> not created yet</td></tr>
+</table>
+
+<h3>Platform UX score (current)</h3>
+<table>
+<tr><th>Surface</th><th>Overall</th><th>UX</th><th>Design</th><th>Mobile</th></tr>
+<tr><td>Homepage</td><td class="score">74</td><td>72</td><td>78</td><td>74</td></tr>
+<tr><td>Registration</td><td class="score">67</td><td>68</td><td>62</td><td>71</td></tr>
+<tr><td>Staff portal</td><td class="score">70</td><td>64</td><td>66</td><td>72</td></tr>
+<tr><td>Admin ERP shell</td><td class="score">67</td><td>61</td><td>70</td><td>58</td></tr>
+<tr><td>Dashboard</td><td class="score">66</td><td>58</td><td>65</td><td>55</td></tr>
+<tr><td>Notifications</td><td class="score">56</td><td>42</td><td>48</td><td>45</td></tr>
+<tr><td>Messaging</td><td class="score">62</td><td>55</td><td>58</td><td>52</td></tr>
+<tr><td>Events admin</td><td class="score">57</td><td>60</td><td>55</td><td>38</td></tr>
+<tr><td>Attendance</td><td class="score">65</td><td>68</td><td>62</td><td>50</td></tr>
+<tr><td>Invoices</td><td class="score">62</td><td>62</td><td>58</td><td>45</td></tr>
+<tr><td><strong>Platform average</strong></td><td class="score">65</td><td>61</td><td>62</td><td>58</td></tr>
+</table>
+<p><strong>Target post-transformation:</strong> 85+ platform average.</p>
+
+<div class="page-break"></div>
+
+<h2>2. Step 1 — Page inventory (summary)</h2>
+<p>Full inventory exists in <code>docs/ADMIN-PAGE-INVENTORY.pdf</code> (109 PHP files in <code>/admin/</code>).</p>
+<table>
+<tr><th>Zone</th><th>Files</th><th>Nav items</th><th>Critical pages</th></tr>
+<tr><td>Admin ERP</td><td>109</td><td>22</td><td>18</td></tr>
+<tr><td>Public marketing</td><td>7</td><td>—</td><td>home.php</td></tr>
+<tr><td>Registration subdomain</td><td>3 core</td><td>—</td><td>index.php, submit.php</td></tr>
+<tr><td>Staff PWA</td><td>7+</td><td>—</td><td>staff-app.php</td></tr>
+<tr><td>APIs</td><td>12</td><td>—</td><td>registration-options, registrant-lookup</td></tr>
+</table>
+<p><strong>Consolidation target (post-transformation):</strong> ~45 admin screens via Command Center, Event Hub, Unified Inbox.</p>
+<p><strong>Not built yet:</strong> <code>admin/inbox.php</code>, <code>admin/event.php</code>, <code>admin/live-ops.php</code>, <code>admin/system-health.php</code>, <code>client/*</code>, <code>api/command-center.php</code>, <code>includes/auto-approval-engine.php</code>.</p>
+
+<h2>3. Step 2 — Platform UX audit</h2>
+
+<h3>3.1 Critical issues (7)</h3>
+<table>
+<tr><th>ID</th><th>Issue</th><th>Fix phase</th></tr>
+<tr><td>C1</td><td>Notifications + messages separate — ops monitor 2+ places</td><td>Step 5 Unified Inbox</td></tr>
+<tr><td>C2</td><td>Registration = one 20+ field page — mobile abandonment</td><td>Registration wizard</td></tr>
+<tr><td>C3</td><td>Events table 11–12 columns — broken on mobile</td><td>Event Hub P3</td></tr>
+<tr><td>C4</td><td>Dashboard not a Command Center</td><td>Step 4 P2</td></tr>
+<tr><td>C5</td><td>No per-event hub — 8+ nav hops per event</td><td>Step 4 P3</td></tr>
+<tr><td>C6</td><td>Staff app: messages + notifications split</td><td>P5 + P13</td></tr>
+<tr><td>C7</td><td>Homepage stats show 0 before JS loads</td><td>Homepage polish</td></tr>
+</table>
+
+<h3>3.2 Issue counts by severity</h3>
+<table>
+<tr><th>Severity</th><th>Count</th></tr>
+<tr><td>Critical</td><td>7</td></tr>
+<tr><td>High</td><td>16</td></tr>
+<tr><td>Medium</td><td>11</td></tr>
+<tr><td>Low</td><td>5</td></tr>
+</table>
+
+<h3>3.3 Systemic findings</h3>
+<ul>
+<li><strong>Empty space:</strong> Dashboard quick-actions pad; homepage hero logo card; staff-app hero pushes tiles below fold</li>
+<li><strong>Weak hierarchy:</strong> All admin pages use identical card chrome; toolbar buttons same visual weight</li>
+<li><strong>Poor navigation:</strong> 22+ nav items; 3 comms surfaces; no global event context selector</li>
+<li><strong>Duplicate workflows:</strong> Approvals (dashboard + notifications + staff queue); Finance scattered across 6+ pages</li>
+<li><strong>Missing:</strong> Unified inbox, Command Center, Event Hub, design system, auto-approval UI</li>
+</ul>
+
+<div class="page-break"></div>
+
+<h2>4. Premium homepage redesign (implemented &amp; deployed)</h2>
+<p class="meta"><strong>URL:</strong> https://admin.olasentra.com/home.php · <strong>Flag:</strong> <code>feature_public_premium_v2</code> (default ON)</p>
+
+<h3>4.1 Sections delivered</h3>
+<table>
+<tr><th>#</th><th>Section</th><th>Status</th></tr>
+<tr><td>1</td><td>Premium hero (live badge, dual CTA, trust chips)</td><td class="done">Done</td></tr>
+<tr><td>2</td><td>Live event opportunities grid (DB-driven)</td><td class="done">Done</td></tr>
+<tr><td>3</td><td>Animated statistics bar</td><td class="partial">Done — SSR shows 0 until JS (fix pending)</td></tr>
+<tr><td>4</td><td>Staff activity / platform pulse</td><td class="done">Done</td></tr>
+<tr><td>5</td><td>Roles preview grid</td><td class="done">Done</td></tr>
+<tr><td>6</td><td>How it works timeline</td><td class="done">Done</td></tr>
+<tr><td>7</td><td>Event categories</td><td class="done">Done</td></tr>
+<tr><td>8</td><td>Trust indicators + compliance list</td><td class="done">Done</td></tr>
+<tr><td>9</td><td>Testimonials</td><td class="done">Done (hardcoded)</td></tr>
+<tr><td>10</td><td>Staff portal section</td><td class="done">Done</td></tr>
+<tr><td>11</td><td>CTA band + premium footer class</td><td class="done">Done</td></tr>
+<tr><td>12</td><td>Mobile app / PWA promotion</td><td class="planned">Not done</td></tr>
+<tr><td>13</td><td>FAQ / inner pages premium theme</td><td class="planned">Not done</td></tr>
+<tr><td>14</td><td>Remove hero logo card (conversion space)</td><td class="planned">Not done</td></tr>
+</table>
+
+<h3>4.2 Files (homepage)</h3>
+<ul>
+<li><code>home.php</code> — full page structure</li>
+<li><code>includes/public/homepage-live.php</code> — live metrics, testimonials, trust, categories</li>
+<li><code>assets/css/home-premium.css</code> — dark luxury, glassmorphism, purple gradients</li>
+<li><code>assets/js/home-premium.js</code> — scroll-triggered stat counters</li>
+<li><code>includes/public/layout-top.php</code> — loads premium assets when flag ON</li>
+<li><code>includes/public/layout-bottom.php</code> — premium footer + JS</li>
+</ul>
+
+<h2>5. Visual transformation program (9 steps)</h2>
+<table>
+<tr><th>Step</th><th>Name</th><th>Phase</th><th>Status</th><th>Effort</th></tr>
+<tr><td>1</td><td>Page inventory</td><td>P0</td><td class="done">Complete</td><td>—</td></tr>
+<tr><td>2</td><td>UX audit</td><td>P0</td><td class="done">Complete</td><td>—</td></tr>
+<tr><td>3</td><td>Visual transformation program</td><td>P0–P17</td><td class="done">Defined</td><td>Ongoing</td></tr>
+<tr><td>4</td><td>Command Center</td><td>P2</td><td class="planned">Not started</td><td>1.5 wk</td></tr>
+<tr><td>5</td><td>Unified Inbox</td><td>P5+P11</td><td class="planned">Not started</td><td>2 wk</td></tr>
+<tr><td>6</td><td>Homepage redesign</td><td>P14</td><td class="partial">~70%</td><td>1 wk remain</td></tr>
+<tr><td>7</td><td>Auto Approval Engine</td><td>P6</td><td class="planned">Not started</td><td>2 wk</td></tr>
+<tr><td>8</td><td>Client Portal</td><td>P9</td><td class="planned">Not started</td><td>3 wk</td></tr>
+<tr><td>9</td><td>AI Operations Assistant</td><td>P12</td><td class="planned">Not started</td><td>2 wk MVP</td></tr>
+</table>
+
+<h3>5.1 Recommended execution waves</h3>
+<table>
+<tr><th>Wave</th><th>Work</th><th>Duration</th></tr>
+<tr><td>0</td><td>Feature flags + OOU design system (P1)</td><td>1 week</td></tr>
+<tr><td>1</td><td>Homepage finish + registration wizard</td><td>1.5 weeks</td></tr>
+<tr><td>2</td><td>Command Center + Event Hub shell</td><td>2 weeks</td></tr>
+<tr><td>3</td><td>Unified Inbox</td><td>2 weeks</td></tr>
+<tr><td>4</td><td>Auto Approval (shadow → live)</td><td>2 weeks</td></tr>
+<tr><td>5</td><td>Client Portal + AI Ops</td><td>5 weeks</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2>6. Production safety layer (implemented)</h2>
+<div class="callout ok"><strong>Live production rules enforced:</strong> No downtime · no route changes · no permission changes · no DB deletions · no automatic file deletions · cleanup report before deploy · reversible via flags + backups.</div>
+
+<h3>6.1 Feature flags</h3>
+<p><strong>File:</strong> <code>includes/feature-flags.php</code><br>
+<strong>Admin UI:</strong> <code>admin/feature-flags.php</code> (Administrator only)<br>
+<strong>Storage:</strong> <code>system_settings</code> keys — no new tables</p>
+
+<h3>6.2 Cleanup audit (read-only)</h3>
+<p><strong>File:</strong> <code>includes/cleanup-audit.php</code><br>
+<strong>CLI:</strong> <code>scripts/cleanup-audit.php</code> (local only, not on server)<br>
+<strong>Reports:</strong> <code>storage/reports/cleanup-{timestamp}.json</code>, <code>cleanup-latest.json</code><br>
+<strong>Admin UI:</strong> <code>admin/cleanup-report.php</code></p>
+<p>Scans: storage usage, large files (&gt;5MB), old backups (&gt;90d), duplicate CSS/JS hashes, empty directories, large logs. <strong>Never auto-deletes.</strong></p>
+
+<h3>6.3 Deploy pipeline</h3>
+<pre>[0/5] Pre-deploy backup (storage/backups/pre-deploy-*.zip)
+[1/5] Cleanup audit (read-only)
+[2/5] Git push
+[3/5] FTP main admin
+[4/5] FTP apply site</pre>
+
+<h3>6.4 Rollback procedure</h3>
+<ol>
+<li>Toggle feature flag OFF in admin → Feature flags</li>
+<li>Or restore <code>storage/backups/pre-deploy-*.zip</code></li>
+<li>Or restore MySQL from admin → Backups</li>
+</ol>
+
+<h2>7. Registration experience redesign (plan only — no code)</h2>
+<p class="meta"><strong>URL:</strong> register.olasentra.com · <strong>Proposed flag:</strong> <code>feature_registration_wizard_v2</code> (not yet added)</p>
+
+<h3>7.1 Current registration audit score</h3>
+<table>
+<tr><th>Dimension</th><th>Score</th></tr>
+<tr><td>Conversion UX</td><td>52</td></tr>
+<tr><td>Mobile UX</td><td>58</td></tr>
+<tr><td>Completion speed</td><td>48</td></tr>
+</table>
+
+<h3>7.2 Proposed 8-step wizard</h3>
+<table>
+<tr><th>Step</th><th>Name</th><th>Key change</th></tr>
+<tr><td>1</td><td>Welcome + role</td><td>Trust strip, events open count</td></tr>
+<tr><td>2</td><td>Pick your gigs</td><td><strong>Events FIRST</strong> (conversion hook)</td></tr>
+<tr><td>3</td><td>Email</td><td>Returning user detect + prefill</td></tr>
+<tr><td>4</td><td>About you</td><td>Identity block</td></tr>
+<tr><td>5</td><td>Contact</td><td>Mobile</td></tr>
+<tr><td>6</td><td>Payroll</td><td>PPS + IBAN isolated with trust messaging</td></tr>
+<tr><td>7</td><td>PSA compliance</td><td>Camera-first document capture</td></tr>
+<tr><td>8</td><td>Review + consent</td><td>Stripe-style summary + submit</td></tr>
+</table>
+
+<h3>7.3 Shift gate redesign</h3>
+<p><strong>Today:</strong> Shift picker locked until all fields + PSA photos complete.<br>
+<strong>Proposed:</strong> Browse/select events in Step 2; compliance gate before submit; server rule unchanged (<code>registrationFormReadyForShiftSelection</code>).</p>
+
+<h3>7.4 Auto-save (planned)</h3>
+<p><strong>Phase 1:</strong> localStorage draft per form slug — no DB migration.<br>
+<strong>Phase 2:</strong> Optional server draft API.</p>
+
+<h3>7.5 Implementation effort</h3>
+<p><strong>~14 dev days (~3 weeks)</strong> across 8 phases. <code>submit.php</code> field names unchanged.</p>
+
+<h3>7.6 Top registration issues</h3>
+<table>
+<tr><th>ID</th><th>Issue</th></tr>
+<tr><td>R1</td><td>Events at bottom — users never see value</td></tr>
+<tr><td>R2</td><td>Shift picker locked until PSA upload</td></tr>
+<tr><td>R3</td><td>Single-page 20+ fields</td></tr>
+<tr><td>R4</td><td>No progress indicator</td></tr>
+<tr><td>R5</td><td>No auto-save (session only on error)</td></tr>
+<tr><td>R7</td><td>Clear form button risks data loss</td></tr>
+<tr><td>R10</td><td>Visual disconnect from premium homepage</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2>8. Files created and modified (this session)</h2>
+
+<h3>8.1 Created</h3>
+<table>
+<tr><th>File</th><th>Purpose</th></tr>
+<tr><td>includes/public/homepage-live.php</td><td>Live homepage metrics</td></tr>
+<tr><td>assets/css/home-premium.css</td><td>Premium homepage styles</td></tr>
+<tr><td>assets/js/home-premium.js</td><td>Animated stat counters</td></tr>
+<tr><td>includes/feature-flags.php</td><td>Production feature flags</td></tr>
+<tr><td>includes/cleanup-audit.php</td><td>Read-only cleanup scanner</td></tr>
+<tr><td>scripts/cleanup-audit.php</td><td>CLI audit runner (local)</td></tr>
+<tr><td>scripts/cleanup-audit.ps1</td><td>Deploy hook wrapper</td></tr>
+<tr><td>admin/feature-flags.php</td><td>Flag management UI</td></tr>
+<tr><td>admin/cleanup-report.php</td><td>Cleanup report viewer</td></tr>
+<tr><td>storage/reports/.gitkeep</td><td>Report output directory</td></tr>
+<tr><td>docs/SESSION-REPORT-2026-06-06.html</td><td>This report (source)</td></tr>
+</table>
+
+<h3>8.2 Modified</h3>
+<table>
+<tr><th>File</th><th>Change</th></tr>
+<tr><td>home.php</td><td>Full premium homepage rewrite</td></tr>
+<tr><td>includes/public/layout-top.php</td><td>Premium CSS/fonts + feature flag</td></tr>
+<tr><td>includes/public/layout-bottom.php</td><td>Premium footer + flag-gated JS</td></tr>
+<tr><td>admin/go-live.php</td><td>Links to cleanup report + feature flags</td></tr>
+<tr><td>deploy.ps1</td><td>Cleanup audit step [1/5]</td></tr>
+<tr><td>scripts/upload-to-server.ps1</td><td>Homepage + safety layer files</td></tr>
+</table>
+
+<h2>9. Feature flags reference</h2>
+<table>
+<tr><th>Flag</th><th>Default</th><th>Phase</th><th>Status</th></tr>
+<tr><td>feature_public_premium_v2</td><td>ON (1)</td><td>P14</td><td class="done">Active — homepage</td></tr>
+<tr><td>feature_ops_ui</td><td>OFF</td><td>P1</td><td class="planned">Not built</td></tr>
+<tr><td>feature_command_center_v2</td><td>OFF</td><td>P2</td><td class="planned">Not built</td></tr>
+<tr><td>feature_unified_inbox</td><td>OFF</td><td>P5</td><td class="planned">Not built</td></tr>
+<tr><td>feature_event_hub</td><td>OFF</td><td>P3</td><td class="planned">Not built</td></tr>
+<tr><td>feature_live_ops</td><td>OFF</td><td>P4</td><td class="planned">Not built</td></tr>
+<tr><td>feature_auto_approval</td><td>OFF (0/1/2)</td><td>P6</td><td class="planned">Not built</td></tr>
+<tr><td>feature_trust_scores</td><td>OFF</td><td>P7</td><td class="planned">Not built</td></tr>
+<tr><td>feature_system_health_center</td><td>OFF</td><td>P10</td><td class="planned">Not built</td></tr>
+<tr><td>feature_client_portal</td><td>OFF</td><td>P9</td><td class="planned">Not built</td></tr>
+<tr><td>feature_staff_pwa_v2</td><td>OFF</td><td>P13</td><td class="planned">Not built</td></tr>
+<tr><td>feature_ai_ops</td><td>OFF</td><td>P12</td><td class="planned">Not built</td></tr>
+<tr><td>feature_registration_wizard_v2</td><td>—</td><td>—</td><td class="planned">Proposed, not in code yet</td></tr>
+</table>
+
+<h2>10. Ranked issue backlog (combined priority)</h2>
+
+<h3>Critical — fix first</h3>
+<ol>
+<li>C1 — Split notifications/messages (Unified Inbox)</li>
+<li>C2 — Registration single-page abandonment (wizard)</li>
+<li>C3 — Events table mobile broken (Event Hub)</li>
+<li>C4 — Dashboard not Command Center</li>
+<li>C5 — No per-event hub</li>
+<li>C6 — Staff messages/notifications split</li>
+<li>C7 — Homepage stats SSR shows 0</li>
+</ol>
+
+<h3>High — next wave</h3>
+<ul>
+<li>H1 Homepage hero logo card wastes space</li>
+<li>H2 No event urgency on homepage</li>
+<li>H3 No PWA section on marketing site</li>
+<li>H4 Register visual gap vs premium home</li>
+<li>H5 No registration wizard</li>
+<li>H7 Notifications: no filter/search/priority</li>
+<li>H8 Messaging: no master-detail inbox</li>
+<li>H15 No design system (ops-ui.css)</li>
+<li>R1–R2 Registration events last + shift gate UX</li>
+</ul>
+
+<h2>11. Recommended next actions (before proceeding)</h2>
+<table>
+<tr><th>Priority</th><th>Action</th><th>Why</th><th>Flag</th></tr>
+<tr><td>1</td><td>Registration wizard Phase 0–2</td><td>Highest conversion on register subdomain</td><td>feature_registration_wizard_v2 (add)</td></tr>
+<tr><td>2</td><td>Homepage polish (SSR stats, remove logo card, PWA section)</td><td>Quick trust/conversion wins</td><td>feature_public_premium_v2</td></tr>
+<tr><td>3</td><td>Design system P1 (ops-ui.css)</td><td>Blocks Command Center + Inbox</td><td>feature_ops_ui</td></tr>
+<tr><td>4</td><td>Command Center P2</td><td>Ops daily driver</td><td>feature_command_center_v2</td></tr>
+<tr><td>5</td><td>Unified Inbox P5</td><td>Worst UX score (56)</td><td>feature_unified_inbox</td></tr>
+</table>
+
+<h2>12. Explicitly not done / blocked</h2>
+<table>
+<tr><th>Item</th><th>Reason</th></tr>
+<tr><td>P15 Security hardening</td><td>Blocked until Gate G approval (post Phase 16 monitor)</td></tr>
+<tr><td>Phase 15 DB secrets migration</td><td>Same gate</td></tr>
+<tr><td>Equipment rental (P23)</td><td>Removed from scope v1.2</td></tr>
+<tr><td>Registration wizard code</td><td>User requested plan only — no code yet</td></tr>
+<tr><td>ops-ui.css / Command Center / Inbox</td><td>Planned, not implemented</td></tr>
+<tr><td>Git commit</td><td>Not requested — changes deployed via FTP</td></tr>
+</table>
+
+<div class="callout warn"><strong>Approve before proceeding:</strong> Choose first implementation track — (A) Registration wizard, (B) Homepage polish, or (C) Command Center + design system. All paths use feature flags and preserve production safety rules.</div>
+
+<p class="meta" style="margin-top:24px;border-top:1px solid #e2e8f0;padding-top:8px;">
+Olasentra Event Staff System · Session Report · 6 June 2026 · Confidential internal documentation<br>
+Regenerate PDF: <code>powershell -ExecutionPolicy Bypass -File .\scripts\generate-session-report-pdf.ps1</code>
+</p>
+
+</body>
+</html>

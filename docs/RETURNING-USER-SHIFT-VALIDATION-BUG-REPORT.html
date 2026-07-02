@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Returning User Shift Validation Bug — Root Cause Report</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+h3{font-size:.98rem;margin-top:1.25rem;color:#334155}
+.meta{color:#64748b;font-size:.9rem}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #fca5a5;background:#fef2f2}
+.verdict.warn{border-color:#fcd34d;background:#fffbeb}
+.verdict.info{border-color:#93c5fd;background:#eff6ff}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.85rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.crit{color:#b91c1c;font-weight:700}
+.high{color:#c2410c;font-weight:600}
+.med{color:#1d4ed8}
+.pass{color:#047857;font-weight:700}
+.fail{color:#b91c1c;font-weight:700}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font-size:.82em}
+pre{background:#0f172a;color:#e2e8f0;padding:.85rem;border-radius:8px;overflow:auto;font-size:.74rem;white-space:pre-wrap}
+ul.compact li{margin:.3rem 0}
+.note{font-size:.88rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.75rem 1rem;margin:1rem 0}
+.flow{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:1rem;margin:1rem 0;font-family:ui-monospace,monospace;font-size:.82rem;line-height:1.6}
+</style>
+</head>
+<body>
+
+<h1>Returning User Shift Validation Bug — Root Cause Report</h1>
+<p class="meta">Generated 6 June 2026 · Production: <a href="https://register.olasentra.com/index.php">register.olasentra.com/index.php</a> · Wizard flag <code>feature_registration_wizard_v2</code> ON · <strong>Investigation only — no code changes</strong></p>
+
+<div class="verdict"><strong>Production defect confirmed (architecture).</strong> Returning users can reach Step 8 (Review) with <strong>zero selectable shifts</strong>, see <strong>“None selected”</strong> in the review summary, encounter <strong>duplicate navigation buttons</strong>, and be unable to complete submission. Root cause is <strong>not</strong> a regression of the Step 2 pointer-events lock (fixed 6 June). It is a <strong>validation gap</strong>: Step 2 event selection is enforced only when leaving Step 2; later steps and direct <code>showStep()</code> jumps do not re-check <code>event_ids[]</code>. Returning-user email lookup on Step 3 can <strong>clear or invalidate</strong> prior shift selections via <code>refreshShiftPicker()</code>, after which the wizard still allows forward navigation to Review.</div>
+
+<h2>1. Reported production flow</h2>
+<div class="flow">Email found
+  ↓
+Profile auto-filled
+  ↓
+Wizard still carries all 8 steps
+  ↓
+Review page
+  ↓
+Buttons duplicated (Continue + Submit registration)
+  ↓
+No shift selected (“Selected Opportunities → None selected”)
+  ↓
+Submit registration not clickable</div>
+
+<h2>2. Investigation checklist (A–E)</h2>
+<table>
+<tr><th>ID</th><th>Question</th><th>Verdict</th><th>Evidence</th></tr>
+<tr>
+  <td>A</td>
+  <td>Is Step 2 event selection mandatory before advancing?</td>
+  <td class="fail">PARTIAL — gate exists but is not global</td>
+  <td><code>validateStep(2)</code> requires <code>input[name="event_ids[]"]:checked:not(:disabled)</code> in <code>registration-wizard-validation.js</code>. <code>goNext()</code> calls <code>validateCurrentStep()</code> only for the <strong>active</strong> step. Steps 3–7 never re-run Step 2 rules.</td>
+</tr>
+<tr>
+  <td>B</td>
+  <td>Does returning-user auto-prefill bypass Step 2 validation?</td>
+  <td class="fail">YES — indirectly</td>
+  <td>Step 3 email lookup calls <code>setRegisteredEventIds()</code> → <code>refreshShiftPicker()</code> in <code>registration-wizard-returning.js</code>. This rebuilds the picker <strong>after</strong> the user may have already passed Step 2, and can zero out <code>event_ids[]</code>. Prefill does not block forward navigation.</td>
+</tr>
+<tr>
+  <td>C</td>
+  <td>Does <code>event_ids[]</code> stay populated between steps?</td>
+  <td class="fail">NO — not guaranteed</td>
+  <td>Selection is stored in DOM checkboxes + <code>#shift-picker-list[data-selected]</code> via <code>persistShiftSelection()</code>. <code>populateWizardEventCards()</code> wipes and rebuilds the list; registered events become <code>disabled</code> and are excluded from <code>:not(:disabled)</code> queries. Autosave re-collects only enabled checked inputs.</td>
+</tr>
+<tr>
+  <td>D</td>
+  <td>Does review block render when no shifts are selected?</td>
+  <td class="fail">NO</td>
+  <td><code>RegistrationWizardReview.render()</code> always renders Step 8. Empty selection becomes explicit copy: <code>[['Shifts', 'None selected']]</code>. No guard prevents reaching or displaying review with zero events.</td>
+</tr>
+<tr>
+  <td>E</td>
+  <td>Duplicate button rendering on final review step?</td>
+  <td class="fail">YES — structural</td>
+  <td>Two submit surfaces exist in markup; nav chrome relies on <code>hidden</code> attribute + body class <code>registration-page--wizard-review</code>. Failure to toggle either leaves Continue visible and/or Submit non-functional (CSS <code>display:none</code> on <code>.reg-wizard__nav--submit</code>).</td>
+</tr>
+</table>
+
+<h2>3. Root cause chain</h2>
+
+<h3>3.1 Primary: Step 2 validation is single-shot</h3>
+<pre>registration-wizard.js — goNext()
+  validateCurrentStep()   // only validates `current` step
+  showStep(current + 1)   // no retroactive checks
+
+registration-wizard-validation.js — validateStep(8)
+  checks privacy_consent ONLY
+  does NOT check event_ids[]</pre>
+<p>Once a user leaves Step 2 (by Continue or by <code>showStep(n)</code> jump), nothing in the forward path re-validates shift selection before Review or submit. Step 8 submit handler also calls <code>validateStep(8)</code> only — consent gate, not shifts.</p>
+
+<h3>3.2 Returning-user trigger: picker rebuild clears selection</h3>
+<pre>Step 3 email blur/input
+  → registration-wizard-returning.js lookupEmail()
+  → smartPrefill() → setRegisteredEventIds(registered_event_ids)
+  → events.js refreshShiftPicker()
+  → populateWizardEventCards() — innerHTML rebuild
+  → applyRestoredEventSelection() — only checks :not(:disabled)
+  → persistShiftSelection() — dataset.selected may become []</pre>
+<p>Before lookup on Step 3, <code>REGISTERED_EVENT_IDS</code> is empty; all cards appear open. User may select shifts on Step 2, pass validation, then lose those selections when lookup marks prior events as registered/disabled. Forward navigation from Steps 3–7 does not detect the loss.</p>
+
+<h3>3.3 Bypass paths that skip Step 2 entirely</h3>
+<table>
+<tr><th>Path</th><th>Mechanism</th><th>Validation skipped?</th></tr>
+<tr><td>Local draft resume</td><td><code>REG_WIZARD_DRAFT</code> + <code>showStep(step)</code> in <code>registration-wizard-returning.js</code></td><td class="fail">Yes — any step ≥2, including 8</td></tr>
+<tr><td>Autosave restore on load</td><td><code>REG_WIZARD_RESTORE_STEP</code> in <code>registration-wizard-autosave.js</code></td><td class="fail">Yes — <code>hasMeaningfulDraft()</code> treats <code>step &gt; 1</code> as meaningful even with empty <code>event_ids[]</code></td></tr>
+<tr><td>Server error restore</td><td><code>REG_WIZARD_RESTORE_STEP = 8</code> in <code>index.php</code> + <code>registration-wizard-server-restore.js</code></td><td class="fail">Yes — lands on review without shift re-check</td></tr>
+<tr><td>Review “Fix” buttons</td><td><code>data-goto-step</code> in <code>registration-wizard-review.js</code></td><td class="med">Returns user to section; leaving Step 2 again still only validated on Step 2 Continue</td></tr>
+</table>
+
+<h3>3.4 Duplicate buttons + non-clickable Submit</h3>
+<p>Markup in <code>index.php</code> + <code>registration-wizard-shell.php</code> defines <strong>two</strong> navigation/submit regions:</p>
+<table>
+<tr><th>Element</th><th>Buttons</th><th>Expected on Step 8</th></tr>
+<tr><td><code>#reg-wizard-nav</code></td><td>Back + Continue/Review</td><td><code>hidden</code> via <code>updateChrome()</code></td></tr>
+<tr><td><code>#reg-wizard-nav-submit</code></td><td>Back + Submit registration</td><td>Visible when <code>body.registration-page--wizard-review</code></td></tr>
+<tr><td><code>.form-actions--wizard-hidden</code> (inside Step 8 panel)</td><td>Clear form + Submit registration</td><td>CSS <code>display:none !important</code></td></tr>
+</table>
+<p>Expected Step 8 chrome: <strong>Back</strong> + <strong>Submit registration</strong> only (<code>#reg-wizard-back-review</code> + submit in <code>#reg-wizard-nav-submit</code>).</p>
+<p>Observed duplicate (Continue + Submit) indicates <code>#reg-wizard-nav</code> was still visible while review content displayed — i.e. <code>mainNav.hidden</code> not effective or <code>current !== 8</code> while review panel active. Submit “not clickable” aligns with <code>.reg-wizard__nav--submit { display: none }</code> until <code>registration-page--wizard-review</code> is on <code>body</code>: user may see a Submit affordance from stale layout while the functional submit sits in a <code>display:none</code> nav, or native <code>required</code> on <code>privacy_consent</code> blocks form submit when consent unchecked (Step 8 validation also fails consent until checked).</p>
+
+<h2>4. Source file map</h2>
+<table>
+<tr><th>Role</th><th>File</th><th>Relevant behaviour</th></tr>
+<tr><td>Step navigation gate</td><td><code>assets/js/registration-wizard.js</code></td><td><code>goNext()</code>, <code>showStep()</code>, <code>updateChrome()</code>, form submit → <code>validateStep(8)</code> only</td></tr>
+<tr><td>Per-step validation</td><td><code>assets/js/registration-wizard-validation.js</code></td><td>Step 2 event check; Step 8 consent only</td></tr>
+<tr><td>Returning lookup + resume</td><td><code>assets/js/registration-wizard-returning.js</code></td><td><code>setRegisteredEventIds</code>, draft resume <code>showStep(step)</code></td></tr>
+<tr><td>Shift picker rebuild</td><td><code>assets/js/events.js</code></td><td><code>refreshShiftPicker</code>, <code>populateWizardEventCards</code>, <code>getSelectedShiftIds</code> excludes disabled</td></tr>
+<tr><td>Review summary</td><td><code>assets/js/registration-wizard-review.js</code></td><td>“None selected” fallback; no empty-state block</td></tr>
+<tr><td>Draft restore</td><td><code>assets/js/registration-wizard-autosave.js</code></td><td><code>REG_WIZARD_RESTORE_STEP</code>, <code>event_ids[]</code> via <code>REG_WIZARD_RESTORE_EVENT_IDS</code></td></tr>
+<tr><td>Server error restore</td><td><code>assets/js/registration-wizard-server-restore.js</code></td><td>Always <code>showStep(8)</code></td></tr>
+<tr><td>Wizard chrome markup</td><td><code>includes/public/registration-wizard-shell.php</code></td><td>Dual nav blocks</td></tr>
+<tr><td>Step 8 inline actions</td><td><code>index.php</code></td><td><code>form-actions--wizard-hidden</code>, <code>REG_WIZARD_RESTORE_STEP = 8</code> on server errors</td></tr>
+<tr><td>Nav visibility CSS</td><td><code>assets/css/registration-wizard.css</code></td><td><code>.reg-wizard__nav--submit</code> hidden until review body class</td></tr>
+<tr><td>Server-side backstop</td><td><code>includes/validation.php</code>, <code>submit.php</code></td><td>Rejects empty <code>event_ids</code> on POST — but only after client allows submit attempt</td></tr>
+</table>
+
+<h2>5. Production verification (6 June 2026)</h2>
+
+<h3>5.1 Automated returning-user audit</h3>
+<p>Command: <code>php scripts/verify-returning-registration.php --email=e2e-wizard-20260606164932@olasentra-e2e.test --json</code></p>
+<table>
+<tr><th>Check</th><th>Result</th><th>Notes</th></tr>
+<tr><td>Profile prefill</td><td class="pass">PASS</td><td>All fields + PSA on file</td></tr>
+<tr><td>Review shows selected shift</td><td class="pass">PASS</td><td>“Nick Cave” in review excerpt when open event selected before lookup</td></tr>
+<tr><td><code>validateStep(2)</code> at end of run</td><td class="pass">true</td><td>Selection still present in E2E profile path</td></tr>
+<tr><td><code>validateStep(8)</code></td><td class="fail">false</td><td>Expected until privacy consent checked</td></tr>
+</table>
+<p class="note">The E2E profile selects a <strong>new open</strong> event before lookup; selection survives lookup in that scenario. The reported bug affects returning users whose Step 2 selection is cleared or who resume/jump past Step 2 without a valid enabled selection — reproducible by code path analysis, not by the happy-path E2E email alone.</p>
+
+<h3>5.2 Step 2 lock regression</h3>
+<p class="pass">RULED OUT — <code>docs/STEP2-EVENT-SELECTION-ROOT-CAUSE-REPORT.html</code> documents fix for <code>shift-picker-locked</code> / pointer-events. Current wizard HTML ships without lock class; gate script unlocks in wizard mode.</p>
+
+<h2>6. Reproduction scenarios (for fix verification)</h2>
+<ol class="compact">
+<li><strong>Selection loss after lookup:</strong> Step 1 → Step 2 → select an event → Continue → Step 3 enter returning email already registered for that event (or only registered events remain) → Continue through Steps 4–7 → Review. Expect: “None selected”, Step 2 validation would fail if re-run.</li>
+<li><strong>Draft resume bypass:</strong> Start wizard, reach Step 4+ without selecting shifts (or after selection cleared), save draft, resume → jump to Step 7/8 via resume prompt. Expect: review reachable without Step 2 validation.</li>
+<li><strong>Review chrome:</strong> On Step 8, inspect <code>#reg-wizard-nav</code> (should be hidden), <code>#reg-wizard-nav-submit</code> (should be flex), <code>body.registration-page--wizard-review</code> (should be present). Expect for defect: Continue visible and/or Submit nav <code>display:none</code>.</li>
+</ol>
+
+<h2>7. Recommended fixes (awaiting approval — not implemented)</h2>
+<table>
+<tr><th>Priority</th><th>Fix</th><th>Rationale</th></tr>
+<tr><td class="crit">P0</td><td>Add <code>event_ids[]</code> check to <code>validateStep(8)</code> and form submit handler; optionally re-validate Step 2 in <code>goNext()</code> when <code>current &gt; 2</code></td><td>Closes review/submit path with zero shifts</td></tr>
+<tr><td class="crit">P0</td><td>After <code>setRegisteredEventIds</code> / <code>refreshShiftPicker</code>, if no enabled selection remains and user is past Step 2, force <code>showStep(2)</code> with error banner</td><td>Returning-user-specific recovery when lookup invalidates picks</td></tr>
+<tr><td class="high">P1</td><td>Block <code>showStep(n)</code> when <code>n &gt; 2</code> and Step 2 invalid (except server restore with explicit override)</td><td>Closes draft resume / restore bypass</td></tr>
+<tr><td class="high">P1</td><td>Tighten <code>hasMeaningfulDraft()</code> — require non-empty <code>event_ids[]</code> for resume to Step ≥3</td><td>Stops empty-shift draft resume</td></tr>
+<tr><td class="med">P2</td><td>Review render guard: if no enabled selection, show blocking banner + “Pick shifts” CTA instead of “None selected” passive copy</td><td>UX safety net on Step 8</td></tr>
+<tr><td class="med">P2</td><td>Nav chrome: single source of truth for Step 8 buttons; remove duplicate submit from Step 8 panel entirely; ensure <code>updateChrome</code> and CSS class toggled atomically in <code>showStep</code></td><td>Fixes Continue + Submit duplicate and non-clickable Submit</td></tr>
+</table>
+
+<h2>8. Classification</h2>
+<table>
+<tr><th>Attribute</th><th>Value</th></tr>
+<tr><td>Severity</td><td class="crit">High — blocks returning users from completing registration in production</td></tr>
+<tr><td>Affected users</td><td>Returning staff with existing profiles (especially when prior events overlap open list or draft resume used)</td></tr>
+<tr><td>New applicants</td><td class="med">Lower risk — must pass Step 2 to reach Step 3 unless draft restore bypass</td></tr>
+<tr><td>Relation to Step 2 click bug</td><td class="pass">Independent — pointer-events fix does not address this validation gap</td></tr>
+<tr><td>Server backstop</td><td>Present — <code>includes/validation.php</code> rejects empty events on POST; client allows dead-end UX before server</td></tr>
+</table>
+
+<h2>9. Deliverable status</h2>
+<div class="verdict info"><strong>Investigation complete.</strong> No code changes deployed. Fix implementation gated on approval of recommendations in §7. Phase B1 should remain blocked until this defect is remediated and re-verified on production returning-user paths.</div>
+
+<p class="meta">Related docs: <code>docs/RETURNING-USER-REGISTRATION-AUDIT.html</code> (prefill PASS) · <code>docs/STEP2-EVENT-SELECTION-ROOT-CAUSE-REPORT.html</code> (click lock RESOLVED) · <code>storage/reports/returning-registration-audit-latest.json</code></p>
+
+</body>
+</html>

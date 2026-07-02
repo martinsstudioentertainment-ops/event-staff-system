@@ -1,0 +1,107 @@
+﻿[
+    {
+        "Check":  "UTF-8 encoding (wizard files)",
+        "Status":  "PASS",
+        "Detail":  "No mojibake sequences in production wizard files"
+    },
+    {
+        "Check":  "UTF-8 Content-Type header",
+        "Status":  "PASS",
+        "Detail":  "index.php sends charset=UTF-8"
+    },
+    {
+        "Check":  "IBAN mask function",
+        "Status":  "PASS",
+        "Detail":  "Present in registration-wizard-review.js"
+    },
+    {
+        "Check":  "PPS mask function",
+        "Status":  "PASS",
+        "Detail":  "Present in registration-wizard-review.js"
+    },
+    {
+        "Check":  "Review summary markup",
+        "Status":  "PASS",
+        "Detail":  "Present in registration-wizard-review.js"
+    },
+    {
+        "Check":  "Platform disclaimer in review",
+        "Status":  "PASS",
+        "Detail":  "Present in registration-wizard-review.js"
+    },
+    {
+        "Check":  "Review disclaimer ASCII-safe",
+        "Status":  "PASS",
+        "Detail":  "Present in registration-wizard-review.js"
+    },
+    {
+        "Check":  "IBAN masking logic",
+        "Status":  "PASS",
+        "Detail":  "IE29...5678 -\u003e ****5678"
+    },
+    {
+        "Check":  "PPS masking logic",
+        "Status":  "PASS",
+        "Detail":  "1234567AB -\u003e ***AB"
+    },
+    {
+        "Check":  "PSA upload status + camera",
+        "Status":  "PASS",
+        "Detail":  "Status element and capture attribute in registration-wizard-psa.js"
+    },
+    {
+        "Check":  "Contact panel + payroll disclaimer",
+        "Status":  "PASS",
+        "Detail":  "Markup present in index.php (wizard branch)"
+    },
+    {
+        "Check":  "Payroll platform wording",
+        "Status":  "PASS",
+        "Detail":  "Strengthened disclaimer text present"
+    },
+    {
+        "Check":  "Step 8 review container",
+        "Status":  "PASS",
+        "Detail":  "Live summary div; placeholder removed"
+    },
+    {
+        "Check":  "Wizard script includes",
+        "Status":  "PASS",
+        "Detail":  "All wizard JS modules referenced when flag ON block present"
+    },
+    {
+        "Check":  "Feature flag gating",
+        "Status":  "PASS",
+        "Detail":  "Wizard UI/scripts gated on $wizardV2Enabled"
+    },
+    {
+        "Check":  "Legacy form preserved (flag OFF)",
+        "Status":  "PASS",
+        "Detail":  "Wizard hidden class + data-wizard-mode=0 when flag off"
+    },
+    {
+        "Check":  "Autosave + resume draft",
+        "Status":  "PASS",
+        "Detail":  "localStorage draft deferral intact"
+    },
+    {
+        "Check":  "Progress bar markup",
+        "Status":  "PASS",
+        "Detail":  "ARIA progressbar in wizard shell"
+    },
+    {
+        "Check":  "Back/Continue navigation",
+        "Status":  "PASS",
+        "Detail":  "showStep/goNext/goBack in registration-wizard.js"
+    },
+    {
+        "Check":  "PHP syntax (wizard files)",
+        "Status":  "PASS",
+        "Detail":  "php -l clean"
+    },
+    {
+        "Check":  "submit.php unchanged",
+        "Status":  "WARN",
+        "Detail":  "submit.php has uncommitted changes"
+    }
+]

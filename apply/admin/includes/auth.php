@@ -7,6 +7,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once __DIR__ . '/main-admin-bridge.php';
+apply_require_app_environment();
 
 function tryApplyAdminCookieLogin(): bool
 {
@@ -32,6 +33,7 @@ function tryApplyAdminCookieLogin(): bool
     }
 
     setApplyAdminSession($user);
+    touchSessionActivity();
 
     return true;
 }
@@ -60,6 +62,13 @@ function refreshApplyAdminSession(): void
 function requireApplyAdmin(): void
 {
     tryApplyAdminCookieLogin();
+
+    if (isApplyAdminLoggedIn() && sessionIdleExpired('app_session_last_activity', ADMIN_SESSION_IDLE_TTL)) {
+        unset($_SESSION['admin_id'], $_SESSION['admin_username'], $_SESSION['admin_name'], $_SESSION['admin_role'], $_SESSION['admin_email'], $_SESSION['admin_from_main']);
+        header('Location: login.php?timeout=1');
+        exit;
+    }
+
     refreshApplyAdminSession();
 
     if (!isApplyAdminLoggedIn()) {
@@ -71,6 +80,8 @@ function requireApplyAdmin(): void
         header('Location: ' . $login);
         exit;
     }
+
+    touchSessionActivity();
 }
 
 // Pages under admin/admin/ include this file.

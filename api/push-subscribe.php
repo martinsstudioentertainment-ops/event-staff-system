@@ -33,21 +33,42 @@ if ($endpoint === '' || $p256dh === '' || $auth === '') {
     exit;
 }
 
-$statusToken     = trim((string) ($data['status_token'] ?? ''));
-$registrationId  = (int) ($data['registration_id'] ?? 0);
-$pdo             = getDB();
+$statusToken    = trim((string) ($data['status_token'] ?? ''));
+$registrationId = (int) ($data['registration_id'] ?? 0);
 
-if ($registrationId < 1 && $statusToken !== '') {
-    $rows = getStaffStatusRows($pdo, $statusToken);
-    if ($rows !== []) {
-        $registrationId = (int) $rows[0]['id'];
-    }
+if ($statusToken === '') {
+    http_response_code(400);
+    echo json_encode(['ok' => false, 'error' => 'Status token required']);
+    exit;
 }
 
-if ($registrationId < 1 && $statusToken === '') {
-    http_response_code(400);
-    echo json_encode(['ok' => false, 'error' => 'Status token or registration required']);
+try {
+    $pdo = getDB();
+} catch (Throwable $e) {
+    error_log('[PushSubscribe] DB: ' . $e->getMessage());
+    http_response_code(503);
+    echo json_encode(['ok' => false, 'error' => 'Service unavailable']);
     exit;
+}
+
+$rows = getStaffStatusRows($pdo, $statusToken);
+if ($rows === []) {
+    http_response_code(403);
+    echo json_encode(['ok' => false, 'error' => 'Invalid status token']);
+    exit;
+}
+
+$allowedIds = array_map(static fn (array $row): int => (int) ($row['id'] ?? 0), $rows);
+$allowedIds = array_values(array_filter($allowedIds, static fn (int $id): bool => $id > 0));
+
+if ($registrationId > 0) {
+    if (!in_array($registrationId, $allowedIds, true)) {
+        http_response_code(403);
+        echo json_encode(['ok' => false, 'error' => 'Registration does not match token']);
+        exit;
+    }
+} else {
+    $registrationId = $allowedIds[0];
 }
 
 $ok = savePushSubscription(

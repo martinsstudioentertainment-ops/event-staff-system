@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * @return array{spreadsheet_id: string, tab_payroll: string, tab_master: string, tab_master_alt: string}
+ * @return array{spreadsheet_id: string, tab_payroll: string, tab_master: string, tab_master_alt: string, tab_psa: string, tab_psa_alt: string}
  */
 function apply_sheet_config(): array
 {
@@ -15,8 +15,10 @@ function apply_sheet_config(): array
     $defaults = [
         'spreadsheet_id' => '12WiqfB2KS3FeiKeA_APANAvAWJ_QYcGsVbt7iPR7UWM',
         'tab_payroll'    => 'Payroll Staff',
-        'tab_master'     => 'Master Sheet',
-        'tab_master_alt' => 'Overall',
+        'tab_master'     => 'Master Staff Database',
+        'tab_master_alt' => 'Master Sheet',
+        'tab_psa'        => 'PSA Compliance',
+        'tab_psa_alt'    => 'PSA',
     ];
 
     $local = __DIR__ . '/../config/sheets.local.php';
@@ -56,8 +58,56 @@ function apply_master_sheet_headers(): array
 {
     return array_merge(
         apply_payroll_sheet_headers(),
-        ['Registration ID', 'Status', 'Event date', 'Event name', 'Role']
+        ['Registration ID', 'Status', 'Event date', 'Event name', 'Role', 'PSA Licence', 'PSA Expiry']
     );
+}
+
+/** @return list<string> */
+function apply_psa_compliance_sheet_headers(): array
+{
+    return [
+        'ID',
+        'First Name',
+        'Last Name',
+        'Email',
+        'PSA Licence',
+        'PSA Expiry',
+        'PSA Status',
+        'Profile Status',
+        'Verified By',
+        'Verified At',
+        'Verification Notes',
+    ];
+}
+
+/** @return list<int> */
+function apply_psa_compliance_date_column_indexes(): array
+{
+    return [5, 9];
+}
+
+function apply_sheet_psa_status(?string $expiryDate): string
+{
+    if ($expiryDate === null || $expiryDate === '' || $expiryDate === '0000-00-00') {
+        return 'No Date';
+    }
+
+    try {
+        $expiry = new DateTime($expiryDate);
+        $today  = new DateTime('today');
+
+        if ($expiry < $today) {
+            return 'Expired';
+        }
+
+        if ($expiry->diff($today)->days <= 30) {
+            return 'Expiring Soon';
+        }
+    } catch (Exception) {
+        return 'No Date';
+    }
+
+    return 'Valid';
 }
 
 function apply_format_gender_label(string $gender): string
@@ -91,15 +141,30 @@ function apply_format_role_label(string $role): string
     };
 }
 
+function apply_format_sheet_date(?string $date): string
+{
+    require_once __DIR__ . '/main-admin-bridge.php';
+
+    return apply_format_sheet_date_safe($date);
+}
+
+/**
+ * Irish DD/MM/YYYY date for Google Sheets cells (serial + column format).
+ *
+ * @return string|float
+ */
+function apply_google_sheets_date_cell(?string $date): string|float
+{
+    require_once __DIR__ . '/main-admin-bridge.php';
+    apply_require_date_format_lib();
+
+    return googleSheetsDateCell($date, null);
+}
+
+/** @deprecated Use apply_format_sheet_date() */
 function apply_format_event_date(?string $date): string
 {
-    if ($date === null || $date === '' || $date === '0000-00-00') {
-        return '';
-    }
-
-    $ts = strtotime($date);
-
-    return $ts !== false ? date('d/m/Y', $ts) : $date;
+    return apply_format_sheet_date($date);
 }
 
 /**
@@ -221,10 +286,10 @@ function apply_registration_to_payroll_row(array $registration, ?array $vault = 
         apply_merge_payroll_field((string) ($vault['postcode'] ?? ''), (string) ($registration['eircode'] ?? '')),
         (string) ($registration['email'] ?? ''),
         apply_merge_payroll_field((string) ($vault['phone'] ?? ''), (string) ($registration['mobile'] ?? '')),
-        apply_merge_payroll_field(
+        apply_format_sheet_date(apply_merge_payroll_field(
             (string) ($vault['date_of_birth'] ?? ''),
             (string) ($registration['date_of_birth'] ?? '')
-        ),
+        )),
         apply_format_gender_label(
             apply_merge_payroll_field((string) ($vault['gender'] ?? ''), (string) ($registration['gender'] ?? ''))
         ),
@@ -234,22 +299,23 @@ function apply_registration_to_payroll_row(array $registration, ?array $vault = 
 }
 
 /**
- * Payroll rows from main ERP — one row per approved person (unique email), enriched from apply vault.
+ * Payroll rows from main ERP — one row per staff member (Staff ID primary), enriched from apply vault.
  *
  * @return list<list<string>>
  */
 function apply_build_payroll_sheet_values_from_main(PDO $eventPdo, PDO $applyPdo): array
 {
     $stmt = $eventPdo->query("
-        SELECT sr.*
+        SELECT sr.*, s.email AS staff_canonical_email
         FROM staff_registrations sr
+        INNER JOIN staff s ON s.id = sr.staff_id
         INNER JOIN (
-            SELECT MAX(id) AS id
-            FROM staff_registrations
-            WHERE status = 'approved'
-              AND email IS NOT NULL
-              AND TRIM(email) != ''
-            GROUP BY LOWER(TRIM(email))
+            SELECT MAX(sr2.id) AS id
+            FROM staff_registrations sr2
+            WHERE sr2.status = 'approved'
+              AND sr2.staff_id IS NOT NULL
+              AND sr2.staff_id > 0
+            GROUP BY sr2.staff_id
         ) pick ON pick.id = sr.id
         ORDER BY sr.surname ASC, sr.first_name ASC
     ");
@@ -258,6 +324,30 @@ function apply_build_payroll_sheet_values_from_main(PDO $eventPdo, PDO $applyPdo
     $values       = [apply_payroll_sheet_headers()];
 
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $registration) {
+        $staffCanonical = strtolower(trim((string) ($registration['staff_canonical_email'] ?? '')));
+        if ($staffCanonical !== '') {
+            $registration['email'] = $staffCanonical;
+        }
+        $emailKey = strtolower(trim((string) ($registration['email'] ?? '')));
+        $vault    = $vaultByEmail[$emailKey] ?? null;
+        $values[] = apply_registration_to_payroll_row($registration, $vault);
+    }
+
+    // Legacy approved registrations without staff_id — one row per email (fallback).
+    $fallback = $eventPdo->query("
+        SELECT sr.*
+        FROM staff_registrations sr
+        INNER JOIN (
+            SELECT MAX(id) AS id
+            FROM staff_registrations
+            WHERE status = 'approved'
+              AND (staff_id IS NULL OR staff_id = 0)
+              AND email IS NOT NULL AND TRIM(email) != ''
+            GROUP BY LOWER(TRIM(email))
+        ) pick ON pick.id = sr.id
+        ORDER BY sr.surname ASC, sr.first_name ASC
+    ");
+    foreach ($fallback->fetchAll(PDO::FETCH_ASSOC) as $registration) {
         $emailKey = strtolower(trim((string) ($registration['email'] ?? '')));
         $vault    = $vaultByEmail[$emailKey] ?? null;
         $values[] = apply_registration_to_payroll_row($registration, $vault);
@@ -293,7 +383,7 @@ function apply_build_payroll_sheet_values(PDO $applyPdo, ?PDO $eventPdo = null):
             (string) ($staff['postcode'] ?? ''),
             (string) ($staff['email'] ?? ''),
             (string) ($staff['phone'] ?? ''),
-            (string) ($staff['date_of_birth'] ?? ''),
+            apply_format_sheet_date((string) ($staff['date_of_birth'] ?? '')),
             apply_format_gender_label((string) ($staff['gender'] ?? '')),
             (string) ($staff['national_insurance'] ?? ''),
             (string) ($staff['bank_iban'] ?? ''),
@@ -305,11 +395,21 @@ function apply_build_payroll_sheet_values(PDO $applyPdo, ?PDO $eventPdo = null):
 
 function apply_count_payroll_from_main(PDO $eventPdo): int
 {
-    return (int) $eventPdo->query("
-        SELECT COUNT(DISTINCT LOWER(TRIM(email)))
-        FROM staff_registrations
-        WHERE status = 'approved' AND email IS NOT NULL AND TRIM(email) != ''
-    ")->fetchColumn();
+    $withStaff = (int) $eventPdo->query(
+        "SELECT COUNT(DISTINCT staff_id)
+         FROM staff_registrations
+         WHERE status = 'approved' AND staff_id IS NOT NULL AND staff_id > 0"
+    )->fetchColumn();
+
+    $legacy = (int) $eventPdo->query(
+        "SELECT COUNT(DISTINCT LOWER(TRIM(email)))
+         FROM staff_registrations
+         WHERE status = 'approved'
+           AND (staff_id IS NULL OR staff_id = 0)
+           AND email IS NOT NULL AND TRIM(email) <> ''"
+    )->fetchColumn();
+
+    return $withStaff + $legacy;
 }
 
 /**
@@ -377,14 +477,19 @@ function apply_vault_not_on_payroll(PDO $eventPdo, PDO $applyPdo): array
  *
  * @return list<list<string>>
  */
-function apply_build_master_sheet_values(PDO $eventPdo): array
+function apply_build_master_sheet_values(PDO $eventPdo, ?PDO $applyPdo = null): array
 {
+    $vaultByEmail = $applyPdo instanceof PDO ? apply_load_vault_rows_by_email($applyPdo) : [];
+
     $stmt = $eventPdo->query("
         SELECT sr.id, sr.surname, sr.first_name, sr.full_address, sr.eircode, sr.email, sr.mobile,
                sr.date_of_birth, sr.gender, sr.pps_number, sr.bank_iban, sr.status, sr.staff_role,
-               e.name AS event_name, e.event_date
+               e.name AS event_name, e.event_date,
+               st.psa_licence,
+               st.psa_expiry_date
         FROM staff_registrations sr
         LEFT JOIN events e ON e.id = sr.event_id
+        LEFT JOIN staff st ON LOWER(TRIM(st.email)) = LOWER(TRIM(sr.email))
         WHERE sr.status = 'approved'
         ORDER BY sr.surname ASC, sr.first_name ASC, sr.id ASC
     ");
@@ -392,6 +497,18 @@ function apply_build_master_sheet_values(PDO $eventPdo): array
     $values = [apply_master_sheet_headers()];
 
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $emailKey = strtolower(trim((string) ($row['email'] ?? '')));
+        $vault    = $vaultByEmail[$emailKey] ?? null;
+
+        $psaLicence = apply_export_psa_licence(apply_merge_payroll_field(
+            (string) ($vault['psa_licence'] ?? ''),
+            (string) ($row['psa_licence'] ?? '')
+        ));
+        $psaExpiry = apply_merge_payroll_field(
+            (string) ($vault['psa_expiry_date'] ?? ''),
+            (string) ($row['psa_expiry_date'] ?? '')
+        );
+
         $values[] = [
             (string) ($row['surname'] ?? ''),
             (string) ($row['first_name'] ?? ''),
@@ -399,23 +516,69 @@ function apply_build_master_sheet_values(PDO $eventPdo): array
             (string) ($row['eircode'] ?? ''),
             (string) ($row['email'] ?? ''),
             (string) ($row['mobile'] ?? ''),
-            (string) ($row['date_of_birth'] ?? ''),
+            apply_format_sheet_date((string) ($row['date_of_birth'] ?? '')),
             apply_format_gender_label((string) ($row['gender'] ?? '')),
             (string) ($row['pps_number'] ?? ''),
             (string) ($row['bank_iban'] ?? ''),
             (string) ($row['id'] ?? ''),
             apply_format_status_label((string) ($row['status'] ?? '')),
-            apply_format_event_date(isset($row['event_date']) ? (string) $row['event_date'] : null),
+            apply_format_sheet_date(isset($row['event_date']) ? (string) $row['event_date'] : null),
             (string) ($row['event_name'] ?? ''),
             apply_format_role_label((string) ($row['staff_role'] ?? '')),
+            $psaLicence,
+            apply_format_sheet_date($psaExpiry !== '' ? $psaExpiry : null),
         ];
     }
 
     return $values;
 }
 
-function apply_sanitize_sheet_cell(mixed $value): string
+/**
+ * PSA compliance list from apply vault (matches apply admin PSA compliance page).
+ *
+ * @return list<list<string>>
+ */
+function apply_build_psa_compliance_sheet_values(PDO $applyPdo): array
 {
+    $stmt = $applyPdo->query("
+        SELECT id, first_name, last_name, email, psa_licence, psa_expiry_date,
+               profile_status, verified_by, verified_at, verification_notes
+        FROM staff_master
+        WHERE email IS NOT NULL AND TRIM(email) != ''
+        ORDER BY profile_status DESC, last_name ASC, first_name ASC, id ASC
+    ");
+
+    $values = [apply_psa_compliance_sheet_headers()];
+
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $expiryRaw = $row['psa_expiry_date'] ?? null;
+        $expiry    = ($expiryRaw && $expiryRaw !== '0000-00-00') ? (string) $expiryRaw : '';
+        $licence = apply_export_psa_licence((string) ($row['psa_licence'] ?? ''));
+
+        $values[] = [
+            (string) ($row['id'] ?? ''),
+            (string) ($row['first_name'] ?? ''),
+            (string) ($row['last_name'] ?? ''),
+            (string) ($row['email'] ?? ''),
+            $licence,
+            apply_format_sheet_date($expiry !== '' ? $expiry : null),
+            apply_sheet_psa_status($expiry !== '' ? $expiry : null),
+            (string) ($row['profile_status'] ?? ''),
+            trim((string) ($row['verified_by'] ?? '')),
+            apply_format_sheet_date(isset($row['verified_at']) ? (string) $row['verified_at'] : null),
+            trim((string) ($row['verification_notes'] ?? '')),
+        ];
+    }
+
+    return $values;
+}
+
+function apply_sanitize_sheet_cell(mixed $value): string|int|float
+{
+    if (is_int($value) || is_float($value)) {
+        return $value;
+    }
+
     $text = (string) $value;
     if ($text === '') {
         return '';
@@ -450,7 +613,13 @@ function apply_json_encode_sheet(array $payload): string
         $flags |= JSON_INVALID_UTF8_SUBSTITUTE;
     }
 
-    return json_encode($payload, $flags);
+    try {
+        return json_encode($payload, $flags);
+    } catch (JsonException $e) {
+        error_log('[ApplySync] JSON encode failed: ' . $e->getMessage());
+
+        throw new RuntimeException('Could not encode sheet data for Google API.', 0, $e);
+    }
 }
 
 function apply_google_column_letter(int $zeroBasedIndex): string
@@ -556,6 +725,7 @@ function apply_google_resolve_master_tab(string $accessToken, string $spreadshee
     $candidates = array_values(array_unique(array_filter([
         (string) ($cfg['tab_master'] ?? ''),
         (string) ($cfg['tab_master_alt'] ?? ''),
+        'Master Staff Database',
         'Master Sheet',
         'Overall',
         'Master',
@@ -575,9 +745,48 @@ function apply_google_resolve_master_tab(string $accessToken, string $spreadshee
         }
     }
 
-    $newTab = (string) ($cfg['tab_master'] ?? 'Master Sheet');
+    $newTab = (string) ($cfg['tab_master'] ?? 'Master Staff Database');
     if ($newTab === '') {
-        $newTab = 'Master Sheet';
+        $newTab = 'Master Staff Database';
+    }
+
+    if (!in_array($newTab, $titles, true) && apply_google_find_sheet_title($titles, $newTab) === null) {
+        apply_google_create_sheet_tab($accessToken, $spreadsheetId, $newTab);
+    }
+
+    return $newTab;
+}
+
+/**
+ * Pick an existing PSA compliance tab or create it.
+ */
+function apply_google_resolve_psa_tab(string $accessToken, string $spreadsheetId, array $cfg): string
+{
+    $titles     = apply_google_sheet_titles($accessToken, $spreadsheetId);
+    $candidates = array_values(array_unique(array_filter([
+        (string) ($cfg['tab_psa'] ?? ''),
+        (string) ($cfg['tab_psa_alt'] ?? ''),
+        'PSA Compliance',
+        'PSA',
+        'PSA List',
+    ])));
+
+    foreach ($candidates as $candidate) {
+        $found = apply_google_find_sheet_title($titles, $candidate);
+        if ($found !== null) {
+            return $found;
+        }
+    }
+
+    foreach ($titles as $title) {
+        if (preg_match('/psa|compliance/i', $title) === 1) {
+            return $title;
+        }
+    }
+
+    $newTab = (string) ($cfg['tab_psa'] ?? 'PSA Compliance');
+    if ($newTab === '') {
+        $newTab = 'PSA Compliance';
     }
 
     if (!in_array($newTab, $titles, true) && apply_google_find_sheet_title($titles, $newTab) === null) {
@@ -590,10 +799,16 @@ function apply_google_resolve_master_tab(string $accessToken, string $spreadshee
 /**
  * Remove leftover rows from a previous longer export (PUT alone does not delete old rows).
  */
-function apply_google_clear_tab_data(string $accessToken, string $spreadsheetId, string $sheetName, int $columnCount = 15): array
-{
-    $lastCol = apply_google_column_letter(max(0, $columnCount - 1));
-    $range   = apply_google_tab_range($sheetName, 'A2:' . $lastCol . '5000');
+function apply_google_clear_tab_data(
+    string $accessToken,
+    string $spreadsheetId,
+    string $sheetName,
+    int $columnCount = 15,
+    bool $includeHeaderRow = false
+): array {
+    $lastCol   = apply_google_column_letter(max(0, max($columnCount, 17) - 1));
+    $startRow  = $includeHeaderRow ? 1 : 2;
+    $range     = apply_google_tab_range($sheetName, 'A' . $startRow . ':' . $lastCol . '5000');
     $url     = 'https://sheets.googleapis.com/v4/spreadsheets/' . rawurlencode($spreadsheetId) . '/values/' . rawurlencode($range) . ':clear';
 
     $request = curl_init();
@@ -628,20 +843,78 @@ function apply_google_clear_tab_data(string $accessToken, string $spreadsheetId,
  * @param list<list<string>> $values
  * @return array{ok: bool, error: string}
  */
-function apply_google_write_tab(string $accessToken, string $spreadsheetId, string $sheetName, array $values, int $columnCount = 15): array
+/**
+ * @param list<list<mixed>> $values
+ * @return list<list<mixed>>
+ */
+function apply_convert_sheet_values_for_api(array $values, int $columnCount, ?array $dateColumnIndexes = null): array
 {
-    $clearResult = apply_google_clear_tab_data($accessToken, $spreadsheetId, $sheetName, $columnCount);
-    // If clear fails (e.g. brand-new tab), still attempt the write.
+    require_once __DIR__ . '/main-admin-bridge.php';
+    apply_require_date_format_lib();
+
+    $indexes = $dateColumnIndexes ?? spreadsheetDateColumnIndexesForCount($columnCount);
+    $out     = [];
+
+    foreach ($values as $rowIndex => $row) {
+        if ($rowIndex === 0 || $indexes === []) {
+            $out[] = $row;
+            continue;
+        }
+
+        foreach ($indexes as $col) {
+            if (!array_key_exists($col, $row)) {
+                continue;
+            }
+            $cell = $row[$col];
+            if ($cell === '' || $cell === null || is_float($cell) || is_int($cell)) {
+                continue;
+            }
+            $row[$col] = googleSheetsDateCell(is_scalar($cell) ? (string) $cell : '', null);
+        }
+
+        $out[] = $row;
+    }
+
+    return $out;
+}
+
+function apply_pad_sheet_rows(array $values, int $columnCount): array
+{
+    $padded = [];
+    foreach ($values as $row) {
+        $cells = array_values(is_array($row) ? $row : []);
+        if (count($cells) < $columnCount) {
+            $cells = array_pad($cells, $columnCount, '');
+        }
+        $padded[] = $cells;
+    }
+
+    return $padded;
+}
+
+function apply_google_write_tab(
+    string $accessToken,
+    string $spreadsheetId,
+    string $sheetName,
+    array $values,
+    int $columnCount = 15,
+    ?array $dateColumnIndexes = null
+): array {
+    $values      = apply_pad_sheet_rows($values, $columnCount);
+    $values      = apply_convert_sheet_values_for_api($values, $columnCount, $dateColumnIndexes);
+    $rowCount    = max(1, count($values));
+    $lastCol     = apply_google_column_letter(max(0, $columnCount - 1));
+    $valueRange  = 'A1:' . $lastCol . $rowCount;
+
+    $clearResult = apply_google_clear_tab_data($accessToken, $spreadsheetId, $sheetName, $columnCount, true);
     if (!$clearResult['ok']) {
         error_log('[ApplySync] clear tab "' . $sheetName . '": ' . $clearResult['error']);
     }
 
-    $range       = apply_google_tab_range($sheetName, 'A1');
+    $range       = apply_google_tab_range($sheetName, $valueRange);
     $url         = 'https://sheets.googleapis.com/v4/spreadsheets/' . rawurlencode($spreadsheetId) . '/values/' . rawurlencode($range) . '?valueInputOption=RAW';
     $requestBody = apply_json_encode_sheet([
-        'range'          => $range,
-        'majorDimension' => 'ROWS',
-        'values'         => apply_sanitize_sheet_values($values),
+        'values' => apply_sanitize_sheet_values($values),
     ]);
 
     $request = curl_init();
@@ -669,7 +942,109 @@ function apply_google_write_tab(string $accessToken, string $spreadsheetId, stri
         return ['ok' => false, 'error' => $response];
     }
 
+    if ($columnCount >= 7 || $dateColumnIndexes !== null) {
+        apply_google_format_date_columns(
+            $accessToken,
+            $spreadsheetId,
+            $sheetName,
+            max(2, count($values)),
+            $columnCount,
+            $dateColumnIndexes
+        );
+    }
+
     return ['ok' => true, 'error' => ''];
+}
+
+function apply_google_resolve_sheet_id(string $accessToken, string $spreadsheetId, string $title): ?int
+{
+    $url = 'https://sheets.googleapis.com/v4/spreadsheets/' . rawurlencode($spreadsheetId)
+        . '?fields=sheets.properties.sheetId,sheets.properties.title';
+
+    $request = curl_init();
+    curl_setopt_array($request, [
+        CURLOPT_URL            => $url,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER     => ['Authorization: Bearer ' . $accessToken],
+    ]);
+    $response = curl_exec($request);
+    curl_close($request);
+
+    if (!is_string($response) || $response === '') {
+        return null;
+    }
+
+    $data = json_decode($response, true);
+    if (!is_array($data)) {
+        return null;
+    }
+
+    foreach (($data['sheets'] ?? []) as $sheet) {
+        $props = $sheet['properties'] ?? [];
+        if (strcasecmp((string) ($props['title'] ?? ''), $title) === 0) {
+            return isset($props['sheetId']) ? (int) $props['sheetId'] : null;
+        }
+    }
+
+    return null;
+}
+
+function apply_google_format_date_columns(
+    string $accessToken,
+    string $spreadsheetId,
+    string $sheetName,
+    int $endRowOneBased,
+    int $columnCount = 17,
+    ?array $dateColumnIndexes = null
+): void {
+    require_once __DIR__ . '/main-admin-bridge.php';
+    apply_require_date_format_lib();
+
+    $sheetId = apply_google_resolve_sheet_id($accessToken, $spreadsheetId, $sheetName);
+    if ($sheetId === null || $endRowOneBased < 2) {
+        return;
+    }
+
+    $requests = [];
+    foreach (($dateColumnIndexes ?? spreadsheetDateColumnIndexesForCount($columnCount)) as $colIndex) {
+        $requests[] = [
+            'repeatCell' => [
+                'range' => [
+                    'sheetId'          => $sheetId,
+                    'startRowIndex'    => 1,
+                    'endRowIndex'      => $endRowOneBased,
+                    'startColumnIndex' => $colIndex,
+                    'endColumnIndex'   => $colIndex + 1,
+                ],
+                'cell' => [
+                    'userEnteredFormat' => [
+                        'numberFormat' => [
+                            'type'    => 'DATE',
+                            'pattern' => googleSheetsDatePattern(),
+                        ],
+                    ],
+                ],
+                'fields' => 'userEnteredFormat.numberFormat',
+            ],
+        ];
+    }
+
+    $url  = 'https://sheets.googleapis.com/v4/spreadsheets/' . rawurlencode($spreadsheetId) . ':batchUpdate';
+    $body = apply_json_encode_sheet(['requests' => $requests]);
+
+    $request = curl_init();
+    curl_setopt_array($request, [
+        CURLOPT_URL            => $url,
+        CURLOPT_CUSTOMREQUEST  => 'POST',
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER     => [
+            'Authorization: Bearer ' . $accessToken,
+            'Content-Type: application/json',
+        ],
+        CURLOPT_POSTFIELDS     => $body,
+    ]);
+    curl_exec($request);
+    curl_close($request);
 }
 
 /**
@@ -739,24 +1114,59 @@ function run_apply_google_sheets_sync(PDO $pdo, ?PDO $eventPdo = null): array
     $masterNote  = '';
 
     if ($eventPdo instanceof PDO) {
-        $masterValues = apply_build_master_sheet_values($eventPdo);
+        $masterValues = apply_build_master_sheet_values($eventPdo, $pdo);
         $masterRows   = max(0, count($masterValues) - 1);
         $masterTab    = apply_google_resolve_master_tab($accessToken, $spreadsheetId, $cfg);
+        $masterCols   = count(apply_master_sheet_headers());
         $masterResult = apply_google_write_tab(
             $accessToken,
             $spreadsheetId,
             $masterTab,
             $masterValues,
-            count(apply_master_sheet_headers())
+            $masterCols
         );
 
         if ($masterResult['ok']) {
-            $masterNote = $masterTab . ': ' . $masterRows . ' rows';
+            $masterNote = $masterTab . ': ' . $masterRows . ' rows (' . $masterCols . ' cols incl. PSA)';
         } else {
             $masterNote = 'Master sheet failed (' . $masterResult['error'] . ')';
         }
     } else {
         $masterNote = 'Master sheet skipped (main ERP DB not connected)';
+    }
+
+    require_once __DIR__ . '/psa-sync.php';
+    try {
+        apply_clear_temp_psa_licences($pdo);
+    } catch (Throwable $e) {
+        error_log('[ApplySync] clear TEMP-PSA: ' . $e->getMessage());
+    }
+
+    if ($eventPdo instanceof PDO) {
+        try {
+            apply_auto_refresh_vault_profile_statuses($pdo, $eventPdo);
+        } catch (Throwable $e) {
+            error_log('[ApplySync] PSA refresh before sheet export: ' . $e->getMessage());
+        }
+    }
+
+    $psaValues = apply_build_psa_compliance_sheet_values($pdo);
+    $psaRows   = max(0, count($psaValues) - 1);
+    $psaTab    = apply_google_resolve_psa_tab($accessToken, $spreadsheetId, $cfg);
+    $psaCols   = count(apply_psa_compliance_sheet_headers());
+    $psaResult = apply_google_write_tab(
+        $accessToken,
+        $spreadsheetId,
+        $psaTab,
+        $psaValues,
+        $psaCols,
+        apply_psa_compliance_date_column_indexes()
+    );
+
+    if ($psaResult['ok']) {
+        $psaNote = $psaTab . ': ' . $psaRows . ' rows';
+    } else {
+        $psaNote = 'PSA Compliance failed (' . $psaResult['error'] . ')';
     }
 
     $vaultStats = apply_payroll_sync_stats($pdo);
@@ -779,12 +1189,15 @@ function run_apply_google_sheets_sync(PDO $pdo, ?PDO $eventPdo = null): array
         $message .= ' · ' . $masterNote;
     }
 
+    $message .= ' · ' . $psaNote;
+
     return [
         'ok'           => true,
         'message'      => $message,
         'rows'         => $payrollRows,
         'payroll_rows' => $payrollRows,
         'master_rows'  => $masterRows,
+        'psa_rows'     => $psaRows,
         'stats'        => $vaultStats,
     ];
 }
@@ -814,7 +1227,16 @@ function apply_google_access_token(array $credentials): string
         return '';
     }
 
-    openssl_sign($signatureInput, $signature, $privateKey, OPENSSL_ALGO_SHA256);
+    try {
+        $signed = openssl_sign($signatureInput, $signature, $privateKey, OPENSSL_ALGO_SHA256);
+    } catch (Throwable $e) {
+        error_log('[ApplySync] openssl_sign: ' . $e->getMessage());
+
+        return '';
+    }
+    if ($signed !== true) {
+        return '';
+    }
     $jwt = $signatureInput . '.' . $encode($signature);
 
     $tokenRequest = curl_init();

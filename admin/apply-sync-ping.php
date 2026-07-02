@@ -12,6 +12,13 @@ require_once __DIR__ . '/../includes/apply-remote-sync.php';
 
 requireAdmin();
 
+if (!adminCan('apply')) {
+    http_response_code(403);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['ok' => false, 'error' => 'Forbidden']);
+    exit;
+}
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 

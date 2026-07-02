@@ -16,7 +16,7 @@ function secure_print_admin_theme(): void
     $cssFile = __DIR__ . '/../assets/css/secure-admin.css';
     $css     = is_readable($cssFile) ? (string) file_get_contents($cssFile) : secure_admin_theme_css_fallback();
 
-    echo '<style id="secure-admin-theme-v2">' . "\n" . $css . "\n" . '</style>' . "\n";
+    echo '<style id="secure-admin-theme-premium-x">' . "\n" . $css . "\n" . '</style>' . "\n";
 }
 
 function secure_admin_theme_css_fallback(): string
@@ -36,6 +36,10 @@ function secure_admin_theme_css_fallback(): string
     --secure-warn: #f59e0b;
     --secure-ok: #22c55e;
     --secure-info: #3b82f6;
+    --secure-link: #c7d2fe;
+    --secure-link-hover: #eef2ff;
+    --secure-link-visited: #ddd6fe;
+    --secure-cyan: #67e8f9;
     --secure-sidebar-w: 260px;
     --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
     --font-mono: 'IBM Plex Mono', monospace;
@@ -53,7 +57,14 @@ html, body {
         var(--secure-bg);
     background-size: 28px 28px, 28px 28px, auto, auto;
 }
-a { color: #93c5fd; }
+a { color: var(--secure-link); }
+.secure-content a:not(.secure-btn):not(.secure-sidebar__link),
+.secure-card a:not(.secure-btn),
+.secure-table a:not(.secure-btn) {
+    color: var(--secure-link);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
 .secure-app { display: flex; min-height: 100vh; min-height: 100dvh; }
 .secure-sidebar {
     width: var(--secure-sidebar-w); flex-shrink: 0;
@@ -136,6 +147,20 @@ a { color: #93c5fd; }
 .secure-stat--muted { border-left-color: #64748b; }
 .secure-stat__label { font-size: 0.75rem; color: var(--secure-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.35rem; }
 .secure-stat__value { font-size: 1.75rem; font-weight: 700; line-height: 1.1; }
+a.secure-stat {
+    display: block; text-decoration: none; color: inherit; cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+a.secure-stat:hover {
+    border-color: var(--secure-info);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.32);
+    transform: translateY(-1px);
+}
+a.secure-stat--active {
+    border-color: var(--secure-info);
+    box-shadow: 0 0 0 1px var(--secure-info), 0 10px 28px rgba(0, 0, 0, 0.32);
+}
+a.secure-stat:focus-visible { outline: 2px solid var(--secure-info); outline-offset: 2px; }
 .secure-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin-top: 1rem; }
 .secure-btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;

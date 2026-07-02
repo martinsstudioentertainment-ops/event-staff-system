@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Olasentra — Event Operations Command Platform · UX Master Plan v2</title>
+    <style>
+        @page { size: A4; margin: 12mm 11mm; }
+        * { box-sizing: border-box; }
+        body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 9pt; line-height: 1.42; color: #0f172a; margin: 0; padding: 16px; }
+        .cover { page-break-after: always; text-align: center; padding: 60px 30px; background: #030712; color: #f8fafc; margin: -16px -16px 0; min-height: 95vh; display: flex; flex-direction: column; justify-content: center; }
+        .cover h1 { font-size: 22pt; margin: 0 0 8px; background: linear-gradient(90deg, #a78bfa, #f472b6); -webkit-background-clip: text; color: transparent; }
+        .cover .tag { font-size: 11pt; color: #c7d2fe; margin-bottom: 24px; }
+        .cover .meta { font-size: 8.5pt; color: #64748b; }
+        h1.doc-title { font-size: 18pt; color: #1e1b4b; margin: 0 0 4px; }
+        h2 { font-size: 11.5pt; margin: 20px 0 7px; padding: 6px 10px; background: #030712; color: #f8fafc; border-radius: 4px; page-break-after: avoid; }
+        h3 { font-size: 10pt; margin: 12px 0 5px; color: #4338ca; page-break-after: avoid; }
+        h4 { font-size: 9pt; margin: 8px 0 4px; color: #6366f1; }
+        .meta-bar { font-size: 8pt; color: #64748b; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; }
+        p { margin: 5px 0; }
+        ul, ol { margin: 5px 0 8px; padding-left: 18px; }
+        li { margin: 2px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 7px 0 10px; font-size: 7.5pt; }
+        th { background: #1e293b; color: #f8fafc; text-align: left; padding: 4px 5px; }
+        td { border-bottom: 1px solid #e2e8f0; padding: 4px 5px; vertical-align: top; }
+        tr:nth-child(even) td { background: #f8fafc; }
+        pre, .wire { background: #0f172a; color: #e2e8f0; border-radius: 6px; padding: 9px 11px; font-family: Consolas, monospace; font-size: 7pt; line-height: 1.3; white-space: pre-wrap; margin: 7px 0; }
+        .callout { background: #eef2ff; border-left: 3px solid #6366f1; padding: 8px 10px; margin: 8px 0; font-size: 8.5pt; border-radius: 0 4px 4px 0; }
+        .callout-warn { background: #fff7ed; border-color: #f59e0b; }
+        .callout-ok { background: #f0fdf4; border-color: #22c55e; }
+        .pill { display: inline-block; padding: 1px 6px; border-radius: 99px; font-size: 7pt; font-weight: 600; }
+        .pill-p0 { background: #fef2f2; color: #b91c1c; }
+        .pill-p1 { background: #fff7ed; color: #c2410c; }
+        .pill-p2 { background: #eff6ff; color: #1d4ed8; }
+        .page-break { page-break-before: always; }
+        .toc { columns: 2; font-size: 8pt; margin: 10px 0; }
+        code { font-size: 7pt; background: #f1f5f9; padding: 1px 3px; border-radius: 2px; }
+        .footer { font-size: 7pt; color: #94a3b8; margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 6px; }
+        .approval-box { border: 2px solid #6366f1; border-radius: 8px; padding: 12px; margin: 14px 0; }
+    </style>
+</head>
+<body>
+
+<div class="cover">
+    <p class="tag">Event Operations Command Platform</p>
+    <h1>Olasentra UX Master Plan</h1>
+    <p style="font-size:12pt;color:#e2e8f0;margin:12px 0;">Final architecture for approval before implementation</p>
+    <p class="meta">Version 2.0 · 6 June 2026 · Confidential · No code in this document</p>
+    <p class="meta" style="margin-top:40px;">Workforce Operations · Event Staffing · Attendance · Messaging · Invoicing</p>
+</div>
+
+<h1 class="doc-title">Olasentra — Event Operations Command Platform</h1>
+<p class="meta-bar"><strong>Status:</strong> Awaiting approval &nbsp;|&nbsp; <strong>Replaces:</strong> UX Blueprint v1 &nbsp;|&nbsp; <strong>Not:</strong> CRM · Generic ERP</p>
+
+<div class="callout"><strong>North star:</strong> Transform Olasentra into Ireland's leading Event Operations Command Platform — the system ops managers live in from roster build through event night through invoicing. Think airport ops + SOC + Linear, not Salesforce.</div>
+
+<h2>0. Design Philosophy</h2>
+<h3>What we are building</h3>
+<table>
+    <tr><th>Is</th><th>Is not</th></tr>
+    <tr><td>Real-time ops command for event staffing</td><td>CRM for sales pipelines</td></tr>
+    <tr><td>High-density roster + attendance control</td><td>Generic ERP modules</td></tr>
+    <tr><td>Event-scoped workflows (pre → live → post)</td><td>Contact-centric CRM views</td></tr>
+    <tr><td>Staff workforce portal (PWA)</td><td>HRIS / payroll system (Apply stays satellite)</td></tr>
+    <tr><td>Commission invoicing for clients</td><td>Full accounting suite</td></tr>
+</table>
+
+<h3>Visual &amp; interaction DNA</h3>
+<table>
+    <tr><th>Source</th><th>What we take</th></tr>
+    <tr><td>Linear / Raycast</td><td>Keyboard-first, command palette, minimal chrome, fast transitions</td></tr>
+    <tr><td>Stripe / Vercel</td><td>Precise typography, status pills, dense data tables, dark command surfaces</td></tr>
+    <tr><td>Notion / Attio</td><td>Context panels, inline properties, filterable views</td></tr>
+    <tr><td>Flight Control / Airport Ops</td><td>Event timeline, live status boards, amber/red alert hierarchy</td></tr>
+    <tr><td>Security Operations Center</td><td>Multi-panel dashboards, attention queues, operator roles</td></tr>
+</table>
+
+<h3>Ten design mandates</h3>
+<ol>
+    <li><strong>Command, not browse</strong> — Every screen answers "what needs action now?"</li>
+    <li><strong>Event context is ambient</strong> — Global event selector persists; most views filter to it</li>
+    <li><strong>Density over decoration</strong> — 11–12px body, 32px row height tables, no wasted whitespace</li>
+    <li><strong>One inbox</strong> — Messages and alerts are one stream with filters</li>
+    <li><strong>Event Day Mode</strong> — Full-screen ops layout when live</li>
+    <li><strong>Palette over menus</strong> — Cmd+K for navigation and actions</li>
+    <li><strong>Progressive disclosure</strong> — 14 nav items max; depth via hubs and panels</li>
+    <li><strong>Role-native layouts</strong> — Manager, venue operator, admin see different command centers</li>
+    <li><strong>Status is colour + icon</strong> — Pending amber, approved green, live pulsing, critical red</li>
+    <li><strong>Mobile for staff, desktop for ops</strong> — PWA thumb-zone; admin is keyboard + wide screen</li>
+</ol>
+
+<ul class="toc">
+    <li>1. Final navigation hierarchy</li>
+    <li>2. Command Center dashboard</li>
+    <li>3. Activity Center + Unified Inbox</li>
+    <li>4. Event Day Mode</li>
+    <li>5. Event Detail Hub</li>
+    <li>6. Global search + Command palette</li>
+    <li>7. Design system (Olasentra Ops UI)</li>
+    <li>8. Staff management blueprint</li>
+    <li>9. Finance blueprint</li>
+    <li>10. Public website blueprint</li>
+    <li>11. Staff PWA blueprint</li>
+    <li>12. Component library</li>
+    <li>13. Complete screen hierarchy</li>
+    <li>14. Implementation phases</li>
+    <li>15. Approval checklist</li>
+</ul>
+
+<h2>1. Final Navigation Hierarchy</h2>
+<p><strong>14 primary nav items</strong> (down from 22). Grouped into 5 command zones. Sidebar stays glass-dark; groups collapse; rail mode at 72px.</p>
+
+<pre>┌─ COMMAND ─────────────────────────────────────────┐
+│  ◉ Command Center          dashboard.php          │
+│  ◉ Activity &amp; Inbox        inbox.php (NEW)       │
+│  ◉ Live Ops                  live-ops.php (NEW)   │
+├─ WORKFORCE ───────────────────────────────────────┤
+│  ◉ Registration Queue      staff.php              │
+│  ◉ Staff Directory         staff-directory.php    │
+├─ EVENTS ──────────────────────────────────────────┤
+│  ◉ Event Calendar          events.php             │
+│  ◉ Venues                  venues.php             │
+├─ FINANCE ───────────────────────────────────────────┤
+│  ◉ Invoicing               invoices.php (hub)     │
+│  ◉ Exports                 export-staff.php        │
+├─ PLATFORM (admin only) ───────────────────────────┤
+│  ◉ Forms &amp; Registration    forms.php              │
+│  ◉ Website                 website-global.php     │
+│  ◉ Settings                settings-site.php      │
+│  ◉ System Health           go-live.php (hub)      │
+└───────────────────────────────────────────────────┘
+
+REMOVED FROM NAV (absorbed):
+  notifications.php → Inbox tab "Activity"
+  staff-inbox.php → Inbox tab "Messages"
+  ops-checklist.php → Command Center panel + System Health
+  work-types.php → Event Detail Hub · Config tab
+  scan-checkin.php → Live Ops (primary) + Event Hub
+  attendance.php, work-hours.php → Event Hub tabs
+  job-records.php, personal-invoices.php → Invoicing hub tabs
+  blacklist.php → Directory filter + Compliance panel
+  users.php, audit-log.php, backups.php → Settings / System Health tabs
+  apply-portal.php → Directory · Compliance action + Command Center link</pre>
+
+<h3>Role visibility matrix</h3>
+<table>
+    <tr><th>Nav item</th><th>Admin</th><th>Manager</th><th>Staff (venue)</th></tr>
+    <tr><td>Command Center</td><td>Full SOC layout</td><td>Full minus Platform</td><td>Scan-first minimal</td></tr>
+    <tr><td>Activity &amp; Inbox</td><td>●</td><td>●</td><td>—</td></tr>
+    <tr><td>Live Ops</td><td>●</td><td>●</td><td>● default landing</td></tr>
+    <tr><td>Registration Queue</td><td>●</td><td>●</td><td>—</td></tr>
+    <tr><td>Staff Directory</td><td>●</td><td>●</td><td>—</td></tr>
+    <tr><td>Event Calendar</td><td>●</td><td>●</td><td>—</td></tr>
+    <tr><td>Venues</td><td>●</td><td>●</td><td>—</td></tr>
+    <tr><td>Invoicing / Exports</td><td>●</td><td>●</td><td>—</td></tr>
+    <tr><td>Platform (4 items)</td><td>●</td><td>—</td><td>—</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2>2. Command Center Dashboard Blueprint</h2>
+<p>The true <strong>Operations Command Center</strong> — a SOC-style multi-panel surface replacing the current hero + KPI cards layout.</p>
+
+<h3>Layout: 12-column ops grid (desktop ≥1280px)</h3>
+<pre>┌──────────────────────────────────────────────────────────────────────────┐
+│ HEADER: [Event ▼ Nick Cave · 10 Jun]  [⌘K]  [Activity 3]  [Live Ops]    │
+├──────────────────────────────────────────────────────────────────────────┤
+│ STATUS RIBBON (live metrics, scroll on mobile)                           │
+│ Pending 4 │ Approved 36 │ On-site 0/36 │ Msgs 2 │ Next event 2h 14m     │
+├───────────────────────────────┬──────────────────────────────────────────┤
+│ ATTENTION STACK (col 4)       │ OPERATIONS BOARD (col 8)                 │
+│ ┌─ CRITICAL ─────────────┐   │ ┌─ EVENT TIMELINE ───────────────────┐  │
+│ │ 4 pending approvals    │   │ │ Today · Tomorrow · +7 days         │  │
+│ │ [Review queue →]       │   │ │ ● Nick Cave  36/40  ▶ LIVE 2h     │  │
+│ └────────────────────────┘   │ │ ○ Kingfishr    12/20  pending 3     │  │
+│ ┌─ WARNING ──────────────┐   │ └────────────────────────────────────┘  │
+│ │ 2 unread messages      │   │ ┌─ ROSTER PULSE ─────────────────────┐  │
+│ │ [Open inbox →]         │   │ │ mini sparkline: registrations/hr   │  │
+│ └────────────────────────┘   │ └────────────────────────────────────┘  │
+│ ┌─ INFO ─────────────────┐   │ ┌─ CHECK-IN FEED (live) ─────────────┐  │
+│ │ Ops checklist 3/8      │   │ │ (empty until event day)            │  │
+│ │ [Continue →]           │   │ └────────────────────────────────────┘  │
+│ └────────────────────────┘   │                                          │
+├───────────────────────────────┴──────────────────────────────────────────┤
+│ QUICK STRIP: [Scan] [Queue] [Directory] [Export] [Sheets] [Apply sync]   │
+└──────────────────────────────────────────────────────────────────────────┘</pre>
+
+<h3>Panel specifications</h3>
+<table>
+    <tr><th>Panel</th><th>Data</th><th>Interaction</th><th>Refresh</th></tr>
+    <tr><td>Status ribbon</td><td>Aggregated KPIs for selected event or all</td><td>Click segment → filtered view</td><td>30s poll / WebSocket future</td></tr>
+    <tr><td>Attention stack</td><td>Prioritized alerts: pending, messages, checklist, PSA</td><td>Max 5 cards, severity sorted</td><td>On load + push</td></tr>
+    <tr><td>Event timeline</td><td>events + registration counts + live window</td><td>Click row → Event Hub</td><td>5 min</td></tr>
+    <tr><td>Roster pulse</td><td>Registrations last 24h / 7d</td><td>Hover → breakdown by role</td><td>15 min</td></tr>
+    <tr><td>Check-in feed</td><td>attendance checked_in_at DESC</td><td>Live on event day only</td><td>10s on event day</td></tr>
+</table>
+
+<h3>Role variants</h3>
+<table>
+    <tr><th>Role</th><th>Default landing</th><th>Primary CTA</th><th>Hidden panels</th></tr>
+    <tr><td>Administrator</td><td>Command Center</td><td>Contextual from attention stack</td><td>None</td></tr>
+    <tr><td>Manager</td><td>Command Center</td><td>Review pending OR Live Ops</td><td>Platform nav</td></tr>
+    <tr><td>Staff (venue)</td><td>Live Ops</td><td>Start scanning</td><td>All except Live Ops + ribbon</td></tr>
+</table>
+
+<h3>Event-scoped vs global mode</h3>
+<p>Header event selector toggles entire dashboard context. <strong>Global</strong> = all events aggregated. <strong>Event-scoped</strong> = single event ops board. Persisted in localStorage + URL <code>?event_id=</code>.</p>
+
+<h2>3. Activity Center + Unified Inbox Blueprint</h2>
+<p>Merge <code>notifications.php</code> + <code>staff-inbox.php</code> into <strong>Activity &amp; Inbox</strong> (<code>inbox.php</code>). Two lenses on one data layer.</p>
+
+<h3>Information architecture</h3>
+<pre>inbox.php
+├── View: All          (merged timeline)
+├── View: Messages     (staff_messages threads)
+├── View: Activity     (app_notifications — renamed from "Notifications")
+└── View: System       (ops reminders, backup, sync — admin only)
+
+Layout: Master-detail (Raycast mail style)
+┌─────────────┬────────────────────────────────────┐
+│ FILTERS     │ THREAD / DETAIL                    │
+│ [All ▼]     │                                    │
+│ Unread (3)  │  Sarah Murphy                      │
+│ Today       │  "Can I work steward instead?"     │
+│ This event  │  ─────────────────────────────     │
+│             │  [Reply] [View profile] [Approve] │
+│ Thread list │                                    │
+│ ● Sarah  2m │                                    │
+│ ● Reg new  │                                    │
+│ ○ Event on │                                    │
+└─────────────┴────────────────────────────────────┘</pre>
+
+<h3>Activity item types (visual encoding)</h3>
+<table>
+    <tr><th>Type</th><th>Icon</th><th>Colour</th><th>Source table</th><th>Action</th></tr>
+    <tr><td>registration</td><td>person+</td><td>blue</td><td>app_notifications</td><td>view-staff.php</td></tr>
+    <tr><td>status_change</td><td>check/x</td><td>green/red</td><td>app_notifications</td><td>view-staff.php</td></tr>
+    <tr><td>message</td><td>chat</td><td>violet</td><td>staff_messages</td><td>thread panel</td></tr>
+    <tr><td>event_live</td><td>calendar-bolt</td><td>amber pulse</td><td>app_notifications</td><td>Event Hub</td></tr>
+    <tr><td>checkin</td><td>qr</td><td>green</td><td>app_notifications</td><td>attendance.php</td></tr>
+    <tr><td>psa_alert</td><td>shield</td><td>amber</td><td>external/Apply</td><td>apply-portal.php</td></tr>
+    <tr><td>system</td><td>gear</td><td>slate</td><td>app_notifications</td><td>contextual</td></tr>
+</table>
+
+<h3>Badge &amp; header rules</h3>
+<ul>
+    <li><strong>Single badge</strong> in sidebar + header = unread messages + unread activity</li>
+    <li>Header bell opens Inbox filtered to Activity · unread only</li>
+    <li>Mark read on view (3s dwell) or action click</li>
+    <li>Email + push remain async channels; Activity Center is source of truth</li>
+</ul>
+
+<div class="page-break"></div>
+
+<h2>4. Event Day Mode Blueprint</h2>
+<p>Full-screen operational mode activated automatically or manually when an event enters its live window (start_time − 2h → end_time + 1h).</p>
+
+<h3>Activation triggers</h3>
+<ul>
+    <li>Auto: event date = today AND within time window</li>
+    <li>Manual: "Enter Live Ops" from Command Center or Event Hub</li>
+    <li>URL: <code>live-ops.php?event_id=X</code></li>
+</ul>
+
+<h3>Layout: Flight-control split screen</h3>
+<pre>┌──────────────────────────────────────────────────────────────────────────┐
+│ LIVE OPS — Nick Cave · 3Arena · 36 approved        [Exit] [Fullscreen]  │
+│ ████████████░░░░░░░░  12/36 on-site (33%)   Last scan: 14:02:31         │
+├────────────────────────────┬─────────────────────────────────────────────┤
+│ SCANNER PANEL (50%)        │ ROSTER BOARD (50%)                          │
+│ ┌────────────────────────┐ │ ┌─ FILTER: [All|Missing|On-site|Issues] ─┐ │
+│ │                        │ │ │ Name          Role    Status   Time   │ │
+│ │   [Camera viewport]    │ │ │ Murphy S      DSP     ● IN    13:58  │ │
+│ │                        │ │ │ O'Brien K     STW     ○ OUT   —      │ │
+│ │   Last: ✓ Jane Doe     │ │ │ ...                                  │ │
+│ └────────────────────────┘ │ └──────────────────────────────────────┘ │
+│ [Manual check-in] [Sound]│ │ Tapping row → quick actions drawer      │
+├────────────────────────────┴─────────────────────────────────────────────┤
+│ TICKER: ✓ Doe 13:58 · ✓ Smith 13:55 · ⚠ Unknown QR 13:52                  │
+└──────────────────────────────────────────────────────────────────────────┘</pre>
+
+<h3>Mobile venue operator variant</h3>
+<p>Scanner full-screen; roster as bottom sheet swipe-up. Haptic + audio on successful scan. Offline queue for scan results (sync when back online — future).</p>
+
+<h3>Existing file mapping</h3>
+<table>
+    <tr><th>New surface</th><th>Existing backend</th></tr>
+    <tr><td>live-ops.php shell</td><td>NEW route wrapping scan-checkin + attendance</td></tr>
+    <tr><td>Scanner</td><td>scan-checkin.php + scan-checkin-action.php</td></tr>
+    <tr><td>Roster board</td><td>staff.php?event_id=X&amp;status=approved</td></tr>
+    <tr><td>Manual check-in</td><td>checkin-action.php drawer</td></tr>
+    <tr><td>Progress bar</td><td>attendance count / approved count</td></tr>
+</table>
+
+<h2>5. Event Detail Hub Blueprint</h2>
+<p>Single event command page — the operational home for one event. Route: <code>event.php?id=X</code> (NEW shell over existing pages).</p>
+
+<pre>event.php?id=1 — Nick Cave · 10 Jun 2026 · 3Arena
+┌──────────────────────────────────────────────────────────────────────────┐
+│ [Overview][Roster][Attendance][Hours][QR &amp; Sign-in][Sheets][Finance]    │
+├──────────────────────────────────────────────────────────────────────────┤
+│ OVERVIEW TAB                                                             │
+│ ┌─────────┬─────────┬─────────┬─────────┬─────────┐                     │
+│ │Approved │ Pending │On-site  │Needed   │Sheet    │                     │
+│ │   36    │    4    │    0    │   40    │ linked  │                     │
+│ └─────────┴─────────┴─────────┴─────────┴─────────┘                     │
+│ Status: ● ACTIVE   Window: 14:00–23:00   Venue GPS: ✓                   │
+│ [Enter Live Ops] [Edit event] [Print roster] [Notify staff] [Deactivate]│
+└──────────────────────────────────────────────────────────────────────────┘</pre>
+
+<h3>Tab → existing page mapping</h3>
+<table>
+    <tr><th>Tab</th><th>Embeds / links</th><th>Primary actions</th></tr>
+    <tr><td>Overview</td><td>Stats + timeline + checklist for this event</td><td>Activate, edit, live ops</td></tr>
+    <tr><td>Roster</td><td>staff.php?event_id=X</td><td>Approve, bulk, export, print</td></tr>
+    <tr><td>Attendance</td><td>attendance.php?event_id=X</td><td>Manual check-in, export</td></tr>
+    <tr><td>Hours</td><td>work-hours.php?event_id=X</td><td>Adjust hours</td></tr>
+    <tr><td>QR &amp; Sign-in</td><td>print-qr.php, event-sign-qr.php</td><td>Print, copy link</td></tr>
+    <tr><td>Sheets</td><td>events-sheets-action UI</td><td>Link sheet, sync roster</td></tr>
+    <tr><td>Finance</td><td>job-records + invoice quick for event</td><td>Create invoice</td></tr>
+    <tr><td>Config</td><td>work-types, roles_needed (inline)</td><td>Save event metadata</td></tr>
+</table>
+
+<h2>6. Global Search + Command Palette</h2>
+
+<h3>Global search (header bar — extend existing erp-search)</h3>
+<pre>Search: "murphy" / "nick cave" / "pending" / "invoice 2024"
+Results grouped:
+  STAFF (3)     → view-staff, directory profile
+  EVENTS (1)    → event hub
+  REGISTRATIONS → staff.php filtered
+  INVOICES      → invoice-form
+  ACTIONS       → "Approve all pending for Nick Cave"</pre>
+<p>Backend: new <code>api/admin-search.php</code> querying staff, staff_registrations, events, commission_invoices. Debounce 200ms. Recent searches in localStorage.</p>
+
+<h3>Command palette (⌘K / Ctrl+K — Raycast-style)</h3>
+<pre>┌─────────────────────────────────────────────┐
+│ ⌘  Type a command or search...              │
+├─────────────────────────────────────────────┤
+│ RECENT                                      │
+│ → Review pending registrations              │
+│ → Open Live Ops — Nick Cave                 │
+├─────────────────────────────────────────────┤
+│ NAVIGATE                                    │
+│ → Command Center                            │
+│ → Registration Queue                        │
+│ → Event: Kingfishr                          │
+├─────────────────────────────────────────────┤
+│ ACTIONS                                     │
+│ → Scan check-in                             │
+│ → Export attendance CSV                     │
+│ → Run backup                                │
+│ → Sync Apply vault                          │
+└─────────────────────────────────────────────┘</pre>
+
+<h3>Palette command registry (initial 24 commands)</h3>
+<table>
+    <tr><th>Command</th><th>Shortcut</th><th>Role</th></tr>
+    <tr><td>Go to Command Center</td><td>G then D</td><td>All</td></tr>
+    <tr><td>Go to Live Ops</td><td>G then L</td><td>All w/ attendance</td></tr>
+    <tr><td>Review pending</td><td>G then P</td><td>Manager+</td></tr>
+    <tr><td>Open inbox</td><td>G then I</td><td>Manager+</td></tr>
+    <tr><td>Search staff…</td><td>/</td><td>Manager+</td></tr>
+    <tr><td>Toggle event scope</td><td>E</td><td>Manager+</td></tr>
+    <tr><td>Enter Event Day Mode</td><td>Shift+L</td><td>All w/ attendance</td></tr>
+    <tr><td>Export staff CSV</td><td>—</td><td>Manager+</td></tr>
+    <tr><td>New event</td><td>—</td><td>Manager+</td></tr>
+    <tr><td>Ops checklist</td><td>—</td><td>Manager+</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2>7. Design System — Olasentra Ops UI (OOU)</h2>
+
+<h3>Design tokens</h3>
+<table>
+    <tr><th>Token</th><th>Value</th><th>Usage</th></tr>
+    <tr><td>--ops-bg-base</td><td>#030712</td><td>Sidebar, command surfaces</td></tr>
+    <tr><td>--ops-bg-elevated</td><td>#0f172a</td><td>Cards on dark</td></tr>
+    <tr><td>--ops-bg-canvas</td><td>#f8fafc / #0b0f19 dark</td><td>Main content area</td></tr>
+    <tr><td>--ops-accent</td><td>#8b5cf6</td><td>Primary actions, focus ring</td></tr>
+    <tr><td>--ops-accent-hot</td><td>#ec4899</td><td>Live event, urgent</td></tr>
+    <tr><td>--ops-live</td><td>#22c55e + pulse</td><td>On-site, active event</td></tr>
+    <tr><td>--ops-warn</td><td>#f59e0b</td><td>Pending, attention</td></tr>
+    <tr><td>--ops-critical</td><td>#ef4444</td><td>Blocked, failed, overdue</td></tr>
+    <tr><td>--ops-font</td><td>Inter, system-ui</td><td>All surfaces</td></tr>
+    <tr><td>--ops-mono</td><td>JetBrains Mono</td><td>Times, IDs, tokens, KPIs</td></tr>
+    <tr><td>--ops-text-xs</td><td>11px / 1.35</td><td>Table cells, metadata</td></tr>
+    <tr><td>--ops-text-sm</td><td>12px</td><td>Body dense</td></tr>
+    <tr><td>--ops-text-base</td><td>13px</td><td>Body default</td></tr>
+    <tr><td>--ops-radius</td><td>6px cards, 4px inputs</td><td>Stripe-like precision</td></tr>
+    <tr><td>--ops-row-h</td><td>32px compact / 40px comfortable</td><td>Tables</td></tr>
+</table>
+
+<h3>Typography scale</h3>
+<table>
+    <tr><th>Level</th><th>Size</th><th>Weight</th><th>Use</th></tr>
+    <tr><td>Display</td><td>24px</td><td>600</td><td>Command Center greeting</td></tr>
+    <tr><td>H1</td><td>18px</td><td>600</td><td>Page title</td></tr>
+    <tr><td>H2</td><td>14px</td><td>600</td><td>Panel title</td></tr>
+    <tr><td>Label</td><td>11px uppercase</td><td>500</td><td>Column headers, zone labels</td></tr>
+    <tr><td>KPI</td><td>28px mono</td><td>600</td><td>Status ribbon numbers</td></tr>
+</table>
+
+<h3>Status semantics (SOC palette)</h3>
+<table>
+    <tr><th>State</th><th>Colour</th><th>Animation</th></tr>
+    <tr><td>Live event</td><td>Green border + pulse dot</td><td>2s pulse</td></tr>
+    <tr><td>Pending action</td><td>Amber left border</td><td>None</td></tr>
+    <tr><td>Critical</td><td>Red background tint</td><td>None</td></tr>
+    <tr><td>On-site staff</td><td>Green pill</td><td>None</td></tr>
+    <tr><td>Approved roster</td><td>Blue pill</td><td>None</td></tr>
+    <tr><td>Inactive event</td><td>Slate muted</td><td>None</td></tr>
+</table>
+
+<h3>Layout grid</h3>
+<ul>
+    <li>Sidebar: 260px expanded / 72px rail</li>
+    <li>Header: 48px fixed</li>
+    <li>Content max-width: none (full bleed for ops tables)</li>
+    <li>Panel gap: 8px (tight) / 12px (standard)</li>
+    <li>Breakpoints: &lt;768 mobile drawer · 768–1279 compact · ≥1280 command layout</li>
+</ul>
+
+<h2>8. Staff Management Blueprint</h2>
+
+<h3>Two-lens model</h3>
+<table>
+    <tr><th>Lens</th><th>Screen</th><th>Unit of work</th><th>Primary user</th></tr>
+    <tr><td>Queue</td><td>staff.php</td><td>Registration (email × event)</td><td>Manager approving shifts</td></tr>
+    <tr><td>Directory</td><td>staff-directory.php</td><td>Person (staff record)</td><td>Manager maintaining profiles</td></tr>
+</table>
+
+<h3>Registration Queue — dense table view</h3>
+<pre>Filters: [Event ▼] [Status ▼] [Role ▼] [Venue ▼]     Bulk: [Approve] [Reject]
+┌──┬────────────────┬──────────┬──────┬────────┬────────┬───────┐
+│☐ │ Name           │ Event    │ Role │ Status │ Applied│       │
+├──┼────────────────┼──────────┼──────┼────────┼────────┼───────┤
+│☐ │ Murphy, Sarah  │ Nick Cave│ DSP  │ ● PEND │ 04/06  │ ··· │
+└──┴────────────────┴──────────┴──────┴────────┴────────┴───────┘
+Row ··· menu: View · Approve · Message · Edit · Blacklist</pre>
+
+<h3>Staff profile — split panel (Attio-style)</h3>
+<pre>view-staff.php → two-column
+LEFT: Identity, contact, PSA, bank (masked), compliance flags
+RIGHT: Registrations for this person, attendance history, message thread</pre>
+
+<h3>Directory filters (replaces blacklist nav)</h3>
+<ul>
+    <li>Profile incomplete</li>
+    <li>PSA expiring / expired (Apply sync badge)</li>
+    <li>Blacklisted</li>
+    <li>Never worked</li>
+    <li>Active this season</li>
+</ul>
+
+<h2>9. Finance Blueprint</h2>
+<p>Finance is a <strong>post-event workspace</strong>, not daily ops. Single hub with tabs.</p>
+
+<pre>invoices.php (Finance Hub)
+├── Tab: Commission Invoices    (commission_invoices)
+├── Tab: Job Records            (saved_job_records)
+├── Tab: Personal Invoices      (personal_invoice_lines)
+└── Tab: Export Center          (all export-* linked)</pre>
+
+<h3>Workflow</h3>
+<pre>Event completes → Event Hub · Finance tab → Quick invoice from attendance hours
+  → job-record-form (reference) → print-invoice → export-month</pre>
+
+<h3>Density rules</h3>
+<ul>
+    <li>Invoice list: 32px rows, inline status (draft/sent/paid/void)</li>
+    <li>Right drawer for invoice preview (not full page navigation)</li>
+    <li>EUR mono tabular numbers</li>
+</ul>
+
+<div class="page-break"></div>
+
+<h2>10. Public Website Blueprint</h2>
+<p>Marketing site drives trust and registration. <strong>Not</strong> part of command platform — lightweight, fast, CMS-driven.</p>
+
+<table>
+    <tr><th>Zone</th><th>Pages</th><th>Goal</th></tr>
+    <tr><td>Discover</td><td>home, how-it-works, roles, events</td><td>Convert to registration</td></tr>
+    <tr><td>Trust</td><td>faq, contact, privacy</td><td>Reduce support load</td></tr>
+    <tr><td>Act</td><td>index.php on register.*</td><td>Submit application</td></tr>
+    <tr><td>Return</td><td>staff-app.php</td><td>Returning staff entry</td></tr>
+</table>
+
+<p>Design: Public site uses company theme tokens but <strong>not</strong> ops-dark chrome. Hero + single CTA. Footer always links Staff App.</p>
+
+<h2>11. Staff PWA Blueprint</h2>
+<p>Staff experience = <strong>mobile-first shift companion</strong>. Not a mini admin panel.</p>
+
+<h3>Signed-in shell (3 tabs)</h3>
+<pre>┌──────────────────────────────────────┐
+│ Olasentra                    [Inbox 2]│
+├──────────────────────────────────────┤
+│  HOME | INBOX | ACCOUNT              │
+└──────────────────────────────────────┘
+
+HOME:
+  Next shift hero card (event, date, venue, status chip)
+  Quick: [My status] [Message coordinator] [Check-in info]
+  My registrations list (compact)
+  Company announcement banner
+
+INBOX: unified messages + notifications (same model as admin)
+
+ACCOUNT: profile summary → edit, PSA, sign out</pre>
+
+<h3>Logged-out: staff-app.php as landing/marketing</h3>
+<p>Register tile primary. Sign-in collapsed. Install PWA prompt. No fake "check-in" tile — check-in info on status page only.</p>
+
+<h2>12. Component Library (OOU Components)</h2>
+
+<h3>Primitives</h3>
+<table>
+    <tr><th>Component</th><th>Variants</th><th>Notes</th></tr>
+    <tr><td>OpsButton</td><td>primary, secondary, ghost, danger, live</td><td>32px height default</td></tr>
+    <tr><td>OpsInput</td><td>text, search, select, date</td><td>Inline label optional</td></tr>
+    <tr><td>OpsBadge</td><td>status, count, live-pulse</td><td>Semantic colours</td></tr>
+    <tr><td>OpsPill</td><td>pending, approved, rejected, on-site</td><td>Registration status</td></tr>
+    <tr><td>OpsKpi</td><td>ribbon, card, inline</td><td>Mono numerals</td></tr>
+    <tr><td>OpsAvatar</td><td>initials, sm/md</td><td>Staff + admin</td></tr>
+</table>
+
+<h3>Composite</h3>
+<table>
+    <tr><th>Component</th><th>Purpose</th></tr>
+    <tr><td>OpsDataTable</td><td>Sortable, filterable, 32px rows, bulk select, sticky header</td></tr>
+    <tr><td>OpsAttentionCard</td><td>Severity border, title, metric, CTA — attention stack</td></tr>
+    <tr><td>OpsEventCard</td><td>Timeline row with counts + live indicator</td></tr>
+    <tr><td>OpsSplitPanel</td><td>Master-detail for inbox, staff profile</td></tr>
+    <tr><td>OpsCommandPalette</td><td>Modal overlay, fuzzy search, keyboard nav</td></tr>
+    <tr><td>OpsEventSelector</td><td>Header dropdown with search + recent</td></tr>
+    <tr><td>OpsScanner</td><td>Camera viewport + result flash + roster sync</td></tr>
+    <tr><td>OpsStatusRibbon</td><td>Horizontal KPI strip, click-to-filter</td></tr>
+    <tr><td>OpsDrawer</td><td>Right slide-over for quick edits, check-in, message</td></tr>
+    <tr><td>OpsEmptyState</td><td>Icon + one line + single CTA</td></tr>
+    <tr><td>OpsThread</td><td>Message bubble list (existing message-thread.php evolve)</td></tr>
+    <tr><td>OpsActivityItem</td><td>Icon + title + body + time + action button</td></tr>
+    <tr><td>OpsTabBar</td><td>Event hub tabs, underline style</td></tr>
+    <tr><td>OpsFlash</td><td>Top toast / banner (admin + staff)</td></tr>
+</table>
+
+<h3>Layouts</h3>
+<table>
+    <tr><th>Layout</th><th>Used by</th></tr>
+    <tr><td>CommandLayout</td><td>Command Center, Live Ops</td></tr>
+    <tr><td>HubLayout</td><td>Event Hub, Finance Hub, Inbox</td></tr>
+    <tr><td>TableLayout</td><td>Queue, Directory, Attendance</td></tr>
+    <tr><td>StaffShell</td><td>PWA tab bar</td></tr>
+    <tr><td>PublicShell</td><td>Marketing + registration</td></tr>
+</table>
+
+<h2>13. Complete Screen Hierarchy</h2>
+
+<h3>Admin ERP (primary routes only)</h3>
+<pre>AUTH
+  login.php · logout.php · index.php
+
+COMMAND ZONE
+  dashboard.php          Command Center
+  inbox.php (NEW)        Activity &amp; Inbox
+  live-ops.php (NEW)     Event Day Mode
+
+WORKFORCE ZONE
+  staff.php              Registration Queue
+  staff-directory.php    Staff Directory
+  view-staff.php         Registration detail (split panel)
+  staff-edit.php         Edit drawer/page
+
+EVENTS ZONE
+  events.php             Event Calendar
+  event.php (NEW)        Event Detail Hub
+  event-form.php         Create/edit
+  venues.php · venue-form.php
+
+FINANCE ZONE
+  invoices.php           Finance Hub (tabs)
+  export-staff.php       Export center
+
+PLATFORM ZONE (admin)
+  forms.php · form-edit.php
+  website-global.php
+  settings-site.php (+ tabs)
+  go-live.php            System Health hub
+
+ACTIONS (never in nav — 35+ POST handlers)
+  update-status · bulk-status · save-event · scan-checkin-action · …</pre>
+
+<h3>Staff PWA</h3>
+<pre>staff-app.php (logged-out hub)
+staff-home.php (NEW — logged-in default)
+staff-inbox.php (NEW unified — or tab route)
+staff-account.php (NEW — profile shell)
+staff-portal.php · staff-profile.php · status.php
+staff-messages.php → absorbed into inbox</pre>
+
+<h3>Public</h3>
+<pre>home.php · how-it-works.php · roles.php · events.php · faq.php · contact.php · privacy.php
+index.php · submit.php · staff-app.php</pre>
+
+<h3>Apply (satellite — unchanged structure)</h3>
+<pre>apply-portal.php → SSO → payroll · PSA · sync-sheets</pre>
+
+<div class="page-break"></div>
+
+<h2>14. Implementation Phases (for approval)</h2>
+<table>
+    <tr><th>Phase</th><th>Scope</th><th>Deliverables</th><th>Risk</th></tr>
+    <tr><td><span class="pill pill-p0">P0</span> Foundation</td><td>Design tokens, component primitives, nav regroup</td><td>OOU CSS vars, sidebar restructure, 14-item nav</td><td>Low</td></tr>
+    <tr><td><span class="pill pill-p0">P1</span> Command Center</td><td>SOC dashboard redesign</td><td>Status ribbon, attention stack, event timeline</td><td>Low</td></tr>
+    <tr><td><span class="pill pill-p1">P2</span> Unified Inbox</td><td>inbox.php + Activity Center</td><td>Merge messages + notifications, single badge</td><td>Medium</td></tr>
+    <tr><td><span class="pill pill-p1">P3</span> Event Hub</td><td>event.php tab shell</td><td>8 tabs over existing pages</td><td>Medium</td></tr>
+    <tr><td><span class="pill pill-p1">P4</span> Live Ops</td><td>live-ops.php Event Day Mode</td><td>Scanner + roster board split</td><td>Medium</td></tr>
+    <tr><td><span class="pill pill-p2">P5</span> Command Palette</td><td>⌘K + api/admin-search.php</td><td>24 commands, fuzzy nav</td><td>Low</td></tr>
+    <tr><td><span class="pill pill-p2">P6</span> Staff PWA</td><td>3-tab shell + staff-home</td><td>Home/Inbox/Account</td><td>Medium</td></tr>
+    <tr><td><span class="pill pill-p2">P7</span> Finance Hub</td><td>Invoice tabs consolidation</td><td>Single finance workspace</td><td>Low</td></tr>
+</table>
+
+<div class="callout-ok"><strong>Deployment principle:</strong> Each phase ships independently. No big-bang rewrite. New shells wrap existing PHP pages via embed/include pattern.</div>
+
+<h2>15. Approval Checklist</h2>
+<div class="approval-box">
+<p><strong>Please confirm before implementation:</strong></p>
+<ol>
+    <li>Platform positioning as Event Operations Command Platform (not CRM/ERP)</li>
+    <li>14-item navigation structure and removed items absorbed into hubs</li>
+    <li>Command Center SOC layout with status ribbon + attention stack</li>
+    <li>Activity &amp; Inbox unified surface (inbox.php)</li>
+    <li>Event Day Mode (live-ops.php) as default for venue staff role</li>
+    <li>Event Detail Hub (event.php) with 8 tabs</li>
+    <li>Command palette ⌘K + extended global search</li>
+    <li>Olasentra Ops UI design tokens and component library</li>
+    <li>Staff PWA 3-tab shell for signed-in users</li>
+    <li>Phased rollout P0–P7 (no big-bang)</li>
+</ol>
+<p style="margin-top:12px;"><strong>Approved by:</strong> ___________________ &nbsp; <strong>Date:</strong> ___________________</p>
+</div>
+
+<p class="footer">Olasentra Event Operations Command Platform · UX Master Plan v2.0 · Companion: PLATFORM-DOCUMENTATION.pdf · No code until approved.</p>
+
+</body>
+</html>

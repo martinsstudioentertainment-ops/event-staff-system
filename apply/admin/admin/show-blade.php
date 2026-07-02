@@ -7,6 +7,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/secure-layout.php';
 require_once __DIR__ . '/../includes/main-admin-bridge.php';
 require_once __DIR__ . '/../includes/psa-sync.php';
+require_once __DIR__ . '/../includes/psa-images.php';
 
 $id = (int) ($_GET['id'] ?? 0);
 
@@ -26,6 +27,10 @@ if (!$staff) {
     http_response_code(404);
     die('Staff not found.');
 }
+
+$staff = apply_merge_vault_psa_images($staff, $eventPdo);
+$psaFrontUrl = apply_psa_image_url((string) ($staff['psa_front_image'] ?? ''));
+$psaBackUrl  = apply_psa_image_url((string) ($staff['psa_back_image'] ?? ''));
 
 $status   = (string) ($staff['profile_status'] ?? 'Incomplete');
 $fullName = trim(($staff['first_name'] ?? '') . ' ' . ($staff['last_name'] ?? ''));
@@ -55,7 +60,7 @@ secure_layout_start('Compliance review', 'psa', $fullName . ' — PSA verificati
         </div>
         <div class="secure-grid__col">
             <div class="secure-label">Date of birth</div>
-            <div class="secure-dl__value"><?= secure_h((string) ($staff['date_of_birth'] ?? '—')) ?></div>
+            <div class="secure-dl__value"><?= secure_h(secure_format_date((string) ($staff['date_of_birth'] ?? '')) ?: '—') ?></div>
         </div>
         <div class="secure-grid__col">
             <div class="secure-label">Gender</div>
@@ -114,24 +119,35 @@ secure_layout_start('Compliance review', 'psa', $fullName . ' — PSA verificati
         <div class="secure-grid__col">
             <div class="secure-label">PSA expiry</div>
             <div class="secure-dl__value">
-                <?= secure_h((string) (($staff['psa_expiry_date'] ?? '') ?: '—')) ?>
+                <?= secure_h(secure_format_date((string) ($staff['psa_expiry_date'] ?? '')) ?: '—') ?>
                 <?php if (!empty($staff['psa_expiry_date'])): ?>
                     · <?= secure_psa_badge((string) $staff['psa_expiry_date']) ?>
                 <?php endif; ?>
             </div>
         </div>
     </div>
-    <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:1rem;">
-        <?php if (!empty($staff['psa_front_image'])): ?>
-            <a href="../<?= secure_h((string) $staff['psa_front_image']) ?>" target="_blank" rel="noopener" class="secure-btn secure-btn--success">View PSA front</a>
-        <?php endif; ?>
-        <?php if (!empty($staff['psa_back_image'])): ?>
-            <a href="../<?= secure_h((string) $staff['psa_back_image']) ?>" target="_blank" rel="noopener" class="secure-btn secure-btn--warn">View PSA back</a>
-        <?php endif; ?>
-        <?php if (empty($staff['psa_front_image']) && empty($staff['psa_back_image'])): ?>
-            <span style="color:var(--secure-muted);font-size:0.875rem;">No PSA images on file.</span>
-        <?php endif; ?>
-    </div>
+    <?php if ($psaFrontUrl !== '' || $psaBackUrl !== ''): ?>
+        <div class="secure-grid" style="margin-top:1rem;">
+            <?php if ($psaFrontUrl !== ''): ?>
+                <div class="secure-grid__col">
+                    <div class="secure-label">PSA front</div>
+                    <a href="<?= secure_h($psaFrontUrl) ?>" target="_blank" rel="noopener">
+                        <img src="<?= secure_h($psaFrontUrl) ?>" alt="PSA card front" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid var(--secure-border);">
+                    </a>
+                </div>
+            <?php endif; ?>
+            <?php if ($psaBackUrl !== ''): ?>
+                <div class="secure-grid__col">
+                    <div class="secure-label">PSA back</div>
+                    <a href="<?= secure_h($psaBackUrl) ?>" target="_blank" rel="noopener">
+                        <img src="<?= secure_h($psaBackUrl) ?>" alt="PSA card back" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid var(--secure-border);">
+                    </a>
+                </div>
+            <?php endif; ?>
+        </div>
+    <?php else: ?>
+        <p style="color:var(--secure-muted);font-size:0.875rem;margin:1rem 0 0;">No PSA images on file. Photos from registration are stored on the main ERP — run import/sync if staff registered recently.</p>
+    <?php endif; ?>
 </div>
 
 <div class="secure-card">

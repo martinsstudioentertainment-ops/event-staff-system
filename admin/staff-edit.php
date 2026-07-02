@@ -18,7 +18,8 @@ requireAdminCapability('staff');
 $pdo = getDB();
 $defaultPhoneCountry = resolvePhoneCountryIsoFromRequest($pdo);
 $staffId = (int) ($_GET['id'] ?? 0);
-$canEdit = isAdminSuperUser();
+$canEdit = adminCan('staff');
+$canDangerZone = isAdminSuperUser();
 
 if ($staffId < 1) {
     setAdminFlash('error', 'Invalid staff ID');
@@ -80,6 +81,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit && !isset($_POST['reset_pr
             setAdminFlash('error', implode(' ', $fieldErrors));
         } else {
         try {
+            $newEmail = strtolower(trim((string) ($_POST['email'] ?? '')));
+            $oldEmail = strtolower(trim((string) ($staff['email'] ?? '')));
+            if ($newEmail !== $oldEmail) {
+                $oldEmail = changeStaffEmail($pdo, $staffId, $newEmail);
+                $staff = getStaffById($pdo, $staffId) ?? $staff;
+                logAdminAudit(
+                    $pdo,
+                    'staff_email_changed',
+                    'staff',
+                    $staffId,
+                    'Email corrected from ' . $oldEmail . ' to ' . $newEmail
+                );
+            }
+
             prepareMobileFromRequest($_POST);
             $mobileNormalized = trim((string) ($_POST['mobile'] ?? ''));
             if ($mobileNormalized !== '') {
@@ -154,23 +169,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit && !isset($_POST['reset_pr
                 'date_of_birth' => $dob,
             ]));
 
+            $runProfileJobs = false;
+            $staffBeforeComplete = (int) ($staff['profile_completed'] ?? 0) === 1;
+
             if (!empty($_POST['mark_profile_verified'])) {
-                markStaffProfileCompleted($pdo, $staffId);
+                markStaffProfileCompleted($pdo, $staffId, false);
+                $runProfileJobs = true;
             } elseif (isStaffOnboardingComplete(getStaffById($pdo, $staffId) ?? [])) {
-                markStaffProfileCompleted($pdo, $staffId);
+                markStaffProfileCompleted($pdo, $staffId, false);
+                $runProfileJobs = !$staffBeforeComplete;
             } else {
                 $pdo->prepare('UPDATE staff SET profile_completed = 0 WHERE id = :id')->execute(['id' => $staffId]);
             }
 
-            try {
-                require_once __DIR__ . '/../includes/google-sheets-sync.php';
-                syncStaffProfileToLinkedGoogleSheets($pdo, $staffId);
-            } catch (Throwable $e) {
-                error_log('[EventStaff] Google Sheets sync after admin staff edit: ' . $e->getMessage());
-            }
+            logAdminAudit(
+                $pdo,
+                'staff_profile_updated',
+                'staff',
+                $staffId,
+                'Admin updated staff profile: ' . (string) ($staff['email'] ?? '')
+            );
 
-            setAdminFlash('success', 'Staff information updated successfully');
-            header('Location: staff-edit.php?id=' . $staffId);
+            setAdminFlash('success', 'Staff information updated successfully. Sheet sync runs in the background.');
+
+            $redirect = 'staff-edit.php?id=' . $staffId;
+            require_once __DIR__ . '/../includes/status-change-post-save.php';
+            flushHttpResponse($redirect);
+            runStaffProfileSheetsPostJobs($pdo, $staffId);
+            if ($runProfileJobs) {
+                runProfileCompletionPostJobs($pdo, $staffId);
+            }
             exit;
         } catch (InvalidArgumentException $e) {
             setAdminFlash('error', $e->getMessage());
@@ -179,8 +207,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit && !isset($_POST['reset_pr
         }
         }
     }
-} elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    setAdminFlash('error', 'Only administrators can edit staff records. Managers can send the profile update link below.');
 }
 
 $flash = getAdminFlash();
@@ -197,12 +223,6 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     <div class="alert alert--<?= h($flash['type']) ?> alert--visible"><?= h($flash['message']) ?></div>
 <?php endif; ?>
 
-<?php if (!$canEdit): ?>
-    <div class="alert alert--warning alert--visible">
-        View only — only <strong>administrators</strong> can change staff data here. Use the button below to email the staff member a profile update link.
-    </div>
-<?php endif; ?>
-
 <section class="card">
     <div class="card__header card__header--row">
         <div>
@@ -213,6 +233,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             </p>
         </div>
         <div class="card__header-actions" style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+            <a href="staff-inbox-thread.php?staff_id=<?= (int) ($staff['id'] ?? 0) ?>" class="btn btn--secondary">Message</a>
             <a href="<?= h(buildStaffRegistrationsAdminUrl((string) $staff['email'])) ?>" class="btn btn--secondary">All registrations</a>
             <a href="<?= h(buildStaffRegistrationsAdminUrl((string) $staff['email'], 'pending')) ?>" class="btn btn--secondary">Pending shifts</a>
             <a href="<?= h(buildStaffRegistrationsAdminUrl((string) $staff['email'], 'approved')) ?>" class="btn btn--secondary">Approved shifts</a>
@@ -248,7 +269,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     </div>
 
     <?php if ($canEdit): ?>
-        <p class="form-hint form-group--full" style="margin-bottom:1rem;">Administrators can save partial details. Fields left blank are allowed. Staff must still complete their own profile unless you mark it verified below.</p>
+        <p class="form-hint form-group--full" style="margin-bottom:1rem;">You can save partial details to correct mistakes. Fields left blank are allowed. Staff must still complete their own profile unless you mark it verified below.</p>
     <?php endif; ?>
 
     <form method="post" enctype="multipart/form-data" class="form-grid settings-form staff-edit-form<?= h($readonlyClass) ?>" data-admin-staff-edit="1">
@@ -270,8 +291,8 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
         <div class="form-group form-group--full">
             <label class="form-label">Email</label>
-            <input type="email" class="form-input" value="<?= h((string) $staff['email']) ?>" disabled>
-            <p class="form-hint">Email cannot be changed. Staff sign in to the portal with this email and their date of birth.</p>
+            <input type="email" name="email" class="form-input" value="<?= h((string) $staff['email']) ?>" required autocomplete="off"<?= $readonlyAttr ?>>
+            <p class="form-hint">Staff sign in to the portal with this email and their date of birth. Changing it updates all event registrations.</p>
         </div>
 
         <div class="form-group">
@@ -368,19 +389,29 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <input type="date" name="psa_expiry_date" class="form-input" value="<?= h((string) ($staff['psa_expiry_date'] ?? '')) ?>"<?= $readonlyAttr ?>>
         </div>
 
+        <?php
+        $psaFrontUrl = isStoredPsaImagePath($staff['psa_front_image'] ?? null)
+            ? psaImagePublicUrl((string) $staff['psa_front_image'], $pdo)
+            : '';
+        $psaBackUrl = isStoredPsaImagePath($staff['psa_back_image'] ?? null)
+            ? psaImagePublicUrl((string) $staff['psa_back_image'], $pdo)
+            : '';
+        ?>
         <div class="form-group">
             <label class="form-label">PSA card — front photo</label>
             <input type="file" name="psa_front_image" class="form-input form-input--file" accept="<?= h(psaImageFileAcceptAttribute()) ?>"<?= $readonlyAttr ?>>
-            <?php if (!empty($staff['psa_front_image'])): ?>
-                <p class="form-hint"><a href="<?= h((string) $staff['psa_front_image']) ?>" target="_blank" rel="noopener">View current front photo</a></p>
+            <?php if ($psaFrontUrl !== ''): ?>
+                <p class="form-hint"><a href="<?= h($psaFrontUrl) ?>" target="_blank" rel="noopener">View current front photo</a></p>
+                <p class="form-hint"><img src="<?= h($psaFrontUrl) ?>" alt="PSA card front" style="max-width:240px;max-height:160px;border-radius:6px;border:1px solid var(--border, #ddd);"></p>
             <?php endif; ?>
         </div>
 
         <div class="form-group">
             <label class="form-label">PSA card — back photo</label>
             <input type="file" name="psa_back_image" class="form-input form-input--file" accept="<?= h(psaImageFileAcceptAttribute()) ?>"<?= $readonlyAttr ?>>
-            <?php if (!empty($staff['psa_back_image'])): ?>
-                <p class="form-hint"><a href="<?= h((string) $staff['psa_back_image']) ?>" target="_blank" rel="noopener">View current back photo</a></p>
+            <?php if ($psaBackUrl !== ''): ?>
+                <p class="form-hint"><a href="<?= h($psaBackUrl) ?>" target="_blank" rel="noopener">View current back photo</a></p>
+                <p class="form-hint"><img src="<?= h($psaBackUrl) ?>" alt="PSA card back" style="max-width:240px;max-height:160px;border-radius:6px;border:1px solid var(--border, #ddd);"></p>
             <?php endif; ?>
         </div>
 
@@ -454,12 +485,9 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <input type="hidden" name="staff_id" value="<?= (int) $staffId ?>">
             <button type="submit" class="btn btn--secondary">Email profile update link</button>
         </form>
-        <?php if (!$canEdit): ?>
-            <a href="staff-directory.php" class="btn btn--secondary">Back to directory</a>
-        <?php endif; ?>
     </div>
 
-    <?php if ($canEdit): ?>
+    <?php if ($canDangerZone): ?>
     <section class="card staff-edit-danger-zone" style="margin-top:1.5rem;border-color:var(--danger, #dc2626);">
         <div class="card__header">
             <h2 class="card__title" style="color:var(--danger, #dc2626);">Danger zone</h2>

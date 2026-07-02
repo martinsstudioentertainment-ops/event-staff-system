@@ -1374,6 +1374,36 @@ ul {
     color: #f87171;
 }
 
+.badge--completed {
+    background: var(--shift-completed-bg);
+    color: var(--shift-completed-color);
+    border: 1px solid var(--shift-completed-border);
+}
+
+.badge--noshow {
+    background: var(--shift-noshow-bg);
+    color: var(--shift-noshow-color);
+    border: 1px solid var(--shift-noshow-border);
+}
+
+.badge--upcoming {
+    background: var(--shift-upcoming-bg);
+    color: var(--shift-upcoming-color);
+    border: 1px solid var(--shift-upcoming-border);
+}
+
+.badge--checked-in {
+    background: var(--shift-completed-bg);
+    color: var(--shift-completed-color);
+    border: 1px solid var(--shift-completed-border);
+}
+
+.badge--awaiting {
+    background: var(--warning-bg);
+    color: var(--warning-color);
+    border: 1px solid var(--warning-border);
+}
+
 .btn--small {
     padding: 6px var(--padding-small);
     font-size: 12px;

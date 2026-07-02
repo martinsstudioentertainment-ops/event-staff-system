@@ -1,0 +1,50 @@
+# Phase 2 — Final Restoration Report (machine-readable summary)
+# Generated after production snapshot + restore. See PHASE2-DEPLOY-READINESS-REPORT.md for full narrative.
+
+{
+  "phase": "PHASE2-20260621-OLASENTRA",
+  "completed_at": "2026-06-21T06:05:00+01:00",
+  "production_snapshot": "_recovery-staging/production-snapshot-20260621-055543",
+  "snapshot_file_count": 728,
+  "phase1_zero_byte_count": 27,
+  "restored_from_production": [
+    { "file": "account-deletion.php", "bytes": 2665 },
+    { "file": "admin/mobile-portal.php", "bytes": 74 },
+    { "file": "admin/settings-mobile-portal.php", "bytes": 12864 },
+    { "file": "api/mobile-config-probe.php", "bytes": 488 },
+    { "file": "api/mobile-dashboard-probe.php", "bytes": 973 },
+    { "file": "api/probe-dash2.php", "bytes": 732 },
+    { "file": "api/probe-ping.php", "bytes": 58 },
+    { "file": "api/probe-reg-save.php", "bytes": 3073 },
+    { "file": "api/probe-reg-submit.php", "bytes": 3570 },
+    { "file": "api/probe-staff-full-verify.php", "bytes": 8854 },
+    { "file": "api/registration-email-otp-send.php", "bytes": 1882 },
+    { "file": "cron/reset-staff-checkins.php", "bytes": 3630 },
+    { "file": "includes/mobile/services/MobilePortalConfigService.php", "bytes": 5376 },
+    { "file": "scripts/diag-otp-send.php", "bytes": 1622 }
+  ],
+  "still_empty_safe_excluded": [
+    { "file": "includes/footer.php", "classification": "legacy", "on_production": false },
+    { "file": "includes/header.php", "classification": "legacy", "on_production": false },
+    { "file": "includes/settings.php", "classification": "legacy", "on_production": false },
+    { "file": "includes/sidebar.php", "classification": "legacy", "on_production": false }
+  ],
+  "local_only_not_on_production": [
+    "_extract_transcripts.js",
+    "_fix_strings_report.js",
+    "_reconstruct_manifest.js",
+    "scripts/backup-events-global.php",
+    "scripts/generate-branding-assets.php",
+    "scripts/generate-play-feature-graphic.php",
+    "scripts/generate-play-screenshots.php",
+    "scripts/play-store-graphics-lib.php",
+    "scripts/test-otp-send-production.php"
+  ],
+  "deploy_safety_gate": {
+    "deploy_allowed": true,
+    "critical_missing": 0,
+    "critical_zero_byte": 0,
+    "blocking_zero_byte": 0,
+    "report": "docs/phase2-deploy-safety-gate.json"
+  }
+}

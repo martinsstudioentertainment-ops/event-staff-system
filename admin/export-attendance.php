@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/staff-repository.php';
 require_once __DIR__ . '/../includes/attendance-repository.php';
+require_once __DIR__ . '/../includes/attendance-roster-helpers.php';
 require_once __DIR__ . '/../includes/audit-log.php';
 require_once __DIR__ . '/../includes/admin/admin-nav.php';
 
@@ -25,7 +26,7 @@ if (isset($_GET['event_id'])) {
 
     $output = fopen('php://output', 'w');
     fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
-    fputcsv($output, ['Name', 'Email', 'Role', 'Event', 'Check-in Status', 'Check-in Time', 'Method']);
+    fputcsv($output, ['Name', 'Email', 'Role', 'Event', 'Check-in Status', 'BIB Number', 'Check-in Time', 'Method']);
 
     foreach ($list as $row) {
         fputcsv($output, [
@@ -33,7 +34,8 @@ if (isset($_GET['event_id'])) {
             $row['email'],
             formatRoleLabel($row['staff_role']),
             formatEventLabel($row),
-            (int) $row['is_checked_in'] === 1 ? 'Checked In' : 'Waiting',
+            formatAttendanceBoardStatusLabel($row),
+            (string) ($row['bib_number'] ?? ''),
             $row['checked_in_at'] ?? '',
             $row['checked_in_method'] ?? '',
         ]);
@@ -69,7 +71,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <option value="">All events</option>
                 <?php foreach ($events as $event): ?>
                     <option value="<?= (int) $event['id'] ?>">
-                        <?= h($event['name'] . ' — ' . date('d.m.Y', strtotime($event['event_date']))) ?>
+                        <?= h($event['name'] . ' — ' . formatEventDateLabel((string) $event['event_date'])) ?>
                     </option>
                 <?php endforeach; ?>
             </select>

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sprint 3 — Admin Operations &amp; Management Hardening</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.84rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.pass{color:#047857;font-weight:700}.fail{color:#b91c1c;font-weight:700}.warn{color:#b45309;font-weight:700}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #86efac;background:#ecfdf5}
+.score{display:inline-block;padding:.35rem .75rem;border-radius:8px;background:#eff6ff;border:1px solid #93c5fd;font-weight:700}
+.meta{color:#64748b;font-size:.9rem}
+</style>
+</head>
+<body>
+
+<h1>Sprint 3 — Admin Operations &amp; Management Hardening</h1>
+<p class="meta">Generated 7 June 2026 · Post GPS + Staff Portal V2 sign-off</p>
+
+<div class="verdict">
+<strong>Admin readiness: 9/10</strong> · <strong>Operations readiness: 8.5/10</strong><br>
+Admin portal audited, health dashboard shipped, dashboard ops metrics added, feature flags documented. Remaining: cPanel cron visibility, signed-in export smoke on production, stub flag cleanup (optional).
+</div>
+
+<h2>1. Admin portal audit</h2>
+<table>
+<tr><th>Finding</th><th>Severity</th><th>Fix</th></tr>
+<tr><td>108 admin endpoints; all layout pages enforce <code>requireAdmin()</code> or capability</td><td class="pass">OK</td><td>—</td></tr>
+<tr><td>Blacklist + Staff queue both highlighted active on blacklist page</td><td class="warn">UX</td><td class="pass">Fixed <code>isAdminSidebarLinkActive()</code></td></tr>
+<tr><td>Profile footer hidden for manager/staff roles</td><td class="warn">UX</td><td class="pass">Profile link now visible for all signed-in admins</td></tr>
+<tr><td>Dashboard KPI cards linked without capability checks</td><td class="warn">UX</td><td class="pass">KPIs gated by <code>adminCan()</code></td></tr>
+<tr><td><code>staff-delete.php</code> checked superuser before <code>requireAdmin()</code></td><td class="warn">Auth order</td><td class="pass">Fixed — login enforced first</td></tr>
+<tr><td>Work hours export missing from export sub-nav</td><td class="warn">Nav</td><td class="pass">Added to export nav → <code>work-hours.php</code></td></tr>
+<tr><td>Finance sidebar label “Export” ambiguous</td><td class="warn">UX</td><td class="pass">Renamed to “Data export”</td></tr>
+<tr><td>No broken sidebar URLs</td><td class="pass">OK</td><td>—</td></tr>
+</table>
+
+<h2>2. Feature flags audit</h2>
+<table>
+<tr><th>Flag</th><th>Tier</th><th>Safe to remove definition?</th></tr>
+<tr><td><code>feature_public_premium_v2</code></td><td class="pass">Active</td><td>No — live on homepage</td></tr>
+<tr><td><code>feature_registration_wizard_v2</code></td><td class="pass">Active</td><td>No — live registration</td></tr>
+<tr><td><code>feature_gps_attendance_v2</code></td><td class="pass">Active</td><td>No — pilot-ready GPS</td></tr>
+<tr><td><code>feature_auto_approval</code></td><td class="warn">Unused</td><td>No — keep until engine ships</td></tr>
+<tr><td>9 roadmap flags (ops UI, command center, inbox, event hub, live ops, trust, health center, client portal, staff PWA, AI ops)</td><td class="warn">Stub</td><td class="pass">Yes — no runtime wiring; leave OFF</td></tr>
+</table>
+<p>Flag descriptions updated in <code>includes/feature-flags.php</code>. Admin UI shows tier column + audit summary on <code>feature-flags.php</code>.</p>
+
+<h2>3. Operations dashboard</h2>
+<ul>
+<li><strong>Operations snapshot</strong> panel on <code>dashboard.php</code>: pending, approved, upcoming events, check-ins today, hibernated pre-check-ins, unread notifications, health score</li>
+<li>Hero metrics extended with notification count</li>
+<li>Links to <code>system-health.php</code> for administrators</li>
+<li>Existing panels retained: pending approvals, messages, upcoming events, registration funnel, quick actions</li>
+</ul>
+
+<h2>4. Reporting audit</h2>
+<table>
+<tr><th>Export</th><th>Auth</th><th>Filters</th><th>Audit log</th><th>Status</th></tr>
+<tr><td><code>export.php</code> (staff CSV)</td><td><code>export</code></td><td>status, role, event, search</td><td>Yes</td><td class="pass">PASS</td></tr>
+<tr><td><code>export-attendance.php</code></td><td><code>export</code></td><td>event_id</td><td>Yes</td><td class="pass">PASS</td></tr>
+<tr><td><code>export-work-hours.php</code></td><td><code>export</code></td><td>event_id, work_date + totals on UI</td><td>Yes</td><td class="pass">PASS</td></tr>
+<tr><td>Print/PDF invoices, job records</td><td>capability per page</td><td>event/month filters</td><td>—</td><td class="pass">PASS (no regressions found)</td></tr>
+</table>
+
+<h2>5. Production health monitoring</h2>
+<p>New page: <strong><code>admin/system-health.php</code></strong> (sidebar → System → System health)</p>
+<ul>
+<li>Database connection + core tables</li>
+<li>GPS schema + flag status</li>
+<li>Cron secret + activation script deployment</li>
+<li>Notifications table + unread admin count</li>
+<li>SMTP / backups</li>
+<li>Active vs stub feature flags</li>
+<li>Health score (pass/warn/fail summary)</li>
+</ul>
+<p>Sidebar “System Status” widget now delegates to the same checks and links to the full dashboard.</p>
+
+<h2>Files changed</h2>
+<ul>
+<li><code>admin/system-health.php</code> (new)</li>
+<li><code>includes/admin/system-health.php</code> (new)</li>
+<li><code>includes/admin/sidebar-health.php</code></li>
+<li><code>includes/admin-capabilities.php</code></li>
+<li><code>includes/admin/sidebar.php</code></li>
+<li><code>includes/admin/admin-nav.php</code></li>
+<li><code>includes/feature-flags.php</code></li>
+<li><code>admin/dashboard.php</code></li>
+<li><code>admin/feature-flags.php</code></li>
+<li><code>admin/go-live.php</code></li>
+<li><code>admin/staff-delete.php</code></li>
+</ul>
+
+<h2>Remaining blockers</h2>
+<ul>
+<li>cPanel cron last-run not visible in-app — operator confirms manually</li>
+<li>9 stub feature flags still in DB/UI — cosmetic cleanup only; safe to leave</li>
+<li>Full signed-in export download smoke test on production (recommended before payroll day)</li>
+</ul>
+
+<h2>Scores</h2>
+<p><span class="score">Admin readiness: 9/10</span> &nbsp; <span class="score">Operations readiness: 8.5/10</span></p>
+
+</body>
+</html>

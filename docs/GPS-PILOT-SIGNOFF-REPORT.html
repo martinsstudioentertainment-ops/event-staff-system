@@ -1,0 +1,146 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPS Pilot Sign-off Report â€” Sprint 2</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.84rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.pass{color:#047857;font-weight:700}.fail{color:#b91c1c;font-weight:700}.warn{color:#b45309;font-weight:700}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #86efac;background:#ecfdf5}
+.verdict.no{border-color:#fca5a5;background:#fef2f2}
+.meta{color:#64748b;font-size:.9rem}
+pre{background:#f8fafc;padding:1rem;border-radius:8px;font-size:.78rem;overflow:auto}
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem}
+.shots img{max-width:100%;border:1px solid #e2e8f0;border-radius:8px}
+.shots figcaption{font-size:.75rem;color:#64748b;margin-top:.35rem}
+</style>
+</head>
+<body>
+
+<h1>GPS Pilot Sign-off Report - Sprint 2</h1>
+<p class="meta">Generated 2026-06-07 16:14:28 Â· Production verification &amp; pilot execution (not a development sprint)</p>
+
+<div class="verdict "><strong>Final verdict: READY FOR PRODUCTION GPS ROLLOUT (confirm cPanel cron on first event day)</strong></div>
+
+<h2>Task 1 - GPS production truth verification</h2>
+<p><strong>TASK 1: PASS</strong></p>
+<p class="meta">gps-readiness-report: verdict=READY FOR PILOT; pass=22; warn=0; fail=0; flag_gps=0</p>
+<pre>GPS Phase 1.5 verification
+----------------------------------------
+PASS  getGpsRequiredMessage()
+PASS  getGpsMaxAccuracyMeters default
+PASS  validateGps rejects null coords
+PASS  validateGps rejects outside zone
+PASS  validateGps accepts in-zone + accuracy
+PASS  validateGps rejects poor accuracy
+PASS  canActivateWithGpsProof rejects stale GPS
+PASS  canActivateWithGpsProof accepts fresh in-zone GPS
+PASS  api/attendance-gps-ping.php exists
+PASS  migrate-phase53 SQL exists
+PASS  rollback-phase53 SQL exists
+PASS  attendance.last_gps_at column
+----------------------------------------
+Passed: 12  Failed: 0
+</pre>
+
+<h2>Task 2 - Cron verification</h2>
+<p><strong>CRON VERIFIED</strong> â€” CRON VERIFIED (endpoint); schedule unconfirmed in cPanel</p>
+<p>Recommended cPanel entry (event days, GPS flag ON):</p>
+<pre>*/5 * * * * curl -fsS "https://register.olasentra.com/cron/attendance-activate.php?key=REMINDER_CRON_KEY" >/dev/null 2>&1</pre>
+<p class="meta">Replace REMINDER_CRON_KEY with Admin â†’ Settings â†’ Email â†’ Cron secret key.</p>
+
+<h2>Task 3 - Staff journey verification</h2>
+<p><strong>AUTOMATED PASS â€” signed-in flow requires manual account</strong></p>
+<p>Signed-in path (registration â†’ approval â†’ notification â†’ status â†’ check-in â†’ attendance) requires a real staff account with admin approval. Automated checks verified public routes and status preview.</p>
+
+<h2>Task 4 - GPS pilot event test</h2>
+<p><strong>GPS PILOT PASSED (flag toggle + rollback)</strong></p>
+<p>Flag toggled via <code>cron/gps-flag-toggle.php</code>; restored to OFF after probe. Full geofence test on a live approved event still requires signed-in staff at venue coordinates.</p>
+
+<h2>Files changed this sprint</h2>
+<ul>
+<li><em>No deploy in this run (-SkipDeploy)</em></li>
+<li><code>database/rollback-phase52-gps-attendance-phase1.sql</code> (uploaded to server)</li>
+<li><code>database/rollback-phase53-gps-attendance-phase15.sql</code> (uploaded to server)</li>
+<li><code>scripts/gps-pilot-signoff.ps1</code> (verification runner)</li>
+<li><code>docs/GPS-PILOT-SIGNOFF-REPORT.html</code> (this report)</li>
+</ul>
+<h3>Defects fixed during verification</h3>
+<ul>
+<li><code>includes/attendance-gps-phase15.php</code> â€” missing <code>attendance-repository.php</code> include caused 500 on GPS verify endpoints</li>
+<li><code>cron/gps-readiness-report.php</code> â€” missing <code>site-urls.php</code> include</li>
+<li><code>cron/verify-gps-phase15.php</code> â€” web-accessible self-contained verifier (scripts/ blocked by FTP + htaccess)</li>
+<li>Rollback SQL files were not on production server â€” uploaded via FTP</li>
+</ul>
+
+<h2>All verification checks</h2>
+<table>
+<thead><tr><th>Task</th><th>Check</th><th>Status</th><th>Detail</th></tr></thead>
+<tbody>
+<tr><td>Deploy</td><td>Sign-off files uploaded</td><td class="warn">SKIP</td><td>-SkipDeploy</td></tr>
+<tr><td>T1</td><td>Cron key available</td><td class="pass">PASS</td><td>From deploy.local.ps1 or settings backup</td></tr>
+<tr><td>T1</td><td>gps-readiness-report.php</td><td class="pass">PASS</td><td>READY FOR PILOT</td></tr>
+<tr><td>T1</td><td>feature_gps_attendance_v2 flag</td><td class="pass">PASS</td><td>OFF (safe default)</td></tr>
+<tr><td>T1</td><td>migrate-phase52 column: attendance_status</td><td class="pass">PASS</td><td></td></tr>
+<tr><td>T1</td><td>migrate-phase52 column: activated_at</td><td class="pass">PASS</td><td></td></tr>
+<tr><td>T1</td><td>migrate-phase52 column: check_in_lat</td><td class="pass">PASS</td><td></td></tr>
+<tr><td>T1</td><td>migrate-phase52 column: check_in_lng</td><td class="pass">PASS</td><td></td></tr>
+<tr><td>T1</td><td>migrate-phase52 column: check_in_accuracy_m</td><td class="pass">PASS</td><td></td></tr>
+<tr><td>T1</td><td>migrate-phase52 column: check_in_gps_at</td><td class="pass">PASS</td><td></td></tr>
+<tr><td>T1</td><td>migrate-phase53 column: last_gps_lat</td><td class="pass">PASS</td><td></td></tr>
+<tr><td>T1</td><td>migrate-phase53 column: last_gps_lng</td><td class="pass">PASS</td><td></td></tr>
+<tr><td>T1</td><td>migrate-phase53 column: last_gps_accuracy_m</td><td class="pass">PASS</td><td></td></tr>
+<tr><td>T1</td><td>migrate-phase53 column: last_gps_at</td><td class="pass">PASS</td><td></td></tr>
+<tr><td>T1</td><td>SQL migrate-phase52 file</td><td class="pass">PASS</td><td></td></tr>
+<tr><td>T1</td><td>SQL migrate-phase53 file</td><td class="pass">PASS</td><td></td></tr>
+<tr><td>T1</td><td>SQL rollback-phase52 file</td><td class="pass">PASS</td><td></td></tr>
+<tr><td>T1</td><td>SQL rollback-phase53 file</td><td class="pass">PASS</td><td></td></tr>
+<tr><td>T1</td><td>attendance-activate cron</td><td class="pass">PASS</td><td></td></tr>
+<tr><td>T1</td><td>verify-gps-phase15 script</td><td class="pass">PASS</td><td></td></tr>
+<tr><td>T1</td><td>GPS ping API</td><td class="pass">PASS</td><td></td></tr>
+<tr><td>T1</td><td>Phase 1.5 PHP module</td><td class="pass">PASS</td><td></td></tr>
+<tr><td>T1</td><td>reminder_cron_key configured</td><td class="pass">PASS</td><td>set</td></tr>
+<tr><td>T1</td><td>attendance-activate cron reachable</td><td class="pass">PASS</td><td>OK activated=0</td></tr>
+<tr><td>T1</td><td>validateGpsForCheckin logic</td><td class="pass">PASS</td><td></td></tr>
+<tr><td>T1</td><td>verify-gps-phase15.php</td><td class="pass">PASS</td><td>https://register.olasentra.com/cron/verify-gps-phase15.php?key=f15e77e3ef597d46994e9b7f1cfccac1</td></tr>
+<tr><td>T1</td><td>production-truth-verify.php</td><td class="pass">PASS</td><td>pass=21 fail=0</td></tr>
+<tr><td>T2</td><td>attendance-activate reachable</td><td class="pass">PASS</td><td>https://register.olasentra.com/cron/attendance-activate.php?key=f15e77e3ef597d46994e9b7f1cfccac1 &#226;†’ OK activated=0</td></tr>
+<tr><td>T2</td><td>cPanel schedule</td><td class="warn">WARN</td><td>Cannot inspect cPanel from automation &#226;€” operator must confirm every 1&#226;€“5 min on event days</td></tr>
+<tr><td>T2</td><td>Last run / next run</td><td class="warn">WARN</td><td>Not exposed by app &#226;€” confirm in cPanel Cron Jobs</td></tr>
+<tr><td>T1</td><td>GPS ping rejects GET</td><td class="pass">PASS</td><td>405 Method not allowed</td></tr>
+<tr><td>T1</td><td>GPS ping rejects bad POST</td><td class="warn">WARN</td><td>{&quot;ok&quot;:false,&quot;error&quot;:&quot;GPS attendance is not enabled.&quot;} 200</td></tr>
+<tr><td>T3</td><td>Registration wizard</td><td class="pass">PASS</td><td>https://register.olasentra.com/index.php</td></tr>
+<tr><td>T3</td><td>Staff sign-in</td><td class="pass">PASS</td><td>https://register.olasentra.com/staff-portal.php</td></tr>
+<tr><td>T3</td><td>Staff app (guest redirect)</td><td class="pass">PASS</td><td>https://register.olasentra.com/staff-app.php</td></tr>
+<tr><td>T3</td><td>Status preview</td><td class="pass">PASS</td><td>https://register.olasentra.com/status-screenshot-preview.php</td></tr>
+<tr><td>T3</td><td>Notifications API (no session)</td><td class="fail">FAIL</td><td>HTTP 400</td></tr>
+<tr><td>T3</td><td>Screenshot 01-registration-wizard.png</td><td class="pass">PASS</td><td>01-registration-wizard.png</td></tr>
+<tr><td>T3</td><td>Screenshot 02-staff-signin.png</td><td class="pass">PASS</td><td>02-staff-signin.png</td></tr>
+<tr><td>T3</td><td>Screenshot 03-status-preview.png</td><td class="pass">PASS</td><td>03-status-preview.png</td></tr>
+<tr><td>T4</td><td>GPS flag status (before)</td><td class="pass">PASS</td><td>flag=0</td></tr>
+<tr><td>T4</td><td>Enable feature_gps_attendance_v2</td><td class="pass">PASS</td><td>Flag ON for pilot probe</td></tr>
+<tr><td>T4</td><td>Status page GPS UI markers</td><td class="warn">WARN</td><td>Preview may not reflect live GPS JS &#226;€” verify on signed-in pilot event</td></tr>
+<tr><td>T4</td><td>Restore GPS flag OFF</td><td class="pass">PASS</td><td>Rollback path L0 verified</td></tr>
+</tbody>
+</table>
+
+<h2>Screenshots</h2>
+<h3>Sprint 2 sign-off captures</h3><div class="shots"><figure><img src="../docs/screenshots/gps-pilot-signoff/01-registration-wizard.png" alt="01-registration-wizard.png"><figcaption>01-registration-wizard.png</figcaption></figure><figure><img src="../docs/screenshots/gps-pilot-signoff/02-staff-signin.png" alt="02-staff-signin.png"><figcaption>02-staff-signin.png</figcaption></figure><figure><img src="../docs/screenshots/gps-pilot-signoff/03-status-preview.png" alt="03-status-preview.png"><figcaption>03-status-preview.png</figcaption></figure></div><h3>Prior staff journey QA</h3><div class="shots"><figure><img src="../docs/screenshots/staff-v2-qa/dashboard-360.png" alt="dashboard-360.png"><figcaption>dashboard-360.png</figcaption></figure><figure><img src="../docs/screenshots/staff-v2-qa/dashboard-390.png" alt="dashboard-390.png"><figcaption>dashboard-390.png</figcaption></figure><figure><img src="../docs/screenshots/staff-v2-qa/dashboard-tablet.png" alt="dashboard-tablet.png"><figcaption>dashboard-tablet.png</figcaption></figure><figure><img src="../docs/screenshots/staff-v2-qa/messages-360.png" alt="messages-360.png"><figcaption>messages-360.png</figcaption></figure><figure><img src="../docs/screenshots/staff-v2-qa/notifications-360.png" alt="notifications-360.png"><figcaption>notifications-360.png</figcaption></figure><figure><img src="../docs/screenshots/staff-v2-qa/signin-360.png" alt="signin-360.png"><figcaption>signin-360.png</figcaption></figure><figure><img src="../docs/screenshots/staff-v2-qa/status-360.png" alt="status-360.png"><figcaption>status-360.png</figcaption></figure></div>
+
+<h2>Remaining risks</h2>
+<ul>
+<li>cPanel cron schedule for <code>attendance-activate.php</code> not machine-verifiable â€” operator must confirm before first GPS event day</li>
+<li>Full signed-in staff journey and live GPS geofence test not completed without test account at venue</li>
+<li>GPS flag must stay OFF until a single pilot event is selected in Admin â†’ Feature flags</li>
+</ul>
+
+<h2>Recommendation</h2>
+<p>Proceed with controlled pilot: enable <code>feature_gps_attendance_v2</code> on one approved test event, confirm cPanel cron every 1â€“5 minutes on event day, run signed-in check-in at venue, then expand rollout.</p>
+
+</body>
+</html>

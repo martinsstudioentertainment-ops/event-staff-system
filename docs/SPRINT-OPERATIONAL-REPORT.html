@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Execution Sprint — Operational Report</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1180px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#0f172a}
+h1{font-size:1.55rem} h2{font-size:1.1rem;margin-top:2rem;border-bottom:1px solid #e2e8f0;padding-bottom:.35rem}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.84rem}
+th,td{border:1px solid #cbd5e1;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#f1f5f9}
+.pass{color:#047857;font-weight:700}.fail{color:#b91c1c;font-weight:700}.warn{color:#b45309;font-weight:700}
+.verdict{margin:1.25rem 0;padding:1rem 1.1rem;border-radius:10px;border:1px solid #86efac;background:#ecfdf5}
+.verdict.warn{border-color:#fcd34d;background:#fffbeb}
+.meta{color:#64748b;font-size:.9rem}
+</style>
+</head>
+<body>
+
+<h1>Execution Sprint — Operational Report</h1>
+<p class="meta">Generated 7 June 2026 · Staff Portal V2 + GPS Phase 1/1.5 readiness</p>
+
+<div class="verdict"><strong>GPS verdict: READY FOR PILOT</strong> — Infrastructure deployed; flag OFF (safe). Schedule activation cron and run <code>gps-readiness-report.php?key=…</code> on production DB before enabling flag on a pilot event.</div>
+
+<h2>Task 1 — GPS production readiness</h2>
+<table>
+<tr><th>Item</th><th>Status</th></tr>
+<tr><td>Migrate phase 52 SQL + runtime ensure</td><td class="pass">In repo + production-truth-verify checks columns</td></tr>
+<tr><td>Migrate phase 53 SQL + runtime ensure</td><td class="pass">In repo + production-truth-verify checks columns</td></tr>
+<tr><td><code>feature_gps_attendance_v2</code></td><td class="pass">OFF (legacy 100 m check-in active)</td></tr>
+<tr><td><code>cron/attendance-activate.php</code></td><td class="pass">Deployed (403 without key)</td></tr>
+<tr><td><code>scripts/verify-gps-phase15.php</code></td><td class="pass">Deployed on register domain</td></tr>
+<tr><td><code>cron/gps-readiness-report.php</code></td><td class="pass">New — run with reminder_cron_key</td></tr>
+<tr><td>GPS ping API + checkin_token</td><td class="pass">Deployed; 405 without POST</td></tr>
+<tr><td>Rollback L0/L1/L2</td><td class="pass">Flag OFF → rollback-phase53 → rollback-phase52</td></tr>
+<tr><td>Cron scheduled on server</td><td class="warn">Confirm in cPanel before pilot day</td></tr>
+</table>
+
+<h2>Task 2 — Notifications</h2>
+<table>
+<tr><th>Check</th><th>Result</th></tr>
+<tr><td>Bell + API <code>notifications.php?audience=staff</code></td><td class="pass">Session or token auth</td></tr>
+<tr><td>Mark read API</td><td class="pass">POST + fetch fallback added</td></tr>
+<tr><td>Badge polling</td><td class="pass">90s interval + visibility refresh</td></tr>
+<tr><td>Empty state</td><td class="pass">Structured empty UI</td></tr>
+<tr><td>In-app creation on approval/check-in</td><td class="pass">notifyStaffStatusInApp / notifyStaffCheckin</td></tr>
+</table>
+
+<h2>Task 3 — Check-in journey</h2>
+<table>
+<tr><th>Step</th><th>Route</th><th>Status</th></tr>
+<tr><td>Register</td><td>index.php (wizard)</td><td class="pass">200</td></tr>
+<tr><td>Approval</td><td>admin update-status</td><td class="pass">Notifies staff</td></tr>
+<tr><td>Status</td><td>status.php</td><td class="pass">Dashboard + check-in buttons</td></tr>
+<tr><td>Check-in widget</td><td>→ status.php</td><td class="pass">Fixed — was static dead card</td></tr>
+<tr><td>Bottom nav Check-In</td><td>→ status.php</td><td class="pass">Fixed — was hash scroll only</td></tr>
+<tr><td>Venue check-in</td><td>check-in.php?token=</td><td class="pass">Legacy flow when GPS OFF</td></tr>
+</table>
+
+<h2>Task 4 — Error cleanup</h2>
+<p class="pass">No PHP warnings/notices in HTML output on staff routes (production HTTP scan). API endpoints return expected 400/405 for unauthenticated requests.</p>
+
+<h2>Task 5 — Portal consistency</h2>
+<table>
+<tr><th>Issue</th><th>Fix</th></tr>
+<tr><td>Admin settings linked to <code>../staff-app.php</code> (wrong host)</td><td class="pass">Uses <code>getRegistrationSiteUrl()</code></td></tr>
+<tr><td>Staff vs Admin terminology</td><td class="warn">Staff “My status” vs Admin “Registrations” — intentional</td></tr>
+<tr><td>Apply portal</td><td class="pass">Separate SSO; staff use register.olasentra.com</td></tr>
+</table>
+
+<h2>Ops commands</h2>
+<ul>
+<li><code>GET /cron/gps-readiness-report.php?key=REMINDER_CRON_KEY</code></li>
+<li><code>GET /cron/production-truth-verify.php?key=REMINDER_CRON_KEY</code></li>
+<li><code>GET /scripts/verify-gps-phase15.php?key=REMINDER_CRON_KEY</code></li>
+</ul>
+
+<h2>Production readiness score: 9/10</h2>
+<p>Remaining: confirm cron schedule on server; signed-in manual smoke test on one real staff account.</p>
+
+</body>
+</html>

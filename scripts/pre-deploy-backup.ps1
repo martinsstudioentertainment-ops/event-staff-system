@@ -19,7 +19,9 @@ if (-not (Test-Path $outDir)) {
 
 $excludeDirs = @(
     '.git', 'vendor', 'node_modules', '.cursor', '.idea', '.vscode',
-    'storage\backups', 'storage\logs', 'storage\tmp-staff-template-content.xml'
+    'storage\backups', 'storage\logs', 'storage\tmp-staff-template-content.xml',
+    'android', '_recovery-staging', '_tmp-restore', '_phase3_recovery_contents', '_probe-prod',
+    '_recovery-staging\decompiled-v1.0.15'
 )
 $excludeFiles = @(
     'config.php', 'deploy.local.ps1',
@@ -46,15 +48,20 @@ function Should-SkipPath([string]$rel) {
     return $false
 }
 
-Get-ChildItem -Path $ProjectRoot -Recurse -File | ForEach-Object {
+Get-ChildItem -Path $ProjectRoot -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
     $rel = $_.FullName.Substring($ProjectRoot.Length).TrimStart('\')
     if (Should-SkipPath $rel) { return }
+    if ($rel -match '(?i)^(assets|c__Users_|_audit|_fv|_probe|_scan|_backfill|_cleanup|_self-test|_live-event|_notif|_final-|_gap|_psa|_bib-|_submit-|_extract_|_reconstructed_|_prod-|_tmp-|_phase3_)') { return }
     $dest = Join-Path $stage $rel
     $parent = Split-Path $dest -Parent
     if (-not (Test-Path $parent)) {
         New-Item -ItemType Directory -Path $parent -Force | Out-Null
     }
-    Copy-Item $_.FullName $dest -Force
+    try {
+        Copy-Item $_.FullName $dest -Force -ErrorAction Stop
+    } catch {
+        Write-Host "  skip unreadable: $rel" -ForegroundColor DarkYellow
+    }
 }
 
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }

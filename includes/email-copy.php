@@ -8,6 +8,61 @@ require_once __DIR__ . '/settings-repository.php';
 require_once __DIR__ . '/events-repository.php';
 
 /**
+ * Replace Unicode punctuation with ASCII in outbound email copy only.
+ */
+function emailAsciiSafe(string $text): string
+{
+    return str_replace(
+        ["\u{2013}", "\u{2014}", "\u{00B7}", "\u{2022}"],
+        ['-', '-', '|', '*'],
+        $text
+    );
+}
+
+/**
+ * Event time range for emails (UI keeps en dash via formatEventTimeRangeLabel).
+ */
+function formatEventTimeRangeLabelForEmail(array $event): string
+{
+    return emailAsciiSafe(formatEventTimeRangeLabel($event));
+}
+
+/**
+ * Event label for emails (UI keeps em dash via formatEventLabel).
+ */
+function formatEventLabelForEmail(array $row): string
+{
+    require_once __DIR__ . '/staff-repository.php';
+
+    return emailAsciiSafe(formatEventLabel($row));
+}
+
+/**
+ * Event location for emails (UI keeps middle dot via formatEventLocationLabel).
+ */
+function formatEventLocationLabelForEmail(array $event): string
+{
+    return emailAsciiSafe(formatEventLocationLabel($event));
+}
+
+/**
+ * Event name + optional date cell for HTML email tables.
+ */
+function formatEmailEventNameDateCell(string $eventName, string $dateLabel): string
+{
+    $eventName = trim($eventName);
+    $dateLabel = trim($dateLabel);
+    if ($eventName === '') {
+        return $dateLabel;
+    }
+    if ($dateLabel === '') {
+        return $eventName;
+    }
+
+    return $eventName . ' | ' . $dateLabel;
+}
+
+/**
  * Full notice for forms and footers (plain text) — website only, not emails.
  */
 function getPortalLegalNotice(PDO $pdo): string
@@ -27,7 +82,7 @@ function getPortalLegalNotice(PDO $pdo): string
  */
 function getEmailShortIntro(PDO $pdo): string
 {
-    return getSiteName($pdo) . ' is a shift registration portal only — not your employer or payroll provider.';
+    return getSiteName($pdo) . ' is a shift registration portal only - not your employer or payroll provider.';
 }
 
 /**
@@ -109,6 +164,42 @@ function appendEmailSenderDisclaimer(PDO $pdo, array $bodyLines): array
 function appendEmailPortalContext(PDO $pdo, array $bodyLines): array
 {
     return appendEmailShortFooter($pdo, $bodyLines);
+}
+
+function buildStaffEmailButton(string $url, string $label): string
+{
+    $url   = trim($url);
+    $label = trim($label);
+    if ($url === '' || $label === '') {
+        return '';
+    }
+
+    $esc = static fn (string $v): string => htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
+
+    return '<p style="margin:20px 0 8px;">'
+        . '<a href="' . $esc($url) . '" style="display:inline-block;padding:12px 22px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">'
+        . $esc($label)
+        . '</a></p>';
+}
+
+/**
+ * @param list<string> $bodyLines
+ */
+function buildStaffEmailHtmlFromLines(array $bodyLines, ?string $ctaUrl = null, ?string $ctaLabel = null, ?PDO $pdo = null): string
+{
+    require_once __DIR__ . '/email-layout.php';
+
+    $html = buildEmailBodyFromLines($bodyLines);
+
+    if ($ctaUrl !== null && $ctaLabel !== null && trim($ctaUrl) !== '' && trim($ctaLabel) !== '') {
+        if ($pdo instanceof PDO) {
+            $html .= buildEmailButton($pdo, $ctaUrl, $ctaLabel);
+        } else {
+            $html .= buildStaffEmailButton($ctaUrl, $ctaLabel);
+        }
+    }
+
+    return $html;
 }
 
 /**
