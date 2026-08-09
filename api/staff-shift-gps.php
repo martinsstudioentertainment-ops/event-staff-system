@@ -44,7 +44,7 @@ if ($staff === null) {
 }
 
 $email = strtolower(trim((string) ($staff['email'] ?? '')));
-$shift = getStaffActiveShiftMonitoring($pdo, $email);
+$shift = getStaffActiveShiftMonitoring($pdo, $email, (int) ($staff['id'] ?? 0));
 if ($shift === null) {
     echo json_encode(['ok' => false, 'error' => 'No active shift to monitor today.', 'monitoring' => false]);
     exit;

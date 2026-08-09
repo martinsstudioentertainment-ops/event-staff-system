@@ -4,16 +4,19 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/staff-repository.php';
 require_once __DIR__ . '/../includes/attendance-repository.php';
+require_once __DIR__ . '/../includes/attendance-roster-helpers.php';
+require_once __DIR__ . '/../includes/registration-bib.php';
 require_once __DIR__ . '/../includes/admin-pagination.php';
 
 requireAdminCapability('attendance');
 
 $pdo     = getDB();
 $eventId = (int) ($_GET['event_id'] ?? 0);
-$events  = getEventsForFilter($pdo);
+$events  = getEventsForAttendanceFilter($pdo);
+$bibEnabled = registrationBibColumnEnabled($pdo);
 $page    = adminListPage();
 $listTotal = countAttendanceList($pdo, $eventId);
-$list    = getAttendanceList($pdo, $eventId, adminListPerPage(), adminListOffset($page));
+$list    = getAttendanceList($pdo, $eventId, adminAttendanceListPerPage(), adminListOffset($page), true);
 $stats   = getAttendanceStats($pdo, $eventId);
 $flash   = getAdminFlash();
 $selectedEvent = $eventId > 0 ? getEventById($pdo, $eventId) : null;
@@ -63,6 +66,9 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <?php if ($eventId > 0): ?>
                 <a href="scan-checkin.php?event_id=<?= (int) $eventId ?>" class="btn btn--secondary">Scan QR</a>
                 <a href="print-roster.php?event_id=<?= (int) $eventId ?>" class="btn btn--secondary">Print Roster</a>
+                <?php if (adminCan('export')): ?>
+                    <a href="contractor-sheet.php?event_id=<?= (int) $eventId ?>" class="btn btn--secondary">Contractor sheet</a>
+                <?php endif; ?>
                 <a href="print-qr.php?event_id=<?= (int) $eventId ?>" class="btn btn--secondary">Print Staff QR</a>
                 <a href="event-sign-qr.php?id=<?= (int) $eventId ?>" class="btn btn--secondary">Sign-in Links</a>
             <?php endif; ?>
@@ -131,7 +137,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 <section class="card">
     <div class="card__header">
         <h2 class="card__title">Check-in roster</h2>
-        <p class="card__subtitle">QR check-in for approved staff only.</p>
+        <p class="card__subtitle">Approved staff for this event — signed-in staff are listed first. Use Work hours to adjust payable time.</p>
     </div>
 
     <form method="get" class="filter-bar filter-bar--attendance">
@@ -140,7 +146,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <option value="">All events</option>
                 <?php foreach ($events as $event): ?>
                     <option value="<?= (int) $event['id'] ?>"<?= $eventId === (int) $event['id'] ? ' selected' : '' ?>>
-                        <?= h($event['name'] . ' — ' . formatEventDateLabel((string) $event['event_date'])) ?>
+                        <?= h(formatEventFilterOptionLabel($event)) ?>
                     </option>
                 <?php endforeach; ?>
             </select>
@@ -156,6 +162,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <thead>
                 <tr>
                     <th>Name</th>
+                    <?php if ($bibEnabled): ?><th>Bib #</th><?php endif; ?>
                     <th>Event</th>
                     <th>Role</th>
                     <th>Check-in Status</th>
@@ -164,14 +171,20 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 </tr>
             </thead>
             <tbody>
+                <?php
+                $rosterCols = 6 + ($bibEnabled ? 1 : 0);
+                ?>
                 <?php if ($list === []): ?>
                     <tr>
-                        <td colspan="6" class="data-table__empty">No approved staff found for this filter.</td>
+                        <td colspan="<?= $rosterCols ?>" class="data-table__empty">No approved staff found for this filter.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($list as $row): ?>
                         <tr>
                             <td><?= h($row['first_name'] . ' ' . $row['surname']) ?></td>
+                            <?php if ($bibEnabled): ?>
+                            <td><?= h(formatRegistrationBibDisplay($row['assigned_bib_number'] ?? null)) ?></td>
+                            <?php endif; ?>
                             <td><?= h(formatEventLabel($row)) ?></td>
                             <td><?= h(formatRoleLabel($row['staff_role'])) ?></td>
                             <td>

@@ -33,7 +33,7 @@ function mobileProfileServiceBuild(PDO $pdo, array $staff): array
         return ['ok' => false, 'message' => 'Staff not found.', 'code' => 'STAFF_NOT_FOUND', 'status' => 404];
     }
 
-    $metrics   = getStaffPortalDashboardMetrics($pdo, $email);
+    $metrics   = getStaffPortalDashboardMetrics($pdo, $email, $staffId);
     $documents = portal_staff_documents($pdo, $fresh);
     $docStatus = mobileProfileSummarizeDocuments($documents);
     $missing   = getStaffOnboardingMissingFields($fresh);

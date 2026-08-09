@@ -52,7 +52,7 @@ function mobileShiftServiceList(PDO $pdo, array $staff, array $query): array
     }
 
     $statusToken    = $email !== '' ? (resolveStatusTokenByEmail($pdo, $email) ?? '') : '';
-    $rows           = getStaffV3ShiftRows($pdo, $email, $statusToken);
+    $rows           = getStaffV3ShiftRows($pdo, $email, $statusToken, $staffId);
     $companyName    = getCompanyName($pdo);
     $today          = getOperationalTodayYmd($pdo);
     $filtered       = mobileShiftFilterRows($rows, $filter, $today, $employer, $search, $companyName);
@@ -103,7 +103,7 @@ function mobileShiftServiceToday(PDO $pdo, array $staff): array
     mobileShiftReadThrottle($staffId);
 
     $statusToken = $email !== '' ? (resolveStatusTokenByEmail($pdo, $email) ?? '') : '';
-    $shiftRows   = getStaffV3ShiftRows($pdo, $email, $statusToken);
+    $shiftRows   = getStaffV3ShiftRows($pdo, $email, $statusToken, $staffId);
     $todayShift  = getStaffV3TodayShift($shiftRows, $pdo);
     $companyName = getCompanyName($pdo);
 

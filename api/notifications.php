@@ -79,5 +79,13 @@ if ($audience === 'staff') {
     exit;
 }
 
-http_response_code(400);
-echo json_encode(['ok' => false, 'error' => 'Invalid audience']);
+http_response_code(200);
+echo json_encode([
+    'ok'      => false,
+    'error'   => 'audience_required',
+    'message' => 'Pass audience=admin or audience=staff.',
+    'usage'   => [
+        'admin' => '/api/notifications.php?audience=admin',
+        'staff' => '/api/notifications.php?audience=staff&token=…',
+    ],
+]);

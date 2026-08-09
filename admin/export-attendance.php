@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/staff-repository.php';
 require_once __DIR__ . '/../includes/attendance-repository.php';
+require_once __DIR__ . '/../includes/attendance-roster-helpers.php';
 require_once __DIR__ . '/../includes/audit-log.php';
 require_once __DIR__ . '/../includes/admin/admin-nav.php';
 
@@ -43,7 +44,7 @@ if (isset($_GET['event_id'])) {
     exit;
 }
 
-$events = getEventsForFilter($pdo);$flash  = getAdminFlash();
+$events = getEventsForAttendanceFilter($pdo);$flash  = getAdminFlash();
 
 $pageTitle          = 'Export Attendance CSV';
 $activePage         = 'export-attendance';
@@ -69,7 +70,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <option value="">All events</option>
                 <?php foreach ($events as $event): ?>
                     <option value="<?= (int) $event['id'] ?>">
-                        <?= h($event['name'] . ' — ' . formatEventDateLabel((string) $event['event_date'])) ?>
+                        <?= h(formatEventFilterOptionLabel($event)) ?>
                     </option>
                 <?php endforeach; ?>
             </select>

@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/site-urls.php';
 require_once __DIR__ . '/../includes/registration-forms.php';
+require_once __DIR__ . '/../includes/rich-text.php';
 require_once __DIR__ . '/../includes/admin/forms-nav.php';
 require_once __DIR__ . '/../includes/admin-pagination.php';
 
@@ -37,7 +38,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <article class="admin-form-list__item">
                 <div class="admin-form-list__main">
                     <h3 class="admin-form-list__title"><?= h($form['label'] ?? ucfirst($slug)) ?></h3>
-                    <p class="admin-form-list__desc"><?= h($form['description'] ?? $form['subtitle'] ?? '') ?></p>
+                    <p class="admin-form-list__desc"><?= h(plainTextFromRich($form['description'] ?? $form['subtitle'] ?? '', 500)) ?></p>
                     <p class="admin-form-list__url"><code><?= h($shareUrl) ?></code></p>
                 </div>
                 <div class="admin-form-list__actions">

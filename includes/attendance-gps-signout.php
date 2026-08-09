@@ -384,3 +384,77 @@ function enforceStaleGeofenceSignouts(PDO $pdo): int
 
     return $signedOut;
 }
+
+/**
+ * Close attendance still marked active after the event day has passed (missed auto sign-out).
+ */
+function closeStaleActiveAttendanceForPastEvents(PDO $pdo): int
+{
+    if (!isGpsAttendanceV2Enabled($pdo)) {
+        return 0;
+    }
+
+    ensureAttendanceGpsSignoutSchema($pdo);
+    require_once __DIR__ . '/date-format.php';
+
+    $today = getOperationalTodayYmd($pdo);
+    $stmt  = $pdo->prepare(
+        "SELECT a.id, a.hours_worked, a.work_end_at, a.checked_out_at,
+                e.event_date, e.end_time
+         FROM attendance a
+         INNER JOIN events e ON e.id = a.event_id
+         WHERE a.attendance_status = :active
+           AND e.event_date < :today
+           AND a.checked_out_at IS NULL"
+    );
+    $stmt->execute([
+        'active' => ATTENDANCE_STATUS_ACTIVE,
+        'today'  => $today,
+    ]);
+
+    $closed = 0;
+
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $attendanceId = (int) ($row['id'] ?? 0);
+        if ($attendanceId < 1) {
+            continue;
+        }
+
+        $workEnd = trim((string) ($row['work_end_at'] ?? ''));
+        if ($workEnd !== '') {
+            $checkedOutAt = new DateTime($workEnd);
+        } else {
+            $date    = (string) ($row['event_date'] ?? '');
+            $endTime = (string) ($row['end_time'] ?? '23:00:00');
+            $checkedOutAt = parseEventDateTime($date, $endTime) ?? new DateTime('now');
+        }
+
+        $update = $pdo->prepare(
+            "UPDATE attendance SET
+                attendance_status = :signed_out,
+                checked_out_at = :checked_out_at,
+                signout_reason = :reason
+             WHERE id = :id AND attendance_status = :active"
+        );
+        $update->execute([
+            'signed_out'     => ATTENDANCE_STATUS_AUTO_SIGNED_OUT,
+            'checked_out_at' => $checkedOutAt->format('Y-m-d H:i:s'),
+            'reason'         => 'event_end',
+            'id'             => $attendanceId,
+            'active'         => ATTENDANCE_STATUS_ACTIVE,
+        ]);
+
+        if ($update->rowCount() === 0) {
+            continue;
+        }
+
+        $hoursWorked = $row['hours_worked'] ?? null;
+        if ($hoursWorked === null || (float) $hoursWorked <= 0) {
+            finalizeWorkHoursOnSignOut($pdo, $attendanceId, $checkedOutAt);
+        }
+
+        $closed++;
+    }
+
+    return $closed;
+}

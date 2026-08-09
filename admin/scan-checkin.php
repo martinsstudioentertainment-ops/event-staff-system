@@ -33,7 +33,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <option value="">All events (any pass)</option>
                 <?php foreach ($events as $ev): ?>
                     <option value="<?= (int) $ev['id'] ?>"<?= $eventId === (int) $ev['id'] ? ' selected' : '' ?>>
-                        <?= h($ev['name'] . ' — ' . formatEventDateLabel((string) $ev['event_date'])) ?>
+                        <?= h(formatEventFilterOptionLabel($ev)) ?>
                     </option>
                 <?php endforeach; ?>
             </select>

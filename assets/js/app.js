@@ -219,9 +219,70 @@
         }
     }
 
+    function getEffectiveRegistrationEmailValue() {
+        const emailEl = document.getElementById('email');
+        if (emailEl && emailEl.value.trim()) {
+            return emailEl.value.trim();
+        }
+        if (window.RegistrationWizardValidation && typeof window.RegistrationWizardValidation.getEffectiveRegistrationEmail === 'function') {
+            return window.RegistrationWizardValidation.getEffectiveRegistrationEmail();
+        }
+        const hidden = document.getElementById('registration_verified_google_email');
+        if (hidden && String(hidden.value || '').trim() !== '') {
+            return String(hidden.value).trim();
+        }
+        return String(document.body.dataset.registrationGoogleEmail || '').trim();
+    }
+
+    function syncEffectiveRegistrationEmailForSubmit() {
+        const emailEl = document.getElementById('email');
+        const eff = getEffectiveRegistrationEmailValue();
+        if (!emailEl || !eff || emailEl.value.trim()) {
+            return;
+        }
+        emailEl.value = eff;
+        emailEl.dispatchEvent(new Event('change', { bubbles: true }));
+        const hidden = document.getElementById('registration_verified_google_email');
+        if (hidden && String(hidden.value || '').trim() === '') {
+            hidden.value = eff;
+        }
+    }
+
+    function showWizardSubmitBlockedFeedback(form) {
+        const alertEl = document.getElementById('form-alert');
+        var validation = window.RegistrationWizardValidation;
+        var errors = validation && typeof validation.getLastValidationErrors === 'function'
+            ? validation.getLastValidationErrors()
+            : {};
+        var keys = Object.keys(errors);
+        var detail = keys.length === 1
+            ? errors[keys[0]]
+            : (keys.length > 1 ? keys.length + ' sections need attention before you can submit.' : '');
+
+        if (alertEl) {
+            alertEl.textContent = detail
+                ? detail
+                : 'Please correct the highlighted sections on the review page, then try again.';
+            alertEl.className = 'alert alert--error alert--visible';
+        }
+        if (window.RegistrationWizardReview && typeof window.RegistrationWizardReview.render === 'function') {
+            window.RegistrationWizardReview.render();
+        }
+        const banner = document.querySelector('.reg-review-summary__error-banner');
+        if (banner) {
+            banner.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+        }
+        const firstError = form.querySelector('.form-error--visible');
+        if (firstError) {
+            firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
     function validateForm(form) {
         clearErrors(form);
         syncStaffRoleFromFormSlug(form);
+        syncEffectiveRegistrationEmailForSubmit();
         if (typeof syncPhoneInputMobile === 'function') {
             syncPhoneInputMobile(form);
         }
@@ -231,8 +292,14 @@
             REGISTRATION_FIELDS.forEach(function (field) {
                 if (field.name === 'gender' || field.name === 'staff_role' || field.name === 'mobile') return;
 
-                const el = document.getElementById(field.name);
-                if (!el || !el.value.trim()) {
+                let value = '';
+                if (field.name === 'email') {
+                    value = getEffectiveRegistrationEmailValue();
+                } else {
+                    const el = document.getElementById(field.name);
+                    value = el ? String(el.value || '').trim() : '';
+                }
+                if (!value) {
                     showFieldError(field.name, field.label + ' is required.');
                     isValid = false;
                 }
@@ -295,15 +362,9 @@
             isValid = false;
         }
 
-        const shiftList = document.getElementById('shift-picker-list');
-        const checkedShifts = shiftList
-            ? shiftList.querySelectorAll('input[name="event_ids[]"]:checked:not(:disabled)')
-            : [];
-        const joinWaitlist = document.getElementById('join_waiting_list');
-        const waitlistOk = joinWaitlist && joinWaitlist.checked;
-        if ((!shiftList || checkedShifts.length === 0) && !waitlistOk) {
-            showFieldError('event_ids', 'Please tick at least one shift, or join the waiting list.');
-            isValid = false;
+        const modeInput = document.getElementById('registration_mode');
+        if (modeInput) {
+            modeInput.value = 'profile_only';
         }
 
         const privacyEl = form.querySelector('input[name="privacy_consent"]');
@@ -323,10 +384,13 @@
             }
         }
 
+        const requiresPsa = typeof registrationRoleRequiresPsa === 'function'
+            ? registrationRoleRequiresPsa()
+            : true;
         const psaField = document.getElementById('psa_licence')
             || document.getElementById('status_psa_licence')
             || form.querySelector('input[name="psa_licence"]');
-        if (psaField && psaField.offsetParent !== null) {
+        if (requiresPsa && psaField && psaField.offsetParent !== null) {
             const psaErr = typeof psaLicenceError === 'function'
                 ? psaLicenceError(psaField.value, psaField.required)
                 : null;
@@ -336,7 +400,7 @@
             }
         }
 
-        if (document.body.dataset.registrationPage === 'true') {
+        if (requiresPsa && document.body.dataset.registrationPage === 'true') {
             const psaExpiry = document.getElementById('psa_expiry_date');
             if (psaExpiry && !psaExpiry.value.trim()) {
                 showFieldError('psa_expiry_date', 'PSA expiry date is required.');
@@ -577,8 +641,13 @@
 
         form.addEventListener('submit', function (e) {
             syncStaffRoleFromFormSlug(form);
+            var wizardMode = document.body.dataset.wizardMode === '1';
 
-            if (!validateForm(form)) {
+            if (wizardMode) {
+                syncEffectiveRegistrationEmailForSubmit();
+            }
+
+            if (!wizardMode && !validateForm(form)) {
                 e.preventDefault();
                 var alertEl = document.getElementById('form-alert');
                 if (alertEl) {
@@ -598,6 +667,10 @@
 
             /* Registration: normal POST so server can redirect to status.php (AJAX was saving but staying on form). */
             if (document.body.dataset.registrationPage === 'true' && isBackendSubmit()) {
+                if (e.defaultPrevented) {
+                    showWizardSubmitBlockedFeedback(form);
+                    return;
+                }
                 if (form.dataset.submitting === '1') {
                     e.preventDefault();
                     return;

@@ -182,6 +182,20 @@ function isStaffPsaComplete(?array $staff): bool
 }
 
 /**
+ * Stewards do not require PSA licence details at registration.
+ *
+ * @param array<string, mixed> $data
+ */
+function registrationRoleRequiresPsa(array $data): bool
+{
+    require_once __DIR__ . '/registration-forms.php';
+
+    $role = normalizeStaffRole(trim((string) ($data['staff_role'] ?? '')));
+
+    return $role !== 'steward';
+}
+
+/**
  * @param array<string, mixed> $data POST fields
  * @param array<string, mixed>|null $staff Existing staff row (for optional re-upload)
  * @param array<string, mixed> $files $_FILES
@@ -189,6 +203,10 @@ function isStaffPsaComplete(?array $staff): bool
  */
 function validateRegistrationPsa(array $data, ?array $staff, array $files): array
 {
+    if (!registrationRoleRequiresPsa($data)) {
+        return [];
+    }
+
     $errors = [];
 
     require_once __DIR__ . '/financial-field-validation.php';

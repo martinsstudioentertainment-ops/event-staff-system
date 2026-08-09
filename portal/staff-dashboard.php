@@ -48,9 +48,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-$assignments  = ssp_get_assignments($pdo, $email);
+$assignments  = ssp_get_assignments($pdo, $email, $staffId);
 $upcoming     = portal_upcoming_events($pdo, $email);
-$attendance   = ssp_attendance_history($pdo, $email, 40);
+$attendance   = ssp_attendance_history($pdo, $email, 40, $staffId);
 $reliability  = ssp_reliability_for_staff($pdo, $staffId);
 $psaStatus    = wf_psa_compliance_status((string) ($staff['psa_expiry_date'] ?? ''), (string) ($staff['psa_licence'] ?? ''));
 $documents    = portal_staff_documents($pdo, $staff);

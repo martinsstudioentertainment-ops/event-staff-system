@@ -14,20 +14,21 @@ require_once __DIR__ . '/staff-repository.php';
  *
  * @return array<string, mixed>|null
  */
-function getStaffActiveShiftMonitoring(PDO $pdo, string $email): ?array
+function getStaffActiveShiftMonitoring(PDO $pdo, string $email, int $staffId = 0): ?array
 {
     if (!isGpsAttendanceV2Enabled($pdo)) {
         return null;
     }
 
     $email = strtolower(trim($email));
-    if ($email === '') {
+    if ($email === '' && $staffId < 1) {
         return null;
     }
 
     try {
         ensureAttendanceGpsSignoutSchema($pdo);
 
+        $match = staffRegistrationMatchClause($email, $staffId);
         $sql = "SELECT a.*, sr.id AS registration_id, sr.first_name, sr.surname,
                        e.id AS event_row_id, e.name AS event_name, e.event_date,
                        e.start_time, e.end_time, e.venue_lat, e.venue_lng, e.venue_eircode,
@@ -35,19 +36,18 @@ function getStaffActiveShiftMonitoring(PDO $pdo, string $email): ?array
                 FROM attendance a
                 INNER JOIN staff_registrations sr ON sr.id = a.registration_id
                 INNER JOIN events e ON e.id = a.event_id
-                WHERE LOWER(sr.email) = :email
+                WHERE " . $match['sql'] . "
                   AND e.event_date = :today
                   AND a.attendance_status IN (:active, :pre)
                 ORDER BY a.checked_in_at DESC
                 LIMIT 1";
 
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([
-            'email'  => $email,
+        $stmt->execute(array_merge($match['params'], [
             'today'  => getOperationalTodayYmd($pdo),
             'active' => ATTENDANCE_STATUS_ACTIVE,
             'pre'    => ATTENDANCE_STATUS_PRE_CHECKED_IN,
-        ]);
+        ]));
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         return $row ?: null;
@@ -73,7 +73,8 @@ function staffShiftMonitoringIsActive(array $shift): bool
 function staffPortalShiftBodyAttributes(PDO $pdo, array $portalStaff): array
 {
     $email = strtolower(trim((string) ($portalStaff['email'] ?? '')));
-    $shift = getStaffActiveShiftMonitoring($pdo, $email);
+    $staffId = (int) ($portalStaff['id'] ?? 0);
+    $shift = getStaffActiveShiftMonitoring($pdo, $email, $staffId);
     if ($shift === null) {
         return [];
     }
@@ -112,7 +113,8 @@ function renderStaffPortalShiftBanner(PDO $pdo, ?array $portalStaff): void
     }
 
     $email = strtolower(trim((string) ($portalStaff['email'] ?? '')));
-    $shift = getStaffActiveShiftMonitoring($pdo, $email);
+    $staffId = (int) ($portalStaff['id'] ?? 0);
+    $shift = getStaffActiveShiftMonitoring($pdo, $email, $staffId);
     if ($shift === null) {
         return;
     }
@@ -142,26 +144,27 @@ function renderStaffPortalShiftBanner(PDO $pdo, ?array $portalStaff): void
  *
  * @return array<string, mixed>|null
  */
-function getStaffTodayPayrollSummary(PDO $pdo, string $email): ?array
+function getStaffTodayPayrollSummary(PDO $pdo, string $email, int $staffId = 0): ?array
 {
     ensureWorkHoursSchema($pdo);
 
     $email = strtolower(trim($email));
-    if ($email === '') {
+    if ($email === '' && $staffId < 1) {
         return null;
     }
 
+    $match = staffRegistrationMatchClause($email, $staffId);
     $stmt = $pdo->prepare(
         "SELECT a.hours_worked, a.hours_paid, a.hours_note, a.work_end_at, a.checked_out_at,
                 e.name AS event_name
          FROM attendance a
          INNER JOIN staff_registrations sr ON sr.id = a.registration_id
          INNER JOIN events e ON e.id = a.event_id
-         WHERE LOWER(sr.email) = :email AND e.event_date = CURDATE()
+         WHERE " . $match['sql'] . " AND e.event_date = CURDATE()
          ORDER BY a.checked_in_at DESC
          LIMIT 1"
     );
-    $stmt->execute(['email' => $email]);
+    $stmt->execute($match['params']);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
     return $row ?: null;
@@ -178,7 +181,7 @@ function renderStaffPortalTodayPayrollNote(PDO $pdo, ?array $portalStaff): void
 
     require_once __DIR__ . '/work-hours-repository.php';
 
-    $summary = getStaffTodayPayrollSummary($pdo, (string) ($portalStaff['email'] ?? ''));
+    $summary = getStaffTodayPayrollSummary($pdo, (string) ($portalStaff['email'] ?? ''), (int) ($portalStaff['id'] ?? 0));
     if ($summary === null) {
         return;
     }
@@ -212,7 +215,8 @@ function renderStaffPortalShiftMonitorScript(PDO $pdo, ?array $portalStaff): voi
     }
 
     $email = strtolower(trim((string) ($portalStaff['email'] ?? '')));
-    if (getStaffActiveShiftMonitoring($pdo, $email) === null) {
+    $staffId = (int) ($portalStaff['id'] ?? 0);
+    if (getStaffActiveShiftMonitoring($pdo, $email, $staffId) === null) {
         return;
     }
 

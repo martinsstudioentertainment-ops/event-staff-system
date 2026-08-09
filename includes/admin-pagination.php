@@ -12,6 +12,9 @@ const ADMIN_STAFF_LIST_PER_PAGE = 50;
 /** Events list — show full summer roster without paging through many pages. */
 const ADMIN_EVENTS_LIST_PER_PAGE = 50;
 
+/** Attendance list — show full event roster without paging through many pages. */
+const ADMIN_ATTENDANCE_LIST_PER_PAGE = 50;
+
 function adminListPage(): int
 {
     return max(1, (int) ($_GET['page'] ?? 1));
@@ -20,6 +23,11 @@ function adminListPage(): int
 function adminListPerPage(): int
 {
     return ADMIN_LIST_PER_PAGE;
+}
+
+function adminAttendanceListPerPage(): int
+{
+    return ADMIN_ATTENDANCE_LIST_PER_PAGE;
 }
 
 function adminStaffListPerPage(): int

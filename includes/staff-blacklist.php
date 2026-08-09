@@ -36,7 +36,7 @@ function getApprovedRegistrationsWithAttendance(PDO $pdo, string $email): array
 
     $sql = 'SELECT sr.*,
                    e.name AS event_name, e.event_date, e.start_time, e.end_time,
-                   a.id AS attendance_id, a.checked_in_at, a.attendance_status
+                   a.id AS attendance_id, a.checked_in_at, a.checked_in_method, a.attendance_status
             FROM staff_registrations sr
             INNER JOIN events e ON e.id = sr.event_id
             LEFT JOIN attendance a ON a.registration_id = sr.id
@@ -67,6 +67,30 @@ function getDecidedApprovedRegistrations(PDO $pdo, string $email): array
 }
 
 /**
+ * Whether an approved registration row reflects a real venue check-in (not no-show).
+ *
+ * @param array<string, mixed> $row
+ */
+function registrationHadVenueCheckin(array $row): bool
+{
+    if (empty($row['attendance_id']) && trim((string) ($row['checked_in_at'] ?? '')) === '') {
+        return false;
+    }
+
+    $status = strtolower(trim((string) ($row['attendance_status'] ?? '')));
+    if ($status === 'no_show') {
+        return false;
+    }
+
+    $method = strtolower(trim((string) ($row['checked_in_method'] ?? '')));
+    if ($method === 'auto_no_show') {
+        return false;
+    }
+
+    return true;
+}
+
+/**
  * Count consecutive no-shows ending at the most recent decided event.
  * A check-in resets the streak.
  */
@@ -76,12 +100,9 @@ function countConsecutiveNoShows(PDO $pdo, string $email): int
     $streak = 0;
 
     foreach ($rows as $row) {
-        if (!empty($row['attendance_id'])) {
-            $attStatus = strtolower(trim((string) ($row['attendance_status'] ?? '')));
-            if ($attStatus !== 'no_show') {
-                $streak = 0;
-                continue;
-            }
+        if (registrationHadVenueCheckin($row)) {
+            $streak = 0;
+            continue;
         }
 
         $streak++;

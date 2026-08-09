@@ -84,12 +84,21 @@ $sheetStatus   = countEventsGoogleSheetStatus($pdo);
 $hasSa         = isGoogleServiceAccountConfigured();
 $hasOauth      = googleDriveOAuthConfigured($pdo);
 $hasDriveFolder = getGoogleSheetsDriveParentFolderId($pdo) !== '';
-$canAutoSheet  = $hasSa && $hasDriveFolder;
+$canManualLink  = isGoogleSheetsManualLinkReady($pdo);
+$canAutoSheet   = $hasSa && $hasDriveFolder;
 $syncEnabled   = isGoogleSheetsSyncEnabled($pdo);
 $linkedSheets  = (int) ($sheetStatus['total'] - $sheetStatus['missing']);
 $missingSheets = (int) $sheetStatus['missing'];
 $driveSheets   = [];
-$showSheetBulk = $events !== [] && ($canAutoSheet || $linkedSheets > 0);
+if ($canAutoSheet || $canManualLink) {
+    try {
+        $driveSheets = listGoogleDriveSpreadsheetsForAdmin($pdo);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] events.php drive list: ' . $e->getMessage());
+        $driveSheets = [];
+    }
+}
+$showSheetBulk = $events !== [] && ($canAutoSheet || $canManualLink || $linkedSheets > 0);
 $tableColCount = $showSheetBulk ? 12 : 11;
 
 $masterContractor     = '';
@@ -264,7 +273,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <?php if ($canAutoSheet): ?>
                 <button type="submit" name="action" value="create_selected" class="btn btn--small btn--primary">Create sheets</button>
             <?php endif; ?>
-            <?php if ($canAutoSheet && $driveSheets !== []): ?>
+            <?php if (($canAutoSheet || $canManualLink) && $driveSheets !== []): ?>
                 <button type="submit" name="action" value="link_selected" class="btn btn--small btn--secondary">Link from folder</button>
             <?php endif; ?>
             <button type="submit" name="action" value="unlink_selected" class="btn btn--small btn--secondary">Unlink</button>
@@ -347,7 +356,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                                 <?php else: ?>
                                     <span class="form-hint">Not linked</span>
                                 <?php endif; ?>
-                                <?php if ($canAutoSheet && $driveSheets !== []): ?>
+                                <?php if (($canAutoSheet || $canManualLink) && $driveSheets !== []): ?>
                                     <form method="post" action="events-sheets-action.php" class="events-sheet-picker">
                                         <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                                         <input type="hidden" name="action" value="link_pick">

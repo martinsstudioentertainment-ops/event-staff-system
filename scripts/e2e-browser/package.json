@@ -1,0 +1,11 @@
+{
+  "name": "olasentra-registration-e2e",
+  "private": true,
+  "scripts": {
+    "test:production": "node registration-production.mjs",
+    "test:authenticated": "node authenticated-smoke.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.52.0"
+  }
+}

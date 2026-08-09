@@ -65,8 +65,9 @@ try {
     $stmt = $eventPdo->prepare($sql);
     $stmt->execute($params);
     $applicants = $stmt->fetchAll();
-} catch (Exception $e) {
-    $error = 'Failed to load main registrations: ' . $e->getMessage();
+} catch (Throwable $e) {
+    error_log('[ApplyApplicants] ' . $e->getMessage());
+    $error = 'Failed to load main registrations. Please check the ERP database connection in Apply settings.';
 }
 
 $paginationQuery = array_filter([

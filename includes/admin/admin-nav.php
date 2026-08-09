@@ -112,6 +112,7 @@ function getAdminExportNavItems(): array
         ['key' => 'staff',      'label' => 'Staff CSV',      'url' => 'export-staff.php'],
         ['key' => 'attendance', 'label' => 'Attendance CSV', 'url' => 'export-attendance.php'],
         ['key' => 'signins',    'label' => 'Event sign-ins', 'url' => 'export-event-signins.php'],
+        ['key' => 'contractor-sheet', 'label' => 'Contractor sheet', 'url' => 'contractor-sheet.php'],
         ['key' => 'work-hours', 'label' => 'Work hours', 'url' => 'work-hours.php'],
     ];
 }

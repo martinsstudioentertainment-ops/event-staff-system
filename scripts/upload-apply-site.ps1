@@ -12,7 +12,7 @@ if ([string]::IsNullOrWhiteSpace($applyDir) -or $applyDir -eq '/apply/admin') {
     $applyDir = '/apply'
 }
 
-$skipPattern = '(?i)(\\|/)(\.git|error_log|\.BACK|backup|\.zip$|\.example\.|(^|[\\/])front\.php$)'
+$skipPattern = '(?i)(\\|/)(\.git|error_log|\.BACK|backup|\.zip$|\.example\.)'
 $skipFiles   = @(
     'config\database.php',
     'config\eventstaff-database.php',
@@ -44,6 +44,14 @@ foreach ($file in $files) {
         Ensure-FtpDirectoryTree -Server $cfg.FtpServer -RemoteDir "$applyDir/admin/$remoteDir" -Deploy $cfg
     }
     Send-FtpFile -LocalPath $file.FullName -RemoteRelativePath "admin/$relative" -RemoteBase $applyDir -Deploy $cfg
+}
+
+foreach ($rootShim in @('login.php', 'sso.php', 'front.php')) {
+    $local = Join-Path $ProjectRoot "apply\$rootShim"
+    if (Test-Path $local) {
+        Send-FtpFile -LocalPath $local -RemoteRelativePath $rootShim -RemoteBase $applyDir -Deploy $cfg
+        Write-Host "  root shim: $rootShim" -ForegroundColor DarkGray
+    }
 }
 
 Write-Host ''

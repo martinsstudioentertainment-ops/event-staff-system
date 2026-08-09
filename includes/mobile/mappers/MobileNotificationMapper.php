@@ -48,6 +48,7 @@ function mobileNotificationCategoryFromType(string $type): array
         'psa_expiry'       => 'document_expiry',
         'broadcast'        => 'system_announcement',
         'announcement'     => 'system_announcement',
+        'profile_created'  => 'system_announcement',
         'system'           => 'system_announcement',
     ];
 

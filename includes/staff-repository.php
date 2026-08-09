@@ -65,6 +65,145 @@ function countPendingRegistrations(PDO $pdo): int
 }
 
 /**
+ * All staff profile IDs that share the same name + date of birth (duplicate profiles).
+ *
+ * @return list<int>
+ */
+function findDuplicateStaffProfileIds(PDO $pdo, int $staffId): array
+{
+    if ($staffId < 1) {
+        return [];
+    }
+
+    $staff = getStaffById($pdo, $staffId);
+    if ($staff === null) {
+        return [];
+    }
+
+    $firstName = strtolower(trim((string) ($staff['first_name'] ?? '')));
+    $surname   = strtolower(trim((string) ($staff['surname'] ?? '')));
+    $dob       = trim((string) ($staff['date_of_birth'] ?? ''));
+    if ($firstName === '' || $surname === '' || $dob === '') {
+        return [];
+    }
+
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT id FROM staff
+             WHERE LOWER(TRIM(first_name)) = :first_name
+               AND LOWER(TRIM(surname)) = :surname
+               AND date_of_birth = :dob'
+        );
+        $stmt->execute([
+            'first_name' => $firstName,
+            'surname'    => $surname,
+            'dob'        => $dob,
+        ]);
+
+        return array_values(array_unique(array_map(
+            'intval',
+            $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []
+        )));
+    } catch (Throwable $e) {
+        error_log('[EventStaff] findDuplicateStaffProfileIds: ' . $e->getMessage());
+
+        return [];
+    }
+}
+
+/**
+ * Emails and staff IDs used to load a staff member's registrations in the app.
+ *
+ * @return array{emails: list<string>, staff_ids: list<int>}
+ */
+function resolveStaffRegistrationScope(PDO $pdo, string $email, int $staffId): array
+{
+    $email     = strtolower(trim($email));
+    $emails    = $email !== '' ? [$email] : [];
+    $staffIds  = $staffId > 0 ? [$staffId] : [];
+
+    if ($staffId > 0) {
+        require_once __DIR__ . '/staff-messages.php';
+        $thread   = resolveStaffThreadScope($pdo, $staffId);
+        $emails   = array_merge($emails, $thread['emails'] ?? []);
+        $staffIds = array_merge($staffIds, $thread['staff_ids'] ?? []);
+        $staffIds = array_merge($staffIds, findDuplicateStaffProfileIds($pdo, $staffId));
+    } elseif ($email !== '') {
+        $staff = getStaffByEmail($pdo, $email);
+        if ($staff !== null) {
+            $linkedId = (int) ($staff['id'] ?? 0);
+            if ($linkedId > 0) {
+                $staffIds[] = $linkedId;
+                $staffIds   = array_merge($staffIds, findDuplicateStaffProfileIds($pdo, $linkedId));
+            }
+        }
+    }
+
+    foreach ($staffIds as $linkedStaffId) {
+        $linkedStaff = getStaffById($pdo, $linkedStaffId);
+        if ($linkedStaff === null) {
+            continue;
+        }
+        $linkedEmail = strtolower(trim((string) ($linkedStaff['email'] ?? '')));
+        if ($linkedEmail !== '') {
+            $emails[] = $linkedEmail;
+        }
+    }
+
+    $emails = array_values(array_unique(array_filter($emails)));
+    $staffIds = array_values(array_unique(array_filter(array_map('intval', $staffIds), static fn (int $id): bool => $id > 0)));
+
+    return ['emails' => $emails, 'staff_ids' => $staffIds];
+}
+
+/**
+ * SQL fragment matching staff registrations by profile email and/or staff_id.
+ *
+ * @return array{sql: string, params: array<string, mixed>}
+ */
+function staffRegistrationMatchClause(string $email, int $staffId, string $tableAlias = 'sr'): array
+{
+    $conditions = [];
+    $params     = [];
+    $email      = strtolower(trim($email));
+
+    if ($email !== '') {
+        $conditions[] = 'LOWER(' . $tableAlias . '.email) = :staff_match_email';
+        $params['staff_match_email'] = $email;
+    }
+    if ($staffId > 0) {
+        $conditions[] = $tableAlias . '.staff_id = :staff_match_id';
+        $params['staff_match_id'] = $staffId;
+    }
+
+    if ($conditions === []) {
+        return ['sql' => '0 = 1', 'params' => []];
+    }
+
+    return [
+        'sql'    => '(' . implode(' OR ', $conditions) . ')',
+        'params' => $params,
+    ];
+}
+
+/**
+ * @param array<string, mixed>|null $staff
+ * @return array{sql: string, params: array<string, mixed>}
+ */
+function staffRegistrationMatchClauseFromStaff(?array $staff, string $tableAlias = 'sr'): array
+{
+    if (!is_array($staff)) {
+        return ['sql' => '0 = 1', 'params' => []];
+    }
+
+    return staffRegistrationMatchClause(
+        (string) ($staff['email'] ?? ''),
+        (int) ($staff['id'] ?? 0),
+        $tableAlias
+    );
+}
+
+/**
  * @param array<int, array<string, mixed>> $rows
  * @return array<int, array<string, mixed>>
  */
@@ -822,6 +961,7 @@ function mergeRegistrationWithEvent(PDO $pdo, array $row): array
             'location'              => 'event_location',
             'event_date'            => 'event_date',
             'is_active'             => 'is_active',
+            'whatsapp_group_url'    => 'event_whatsapp_group_url',
         ];
 
         foreach ($map as $from => $to) {

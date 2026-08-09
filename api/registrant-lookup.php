@@ -35,6 +35,11 @@ throttleRegistrationLookup($email);
 try {
     $pdo  = getDB();
     $row  = getLatestRegistrationByEmail($pdo, $email);
+    $staffRow = getStaffByEmail($pdo, $email) ?: [];
+
+    if ($row === null && $staffRow !== []) {
+        $row = $staffRow;
+    }
 
     if ($row === null) {
         echo json_encode(['found' => false]);
@@ -48,7 +53,9 @@ try {
         $registeredEvents
     ))));
     $role             = normalizeStaffRole((string) ($row['staff_role'] ?? ''));
-    $staffRow         = getStaffByEmail($pdo, $email) ?: [];
+    if ($staffRow === []) {
+        $staffRow = getStaffByEmail($pdo, $email) ?: [];
+    }
     $profileComplete  = $staffRow !== [] && !staffNeedsProfileForm($pdo, $staffRow);
     $summary          = buildReturningRegistrantSummary($pdo, $row, $staffRow, $registeredEvents);
 
@@ -62,7 +69,9 @@ try {
         'events_applied_count' => $summary['events_applied_count'],
         'profile_url'      => 'staff-profile.php',
         'message' => $profileComplete
-            ? 'Welcome back! Your saved details are loaded — select the new event(s) you want to register for.'
+            ? ($registeredEvents === []
+                ? 'Welcome back! Your saved profile is ready — sign in to the staff app to view and apply for shifts.'
+                : 'Welcome back! Your saved details are loaded — select the new event(s) you want to register for.')
             : 'Welcome back! Complete your profile before you can pick new shifts.',
         'profile' => [
             'surname'       => (string) ($row['surname'] ?? ''),
@@ -95,6 +104,7 @@ try {
         }, $registeredEvents),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 } catch (Throwable $e) {
+    error_log('[EventStaff] registrant-lookup: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
     http_response_code(500);
     echo json_encode(['found' => false, 'error' => 'Unable to look up registrant.']);
 }

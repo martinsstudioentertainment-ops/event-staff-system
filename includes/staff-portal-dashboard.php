@@ -18,7 +18,7 @@ require_once __DIR__ . '/date-format.php';
  *   has_data: bool
  * }
  */
-function getStaffPortalDashboardMetrics(PDO $pdo, string $email): array
+function getStaffPortalDashboardMetrics(PDO $pdo, string $email, int $staffId = 0): array
 {
     $email = strtolower(trim($email));
     $empty = [
@@ -32,11 +32,12 @@ function getStaffPortalDashboardMetrics(PDO $pdo, string $email): array
         'has_data'   => false,
     ];
 
-    if ($email === '') {
+    if ($email === '' && $staffId < 1) {
         return $empty;
     }
 
     try {
+        $match = staffRegistrationMatchClause($email, $staffId);
         $stmt = $pdo->prepare(
             "SELECT
                 COUNT(*) AS total,
@@ -47,18 +48,18 @@ function getStaffPortalDashboardMetrics(PDO $pdo, string $email): array
                 SUM(CASE WHEN sr.status = 'approved' AND e.event_date < CURDATE() THEN 1 ELSE 0 END) AS completed
              FROM staff_registrations sr
              INNER JOIN events e ON e.id = sr.event_id
-             WHERE LOWER(sr.email) = :email"
+             WHERE " . $match['sql']
         );
-        $stmt->execute(['email' => $email]);
+        $stmt->execute($match['params']);
         $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
         $checkStmt = $pdo->prepare(
             "SELECT COUNT(DISTINCT a.id)
              FROM attendance a
              INNER JOIN staff_registrations sr ON sr.id = a.registration_id
-             WHERE LOWER(sr.email) = :email"
+             WHERE " . $match['sql']
         );
-        $checkStmt->execute(['email' => $email]);
+        $checkStmt->execute($match['params']);
         $checkedIn = (int) $checkStmt->fetchColumn();
 
         return [

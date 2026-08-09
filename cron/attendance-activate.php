@@ -42,8 +42,9 @@ if (!$isCli) {
 $pdo = getDB();
 $activated = activateHibernatedAttendanceForStartedEvents($pdo);
 $signedOut = enforceStaleGeofenceSignouts($pdo);
+$closedPast = closeStaleActiveAttendanceForPastEvents($pdo);
 $noShowStats = processAutoNoShowsForPastEvents($pdo);
 
 echo $isCli
-    ? "Activated {$activated} hibernated attendance record(s). Signed out {$signedOut} stale off-venue record(s). Marked {$noShowStats['marked']} auto no-show(s).\n"
-    : "OK activated={$activated} signed_out={$signedOut} no_show_marked={$noShowStats['marked']}\n";
+    ? "Activated {$activated} hibernated attendance record(s). Signed out {$signedOut} stale off-venue record(s). Closed {$closedPast} past active record(s). Marked {$noShowStats['marked']} auto no-show(s).\n"
+    : "OK activated={$activated} signed_out={$signedOut} closed_past_active={$closedPast} no_show_marked={$noShowStats['marked']}\n";

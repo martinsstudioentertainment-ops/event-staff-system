@@ -29,6 +29,7 @@ require_once __DIR__ . '/includes/staff-profile-gate.php';
 require_once __DIR__ . '/includes/registration-post-save.php';
 require_once __DIR__ . '/includes/staff-allocation.php';
 require_once __DIR__ . '/includes/staff-google-oauth.php';
+require_once __DIR__ . '/includes/staff-portal-remember.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -51,7 +52,7 @@ if (!verifyCsrf($_POST['csrf_token'] ?? null)) {
     exit;
 }
 
-$data     = $_POST;
+$data     = normalizePortalRegistrationPost($_POST);
 $formSlug = strtolower(trim((string) ($data['form_slug'] ?? '')));
 
 if ($formSlug !== '') {
@@ -70,7 +71,9 @@ if ($formSlug !== '') {
 $data['staff_role']     = normalizeStaffRole((string) ($data['staff_role'] ?? ''));
 $data['date_of_birth']  = normalizeDateOfBirthForDb((string) ($data['date_of_birth'] ?? ''));
 prepareMobileFromRequest($data);
-$waitlistMode = isWaitlistRegistrationRequest($data);
+$waitlistMode     = false;
+$profileOnlyMode  = true;
+$withoutShiftMode = true;
 
 try {
     $pdoGoogleCheck = getDB();
@@ -107,7 +110,7 @@ if ($verifiedGoogle !== '') {
     }
 }
 
-$errors   = $waitlistMode ? validateWaitlistRegistration($data) : validateRegistration($data);
+$errors   = validateWaitlistRegistration($data);
 $eventIds = normalizeEventIds($data);
 
 $existingStaff = null;
@@ -119,9 +122,9 @@ try {
 }
 $errors = array_merge($errors, validateRegistrationPsa($data, $existingStaff, $_FILES));
 
-if (empty($errors) && ($eventIds !== [] || $waitlistMode)) {
+if (empty($errors)) {
     if (!registrationFormReadyForShiftSelection($data, $_FILES, $existingStaff)) {
-        $errors['form'] = 'Complete all personal, financial, and PSA details (including card photos) before selecting shifts.';
+        $errors['form'] = 'Complete all personal, financial, and PSA details before submitting.';
     }
 }
 
@@ -148,7 +151,41 @@ if (empty($errors)) {
 
         $pdo = getDB();
 
-        if ($waitlistMode && $eventIds === []) {
+        if ($profileOnlyMode) {
+            $email = normalizeRegistrationEmail((string) ($data['email'] ?? ''));
+            $isNewAccount = $existingStaff === null;
+            $profileResult = saveProfileOnlyRegistration($pdo, $data, $_FILES);
+            if (!($profileResult['ok'] ?? false)) {
+                $errors['form'] = (string) ($profileResult['error'] ?? 'Could not save your registration.');
+            } else {
+                $message = buildProfileOnlySuccessMessage();
+                $staffId = (int) ($profileResult['staff_id'] ?? 0);
+                $staffRow = $staffId > 0 ? getStaffById($pdo, $staffId) : null;
+                if ($staffRow !== null) {
+                    establishStaffPortalSessionWithRemember($pdo, $staffRow);
+                    $_SESSION['staff_profile_welcome_message'] = $message;
+                } else {
+                    $_SESSION['registration_status_message'] = $message;
+                }
+                $redirectUrl = getProfileOnlyRegistrationRedirectUrl($pdo);
+
+                if (isAjaxRequest()) {
+                    registrationFlushResponse('', [
+                        'success'    => true,
+                        'message'    => $message,
+                        'count'      => 0,
+                        'profile_only' => true,
+                        'status_url' => $redirectUrl,
+                    ]);
+                    runProfileOnlyPostSaveSafely($pdo, $data, $staffId, $email, $isNewAccount);
+                    exit;
+                }
+
+                registrationFlushResponse($redirectUrl);
+                runProfileOnlyPostSaveSafely($pdo, $data, $staffId, $email, $isNewAccount);
+                exit;
+            }
+        } elseif ($waitlistMode && $eventIds === []) {
             $email = normalizeRegistrationEmail((string) ($data['email'] ?? ''));
             $waitlistResult = saveWaitlistRegistration($pdo, $data, $_FILES);
             if (!($waitlistResult['ok'] ?? false)) {

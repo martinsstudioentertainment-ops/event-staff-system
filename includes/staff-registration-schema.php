@@ -91,6 +91,14 @@ function ensureStaffRegistrationSaveSchema(PDO $pdo): void
         }
     }
 
+    if (!staffRegistrationColumnExists($pdo, 'assigned_bib_number')) {
+        try {
+            $pdo->exec('ALTER TABLE staff_registrations ADD COLUMN assigned_bib_number VARCHAR(32) NULL DEFAULT NULL');
+        } catch (Throwable $e) {
+            error_log('[EventStaff] assigned_bib_number column: ' . $e->getMessage());
+        }
+    }
+
     staffRegistrationInvalidateColumnCache();
 
     if (is_file(__DIR__ . '/staff-allocation-schema.php')) {

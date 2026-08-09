@@ -305,11 +305,24 @@ function renderStaffProfileNeededBanner(PDO $pdo, array $staff): void
 
     }
 
+    require_once __DIR__ . '/staff-onboarding.php';
+
+    $requiresPsa  = staffRoleRequiresOnboardingPsa($staff);
+    $baseMissing  = getStaffBaseProfileMissingFields($staff);
+
+    if (!$requiresPsa) {
+        $headline = 'Profile incomplete.';
+    } elseif ($baseMissing === []) {
+        $headline = 'PSA licence incomplete.';
+    } else {
+        $headline = 'Payroll profile incomplete.';
+    }
+
     ?>
 
     <div class="staff-easy__banner" role="status">
 
-        <strong>Payroll profile incomplete.</strong>
+        <strong><?= h($headline) ?></strong>
 
         <a href="staff-profile.php">Complete when ready</a> — you can still view shifts.
 

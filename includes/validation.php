@@ -59,6 +59,35 @@ function normalizeEventIds(array $data): array
     return array_values(array_unique($ids));
 }
 
+function isProfileOnlyRegistrationRequest(array $data): bool
+{
+    if (normalizeEventIds($data) !== []) {
+        return false;
+    }
+
+    return !isWaitlistRegistrationRequest($data);
+}
+
+/**
+ * Portal self-registration: staff account only — shift application happens after staff-app sign-in.
+ *
+ * @param array<string, mixed> $data
+ * @return array<string, mixed>
+ */
+function normalizePortalRegistrationPost(array $data): array
+{
+    $data['event_ids'] = [];
+    unset($data['join_waiting_list'], $data['waitlist_interest']);
+    $data['registration_mode'] = 'profile_only';
+
+    return $data;
+}
+
+function isRegistrationWithoutShiftRequest(array $data): bool
+{
+    return isWaitlistRegistrationRequest($data) || isProfileOnlyRegistrationRequest($data);
+}
+
 function isWaitlistRegistrationRequest(array $data): bool
 {
     if (normalizeEventIds($data) !== []) {
@@ -66,6 +95,9 @@ function isWaitlistRegistrationRequest(array $data): bool
     }
 
     $mode = strtolower(trim((string) ($data['registration_mode'] ?? '')));
+    if (in_array($mode, ['profile_only', 'register_without_shift', 'no_shift'], true)) {
+        return false;
+    }
     if (in_array($mode, ['waitlist', 'waiting_list', 'reserve', 'pending_allocation'], true)) {
         return true;
     }
@@ -99,10 +131,6 @@ function validateWaitlistRegistration(array $data): array
 {
     $errors = validateRegistration($data);
     unset($errors['event_ids']);
-
-    if (normalizeEventIds($data) === [] && !isWaitlistRegistrationRequest($data)) {
-        $errors['event_ids'] = 'Please select a shift, or choose to join the waiting list.';
-    }
 
     return $errors;
 }
@@ -471,7 +499,13 @@ function validateRegistration(array $data): array
         'staff_role'    => 'Role',
     ];
 
+    $staffRole = normalizeStaffRole(trim((string) ($data['staff_role'] ?? '')));
+    $requiresPsa = $staffRole !== 'steward';
+
     foreach ($required as $field => $label) {
+        if (!$requiresPsa && in_array($field, ['psa_licence', 'psa_expiry_date'], true)) {
+            continue;
+        }
         $value = trim((string) ($data[$field] ?? ''));
         if ($value === '') {
             $errors[$field] = $label . ' is required.';
@@ -479,9 +513,7 @@ function validateRegistration(array $data): array
     }
 
     $eventIds = normalizeEventIds($data);
-    if ($eventIds === [] && !isWaitlistRegistrationRequest($data)) {
-        $errors['event_ids'] = 'Please select at least one shift or event.';
-    } elseif ($eventIds !== []) {
+    if ($eventIds !== []) {
         $pdoForDay = null;
         try {
             $pdoForDay = getDB();
@@ -503,9 +535,6 @@ function validateRegistration(array $data): array
     }
 
     $venueId = (int) ($data['venue_id'] ?? 0);
-    if ($venueId < 1 && $eventIds === [] && !isWaitlistRegistrationRequest($data)) {
-        $errors['venue_id'] = 'Please select a venue.';
-    }
 
     $email = trim((string) ($data['email'] ?? ''));
     if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -523,7 +552,6 @@ function validateRegistration(array $data): array
         $errors['gender'] = 'Please select a valid gender.';
     }
 
-    $staffRole = normalizeStaffRole(trim((string) ($data['staff_role'] ?? '')));
     if ($staffRole !== '' && !in_array($staffRole, getKnownStaffRoles(), true)) {
         $errors['staff_role'] = 'Please select a valid role.';
     }
@@ -550,7 +578,7 @@ function validateRegistration(array $data): array
     }
 
     require_once __DIR__ . '/financial-field-validation.php';
-    $errors = array_merge($errors, validateFinancialStaffFields($data, true));
+    $errors = array_merge($errors, validateFinancialStaffFields($data, true, $requiresPsa));
 
     return $errors;
 }

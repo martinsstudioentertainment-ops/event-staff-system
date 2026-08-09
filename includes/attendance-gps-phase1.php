@@ -8,6 +8,7 @@ require_once __DIR__ . '/attendance-gps-phase1-schema.php';
 const ATTENDANCE_STATUS_ACTIVE = 'active';
 const ATTENDANCE_STATUS_PRE_CHECKED_IN = 'pre_checked_in';
 const ATTENDANCE_STATUS_NO_SHOW = 'no_show';
+const ATTENDANCE_STATUS_COMPLETED = 'completed';
 
 const AUTO_NO_SHOW_MIN_HOURS_AFTER_EVENT = 24;
 const AUTO_NO_SHOW_MAX_HOURS_AFTER_EVENT = 36;

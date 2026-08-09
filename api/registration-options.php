@@ -11,8 +11,12 @@ header('Expires: 0');
 $formSlug = strtolower(trim((string) ($_GET['form'] ?? '')));
 
 if ($formSlug === '') {
-    http_response_code(400);
-    echo json_encode(['error' => 'Form slug is required.']);
+    echo json_encode([
+        'ok'      => false,
+        'error'   => 'form_required',
+        'message' => 'Pass form=dsp, form=static, or form=both.',
+        'forms'   => ['dsp', 'static', 'both', 'steward'],
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
 

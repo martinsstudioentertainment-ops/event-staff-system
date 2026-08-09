@@ -8,6 +8,7 @@ require_once __DIR__ . '/maps.php';
 require_once __DIR__ . '/events-repository.php';
 require_once __DIR__ . '/event-checkin-window-schema.php';
 require_once __DIR__ . '/attendance-gps-phase1.php';
+require_once __DIR__ . '/work-hours-schema.php';
 
 const CHECKIN_WINDOW_HOURS = 1;
 
@@ -550,6 +551,47 @@ function hasCheckedIn(PDO $pdo, int $registrationId): bool
 }
 
 /**
+ * Best attendance row per registration for this event (not merely the newest id).
+ * Prefers paid hours and sign-in on the event date so bulk-restore rows do not shadow real shifts.
+ */
+function attendanceLatestJoinSql(): string
+{
+    return 'LEFT JOIN attendance a ON a.id = (
+                SELECT a3.id
+                FROM attendance a3
+                INNER JOIN events ev ON ev.id = a3.event_id
+                WHERE a3.registration_id = sr.id
+                  AND a3.event_id = sr.event_id
+                  AND LOWER(COALESCE(a3.attendance_status, \'active\')) NOT IN (\'no_show\')
+                  AND LOWER(COALESCE(a3.checked_in_method, \'\')) NOT IN (\'auto_no_show\')
+                ORDER BY (COALESCE(a3.hours_paid, 0) > 0) DESC,
+                         (COALESCE(a3.hours_worked, 0) > 0) DESC,
+                         (a3.checked_in_at IS NOT NULL AND DATE(a3.checked_in_at) = ev.event_date) DESC,
+                         a3.id DESC
+                LIMIT 1
+            )';
+}
+
+/**
+ * SQL expression for roster "checked in" flag.
+ */
+function attendanceRosterCheckedInCaseSql(): string
+{
+    return "CASE
+                WHEN a.id IS NOT NULL
+                     AND LOWER(COALESCE(a.attendance_status, 'active')) NOT IN ('no_show')
+                     AND (
+                         a.checked_in_at IS NOT NULL
+                         OR LOWER(COALESCE(a.attendance_status, 'active')) IN (
+                             'active', 'pre_checked_in', 'completed', 'auto_signed_out'
+                         )
+                     )
+                THEN 1
+                ELSE 0
+            END AS is_checked_in";
+}
+
+/**
  * @param array<string, mixed>|null $row
  */
 function isAttendanceRosterCheckedIn(?array $row): bool
@@ -567,9 +609,11 @@ function isAttendanceRosterCheckedIn(?array $row): bool
         return true;
     }
 
-    return $status === ATTENDANCE_STATUS_ACTIVE
-        || $status === ATTENDANCE_STATUS_PRE_CHECKED_IN
-        || trim((string) ($row['checked_in_at'] ?? '')) !== '';
+    if (in_array($status, ['active', 'pre_checked_in', 'completed', 'auto_signed_out'], true)) {
+        return true;
+    }
+
+    return trim((string) ($row['checked_in_at'] ?? '')) !== '';
 }
 
 function isAttendanceMarkedNoShow(?array $row): bool
@@ -905,28 +949,27 @@ function countAttendanceList(PDO $pdo, int $eventId = 0): int
 /**
  * @return array<int, array<string, mixed>>
  */
-function getAttendanceList(PDO $pdo, int $eventId = 0, ?int $limit = null, int $offset = 0): array
+function getAttendanceList(PDO $pdo, int $eventId = 0, ?int $limit = null, int $offset = 0, bool $checkedInFirst = false): array
 {
-    $parts = buildAttendanceListWhere($eventId);
+    ensureWorkHoursSchema($pdo);
 
-    $sql = "SELECT sr.*, e.name AS event_name, e.event_date,
-                   a.checked_in_at, a.checked_in_method, a.work_end_at, a.attendance_status,
+    $parts = buildAttendanceListWhere($eventId);
+    $checkedInCase = attendanceRosterCheckedInCaseSql();
+    $attendanceJoin = attendanceLatestJoinSql();
+
+    $order = $checkedInFirst
+        ? 'is_checked_in DESC, e.event_date ASC, sr.surname ASC, sr.first_name ASC'
+        : 'e.event_date ASC, sr.surname ASC, sr.first_name ASC';
+
+    $sql = "SELECT sr.*, e.name AS event_name, e.event_date, e.start_time, e.end_time,
+                   a.id AS attendance_id, a.checked_in_at, a.checked_in_method, a.work_end_at, a.attendance_status,
                    a.scheduled_hours, a.hours_worked, a.hours_paid, a.hours_note,
-                   CASE
-                       WHEN a.id IS NOT NULL
-                            AND COALESCE(a.attendance_status, 'active') NOT IN ('no_show')
-                            AND (
-                                a.checked_in_at IS NOT NULL
-                                OR LOWER(COALESCE(a.attendance_status, 'active')) IN ('active', 'pre_checked_in')
-                            )
-                       THEN 1
-                       ELSE 0
-                   END AS is_checked_in
+                   {$checkedInCase}
             FROM staff_registrations sr
             INNER JOIN events e ON e.id = sr.event_id
-            LEFT JOIN attendance a ON a.registration_id = sr.id
+            {$attendanceJoin}
             WHERE {$parts['where']}
-            ORDER BY e.event_date ASC, sr.surname ASC, sr.first_name ASC";
+            ORDER BY {$order}";
 
     if ($limit !== null) {
         $sql .= ' LIMIT ' . max(1, $limit) . ' OFFSET ' . max(0, $offset);
@@ -1038,12 +1081,19 @@ function getAttendanceStats(PDO $pdo, int $eventId = 0): array
  */
 function getLiveAttendancePayload(PDO $pdo, int $eventId = 0): array
 {
+    ensureWorkHoursSchema($pdo);
+
     $stats = getAttendanceStats($pdo, $eventId);
     $recent = [];
 
     $where  = "sr.status = 'approved' AND a.id IS NOT NULL
-               AND COALESCE(a.attendance_status, 'active') NOT IN ('no_show')
-               AND a.checked_in_at IS NOT NULL";
+               AND LOWER(COALESCE(a.attendance_status, 'active')) NOT IN ('no_show')
+               AND (
+                   a.checked_in_at IS NOT NULL
+                   OR LOWER(COALESCE(a.attendance_status, 'active')) IN (
+                       'active', 'pre_checked_in', 'completed', 'auto_signed_out'
+                   )
+               )";
     $params = [];
 
     if ($eventId > 0) {
@@ -1051,10 +1101,11 @@ function getLiveAttendancePayload(PDO $pdo, int $eventId = 0): array
         $params['event_id'] = $eventId;
     }
 
+    $attendanceJoin = attendanceLatestJoinSql();
     $sql = "SELECT sr.first_name, sr.surname, e.name AS event_name, a.checked_in_at, a.checked_in_method
             FROM staff_registrations sr
             INNER JOIN events e ON e.id = sr.event_id
-            INNER JOIN attendance a ON a.registration_id = sr.id
+            {$attendanceJoin}
             WHERE {$where}
             ORDER BY a.checked_in_at DESC
             LIMIT 8";
@@ -1073,6 +1124,7 @@ function getLiveAttendancePayload(PDO $pdo, int $eventId = 0): array
     }
 
     return [
+        'ok'         => true,
         'stats'      => $stats,
         'recent'     => $recent,
         'updated_at' => date('c'),

@@ -428,7 +428,7 @@ function mobileAttendanceServiceGpsPing(PDO $pdo, array $staff, array $body): ar
             ];
         }
     } else {
-        $shift = getStaffActiveShiftMonitoring($pdo, $email);
+        $shift = getStaffActiveShiftMonitoring($pdo, $email, $staffId);
         if ($shift === null) {
             return [
                 'ok'         => false,
@@ -517,7 +517,7 @@ function mobileAttendanceServiceGpsStatus(PDO $pdo, array $staff, array $query):
             }
         }
     } else {
-        $shift = getStaffActiveShiftMonitoring($pdo, $email);
+        $shift = getStaffActiveShiftMonitoring($pdo, $email, $staffId);
     }
 
     if ($shift === null) {

@@ -93,6 +93,9 @@
     }
 
     function countPickableShifts() {
+        if (window.SHIFT_PICKER_READY && typeof window.SHIFT_PICKER_PICKABLE_COUNT === 'number') {
+            return window.SHIFT_PICKER_PICKABLE_COUNT;
+        }
         var list = getShiftPickerList();
         if (!list) {
             return 0;
@@ -104,12 +107,64 @@
         return countPickableShifts() > 0;
     }
 
+    function shouldRequireEventSelection() {
+        return false;
+    }
+
+    function isWaitlistRegistrationFlow() {
+        var joinCb = document.getElementById('join_waiting_list');
+        if (joinCb && joinCb.checked) {
+            return true;
+        }
+        var modeInput = document.getElementById('registration_mode');
+        var mode = modeInput ? String(modeInput.value || '').trim().toLowerCase() : '';
+        return mode === 'waitlist' || mode === 'waiting_list' || mode === 'reserve' || mode === 'pending_allocation';
+    }
+
+    function isRegisterWithoutShiftFlow() {
+        if (document.body.dataset.registrationAccountOnly === '1') {
+            return true;
+        }
+        if (isWaitlistRegistrationFlow()) {
+            return true;
+        }
+        var modeInput = document.getElementById('registration_mode');
+        var mode = modeInput ? String(modeInput.value || '').trim().toLowerCase() : '';
+        if (mode === 'profile_only' || mode === 'register_without_shift' || mode === 'no_shift') {
+            return true;
+        }
+        if (window.SHIFT_PICKER_READY && countPickableShifts() === 0) {
+            return true;
+        }
+        return !hasValidEventSelection();
+    }
+
+    function clearEventShiftErrors() {
+        delete lastValidationErrors.event_ids;
+        var errorEl = document.getElementById('event_ids-error');
+        if (errorEl) {
+            errorEl.textContent = '';
+            errorEl.classList.remove('form-error--visible');
+        }
+        var list = document.getElementById('shift-picker-list');
+        if (list) {
+            list.classList.remove('shift-picker-list--error');
+        }
+    }
+
+    function ensureProfileOnlyMode() {
+        if (typeof ensureProfileOnlyRegistrationMode === 'function') {
+            ensureProfileOnlyRegistrationMode();
+        }
+    }
+
     function hasValidEventSelection() {
         return countValidSelectedEvents() > 0;
     }
 
     function requireValidEventSelection(message) {
-        if (!window.SHIFT_PICKER_READY || !hasPickableShifts()) {
+        ensureProfileOnlyMode();
+        if (!shouldRequireEventSelection()) {
             return true;
         }
         if (hasValidEventSelection()) {
@@ -132,10 +187,12 @@
         clearStepErrors(2);
         clearStepErrors(3);
         var ok = true;
-        if (window.SHIFT_PICKER_READY && hasPickableShifts() && !requireValidEventSelection('Please select at least one open event opportunity before submitting.')) {
-            ok = false;
+        ensureProfileOnlyMode();
+        if (typeof syncWaitlistRegistrationMode === 'function') {
+            syncWaitlistRegistrationMode();
         }
-        var email = fieldVal('email');
+        clearEventShiftErrors();
+        var email = getEffectiveRegistrationEmail();
         if (!email) {
             showError('email', 'Email address is required.');
             ok = false;
@@ -149,10 +206,41 @@
         return ok;
     }
 
+    function stepsForFullSubmitValidation() {
+        var steps = [3, 4, 5, 6];
+        if (typeof registrationRoleRequiresPsa === 'function' && registrationRoleRequiresPsa()) {
+            steps.push(7);
+        }
+        steps.push(8);
+        return steps;
+    }
+
+    function validateAllStepsForSubmit(opts) {
+        opts = opts || {};
+        if (opts.fastTrack) {
+            return validateFastTrackSubmit();
+        }
+
+        lastValidationErrors = {};
+        stepsForFullSubmitValidation().forEach(function (step) {
+            clearStepErrors(step);
+        });
+
+        var ok = true;
+        stepsForFullSubmitValidation().forEach(function (step) {
+            if (!validateStep(step, { fastTrack: false, clearErrors: false, profileEdit: false })) {
+                ok = false;
+            }
+        });
+        return ok;
+    }
+
     function validateStep(step, opts) {
         opts = opts || {};
         var fastTrack = !!opts.fastTrack;
-        clearStepErrors(step);
+        if (opts.clearErrors !== false) {
+            clearStepErrors(step);
+        }
         var ok = true;
 
         if (fastTrack && step >= 4 && step <= 7) {
@@ -172,9 +260,11 @@
         }
 
         if (step === 2) {
-            if (window.SHIFT_PICKER_READY && hasPickableShifts() && !requireValidEventSelection('Please select at least one event opportunity.')) {
-                ok = false;
+            ensureProfileOnlyMode();
+            if (typeof syncWaitlistRegistrationMode === 'function') {
+                syncWaitlistRegistrationMode();
             }
+            clearEventShiftErrors();
             if (fastTrack && !validateConsent()) {
                 ok = false;
             }
@@ -255,29 +345,34 @@
         }
 
         if (step === 7) {
-            if (!fieldVal('psa_licence')) {
-                showError('psa_licence', 'PSA licence number is required.');
-                ok = false;
-            } else if (typeof psaLicenceError === 'function') {
-                var psaErr = psaLicenceError(fieldVal('psa_licence'), true);
-                if (psaErr) {
-                    showError('psa_licence', psaErr);
+            var requiresPsa = typeof registrationRoleRequiresPsa === 'function'
+                ? registrationRoleRequiresPsa()
+                : true;
+            if (requiresPsa) {
+                if (!fieldVal('psa_licence')) {
+                    showError('psa_licence', 'PSA licence number is required.');
+                    ok = false;
+                } else if (typeof psaLicenceError === 'function') {
+                    var psaErr = psaLicenceError(fieldVal('psa_licence'), true);
+                    if (psaErr) {
+                        showError('psa_licence', psaErr);
+                        ok = false;
+                    }
+                }
+                if (!fieldVal('psa_expiry_date')) {
+                    showError('psa_expiry_date', 'PSA expiry date is required.');
                     ok = false;
                 }
-            }
-            if (!fieldVal('psa_expiry_date')) {
-                showError('psa_expiry_date', 'PSA expiry date is required.');
-                ok = false;
-            }
-            var front = document.getElementById('psa_front_image');
-            var back = document.getElementById('psa_back_image');
-            if (front && front.required && (!front.files || !front.files.length)) {
-                showError('psa_front_image', 'PSA front photo is required.');
-                ok = false;
-            }
-            if (back && back.required && (!back.files || !back.files.length)) {
-                showError('psa_back_image', 'PSA back photo is required.');
-                ok = false;
+                var front = document.getElementById('psa_front_image');
+                var back = document.getElementById('psa_back_image');
+                if (front && front.required && (!front.files || !front.files.length)) {
+                    showError('psa_front_image', 'PSA front photo is required.');
+                    ok = false;
+                }
+                if (back && back.required && (!back.files || !back.files.length)) {
+                    showError('psa_back_image', 'PSA back photo is required.');
+                    ok = false;
+                }
             }
         }
 
@@ -299,9 +394,11 @@
                     emailInput.value = regEmail;
                 }
             }
-            if (!requireValidEventSelection('Please select at least one open event opportunity before submitting.')) {
-                ok = false;
+            ensureProfileOnlyMode();
+            if (typeof syncWaitlistRegistrationMode === 'function') {
+                syncWaitlistRegistrationMode();
             }
+            clearEventShiftErrors();
             var consent = document.querySelector('input[name="privacy_consent"]');
             if (consent && !consent.checked) {
                 showError('privacy_consent', 'You must agree to the privacy notice before registering.');
@@ -314,6 +411,7 @@
 
     window.RegistrationWizardValidation = {
         validateStep: validateStep,
+        validateAllStepsForSubmit: validateAllStepsForSubmit,
         validateFastTrackSubmit: validateFastTrackSubmit,
         clearStepErrors: clearStepErrors,
         showError: showError,
@@ -325,5 +423,10 @@
         hasPickableShifts: hasPickableShifts,
         countPickableShifts: countPickableShifts,
         countValidSelectedEvents: countValidSelectedEvents,
+        isRegisterWithoutShiftFlow: isRegisterWithoutShiftFlow,
+        isWaitlistRegistrationFlow: isWaitlistRegistrationFlow,
+        shouldRequireEventSelection: shouldRequireEventSelection,
+        ensureProfileOnlyMode: ensureProfileOnlyMode,
+        clearEventShiftErrors: clearEventShiftErrors,
     };
 })();

@@ -15,6 +15,7 @@ require_once __DIR__ . '/../includes/work-hours-repository.php';
 require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/admin-manual-signin.php';
 require_once __DIR__ . '/../includes/staff-app-v3-data.php';
+require_once __DIR__ . '/../includes/registration-bib.php';
 
 requireAdminCapability('staff');
 
@@ -85,6 +86,7 @@ try {
 
 $allocationType = trim((string) ($row['allocation_type'] ?? 'standard'));
 $canEditHours   = adminCan('attendance') && in_array(getAdminRole(), ['admin', 'manager'], true);
+$bibEnabled     = registrationBibColumnEnabled($pdo);
 if ($attendance) {
     $needsHoursInit = $attendance['hours_worked'] === null
         || ((float) ($attendance['hours_worked'] ?? 0) < 0.01
@@ -192,6 +194,28 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <h3 class="form-section-title">Selected shift</h3>
             <dl class="detail-list">
                 <div class="detail-list__row"><dt>Role</dt><dd><?= h(formatRoleLabel($row['staff_role'])) ?></dd></div>
+                <?php if ($bibEnabled): ?>
+                <div class="detail-list__row">
+                    <dt>Bib #</dt>
+                    <dd>
+                        <?= h(formatRegistrationBibDisplay($row['assigned_bib_number'] ?? null)) ?>
+                        <?php if ($canEditHours): ?>
+                        <form method="post" action="registration-bib-action.php" class="toolbar-inline-form" style="margin-top:0.5rem;display:flex;flex-wrap:wrap;gap:0.5rem;align-items:flex-end;">
+                            <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                            <input type="hidden" name="registration_id" value="<?= (int) $row['id'] ?>">
+                            <input type="hidden" name="redirect" value="view-staff.php?id=<?= (int) $row['id'] ?>">
+                            <div>
+                                <label class="form-label" for="profile_bib">Update bib</label>
+                                <input class="form-input" type="text" id="profile_bib" name="assigned_bib_number"
+                                    value="<?= h((string) ($row['assigned_bib_number'] ?? '')) ?>"
+                                    placeholder="e.g. 1601" maxlength="32" style="min-width:8rem;">
+                            </div>
+                            <button type="submit" class="btn btn--small btn--secondary">Save bib</button>
+                        </form>
+                        <?php endif; ?>
+                    </dd>
+                </div>
+                <?php endif; ?>
                 <div class="detail-list__row"><dt>Event</dt><dd><?= h(formatEventLabel($row)) ?></dd></div>
                 <?php if ($allocationType !== '' && $allocationType !== 'standard'): ?>
                 <div class="detail-list__row"><dt>Allocation</dt><dd><?= h(formatAllocationTypeLabel($allocationType)) ?></dd></div>

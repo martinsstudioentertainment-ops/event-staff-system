@@ -263,3 +263,44 @@ button.staff-app__install-pill:active {
         border-radius: 18px;
     }
 }
+
+/* Service worker update — deferred refresh during registration wizard */
+.olasentra-sw-update-prompt {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10050;
+    padding: 0.75rem 1rem;
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+    background: #1e3a5f;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.olasentra-sw-update-prompt__inner {
+    max-width: 42rem;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+}
+
+.olasentra-sw-update-prompt__text {
+    flex: 1 1 14rem;
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: #f1f5f9;
+}
+
+.olasentra-sw-update-prompt__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.registration-page--wizard .olasentra-sw-update-prompt {
+    background: #312e81;
+}

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../schema/mobile-api-schema.php';
 require_once __DIR__ . '/../../staff-google-oauth.php';
 require_once __DIR__ . '/../../signin-display.php';
 require_once __DIR__ . '/../../attendance-gps-phase1.php';

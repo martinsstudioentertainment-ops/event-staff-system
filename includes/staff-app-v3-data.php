@@ -5,21 +5,22 @@ declare(strict_types=1);
 require_once __DIR__ . '/staff-portal-dashboard.php';
 require_once __DIR__ . '/status-repository.php';
 require_once __DIR__ . '/attendance-repository.php';
+require_once __DIR__ . '/staff-repository.php';
 require_once __DIR__ . '/date-format.php';
 
 /**
  * @return list<array<string, mixed>>
  */
-function getStaffV3ShiftRows(PDO $pdo, string $email, string $statusToken): array
+function getStaffV3ShiftRows(PDO $pdo, string $email, string $statusToken, int $staffId = 0): array
 {
     $email = strtolower(trim($email));
-    if ($email === '') {
+    if ($email === '' && $staffId < 1) {
         return [];
     }
 
     if ($statusToken !== '') {
         try {
-            return getStaffStatusRows($pdo, $statusToken);
+            return getStaffStatusRows($pdo, $statusToken, $staffId);
         } catch (Throwable $e) {
             error_log('[EventStaff] getStaffV3ShiftRows(token): ' . $e->getMessage());
 
@@ -28,6 +29,7 @@ function getStaffV3ShiftRows(PDO $pdo, string $email, string $statusToken): arra
     }
 
     try {
+        $match = staffRegistrationMatchClause($email, $staffId);
         $stmt = $pdo->prepare(
             'SELECT sr.*, e.name AS event_name, e.event_date,
                     a.id AS attendance_id, a.checked_in_at, a.checked_out_at,
@@ -36,13 +38,11 @@ function getStaffV3ShiftRows(PDO $pdo, string $email, string $statusToken): arra
              FROM staff_registrations sr
              INNER JOIN events e ON e.id = sr.event_id
              LEFT JOIN attendance a ON a.registration_id = sr.id
-             WHERE LOWER(sr.email) = :email
+             WHERE ' . $match['sql'] . '
              ORDER BY e.event_date ASC, sr.created_at ASC'
         );
-        $stmt->execute(['email' => $email]);
+        $stmt->execute($match['params']);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
-        require_once __DIR__ . '/staff-repository.php';
 
         return array_map(static function (array $r) use ($pdo): array {
             $r = mergeRegistrationWithStaff($pdo, $r);
@@ -78,6 +78,33 @@ function getStaffV3TodayShift(array $rows, ?PDO $pdo = null): ?array
 }
 
 /**
+ * Today's shift for the home dashboard — approved first, otherwise pending application for today.
+ *
+ * @param list<array<string, mixed>> $rows
+ */
+function getStaffV3TodayDashboardShift(array $rows, ?PDO $pdo = null): ?array
+{
+    $approved = getStaffV3TodayShift($rows, $pdo);
+    if ($approved !== null) {
+        return $approved;
+    }
+
+    $today = getOperationalTodayYmd($pdo);
+
+    foreach ($rows as $row) {
+        if ((string) ($row['status'] ?? '') !== 'pending') {
+            continue;
+        }
+        $eventDate = substr((string) ($row['event_date'] ?? ''), 0, 10);
+        if ($eventDate === $today) {
+            return $row;
+        }
+    }
+
+    return null;
+}
+
+/**
  * @return array{hours_worked: float, hours_paid: float, checkins: int, earnings: ?float}
  */
 function getStaffV3MonthlyStats(PDO $pdo, string $email, int $staffId): array
@@ -85,13 +112,15 @@ function getStaffV3MonthlyStats(PDO $pdo, string $email, int $staffId): array
     $email = strtolower(trim($email));
     $empty = ['hours_worked' => 0.0, 'hours_paid' => 0.0, 'checkins' => 0, 'earnings' => null];
 
-    if ($email === '') {
+    if ($email === '' && $staffId < 1) {
         return $empty;
     }
 
     $monthStart = date('Y-m-01 00:00:00');
 
     try {
+        $match = staffRegistrationMatchClause($email, $staffId);
+        $effectiveCheckIn = 'COALESCE(a.checked_in_at, a.activated_at, a.check_in_gps_at)';
         $stmt = $pdo->prepare(
             "SELECT
                 COALESCE(SUM(a.hours_worked), 0) AS hours_worked,
@@ -99,10 +128,10 @@ function getStaffV3MonthlyStats(PDO $pdo, string $email, int $staffId): array
                 COUNT(a.id) AS checkins
              FROM attendance a
              INNER JOIN staff_registrations sr ON sr.id = a.registration_id
-             WHERE LOWER(sr.email) = :email
-               AND a.checked_in_at >= :month_start"
+             WHERE " . $match['sql'] . "
+               AND {$effectiveCheckIn} >= :month_start"
         );
-        $stmt->execute(['email' => $email, 'month_start' => $monthStart]);
+        $stmt->execute(array_merge($match['params'], ['month_start' => $monthStart]));
         $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
         $hoursWorked = round((float) ($row['hours_worked'] ?? 0), 1);
@@ -134,25 +163,28 @@ function getStaffV3MonthlyStats(PDO $pdo, string $email, int $staffId): array
 /**
  * @return list<array<string, mixed>>
  */
-function getStaffV3CheckinHistory(PDO $pdo, string $email, int $limit = 12): array
+function getStaffV3CheckinHistory(PDO $pdo, string $email, int $limit = 12, int $staffId = 0): array
 {
     $email = strtolower(trim($email));
-    if ($email === '') {
+    if ($email === '' && $staffId < 1) {
         return [];
     }
 
     try {
+        $match = staffRegistrationMatchClause($email, $staffId);
+        $effectiveCheckIn = 'COALESCE(a.checked_in_at, a.activated_at, a.check_in_gps_at)';
         $stmt = $pdo->prepare(
             "SELECT a.checked_in_at, a.checked_out_at, a.hours_worked, a.attendance_status,
+                    a.activated_at, a.check_in_gps_at,
                     e.name AS event_name, e.location AS event_location, e.event_date
              FROM attendance a
              INNER JOIN staff_registrations sr ON sr.id = a.registration_id
              INNER JOIN events e ON e.id = sr.event_id
-             WHERE LOWER(sr.email) = :email
-             ORDER BY a.checked_in_at DESC
+             WHERE " . $match['sql'] . "
+             ORDER BY {$effectiveCheckIn} DESC
              LIMIT " . max(1, min(50, $limit))
         );
-        $stmt->execute(['email' => $email]);
+        $stmt->execute($match['params']);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     } catch (Throwable $e) {

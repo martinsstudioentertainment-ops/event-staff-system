@@ -197,12 +197,8 @@
         }
     }
 
-    function mergeReviewErrors() {
-        var errors = getServerErrors() || {};
-        var validation = window.RegistrationWizardValidation;
-        if (validation && typeof validation.getLastValidationErrors === 'function') {
-            errors = Object.assign({}, errors, validation.getLastValidationErrors());
-        }
+    function collectMissingFieldErrors() {
+        var errors = {};
         var email = getEffectiveRegistrationEmail();
         if (!email) {
             if (document.body.dataset.googleRegistrationRequired === '1') {
@@ -210,6 +206,88 @@
             } else {
                 errors.email = 'Email address is required.';
             }
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            errors.email = 'Please enter a valid email address.';
+        }
+
+        [
+            ['surname', 'Surname is required.'],
+            ['first_name', 'First name is required.'],
+            ['full_address', 'Full address is required.'],
+            ['eircode', 'Eircode is required.'],
+            ['date_of_birth', 'Date of birth is required.'],
+        ].forEach(function (pair) {
+            if (!val(pair[0])) {
+                errors[pair[0]] = pair[1];
+            }
+        });
+
+        if (val('eircode') && typeof isValidEircode === 'function' && !isValidEircode(val('eircode'))) {
+            errors.eircode = 'Please enter a valid Eircode (e.g. D02 X285).';
+        }
+        if (!document.querySelector('input[name="gender"]:checked')) {
+            errors.gender = 'Please select a gender.';
+        }
+
+        var mobile = val('mobile') || val('mobile_national');
+        if (!mobile) {
+            errors.mobile = 'Mobile number is required.';
+        } else if (typeof isValidE164Mobile === 'function' && val('mobile') && !isValidE164Mobile(val('mobile'))) {
+            errors.mobile = 'Please enter a valid mobile number with country code.';
+        }
+
+        if (!val('pps_number')) {
+            errors.pps_number = 'NI / PPS number is required.';
+        }
+        var iban = val('bank_iban');
+        if (!iban) {
+            errors.bank_iban = 'Bank IBAN is required.';
+        } else if (typeof bankIbanError === 'function') {
+            var ibanErr = bankIbanError(iban, true);
+            if (ibanErr) {
+                errors.bank_iban = ibanErr;
+            }
+        }
+
+        var requiresPsa = typeof registrationRoleRequiresPsa === 'function'
+            ? registrationRoleRequiresPsa()
+            : true;
+        if (requiresPsa) {
+            if (!val('psa_licence')) {
+                errors.psa_licence = 'PSA licence number is required.';
+            }
+            if (!val('psa_expiry_date')) {
+                errors.psa_expiry_date = 'PSA expiry date is required.';
+            }
+            var front = document.getElementById('psa_front_image');
+            var back = document.getElementById('psa_back_image');
+            if (front && front.required && (!front.files || !front.files.length) && !psaPhotoOnFile('psa_front_image')) {
+                errors.psa_front_image = 'PSA front photo is required.';
+            }
+            if (back && back.required && (!back.files || !back.files.length) && !psaPhotoOnFile('psa_back_image')) {
+                errors.psa_back_image = 'PSA back photo is required.';
+            }
+        }
+
+        var consent = document.querySelector('input[name="privacy_consent"]');
+        if (consent && !consent.checked) {
+            errors.privacy_consent = 'You must agree to the privacy notice before registering.';
+        }
+
+        return errors;
+    }
+
+    function mergeReviewErrors() {
+        var errors = Object.assign({}, getServerErrors() || {}, collectMissingFieldErrors());
+        var validation = window.RegistrationWizardValidation;
+        if (validation && typeof validation.getLastValidationErrors === 'function') {
+            errors = Object.assign({}, errors, validation.getLastValidationErrors());
+        }
+        if (isRegisterWithoutShiftFlow() && errors.event_ids) {
+            delete errors.event_ids;
+        }
+        if (isWaitlistRegistrationFlow() && errors.event_ids) {
+            delete errors.event_ids;
         }
         return errors;
     }
@@ -267,6 +345,49 @@
             return validation.hasValidEventSelection();
         }
         return getSelectedEvents().length > 0;
+    }
+
+    function isWaitlistRegistrationFlow() {
+        var validation = window.RegistrationWizardValidation;
+        if (validation && typeof validation.isWaitlistRegistrationFlow === 'function') {
+            return validation.isWaitlistRegistrationFlow();
+        }
+        var joinCb = document.getElementById('join_waiting_list');
+        return !!(joinCb && joinCb.checked);
+    }
+
+    function isRegisterWithoutShiftFlow() {
+        var validation = window.RegistrationWizardValidation;
+        if (validation && typeof validation.isRegisterWithoutShiftFlow === 'function') {
+            return validation.isRegisterWithoutShiftFlow();
+        }
+        return !hasPickableShifts();
+    }
+
+    function hasPickableShifts() {
+        var validation = window.RegistrationWizardValidation;
+        if (validation && typeof validation.countPickableShifts === 'function') {
+            return validation.countPickableShifts() > 0;
+        }
+        return !!window.SHIFT_PICKER_READY
+            && validation
+            && typeof validation.hasPickableShifts === 'function'
+            && validation.hasPickableShifts();
+    }
+
+    function renderNoShiftBanner() {
+        if (document.body.dataset.registrationAccountOnly === '1') {
+            return '<div class="reg-review-summary__shift-banner reg-review-summary__shift-banner--none" role="status">' +
+                '<p class="reg-review-summary__shift-banner-title">Account registration only</p>' +
+                '<p class="reg-review-summary__shift-banner-text">Your staff account will be created now. ' +
+                'After you sign in to the staff app, you can view and apply for available shifts.</p>' +
+                '</div>';
+        }
+        return '<div class="reg-review-summary__shift-banner reg-review-summary__shift-banner--none" role="status">' +
+            '<p class="reg-review-summary__shift-banner-title">No shift selected</p>' +
+            '<p class="reg-review-summary__shift-banner-text">There are currently no shifts available. ' +
+            'Your account will be created without a shift assignment. When new shifts open, sign in and apply.</p>' +
+            '</div>';
     }
 
     function renderShiftRequiredBanner() {
@@ -339,6 +460,10 @@
         if (!mount) {
             return;
         }
+        if (document.body.dataset.registrationAccountOnly === '1') {
+            mount.innerHTML = '<p class="reg-fast-track-events__empty reg-fast-track-events__empty--none">Your saved profile will be used. Complete registration below, then sign in to apply for shifts.</p>';
+            return;
+        }
         if (window.RegistrationWizard && typeof window.RegistrationWizard.isFastTrack === 'function' && !window.RegistrationWizard.isFastTrack()) {
             mount.innerHTML = '';
             return;
@@ -346,15 +471,15 @@
         var validation = window.RegistrationWizardValidation;
         var noPickable = !!window.SHIFT_PICKER_READY
             && validation
-            && typeof validation.hasPickableShifts === 'function'
-            && !validation.hasPickableShifts();
+            && typeof validation.isRegisterWithoutShiftFlow === 'function'
+            && validation.isRegisterWithoutShiftFlow();
         if (noPickable) {
-            mount.innerHTML = '<p class="reg-fast-track-events__empty reg-fast-track-events__empty--none">You are already registered for all available shifts, or no new opportunities are open right now.</p>';
+            mount.innerHTML = '<p class="reg-fast-track-events__empty reg-fast-track-events__empty--none">No open shifts right now — you can register your account and apply when new shifts open.</p>';
             return;
         }
         var events = hasValidEventSelection() ? getValidSelectedEventNames() : [];
         if (!events.length) {
-            mount.innerHTML = '<p class="reg-fast-track-events__empty">Select at least one open shift above to continue.</p>';
+            mount.innerHTML = '<p class="reg-fast-track-events__empty">No shifts selected — you can register now and apply when shifts open.</p>';
             return;
         }
         var html = '<p class="reg-fast-track-events__title">Registering for:</p><ul class="reg-fast-track-events__list">';
@@ -372,17 +497,14 @@
         }
         syncVerifiedGoogleEmail();
         var errors = mergeReviewErrors();
-        var eventsValid = hasValidEventSelection();
-        var events = eventsValid ? getValidSelectedEventNames() : [];
+        var noShiftSelected = !hasValidEventSelection();
+        var events = hasValidEventSelection() ? getValidSelectedEventNames() : [];
         var html = renderErrorBanner(errors);
 
-        if (!eventsValid) {
-            html += renderShiftRequiredBanner();
-            if (!errors) {
-                errors = {};
-            }
-            if (!errors.event_ids) {
-                errors.event_ids = 'Please select at least one open event opportunity.';
+        if (noShiftSelected || document.body.dataset.registrationAccountOnly === '1') {
+            html += renderNoShiftBanner();
+            if (errors && errors.event_ids) {
+                delete errors.event_ids;
             }
         }
 
@@ -406,12 +528,18 @@
         ], errors);
 
         var eventRows;
-        if (events.length > 0) {
+        if (document.body.dataset.registrationAccountOnly === '1') {
+            eventRows = [['Shifts', 'Apply after sign-in to the staff app']];
+        } else if (events.length > 0) {
             eventRows = events.map(function (name) { return ['Shift', name]; });
         } else {
-            eventRows = [['Shifts', 'Action required — pick at least one open opportunity']];
+            eventRows = [['Shifts', noShiftSelected && isWaitlistRegistrationFlow()
+                ? 'Waiting list — no shift selected'
+                : 'None selected — optional at registration']];
         }
-        html += addSection('events', 'Selected opportunities', eventRows, errors);
+        if (document.body.dataset.registrationAccountOnly !== '1') {
+            html += addSection('events', 'Selected opportunities', eventRows, errors);
+        }
 
         var reviewEmail = getEffectiveRegistrationEmail();
         html += addSection('contact', 'Contact', [

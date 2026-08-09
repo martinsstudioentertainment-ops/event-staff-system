@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/friendly-response.php';
 require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/event-signin-export.php';
 require_once __DIR__ . '/../includes/audit-log.php';
@@ -19,25 +20,35 @@ if (!in_array($format, ['xlsx', 'csv'], true)) {
 }
 
 if ($eventId > 0) {
-    $event = getEventById($pdo, $eventId);
-    if ($event === null) {
-        setAdminFlash('error', 'Event not found.');
-        header('Location: export-event-signins.php');
+    try {
+        $event = getEventById($pdo, $eventId);
+        if ($event === null) {
+            setAdminFlash('error', 'Event not found.');
+            header('Location: export-event-signins.php');
+            exit;
+        }
+
+        $rows = getContractorSheetSignInRows($pdo, $eventId);
+
+        logAdminAudit(
+            $pdo,
+            'export_event_signins',
+            'event',
+            $eventId,
+            count($rows) . ' rows (' . $format . ')'
+        );
+
+        sendEventSignInExportDownload($pdo, $eventId, $rows, $format);
         exit;
+    } catch (Throwable $e) {
+        friendlyLogError('export-event-signins', $e);
+        renderFriendlyHtmlPage(
+            'Export unavailable',
+            'We could not export sign-ins right now. Please return to Attendance and try again.',
+            200,
+            [['label' => 'Open Attendance', 'href' => 'attendance.php']]
+        );
     }
-
-    $rows = getEventSignInExportRows($pdo, $eventId);
-
-    logAdminAudit(
-        $pdo,
-        'export_event_signins',
-        'event',
-        $eventId,
-        count($rows) . ' rows (' . $format . ')'
-    );
-
-    sendEventSignInExportDownload($pdo, $eventId, $rows, $format);
-    exit;
 }
 
 $events = getEventsForFilter($pdo);
@@ -58,7 +69,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 <section class="card">
     <div class="card__header">
         <h2 class="card__title">Event sign-ins</h2>
-        <p class="card__subtitle">Download everyone who signed in for an event (self sign-in, manual desk sign-in, or QR scan).</p>
+        <p class="card__subtitle">Download signed-in staff only for one event (Excel or CSV) — ready to send to contractors. Does not include waiting or no-show staff.</p>
     </div>
 
     <form method="get" action="export-event-signins.php" class="filter-bar">

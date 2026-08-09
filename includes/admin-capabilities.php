@@ -121,6 +121,7 @@ function getAdminSidebarSections(): array
                 ['key' => 'attendance', 'label' => 'Attendance', 'url' => 'attendance.php', 'icon' => 'attendance', 'cap' => 'attendance'],
                 ['key' => 'work-hours', 'label' => 'Work hours', 'url' => 'work-hours.php', 'icon' => 'activity', 'cap' => 'attendance'],
                 ['key' => 'manual-signin', 'label' => 'Manual sign-in', 'url' => 'manual-signin.php', 'icon' => 'attendance', 'cap' => 'attendance'],
+                ['key' => 'contractor-sheet', 'label' => 'Contractor sheet', 'url' => 'contractor-sheet.php', 'icon' => 'export', 'cap' => 'export'],
             ],
         ],
         [
@@ -166,6 +167,7 @@ function getAdminSidebarSections(): array
             'items'   => [
                 ['key' => 'invoices', 'label' => 'Invoices', 'url' => 'invoices.php', 'icon' => 'export', 'cap' => 'invoices'],
                 ['key' => 'export', 'label' => 'Export', 'url' => 'export-staff.php', 'icon' => 'export', 'cap' => 'export'],
+                ['key' => 'contractor-sheet', 'label' => 'Contractor sheet', 'url' => 'contractor-sheet.php', 'icon' => 'export', 'cap' => 'export'],
             ],
         ],
         [
@@ -206,7 +208,7 @@ function isAdminSidebarLinkActive(string $key, string $activePage): bool
     }
 
     return match ($key) {
-        'export'           => str_starts_with($activePage, 'export'),
+        'export'           => str_starts_with($activePage, 'export') || $activePage === 'contractor-sheet',
         'settings'         => str_starts_with($activePage, 'settings') || $activePage === 'backups' || $activePage === 'backup-center' || $activePage === 'go-live'
             || $activePage === 'settings-preference-locations'
             || ($activePage === 'website-global' && (($_GET['panel'] ?? '') !== 'cms')),
@@ -222,6 +224,7 @@ function isAdminSidebarLinkActive(string $key, string $activePage): bool
         'blacklist'        => $activePage === 'blacklist',
         'venues'           => $activePage === 'venues',
         'work-hours'       => $activePage === 'work-hours',
+        'contractor-sheet' => $activePage === 'contractor-sheet',
         'invoices'         => $activePage === 'invoices' || $activePage === 'job-records' || $activePage === 'personal-invoices'
             || str_starts_with($activePage, 'invoice') || str_starts_with($activePage, 'job-record') || str_starts_with($activePage, 'personal-invoice'),
         'command-center'   => $activePage === 'command-center',

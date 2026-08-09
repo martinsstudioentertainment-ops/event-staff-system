@@ -2652,7 +2652,10 @@
     position: absolute;
     right: 0;
     z-index: 20;
-    min-width: 240px;
+    min-width: 260px;
+    max-width: min(320px, 92vw);
+    max-height: min(70vh, 520px);
+    overflow-y: auto;
     margin-top: 0.35rem;
     padding: 0.875rem;
     border-radius: 12px;
@@ -2667,6 +2670,14 @@
 
 .work-hours-edit__form .btn {
     margin-top: 0.65rem;
+}
+
+.contractor-sheet__num {
+    width: 2.5rem;
+    font-weight: 600;
+    color: var(--admin-muted, #94a3b8);
+    text-align: center;
+    white-space: nowrap;
 }
 
 .data-table__foot td {

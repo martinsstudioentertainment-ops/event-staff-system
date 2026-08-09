@@ -693,11 +693,12 @@ function populateWizardEventCards(container, registeredIds, events, options) {
     if (list.length === 0) {
         const role = (document.getElementById('staff_role') || {}).value || '';
         const emptyMsg = role === 'static'
-            ? 'No static opportunities open right now — check back later or contact the organiser.'
-            : 'No event opportunities open right now — check back later.';
+            ? 'No static opportunities open right now.'
+            : 'No event opportunities open right now.';
         container.innerHTML = '<p class="reg-event-cards__empty">' + emptyMsg + '</p>';
         updateShiftSelectionSummary(container);
         updateWaitlistOffer(0);
+        updateNoShiftsRegisterOffer(0);
         dispatchShiftPickerReady(container, 0, 0);
         return;
     }
@@ -729,11 +730,14 @@ function populateWizardEventCards(container, registeredIds, events, options) {
     }
     const pickable = wrap.querySelectorAll('input[name="event_ids[]"]:not(:disabled)').length;
     dispatchShiftPickerReady(container, list.length, pickable);
-    updateWaitlistOffer(list.length);
+    updateWaitlistOffer(list.length, pickable);
+    updateNoShiftsRegisterOffer(pickable);
 }
 
 function dispatchShiftPickerReady(container, total, pickable) {
     window.SHIFT_PICKER_READY = true;
+    window.SHIFT_PICKER_TOTAL_COUNT = total;
+    window.SHIFT_PICKER_PICKABLE_COUNT = pickable;
     try {
         document.dispatchEvent(new CustomEvent('shiftPickerReady', {
             detail: {
@@ -776,11 +780,13 @@ function populateShiftPicker(container, registeredIds, events, options) {
     if (list.length === 0) {
         const role = (document.getElementById('staff_role') || {}).value || '';
         const emptyMsg = role === 'static'
-            ? 'No static shifts are open right now. Events must include Static in roles needed — contact the organiser if you expect listings here.'
-            : 'No shifts open for registration right now — check back later.';
+            ? 'No static shifts are open right now.'
+            : 'No shifts open for registration right now.';
         container.innerHTML = '<p class="form-hint">' + emptyMsg + '</p>';
         updateShiftSelectionSummary(container);
-        updateWaitlistOffer(0);
+        updateWaitlistOffer(0, 0);
+        updateNoShiftsRegisterOffer(0);
+        dispatchShiftPickerReady(container, 0, 0);
         return;
     }
 
@@ -880,7 +886,8 @@ function populateShiftPicker(container, registeredIds, events, options) {
 
     const pickable = container.querySelectorAll('input[name="event_ids[]"]:not(:disabled)').length;
     dispatchShiftPickerReady(container, list.length, pickable);
-    updateWaitlistOffer(list.length);
+    updateWaitlistOffer(list.length, pickable);
+    updateNoShiftsRegisterOffer(pickable);
 
 }
 
@@ -981,6 +988,8 @@ function refreshShiftPicker(registeredIds) {
     }
 
     window.SHIFT_PICKER_READY = false;
+    window.SHIFT_PICKER_PICKABLE_COUNT = 0;
+    window.SHIFT_PICKER_TOTAL_COUNT = 0;
 
     const options = getRegistrationOptions();
 
@@ -1029,6 +1038,10 @@ function updateRegistrationRoleBanner() {
 
     }
 
+    if (typeof applyRegistrationPsaFieldRequirements === 'function') {
+        applyRegistrationPsaFieldRequirements();
+    }
+
     const nameEl = document.getElementById('registration-role-banner-name');
 
     const detailEl = document.getElementById('registration-role-banner-detail');
@@ -1068,6 +1081,10 @@ function updateRegistrationRoleBanner() {
 
 
 async function initShiftSelection() {
+
+    if (document.body.dataset.registrationAccountOnly === '1') {
+        return;
+    }
 
     const container  = getShiftPickerList();
 
@@ -1159,25 +1176,116 @@ function populateEventCheckboxes(containerEl, registeredIds, events) {
 
 
 
-function updateWaitlistOffer(openShiftCount) {
+function getShiftPickerPickableCount() {
+    if (window.SHIFT_PICKER_READY && typeof window.SHIFT_PICKER_PICKABLE_COUNT === 'number') {
+        return window.SHIFT_PICKER_PICKABLE_COUNT;
+    }
+    const list = document.getElementById('shift-picker-list');
+    if (!list) {
+        return 0;
+    }
+    return list.querySelectorAll('input[name="event_ids[]"]:not(:disabled)').length;
+}
+
+function syncWaitlistRegistrationMode() {
+    const modeInput = document.getElementById('registration_mode');
+    const joinCb = document.getElementById('join_waiting_list');
+    if (!modeInput || !joinCb) {
+        return;
+    }
+    if (joinCb.checked) {
+        modeInput.value = 'waitlist';
+    } else if (modeInput.value === 'waitlist') {
+        modeInput.value = '';
+        ensureProfileOnlyRegistrationMode();
+    }
+}
+
+function ensureProfileOnlyRegistrationMode() {
+    const modeInput = document.getElementById('registration_mode');
+    const joinCb = document.getElementById('join_waiting_list');
+    if (!modeInput || (joinCb && joinCb.checked)) {
+        return;
+    }
+    const list = document.getElementById('shift-picker-list');
+    const selected = list
+        ? list.querySelectorAll('input[name="event_ids[]"]:checked:not(:disabled)').length
+        : 0;
+    if (selected === 0) {
+        modeInput.value = 'profile_only';
+    } else if (modeInput.value === 'profile_only') {
+        modeInput.value = '';
+    }
+    const label = document.getElementById('shift-picker-label');
+    if (label) {
+        label.classList.remove('form-label--required');
+    }
+}
+
+function updateWaitlistOffer(openShiftCount, pickableCount) {
     const offer = document.getElementById('waitlist-offer');
     const modeInput = document.getElementById('registration_mode');
     const joinCb = document.getElementById('join_waiting_list');
+    const pickable = typeof pickableCount === 'number' ? pickableCount : getShiftPickerPickableCount();
     if (!offer) {
+        updateNoShiftsRegisterOffer(pickable);
         return;
     }
     const show = openShiftCount === 0;
     offer.style.display = show ? 'block' : 'none';
-    if (modeInput) {
-        modeInput.value = show && joinCb && joinCb.checked ? 'waitlist' : '';
+    if (modeInput && joinCb && joinCb.checked) {
+        modeInput.value = show ? 'waitlist' : '';
+    } else if (modeInput && modeInput.value === 'waitlist') {
+        modeInput.value = '';
+    }
+    if (joinCb && !joinCb.checked) {
+        updateNoShiftsRegisterOffer(pickable);
     }
     if (joinCb && !joinCb.dataset.bound) {
         joinCb.dataset.bound = '1';
         joinCb.addEventListener('change', function () {
             if (modeInput) {
-                modeInput.value = joinCb.checked ? 'waitlist' : '';
+                if (joinCb.checked) {
+                    modeInput.value = 'waitlist';
+                } else {
+                    modeInput.value = '';
+                    updateNoShiftsRegisterOffer(getShiftPickerPickableCount());
+                }
+            }
+            if (window.RegistrationWizard && typeof window.RegistrationWizard.getCurrentStep === 'function') {
+                var onShiftStep = window.RegistrationWizard.getCurrentStep() === 2;
+                if (onShiftStep && typeof window.RegistrationWizard.updateChrome === 'function') {
+                    window.RegistrationWizard.updateChrome();
+                }
             }
         });
+    }
+}
+
+function updateNoShiftsRegisterOffer(pickableCount) {
+    const offer = document.getElementById('no-shifts-register-offer');
+    const modeInput = document.getElementById('registration_mode');
+    const joinCb = document.getElementById('join_waiting_list');
+    const label = document.getElementById('shift-picker-label');
+    const waitlistChecked = !!(joinCb && joinCb.checked);
+    const pickable = typeof pickableCount === 'number' ? pickableCount : getShiftPickerPickableCount();
+    const show = pickable === 0 && window.SHIFT_PICKER_READY && !waitlistChecked;
+
+    if (offer) {
+        offer.style.display = show ? 'block' : 'none';
+        offer.hidden = !show;
+    }
+
+    if (modeInput) {
+        if (show) {
+            modeInput.value = 'profile_only';
+        } else if (modeInput.value === 'profile_only') {
+            modeInput.value = waitlistChecked ? 'waitlist' : '';
+        }
+    }
+
+    if (label) {
+        label.classList.remove('form-label--required');
     }
 }
 

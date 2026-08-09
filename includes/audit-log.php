@@ -168,6 +168,7 @@ function formatAuditActionLabel(string $action): string
         'admin_checkin'      => 'Manual check-in',
         'export_staff'       => 'Staff CSV export',
         'export_attendance'  => 'Attendance CSV export',
+        'export_contractor_sheet' => 'Contractor sheet export',
         'staff_email'        => 'Staff email broadcast',
         'event_save'         => 'Event saved',
         'scan_checkin'       => 'QR scan check-in',

@@ -96,6 +96,14 @@ function getRegistrationFormUrl(?PDO $pdo = null, ?string $slug = null): string
 }
 
 /**
+ * Staff app URL for shift alerts (profile-only staff apply in-app, not via registration form).
+ */
+function getStaffAppUrl(?PDO $pdo = null): string
+{
+    return rtrim(getRegistrationSiteUrl($pdo), '/') . '/staff-app.php';
+}
+
+/**
  * Base URL for this admin installation (where /admin/ lives).
  */
 /**

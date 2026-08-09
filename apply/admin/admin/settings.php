@@ -5,12 +5,19 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/main-admin-bridge.php';
 require_once __DIR__ . '/../includes/secure-layout.php';
+require_once __DIR__ . '/../includes/apply-friendly.php';
 
 $message = '';
 $error   = '';
 $adminInfo = null;
 
 $mainPdo = getMainAdminPdo();
+if (!$mainPdo instanceof PDO) {
+    apply_render_error_page(
+        'ERP database unavailable',
+        'Apply admin cannot reach the main ERP database. Configure config/eventstaff-database.php on the server.'
+    );
+}
 if ($mainPdo instanceof PDO) {
     try {
         $stmt = $mainPdo->prepare('SELECT id, username, full_name, email, role, created_at FROM admin_users WHERE id = :id LIMIT 1');

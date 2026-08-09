@@ -250,8 +250,12 @@ function registrationFormReadyForShiftSelection(array $data, array $files, ?arra
     $required = [
         'email', 'surname', 'first_name', 'full_address', 'eircode',
         'date_of_birth', 'gender', 'mobile', 'pps_number', 'bank_iban',
-        'psa_licence', 'psa_expiry_date',
     ];
+
+    if (registrationRoleRequiresPsa($data)) {
+        $required[] = 'psa_licence';
+        $required[] = 'psa_expiry_date';
+    }
 
     foreach ($required as $field) {
         if (trim((string) ($data[$field] ?? '')) === '') {
@@ -261,6 +265,10 @@ function registrationFormReadyForShiftSelection(array $data, array $files, ?arra
 
     if (!filter_var(trim((string) ($data['email'] ?? '')), FILTER_VALIDATE_EMAIL)) {
         return false;
+    }
+
+    if (!registrationRoleRequiresPsa($data)) {
+        return true;
     }
 
     $hasFront = !empty($files['psa_front_image']['tmp_name'])
@@ -282,7 +290,8 @@ function renderStaffProfileVerifyForm(PDO $pdo, array $state = [], string $mode 
     require_once __DIR__ . '/site-urls.php';
     $companyName = getCompanyName($pdo);
     $registerHost = parse_url(getRegistrationSiteUrl($pdo), PHP_URL_HOST) ?: 'register.olasentra.com';
-    $missing  = getStaffOnboardingRequiredFields();
+    $missing  = array_values(getStaffBaseProfileRequiredFields());
+    $missing[] = 'PSA licence (security roles only)';
     $isUpdate = $mode === 'update';
     require_once __DIR__ . '/staff-google-oauth.php';
     $googleEnabled  = isStaffGoogleSigninEnabled($pdo);

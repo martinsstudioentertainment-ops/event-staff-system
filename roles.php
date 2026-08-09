@@ -54,7 +54,7 @@ include __DIR__ . '/includes/public/page-hero.php';
 
                     <h2 class="site-card__title"><?= h($form['label'] ?? ucfirst($slug)) ?></h2>
 
-                    <p class="site-card__text"><?= h($form['description'] ?? $form['subtitle'] ?? '') ?></p>
+                    <div class="site-card__text rich-content"><?= renderRichText($form['description'] ?? $form['subtitle'] ?? '') ?></div>
 
                     <a class="btn btn--primary" href="<?= h(getRegistrationFormUrl($pdo, $slug)) ?>">Register as <?= h($form['short_label'] ?? ucfirst($slug)) ?></a>
 

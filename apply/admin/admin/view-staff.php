@@ -11,20 +11,30 @@ require_once __DIR__ . '/../includes/psa-sync.php';
 $id = (int) ($_GET['id'] ?? 0);
 
 if ($id <= 0) {
-    http_response_code(400);
-    die('Invalid staff ID.');
+    require_once __DIR__ . '/../includes/apply-friendly.php';
+    apply_render_error_page(
+        'Staff profile',
+        'Open a staff member from the Staff directory — a profile ID is required in the link.'
+    );
 }
 
 $eventPdo = getMainAdminPdo();
-apply_auto_refresh_vault_profile_statuses($pdo, $eventPdo, $id);
+try {
+    apply_auto_refresh_vault_profile_statuses($pdo, $eventPdo, $id);
+} catch (Throwable $e) {
+    error_log('[ApplyViewStaff] refresh status: ' . $e->getMessage());
+}
 
 $stmt = $pdo->prepare('SELECT * FROM staff_master WHERE id = :id LIMIT 1');
 $stmt->execute(['id' => $id]);
 $staff = $stmt->fetch();
 
 if (!$staff) {
-    http_response_code(404);
-    die('Staff record not found.');
+    require_once __DIR__ . '/../includes/apply-friendly.php';
+    apply_render_error_page(
+        'Staff not found',
+        'No staff record exists for that ID. Return to the directory and choose another profile.'
+    );
 }
 
 $status    = (string) ($staff['profile_status'] ?? 'Incomplete');

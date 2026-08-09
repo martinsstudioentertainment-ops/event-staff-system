@@ -1,0 +1,14 @@
+﻿{
+    "probed_total":  308,
+    "ok_total":  292,
+    "error_total":  16,
+    "http_404":  3,
+    "http_403":  2,
+    "http_500":  6,
+    "http_502":  0,
+    "http_503":  0,
+    "php_errors":  null,
+    "blank_pages":  2,
+    "connection_err":  0,
+    "other_4xx_5xx":  2
+}

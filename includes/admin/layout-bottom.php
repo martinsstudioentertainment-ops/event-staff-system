@@ -44,7 +44,11 @@ $richTextJsVer  = is_file($richTextJsPath) ? (string) filemtime($richTextJsPath)
 <script src="<?= h($assetBase) ?>assets/js/admin-rich-text.js?v=<?= h($richTextJsVer) ?>"></script>
 <?php endif; ?>
 <?php if (!empty($enableAttendanceLive)): ?>
-<script src="<?= h($assetBase) ?>assets/js/attendance-live.js"></script>
+<?php
+$attendanceLiveJsPath = dirname(__DIR__, 2) . '/assets/js/attendance-live.js';
+$attendanceLiveJsVer  = is_file($attendanceLiveJsPath) ? (string) filemtime($attendanceLiveJsPath) : '1';
+?>
+<script src="<?= h($assetBase) ?>assets/js/attendance-live.js?v=<?= h($attendanceLiveJsVer) ?>"></script>
 <?php endif; ?>
 <?php
 $applySyncPages = ['dashboard', 'staff', 'staff-directory', 'apply', 'go-live', 'ops'];

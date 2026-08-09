@@ -5,6 +5,7 @@ require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/commission-invoice-repository.php';
 require_once __DIR__ . '/../includes/audit-log.php';
 require_once __DIR__ . '/../includes/admin-pagination.php';
+require_once __DIR__ . '/../includes/attendance-roster-helpers.php';
 
 requireAdminCapability('invoices');
 
@@ -16,7 +17,7 @@ if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
     $month = date('Y-m');
 }
 
-$events   = getEventsForFilter($pdo);
+$events   = getEventsForCommissionInvoiceFilter($pdo);
 $allList  = getCommissionInvoicesList($pdo, $eventId, $status, $month);
 $page     = adminListPage();
 $list     = array_slice($allList, adminListOffset($page), adminListPerPage());
@@ -70,7 +71,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <option value="">All events</option>
                 <?php foreach ($events as $event): ?>
                     <option value="<?= (int) $event['id'] ?>"<?= $eventId === (int) $event['id'] ? ' selected' : '' ?>>
-                        <?= h($event['name'] . ' — ' . formatEventDateLabel((string) $event['event_date'])) ?>
+                        <?= h(formatEventFilterOptionLabel($event)) ?>
                     </option>
                 <?php endforeach; ?>
             </select>

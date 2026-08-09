@@ -13,16 +13,20 @@ $token = trim((string) ($_GET['token'] ?? ''));
 $payload = verifyApplySsoToken($token);
 
 if ($payload === null) {
-    http_response_code(403);
-    echo 'Invalid or expired sign-in link. Open Apply admin from the main ERP sidebar (Apply admin).';
-    exit;
+    require_once __DIR__ . '/includes/apply-friendly.php';
+    apply_render_error_page(
+        'Sign-in link expired',
+        'This Apply admin sign-in link is invalid or has expired. Open Apply admin from the main ERP console (Apply admin) to get a new link.'
+    );
 }
 
 $user = fetchMainAdminUser($payload['admin_id']);
 if ($user === null || !applyAdminRoleAllowed((string) ($user['role'] ?? ''))) {
-    http_response_code(403);
-    echo 'Your account cannot access Apply admin.';
-    exit;
+    require_once __DIR__ . '/includes/apply-friendly.php';
+    apply_render_error_page(
+        'Access denied',
+        'Your account cannot access Apply admin. Use an administrator or manager account from the main ERP.'
+    );
 }
 
 setApplyAdminSession($user);

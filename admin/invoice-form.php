@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/commission-invoice-repository.php';
 require_once __DIR__ . '/../includes/work-hours-repository.php';
+require_once __DIR__ . '/../includes/attendance-roster-helpers.php';
 
 requireAdminCapability('invoices');
 
@@ -16,7 +17,7 @@ if (!in_array(getAdminRole(), ['admin', 'manager'], true)) {
 $pdo       = getDB();
 $invoiceId = (int) ($_GET['id'] ?? 0);
 $eventId   = (int) ($_GET['event_id'] ?? 0);
-$events    = getEventsForFilter($pdo);
+$events    = getEventsForCommissionInvoiceFilter($pdo);
 $invoice   = null;
 $event     = null;
 $lines     = [];
@@ -73,7 +74,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <?php if ($event): ?>
                 <p class="card__subtitle"><?= h($event['name']) ?> · <?= h(formatEventDateLabel((string) $event['event_date'])) ?></p>
             <?php else: ?>
-                <p class="card__subtitle">Pick an event with completed sign-ins to build the commission invoice.</p>
+                <p class="card__subtitle">Pick an event with completed sign-ins to build the commission invoice. Past and inactive events are included.</p>
             <?php endif; ?>
         </div>
         <a href="invoices.php" class="btn btn--secondary">← All invoices</a>
@@ -86,7 +87,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <select class="form-select" id="event_id" name="event_id" required>
                     <option value="">Select event…</option>
                     <?php foreach ($events as $ev): ?>
-                        <option value="<?= (int) $ev['id'] ?>"><?= h($ev['name'] . ' — ' . formatEventDateLabel((string) $ev['event_date'])) ?></option>
+                        <option value="<?= (int) $ev['id'] ?>"><?= h(formatEventFilterOptionLabel($ev)) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>

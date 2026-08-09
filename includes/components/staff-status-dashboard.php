@@ -6,6 +6,7 @@ require_once dirname(__DIR__) . '/staff-portal-dashboard.php';
 require_once dirname(__DIR__) . '/attendance-repository.php';
 require_once dirname(__DIR__) . '/staff-app-v3-data.php';
 require_once dirname(__DIR__) . '/date-format.php';
+require_once dirname(__DIR__) . '/system-settings.php';
 
 /**
  * @param array{total: int, approved: int, pending: int, rejected: int, upcoming: int, completed: int, checked_in: int, has_data: bool} $metrics

@@ -121,20 +121,28 @@ function validateBankIbanField(string $value, bool $required = true): ?string
 }
 
 /**
+ * @param array<string, mixed> $data
  * @return array<string, string>
  */
-function validateFinancialStaffFields(array $data, bool $required = true): array
+function validateFinancialStaffFields(array $data, bool $required = true, ?bool $requiresPsa = null): array
 {
     $errors = [];
+
+    if ($requiresPsa === null) {
+        $role = strtolower(trim((string) ($data['staff_role'] ?? '')));
+        $requiresPsa = $role !== 'steward';
+    }
 
     $ibanErr = validateBankIbanField((string) ($data['bank_iban'] ?? ''), $required);
     if ($ibanErr !== null) {
         $errors['bank_iban'] = $ibanErr;
     }
 
-    $psaErr = validatePsaLicenceField((string) ($data['psa_licence'] ?? ''), $required);
-    if ($psaErr !== null) {
-        $errors['psa_licence'] = $psaErr;
+    if ($requiresPsa) {
+        $psaErr = validatePsaLicenceField((string) ($data['psa_licence'] ?? ''), $required);
+        if ($psaErr !== null) {
+            $errors['psa_licence'] = $psaErr;
+        }
     }
 
     return $errors;

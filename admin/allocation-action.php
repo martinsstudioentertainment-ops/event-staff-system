@@ -91,6 +91,63 @@ switch ($action) {
         setAdminFlash('error', (string) ($result['error'] ?? 'Allocation failed.'));
         break;
 
+    case 'bulk_assign':
+        $staffIds = $_POST['staff_ids'] ?? [];
+        $eventIds = $_POST['event_ids'] ?? [];
+        if (!is_array($staffIds)) {
+            $staffIds = [];
+        }
+        if (!is_array($eventIds)) {
+            $eventIds = [];
+        }
+        if (!empty($_POST['assign_all_matching'])) {
+            $staffIds = getStaffIdsForAllocationFilter($pdo, [
+                'q'             => trim((string) ($_POST['staff_filter_q'] ?? '')),
+                'role'          => trim((string) ($_POST['staff_filter_role'] ?? '')),
+                'blacklisted'   => false,
+            ]);
+            if ($staffIds === []) {
+                setAdminFlash('error', 'No staff match the filter for “assign all”. Narrow or change filters.');
+                header('Location: ' . $redirect);
+                exit;
+            }
+        }
+        $pairCount = count($staffIds) * count(array_filter(array_map('intval', is_array($eventIds) ? $eventIds : [])));
+        if ($pairCount > 200) {
+            @set_time_limit(min(3600, max(300, (int) ceil($pairCount / 5))));
+        }
+        $result = adminBulkAssignStaffToEvents(
+            $pdo,
+            $staffIds,
+            $eventIds,
+            $reason,
+            !empty($_POST['confirm_duplicate']),
+            !empty($_POST['confirm_same_day'])
+        );
+        if ($result['ok'] ?? false) {
+            $msg = 'Bulk assign: ' . (int) ($result['assigned'] ?? 0) . ' shift(s) assigned';
+            if ((int) ($result['failed'] ?? 0) > 0) {
+                $msg .= ', ' . (int) $result['failed'] . ' failed';
+            }
+            $msg .= '.';
+            $errors = $result['errors'] ?? [];
+            if ($errors !== []) {
+                $msg .= ' ' . implode(' · ', array_slice($errors, 0, 3));
+                if (count($errors) > 3) {
+                    $msg .= ' …';
+                }
+            }
+            setAdminFlash((int) ($result['failed'] ?? 0) > 0 ? 'warning' : 'success', $msg);
+        } else {
+            $err = (string) ($result['error'] ?? 'Bulk assignment failed.');
+            $errors = $result['errors'] ?? [];
+            if ($errors !== []) {
+                $err .= ' ' . implode(' · ', array_slice($errors, 0, 3));
+            }
+            setAdminFlash('error', $err);
+        }
+        break;
+
     case 'bulk_allocate_waitlist':
         $eventId     = (int) ($_POST['event_id'] ?? 0);
         $waitlistIds = $_POST['waitlist_ids'] ?? [];

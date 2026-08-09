@@ -65,6 +65,11 @@ function getRegistrationStatusUrlAfterSave(PDO $pdo, array $registrationIds, str
         : getRegistrationSiteUrl($pdo) . '/status.php';
 }
 
+function getProfileOnlyRegistrationRedirectUrl(?PDO $pdo = null): string
+{
+    return getRegistrationSiteUrl($pdo) . '/staff-profile.php?welcome=1';
+}
+
 /**
  * Extract status token from a pasted link or raw token string.
  */
@@ -132,13 +137,25 @@ function getRegistrationByStatusToken(PDO $pdo, string $token): ?array
 /**
  * @return array<int, array<string, mixed>>
  */
-function getStaffStatusRows(PDO $pdo, string $token): array
+function getStaffStatusRows(PDO $pdo, string $token, int $staffId = 0): array
 {
     $row = getRegistrationByStatusToken($pdo, $token);
     if (!$row) {
         return [];
     }
 
+    $email = strtolower(trim((string) ($row['email'] ?? '')));
+    if ($staffId < 1) {
+        $staffId = (int) ($row['staff_id'] ?? 0);
+    }
+    if ($staffId < 1 && $email !== '') {
+        $staff = getStaffByEmail($pdo, $email);
+        if (is_array($staff)) {
+            $staffId = (int) ($staff['id'] ?? 0);
+        }
+    }
+
+    $match = staffRegistrationMatchClause($email, $staffId);
     $sql = 'SELECT sr.*, e.name AS event_name, e.event_date,
                    a.id AS attendance_id, a.checked_in_at, a.checked_out_at,
                    a.hours_worked, a.attendance_status,
@@ -146,11 +163,11 @@ function getStaffStatusRows(PDO $pdo, string $token): array
             FROM staff_registrations sr
             INNER JOIN events e ON e.id = sr.event_id
             LEFT JOIN attendance a ON a.registration_id = sr.id
-            WHERE LOWER(sr.email) = LOWER(:email)
+            WHERE ' . $match['sql'] . '
             ORDER BY e.event_date ASC, sr.created_at ASC';
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute(['email' => strtolower(trim((string) $row['email']))]);
+    $stmt->execute($match['params']);
 
     $rows = $stmt->fetchAll() ?: [];
 

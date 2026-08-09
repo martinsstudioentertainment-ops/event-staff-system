@@ -158,3 +158,53 @@ function runRegistrationPostSaveJobs(PDO $pdo, array $data, array $ids, array $n
 
     return $stats;
 }
+
+/**
+ * Post-save jobs for profile-only (account) registration — mirrors runRegistrationPostSaveJobs
+ * without staff_registrations rows, sheets sync, or auto-approval.
+ *
+ * @param array<string, mixed> $data
+ */
+function runProfileOnlyPostSaveSafely(PDO $pdo, array $data, int $staffId, string $email, bool $isNewAccount): void
+{
+    if (!$isNewAccount || $staffId < 1) {
+        return;
+    }
+
+    try {
+        runProfileOnlyPostSaveJobs($pdo, $data, $staffId, $email);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] Profile-only post-save failed: ' . $e->getMessage());
+    }
+}
+
+/**
+ * @param array<string, mixed> $data
+ */
+function runProfileOnlyPostSaveJobs(PDO $pdo, array $data, int $staffId, string $email): void
+{
+    require_once __DIR__ . '/notification-center.php';
+
+    $staffName = trim((string) ($data['first_name'] ?? '') . ' ' . (string) ($data['surname'] ?? ''));
+    if ($staffName === '') {
+        $staffName = 'New staff member';
+    }
+
+    try {
+        notifyStaffProfileAccountCreated($pdo, $data, $staffId, $email);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] Profile-only staff notification: ' . $e->getMessage());
+    }
+
+    try {
+        notifyAdminNewStaffAccount($pdo, $staffName, $email, $staffId);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] Profile-only admin notification: ' . $e->getMessage());
+    }
+
+    try {
+        notifyStaffProfileOnlyWelcomeEmail($pdo, $data);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] Profile-only welcome email: ' . $e->getMessage());
+    }
+}

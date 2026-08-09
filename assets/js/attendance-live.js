@@ -17,9 +17,14 @@
         }
     }
 
-    function renderRecent(items) {
+    function renderRecent(items, message) {
         var list = document.getElementById('attendance-live-recent');
         if (!list) {
+            return;
+        }
+
+        if (message) {
+            list.innerHTML = '<li class="attendance-live__empty">' + escapeHtml(message) + '</li>';
             return;
         }
 
@@ -78,6 +83,10 @@
                 return response.json();
             })
             .then(function (data) {
+                if (!data || data.ok === false) {
+                    throw new Error((data && data.error) ? String(data.error) : 'Unable to load live attendance');
+                }
+
                 var stats = data.stats || {};
                 setText('live-stat-approved', stats.approved);
                 setText('live-stat-checked-in', stats.checked_in);
@@ -100,7 +109,8 @@
                     updatedEl.textContent = 'Updated ' + time.toLocaleTimeString();
                 }
             })
-            .catch(function () {
+            .catch(function (err) {
+                renderRecent([], 'Live refresh unavailable — reload the page if this persists.');
                 if (updatedEl) {
                     updatedEl.textContent = 'Live refresh paused';
                 }

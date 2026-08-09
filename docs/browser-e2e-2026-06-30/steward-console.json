@@ -1,0 +1,18 @@
+[
+  {
+    "type": "warning",
+    "text": "Service Worker registration blocked by Playwright"
+  },
+  {
+    "type": "warning",
+    "text": "[EventStaff] Service worker registration failed: Cannot read properties of undefined (reading 'update')"
+  },
+  {
+    "type": "warning",
+    "text": "Service Worker registration blocked by Playwright"
+  },
+  {
+    "type": "warning",
+    "text": "[EventStaff] Service worker registration failed: Cannot read properties of undefined (reading 'update')"
+  }
+]

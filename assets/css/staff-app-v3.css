@@ -1119,6 +1119,28 @@ body.es-v3 a.es-v3__action-card {
   color: var(--es-accent);
 }
 
+.es-v3__shift-wa {
+  margin-top: 0.75rem;
+}
+
+.es-v3__shift-wa-btn {
+  display: block;
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  border-radius: 10px;
+  background: #25d366;
+  color: #052e16;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+}
+
+.es-v3__shift-wa-btn:hover {
+  filter: brightness(1.05);
+  color: #052e16;
+}
+
 .es-v3__shift-progress {
   margin-top: 0.75rem;
 }

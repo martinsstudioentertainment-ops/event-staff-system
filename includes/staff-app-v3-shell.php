@@ -12,6 +12,7 @@ require_once __DIR__ . '/staff-google-oauth.php';
 require_once __DIR__ . '/company.php';
 require_once __DIR__ . '/brand-logo.php';
 require_once __DIR__ . '/share-meta.php';
+require_once __DIR__ . '/mobile/services/MobileDashboardService.php';
 
 /**
  * @return array<string, mixed>
@@ -24,10 +25,10 @@ function buildStaffV3Context(PDO $pdo, ?array $portalStaff): array
     $companyName      = getCompanyName($pdo);
     $siteName         = getSiteName($pdo);
     $appDisplayName   = $siteName !== '' && $siteName !== 'Event Staff System' ? $siteName : ($companyName !== '' ? $companyName : 'Olasentra');
-    $metrics          = getStaffPortalDashboardMetrics($pdo, $staffEmail);
+    $metrics          = getStaffPortalDashboardMetrics($pdo, $staffEmail, $staffId);
     $monthly          = getStaffV3MonthlyStats($pdo, $staffEmail, $staffId);
-    $shiftRows        = getStaffV3ShiftRows($pdo, $staffEmail, $staffStatusToken);
-    $todayShift       = getStaffV3TodayShift($shiftRows, $pdo);
+    $shiftRows        = getStaffV3ShiftRows($pdo, $staffEmail, $staffStatusToken, $staffId);
+    $todayShift       = getStaffV3TodayDashboardShift($shiftRows, $pdo);
     $profileComplete  = $portalStaff !== null && !staffNeedsProfileForm($pdo, $portalStaff);
 
     $notifPageUrl = 'staff-notifications.php';
@@ -82,6 +83,8 @@ function buildStaffV3Context(PDO $pdo, ?array $portalStaff): array
         'profile_url'       => 'staff-profile-hub.php',
         'profile_edit_url'  => 'staff-profile.php?edit=1',
         'shifts_url'        => 'staff-shifts.php',
+        'apply_shifts_url'  => 'staff-apply-shifts.php',
+        'open_events_count' => mobileDashboardCountAvailableEvents($pdo),
         'home_url'          => 'staff-app.php',
         'employer_filters'  => getStaffV3EmployerFilters($shiftRows, $companyName),
         'signed_out_notice' => '',
@@ -357,6 +360,15 @@ function renderStaffV3ShiftCard(array $row, PDO $pdo, string $companyFallback, b
             <?php endif; ?>
             <span class="es-v3__shift-hours"><?= h($payLabel) ?></span>
         </div>
+        <?php
+        require_once __DIR__ . '/event-whatsapp.php';
+        $eventWaUrl = normalizeWhatsappGroupUrl((string) ($row['event_whatsapp_group_url'] ?? ''));
+        if ($eventWaUrl !== '' && (string) ($row['status'] ?? '') === 'approved'):
+        ?>
+        <div class="es-v3__shift-wa">
+            <a href="<?= h($eventWaUrl) ?>" class="es-v3__shift-wa-btn" target="_blank" rel="noopener noreferrer">Join event WhatsApp group</a>
+        </div>
+        <?php endif; ?>
     </article>
     <?php
 }

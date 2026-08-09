@@ -40,6 +40,11 @@
 
     var fastTrackActive = false;
     var shiftFirstFlow = body.dataset.shiftFirstFlow === '1';
+    var accountOnlyRegistration = body.dataset.registrationAccountOnly === '1';
+
+    function skipsShiftStep() {
+        return accountOnlyRegistration;
+    }
 
     function collectSteps() {
         steps = Array.prototype.slice.call(document.querySelectorAll('.reg-wizard__step[data-step]'));
@@ -93,7 +98,8 @@
     function syncFastTrackUi() {
         body.classList.toggle('registration-page--wizard-fast-track', fastTrackActive);
         if (fastTrackFooter) {
-            fastTrackFooter.hidden = !(fastTrackActive && current === 2);
+            var fastSubmitStep = skipsShiftStep() ? TOTAL : 2;
+            fastTrackFooter.hidden = !(fastTrackActive && current === fastSubmitStep);
         }
         if (fastTrackActive) {
             mountFastTrackConsent();
@@ -104,10 +110,36 @@
 
     function shiftPickerHasNoPickableShifts() {
         var validation = window.RegistrationWizardValidation;
-        return !!window.SHIFT_PICKER_READY
-            && validation
-            && typeof validation.hasPickableShifts === 'function'
-            && !validation.hasPickableShifts();
+        if (!window.SHIFT_PICKER_READY || !validation) {
+            return false;
+        }
+        if (typeof validation.countPickableShifts === 'function') {
+            return validation.countPickableShifts() === 0;
+        }
+        return typeof validation.hasPickableShifts === 'function' && !validation.hasPickableShifts();
+    }
+
+    function roleSkipsPsaStep() {
+        return typeof registrationRoleRequiresPsa === 'function' && !registrationRoleRequiresPsa();
+    }
+
+    function syncFastTrackForShiftAvailability() {
+        if (!window.SHIFT_PICKER_READY) {
+            return;
+        }
+        if (shiftPickerHasNoPickableShifts() && fastTrackActive) {
+            setFastTrack(false);
+        }
+    }
+
+    function ensureProfileOnlyMode() {
+        if (typeof ensureProfileOnlyRegistrationMode === 'function') {
+            ensureProfileOnlyRegistrationMode();
+        }
+        var validation = window.RegistrationWizardValidation;
+        if (validation && typeof validation.ensureProfileOnlyMode === 'function') {
+            validation.ensureProfileOnlyMode();
+        }
     }
 
     function hasSelectedEventsForSubmit() {
@@ -119,9 +151,9 @@
 
     function updateChrome() {
         var onReview = current === TOTAL && !fastTrackActive;
-        var onFastSubmit = fastTrackActive && current === 2;
+        var onFastSubmit = fastTrackActive && (skipsShiftStep() ? current === TOTAL : current === 2);
         var showSubmit = onReview || onFastSubmit;
-        var showHomeInstead = showSubmit && shiftPickerHasNoPickableShifts() && !hasSelectedEventsForSubmit();
+        var noPickableShifts = shiftPickerHasNoPickableShifts();
         var displayTotal = fastTrackActive ? FAST_TRACK_TOTAL : TOTAL;
         var displayCurrent = fastTrackActive ? fastTrackDisplayStep(current) : current;
         var pct = Math.round((displayCurrent / displayTotal) * 100);
@@ -157,24 +189,38 @@
 
         body.classList.toggle('registration-page--wizard-review', onReview);
         body.classList.toggle('registration-page--wizard-fast-submit', onFastSubmit);
-        body.classList.toggle('registration-page--wizard-submit-mode', showSubmit && !showHomeInstead);
-        body.classList.toggle('registration-page--wizard-no-shifts', showHomeInstead);
+        body.classList.toggle('registration-page--wizard-submit-mode', showSubmit);
+        body.classList.toggle('registration-page--wizard-no-shifts', current === 2 && noPickableShifts);
 
         if (btnBack) {
             btnBack.hidden = current <= 1;
         }
         if (btnNext) {
             btnNext.hidden = showSubmit;
+            if (current === 2 && noPickableShifts) {
+                var waitlistCb = document.getElementById('join_waiting_list');
+                btnNext.textContent = (waitlistCb && waitlistCb.checked)
+                    ? 'Continue to your details'
+                    : 'Continue registration';
+            } else {
+                btnNext.textContent = 'Continue';
+            }
         }
         if (btnSubmit) {
-            btnSubmit.hidden = !showSubmit || showHomeInstead;
+            btnSubmit.hidden = !showSubmit;
+            btnSubmit.textContent = 'Complete registration';
         }
         if (btnHome) {
-            btnHome.hidden = !showHomeInstead;
+            btnHome.hidden = true;
         }
 
-        if (showHomeInstead && window.RegistrationWizardValidation && typeof window.RegistrationWizardValidation.clearStepErrors === 'function') {
-            window.RegistrationWizardValidation.clearStepErrors(2);
+        if (current === 2 && noPickableShifts && window.RegistrationWizardValidation) {
+            if (typeof window.RegistrationWizardValidation.clearStepErrors === 'function') {
+                window.RegistrationWizardValidation.clearStepErrors(2);
+            }
+            if (typeof window.RegistrationWizardValidation.clearEventShiftErrors === 'function') {
+                window.RegistrationWizardValidation.clearEventShiftErrors();
+            }
         }
 
         syncFastTrackUi();
@@ -183,40 +229,60 @@
     function resolveNextStep(n) {
         if (fastTrackActive) {
             if (n === 1) return 3;
-            if (n === 3) return 2;
+            if (n === 3) return skipsShiftStep() ? TOTAL : 2;
             return n;
         }
         if (shiftFirstFlow) {
-            if (n === 1) return 2;
+            if (n === 1) return skipsShiftStep() ? 4 : 2;
             if (n === 2) return 4;
+            if (n === 6 && roleSkipsPsaStep()) return 8;
             if (n >= 4 && n < 8) return n + 1;
             return n;
         }
+        if (skipsShiftStep()) {
+            if (n === 1) return 3;
+            if (n === 2) return 3;
+            if (n === 6 && roleSkipsPsaStep()) return 8;
+            if (n >= 3 && n < 8) return n + 1;
+            return n;
+        }
+        if (n === 6 && roleSkipsPsaStep()) return 8;
         return n < TOTAL ? n + 1 : n;
     }
 
     function resolvePrevStep(n) {
         if (fastTrackActive) {
+            if (n === TOTAL && skipsShiftStep()) return 3;
             if (n === 2) return 3;
             if (n === 3) return 1;
             return n > 1 ? n - 1 : 1;
         }
         if (shiftFirstFlow) {
+            if (n === 8 && roleSkipsPsaStep()) return 6;
             if (n === 8) return 7;
             if (n === 7) return 6;
             if (n === 6) return 5;
             if (n === 5) return 4;
-            if (n === 4) return 2;
+            if (n === 4) return skipsShiftStep() ? 1 : 2;
             if (n === 2) return 1;
             return n > 1 ? n - 1 : 1;
         }
+        if (skipsShiftStep()) {
+            if (n === 8 && roleSkipsPsaStep()) return 6;
+            if (n === 3) return 1;
+            if (n === 2) return 1;
+        }
+        if (n === 8 && roleSkipsPsaStep()) return 6;
         return n > 1 ? n - 1 : 1;
     }
 
     function showStep(n, skipTrack) {
         n = Math.max(1, Math.min(TOTAL, n));
-        if (fastTrackActive && n > 3 && n !== 2) {
-            n = 2;
+        if (skipsShiftStep() && n === 2) {
+            n = shiftFirstFlow ? 4 : 3;
+        }
+        if (fastTrackActive && n > 3 && n !== 2 && n !== 8) {
+            n = skipsShiftStep() ? TOTAL : 2;
         }
 
         steps.forEach(function (el) {
@@ -258,6 +324,9 @@
 
     function redirectToStep2ForMissingEvents(message) {
         var validation = window.RegistrationWizardValidation;
+        if (validation && typeof validation.clearEventShiftErrors === 'function') {
+            validation.clearEventShiftErrors();
+        }
         if (validation && typeof validation.showError === 'function') {
             validation.showError('event_ids', message || 'Please select at least one open event opportunity.');
         }
@@ -273,15 +342,26 @@
             return;
         }
 
-        if (fastTrackActive && current === 2) {
+        if (current === 2) {
+            if (shiftPickerHasNoPickableShifts()) {
+                ensureProfileOnlyMode();
+            }
+            if (typeof syncWaitlistRegistrationMode === 'function') {
+                syncWaitlistRegistrationMode();
+            }
+            if (window.RegistrationWizardValidation && typeof window.RegistrationWizardValidation.clearEventShiftErrors === 'function') {
+                window.RegistrationWizardValidation.clearEventShiftErrors();
+            }
+        }
+
+        if (fastTrackActive && current === 2 && !skipsShiftStep()) {
             return;
         }
 
         if (current === TOTAL - 1 && !fastTrackActive) {
-            var validation = window.RegistrationWizardValidation;
-            if (validation && typeof validation.hasValidEventSelection === 'function' && !validation.hasValidEventSelection()) {
-                redirectToStep2ForMissingEvents('Please select at least one open event opportunity before review.');
-                return;
+            ensureProfileOnlyMode();
+            if (typeof syncWaitlistRegistrationMode === 'function') {
+                syncWaitlistRegistrationMode();
             }
         }
 
@@ -305,6 +385,8 @@
     }
 
     document.addEventListener('shiftPickerReady', function () {
+        ensureProfileOnlyMode();
+        syncFastTrackForShiftAvailability();
         updateChrome();
         if (fastTrackActive && current === 2 && window.RegistrationWizardReview && typeof window.RegistrationWizardReview.renderFastTrackEvents === 'function') {
             window.RegistrationWizardReview.renderFastTrackEvents();
@@ -316,15 +398,15 @@
             applyVerifiedGoogleEmail();
             var validation = window.RegistrationWizardValidation;
             var valid;
-
-            if (shiftPickerHasNoPickableShifts()) {
-                e.preventDefault();
-                window.location.href = (btnHome && btnHome.getAttribute('href')) || 'staff-app.php';
-                return;
+            ensureProfileOnlyMode();
+            if (typeof syncWaitlistRegistrationMode === 'function') {
+                syncWaitlistRegistrationMode();
             }
 
             if (fastTrackActive && validation && typeof validation.validateFastTrackSubmit === 'function') {
                 valid = validation.validateFastTrackSubmit();
+            } else if (validation && typeof validation.validateAllStepsForSubmit === 'function') {
+                valid = validation.validateAllStepsForSubmit({ fastTrack: false });
             } else if (validation && typeof validation.validateStep === 'function') {
                 valid = validation.validateStep(8, { fastTrack: false, profileEdit: false });
             } else {
@@ -333,13 +415,39 @@
 
             if (!valid) {
                 e.preventDefault();
-                if (validation && typeof validation.hasValidEventSelection === 'function' && !validation.hasValidEventSelection()) {
-                    redirectToStep2ForMissingEvents('Please select at least one open event opportunity before submitting.');
-                } else if (!fastTrackActive) {
+                var alertEl = document.getElementById('form-alert');
+                if (alertEl) {
+                    var submitErrors = validation && typeof validation.getLastValidationErrors === 'function'
+                        ? validation.getLastValidationErrors()
+                        : {};
+                    var errKeys = Object.keys(submitErrors);
+                    alertEl.textContent = errKeys.length === 1
+                        ? submitErrors[errKeys[0]]
+                        : (errKeys.length > 1
+                            ? errKeys.length + ' sections need attention — use Fix on the review summary below.'
+                            : 'Please correct the highlighted sections below, then tap Complete registration again.');
+                    alertEl.className = 'alert alert--error alert--visible';
+                }
+                if (!fastTrackActive) {
                     showStep(8);
                     if (window.RegistrationWizardReview && typeof window.RegistrationWizardReview.render === 'function') {
                         window.RegistrationWizardReview.render();
                     }
+                    window.setTimeout(function () {
+                        var banner = document.querySelector('.reg-review-summary__error-banner');
+                        var consentErr = document.getElementById('privacy_consent-error');
+                        var consentBox = document.querySelector('input[name="privacy_consent"]');
+                        if (consentErr && consentErr.classList.contains('form-error--visible') && consentBox) {
+                            consentBox.closest('.form-group').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        } else if (banner) {
+                            banner.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        } else {
+                            var firstFix = document.querySelector('.reg-review-summary__section--error .reg-review-summary__fix');
+                            if (firstFix) {
+                                firstFix.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                        }
+                    }, 200);
                 }
             } else if (window.RegistrationWizardAutosave) {
                 window.RegistrationWizardAutosave.clear();
@@ -374,7 +482,7 @@
     if (window.REG_WIZARD_RESTORE_STEP) {
         startStep = Math.max(1, Math.min(8, parseInt(window.REG_WIZARD_RESTORE_STEP, 10) || 1));
     } else if (shiftFirstFlow) {
-        startStep = body.dataset.lockedRole ? 2 : 1;
+        startStep = body.dataset.lockedRole ? (accountOnlyRegistration ? 4 : 2) : 1;
     }
 
     showStep(startStep, true);
@@ -388,5 +496,6 @@
         getCurrentStep: function () { return current; },
         setFastTrack: setFastTrack,
         isFastTrack: function () { return fastTrackActive; },
+        updateChrome: updateChrome,
     };
 })();

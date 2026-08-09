@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Olasentra Staff</string>
+    <string name="gps_monitoring_channel_name">Shift GPS monitoring</string>
+    <string name="gps_monitoring_notification_title">Olasentra shift monitoring</string>
+    <string name="gps_monitoring_notification_body">Sending GPS updates during your active shift</string>
+    <string name="location_permission_title">Location access required</string>
+    <string name="location_permission_body">Olasentra needs your location to verify check-in at the event venue and send GPS attendance updates during your shift.</string>
+    <string name="location_permission_denied">Location permission is required for GPS check-in. Enable it in Settings to continue.</string>
+    <string name="location_permission_background_note">Background location may be requested in a future update for shift monitoring when the app is closed.</string>
+    <string name="fcm_notification_channel_name">Olasentra alerts</string>
+</resources>

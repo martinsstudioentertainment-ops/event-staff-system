@@ -10,24 +10,26 @@ require_once __DIR__ . '/../workforce/compliance-repository.php';
 require_once __DIR__ . '/../workforce/staff-availability.php';
 
 /** @return list<array<string, mixed>> */
-function ssp_get_assignments(PDO $pdo, string $email): array
+function ssp_get_assignments(PDO $pdo, string $email, int $staffId = 0): array
 {
     $email = strtolower(trim($email));
-    if ($email === '') {
+    if ($email === '' && $staffId < 1) {
         return [];
     }
 
     try {
+        require_once __DIR__ . '/../staff-repository.php';
+        $match = staffRegistrationMatchClause($email, $staffId);
         $stmt = $pdo->prepare(
             "SELECT sr.*, e.name AS event_name, e.event_date, e.location, e.start_time, e.end_time,
                     a.checked_in_at, a.attendance_status
              FROM staff_registrations sr
              INNER JOIN events e ON e.id = sr.event_id
              LEFT JOIN attendance a ON a.registration_id = sr.id
-             WHERE LOWER(sr.email) = :email
+             WHERE " . $match['sql'] . "
              ORDER BY e.event_date DESC"
         );
-        $stmt->execute(['email' => $email]);
+        $stmt->execute($match['params']);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     } catch (Throwable $e) {
@@ -76,24 +78,26 @@ function ssp_reliability_for_staff(PDO $pdo, int $staffId): ?array
 }
 
 /** @return list<array<string, mixed>> */
-function ssp_attendance_history(PDO $pdo, string $email, int $limit = 30): array
+function ssp_attendance_history(PDO $pdo, string $email, int $limit = 30, int $staffId = 0): array
 {
     $email = strtolower(trim($email));
-    if ($email === '') {
+    if ($email === '' && $staffId < 1) {
         return [];
     }
 
     try {
+        require_once __DIR__ . '/../staff-repository.php';
+        $match = staffRegistrationMatchClause($email, $staffId);
         $stmt = $pdo->prepare(
             "SELECT a.*, e.name AS event_name, e.event_date, sr.staff_role
              FROM attendance a
              INNER JOIN staff_registrations sr ON sr.id = a.registration_id
              INNER JOIN events e ON e.id = a.event_id
-             WHERE LOWER(sr.email) = :email
+             WHERE " . $match['sql'] . "
              ORDER BY a.checked_in_at DESC
              LIMIT " . max(1, min($limit, 50))
         );
-        $stmt->execute(['email' => $email]);
+        $stmt->execute($match['params']);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     } catch (Throwable $e) {

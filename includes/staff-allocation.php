@@ -193,6 +193,85 @@ function saveWaitlistRegistration(PDO $pdo, array $data, array $files = []): arr
 }
 
 /**
+ * Save a staff profile without assigning a shift (no staff_registrations row).
+ *
+ * @param array<string, mixed> $data
+ * @return array{ok: bool, staff_id?: int, error?: string}
+ */
+function saveProfileOnlyRegistration(PDO $pdo, array $data, array $files = []): array
+{
+    $email = normalizeRegistrationEmail((string) ($data['email'] ?? ''));
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'error' => 'Valid email is required.'];
+    }
+
+    $staffRole = sanitizeStaffRoleForDb(normalizeStaffRole((string) ($data['staff_role'] ?? 'dsp')));
+    $staffData = [
+        'surname'         => trim((string) ($data['surname'] ?? '')),
+        'first_name'      => trim((string) ($data['first_name'] ?? '')),
+        'full_address'    => trim((string) ($data['full_address'] ?? '')),
+        'eircode'         => normalizeEircode((string) ($data['eircode'] ?? '')),
+        'location_lat'    => normalizeCoordinate(isset($data['location_lat']) ? (string) $data['location_lat'] : null),
+        'location_lng'    => normalizeCoordinate(isset($data['location_lng']) ? (string) $data['location_lng'] : null),
+        'email'           => $email,
+        'mobile'          => normalizeMobileFromPost($data),
+        'date_of_birth'   => normalizeDateOfBirthForDb((string) ($data['date_of_birth'] ?? '')),
+        'gender'          => trim((string) ($data['gender'] ?? '')),
+        'pps_number'      => trim((string) ($data['pps_number'] ?? '')),
+        'bank_iban'       => trim((string) ($data['bank_iban'] ?? '')),
+        'psa_licence'     => trim((string) ($data['psa_licence'] ?? '')),
+        'psa_expiry_date' => trim((string) ($data['psa_expiry_date'] ?? '')),
+        'staff_role'      => $staffRole,
+    ];
+
+    require_once __DIR__ . '/financial-field-validation.php';
+    $staffData = normalizeFinancialStaffFields($staffData);
+
+    try {
+        $staffId = findOrCreateStaff($pdo, $staffData);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] saveProfileOnlyRegistration staff save: ' . $e->getMessage());
+
+        return ['ok' => false, 'error' => 'Could not save your staff profile. Please try again.'];
+    }
+
+    if ($staffId < 1) {
+        return ['ok' => false, 'error' => 'Could not save your staff profile. Please try again.'];
+    }
+
+    $psaSaveErrors = saveStaffPsaFromForm($pdo, $staffId, $data, $files, false);
+    if ($psaSaveErrors !== []) {
+        error_log('[EventStaff] profile-only PSA save for ' . $email . ': ' . json_encode($psaSaveErrors));
+    }
+
+    try {
+        require_once __DIR__ . '/workforce/staff-preferences.php';
+        staffPreferencesSaveFromRegistrationIfPresent($pdo, $data, $staffId);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] profile-only preferences save: ' . $e->getMessage());
+    }
+
+    logStaffShiftAssignment($pdo, 'profile_only_registration', [
+        'staff_id' => $staffId,
+        'email'    => $email,
+        'reason'   => 'Self-registration without shift',
+        'details'  => 'No event assigned',
+    ]);
+
+    $fresh = getStaffById($pdo, $staffId);
+    if ($fresh !== null && isStaffOnboardingComplete($fresh)) {
+        markStaffProfileCompleted($pdo, $staffId, false);
+    }
+
+    return ['ok' => true, 'staff_id' => $staffId];
+}
+
+function buildProfileOnlySuccessMessage(): string
+{
+    return 'Your account has been created successfully. Review your profile below, then open the staff app to view and apply for shifts.';
+}
+
+/**
  * @return list<array<string, mixed>>
  */
 function searchStaffForAllocation(PDO $pdo, string $query, int $limit = 25): array
@@ -202,7 +281,7 @@ function searchStaffForAllocation(PDO $pdo, string $query, int $limit = 25): arr
     if ($query === '') {
         return [];
     }
-    $limit = max(1, min(50, $limit));
+    $limit = max(1, min(100, $limit));
 
     $params = [];
     $where  = ['1=0'];
@@ -232,6 +311,49 @@ function searchStaffForAllocation(PDO $pdo, string $query, int $limit = 25): arr
     $stmt->execute($params);
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+/**
+ * All staff IDs matching directory filters (for bulk assign — no row limit).
+ *
+ * @param array<string, mixed> $filters  Keys: q, role, blacklisted, profile
+ * @return list<int>
+ */
+function getStaffIdsForAllocationFilter(PDO $pdo, array $filters): array
+{
+    ensureStaffAllocationSchema($pdo);
+
+    $filters = array_filter([
+        'q'           => trim((string) ($filters['q'] ?? '')) !== '' ? trim((string) $filters['q']) : null,
+        'role'        => trim((string) ($filters['role'] ?? '')) !== '' ? trim((string) $filters['role']) : null,
+        'blacklisted' => isset($filters['blacklisted']) ? (bool) $filters['blacklisted'] : false,
+        'profile'     => in_array((string) ($filters['profile'] ?? ''), ['complete', 'incomplete'], true)
+            ? (string) $filters['profile']
+            : null,
+    ], static fn ($v): bool => $v !== null && $v !== '');
+
+    [$where, $params] = buildStaffDirectoryWhereClause($filters);
+    $where .= " AND TRIM(COALESCE(s.email, '')) <> ''";
+
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT s.id FROM staff s WHERE ' . $where . ' ORDER BY s.surname ASC, s.first_name ASC'
+        );
+        $stmt->execute($params);
+        $ids = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $id = (int) ($row['id'] ?? 0);
+            if ($id > 0) {
+                $ids[] = $id;
+            }
+        }
+
+        return $ids;
+    } catch (Throwable $e) {
+        error_log('[EventStaff] getStaffIdsForAllocationFilter: ' . $e->getMessage());
+
+        return [];
+    }
 }
 
 /**
@@ -552,6 +674,95 @@ function adminAssignStaffToEvent(
 
         return ['ok' => false, 'error' => 'Assignment failed: ' . $e->getMessage()];
     }
+}
+
+/**
+ * Assign multiple staff to multiple events (each staff × each event).
+ *
+ * @param list<int> $staffIds
+ * @param list<int> $eventIds
+ * @return array{
+ *     ok: bool,
+ *     assigned: int,
+ *     failed: int,
+ *     registration_ids: list<int>,
+ *     errors: list<string>,
+ *     error?: string
+ * }
+ */
+function adminBulkAssignStaffToEvents(
+    PDO $pdo,
+    array $staffIds,
+    array $eventIds,
+    string $reason,
+    bool $confirmDuplicate = false,
+    bool $confirmSameDay = false
+): array {
+    $staffIds = array_values(array_unique(array_filter(array_map('intval', $staffIds), static fn (int $id): bool => $id > 0)));
+    $eventIds = array_values(array_unique(array_filter(array_map('intval', $eventIds), static fn (int $id): bool => $id > 0)));
+
+    if ($staffIds === [] || $eventIds === []) {
+        return ['ok' => false, 'error' => 'Select at least one staff member and one event.', 'assigned' => 0, 'failed' => 0, 'registration_ids' => [], 'errors' => []];
+    }
+    if (trim($reason) === '') {
+        return ['ok' => false, 'error' => 'Reason for override is required.', 'assigned' => 0, 'failed' => 0, 'registration_ids' => [], 'errors' => []];
+    }
+
+    $assigned        = 0;
+    $failed          = 0;
+    $registrationIds = [];
+    $errors          = [];
+
+    foreach ($staffIds as $staffId) {
+        foreach ($eventIds as $eventId) {
+            $result = adminAssignStaffToEvent(
+                $pdo,
+                $staffId,
+                $eventId,
+                $reason,
+                $confirmDuplicate,
+                $confirmSameDay
+            );
+            if ($result['ok'] ?? false) {
+                $assigned++;
+                $regId = (int) ($result['registration_id'] ?? 0);
+                if ($regId > 0) {
+                    $registrationIds[] = $regId;
+                }
+            } else {
+                $failed++;
+                $staff = getStaffById($pdo, $staffId);
+                $event = getEventById($pdo, $eventId);
+                $staffLabel = $staff
+                    ? trim((string) ($staff['first_name'] ?? '') . ' ' . (string) ($staff['surname'] ?? ''))
+                    : 'Staff #' . $staffId;
+                $eventLabel = $event ? (string) ($event['name'] ?? 'Event #' . $eventId) : 'Event #' . $eventId;
+                $errors[] = $staffLabel . ' → ' . $eventLabel . ': ' . (string) ($result['error'] ?? 'Failed');
+                if (count($errors) >= 12) {
+                    break 2;
+                }
+            }
+        }
+    }
+
+    logStaffShiftAssignment($pdo, 'bulk_assign', [
+        'reason'  => $reason,
+        'details' => json_encode([
+            'staff_count' => count($staffIds),
+            'event_count' => count($eventIds),
+            'assigned'    => $assigned,
+            'failed'      => $failed,
+        ], JSON_UNESCAPED_UNICODE),
+    ]);
+
+    return [
+        'ok'               => $assigned > 0,
+        'assigned'         => $assigned,
+        'failed'           => $failed,
+        'registration_ids' => $registrationIds,
+        'errors'           => $errors,
+        'error'            => $assigned === 0 && $failed > 0 ? 'No assignments succeeded.' : null,
+    ];
 }
 
 /**

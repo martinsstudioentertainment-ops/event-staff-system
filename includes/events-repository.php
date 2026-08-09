@@ -12,6 +12,7 @@ require_once __DIR__ . '/google-sheets-schema.php';
 require_once __DIR__ . '/event-times-schema.php';
 require_once __DIR__ . '/event-checkin-window-schema.php';
 require_once __DIR__ . '/event-main-security-schema.php';
+require_once __DIR__ . '/event-whatsapp-schema.php';
 require_once __DIR__ . '/event-capacity.php';
 
 /**
@@ -127,6 +128,7 @@ function getEventById(PDO $pdo, int $id): ?array
 {
     ensureEventTimesSchema($pdo);
     ensureEventMainSecuritySchema($pdo);
+    ensureEventWhatsappSchema($pdo);
     $stmt = $pdo->prepare('SELECT * FROM events WHERE id = :id LIMIT 1');
     $stmt->execute(['id' => $id]);
     $row = $stmt->fetch();
@@ -283,6 +285,14 @@ function validateEventData(array $data, bool $isEdit = false): array
         $errors['google_sheet_tab'] = 'Sheet tab name is too long.';
     }
 
+    require_once __DIR__ . '/event-whatsapp.php';
+    $whatsappGroup = trim((string) ($data['whatsapp_group_url'] ?? ''));
+    if ($whatsappGroup !== '' && !isValidWhatsappGroupUrl($whatsappGroup)) {
+        $errors['whatsapp_group_url'] = 'Paste a valid WhatsApp group invite link (https://chat.whatsapp.com/…).';
+    } elseif (strlen($whatsappGroup) > 512) {
+        $errors['whatsapp_group_url'] = 'WhatsApp group link is too long.';
+    }
+
     require_once __DIR__ . '/feature-flags.php';
     if (isFeatureEnabled($pdo, 'feature_gps_attendance_v2')) {
         $radiusRaw = trim((string) ($data['signin_radius_m'] ?? ''));
@@ -340,6 +350,8 @@ function resolveEventSigninRadiusForSave(PDO $pdo, array $data): int
  */
 function normalizeEventPayload(array $data): array
 {
+    require_once __DIR__ . '/event-whatsapp.php';
+
     $startTime = trim((string) ($data['start_time'] ?? '09:00'));
     $endTime   = trim((string) ($data['end_time'] ?? '23:00'));
 
@@ -403,6 +415,7 @@ function normalizeEventPayload(array $data): array
         'is_active'       => !empty($data['is_active']) ? 1 : 0,
         'google_sheet_url' => ($u = trim((string) ($data['google_sheet_url'] ?? ''))) !== '' ? $u : null,
         'google_sheet_tab' => ($t = trim((string) ($data['google_sheet_tab'] ?? ''))) !== '' ? $t : null,
+        'whatsapp_group_url' => ($w = normalizeWhatsappGroupUrl(trim((string) ($data['whatsapp_group_url'] ?? '')))) !== '' ? $w : null,
     ];
 }
 
@@ -529,13 +542,15 @@ function createEvent(PDO $pdo, array $data): int
     ensureEventTimesSchema($pdo);
     ensureEventCheckinWindowSchema($pdo);
     ensureEventMainSecuritySchema($pdo);
+    ensureEventWhatsappSchema($pdo);
     require_once __DIR__ . '/event-reporting-schema.php';
     ensureEventReportingSchema($pdo);
+    require_once __DIR__ . '/event-whatsapp.php';
     $payload = prepareEventPayloadFromForm($pdo, $data);
 
     $stmt = $pdo->prepare(
-        'INSERT INTO events (name, main_security_company, event_date, location, venue_id, work_type, roles_needed, reporting_point, venue_eircode, venue_lat, venue_lng, signin_radius_m, staff_needed, start_time, end_time, checkin_open_time, checkin_close_time, times_confirmed, is_active, google_sheet_url, google_sheet_tab)
-         VALUES (:name, :main_security_company, :event_date, :location, :venue_id, :work_type, :roles_needed, :reporting_point, :venue_eircode, :venue_lat, :venue_lng, :signin_radius_m, :staff_needed, :start_time, :end_time, :checkin_open_time, :checkin_close_time, :times_confirmed, :is_active, :google_sheet_url, :google_sheet_tab)'
+        'INSERT INTO events (name, main_security_company, event_date, location, venue_id, work_type, roles_needed, reporting_point, venue_eircode, venue_lat, venue_lng, signin_radius_m, staff_needed, start_time, end_time, checkin_open_time, checkin_close_time, times_confirmed, is_active, google_sheet_url, google_sheet_tab, whatsapp_group_url)
+         VALUES (:name, :main_security_company, :event_date, :location, :venue_id, :work_type, :roles_needed, :reporting_point, :venue_eircode, :venue_lat, :venue_lng, :signin_radius_m, :staff_needed, :start_time, :end_time, :checkin_open_time, :checkin_close_time, :times_confirmed, :is_active, :google_sheet_url, :google_sheet_tab, :whatsapp_group_url)'
     );
     $stmt->execute($payload);
     $newId = (int) $pdo->lastInsertId();
@@ -554,8 +569,10 @@ function updateEvent(PDO $pdo, int $id, array $data): bool
     ensureEventTimesSchema($pdo);
     ensureEventCheckinWindowSchema($pdo);
     ensureEventMainSecuritySchema($pdo);
+    ensureEventWhatsappSchema($pdo);
     require_once __DIR__ . '/event-reporting-schema.php';
     ensureEventReportingSchema($pdo);
+    require_once __DIR__ . '/event-whatsapp.php';
     $payload = prepareEventPayloadFromForm($pdo, $data);
     $payload['id'] = $id;
 
@@ -569,7 +586,8 @@ function updateEvent(PDO $pdo, int $id, array $data): bool
              checkin_open_time = :checkin_open_time, checkin_close_time = :checkin_close_time,
              times_confirmed = :times_confirmed,
              is_active = :is_active,
-             google_sheet_url = :google_sheet_url, google_sheet_tab = :google_sheet_tab
+             google_sheet_url = :google_sheet_url, google_sheet_tab = :google_sheet_tab,
+             whatsapp_group_url = :whatsapp_group_url
          WHERE id = :id'
     );
     $stmt->execute($payload);

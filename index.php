@@ -210,7 +210,7 @@ if (!headers_sent()) {
     <link rel="stylesheet" href="assets/css/registration-wizard.css?v=<?= is_file(__DIR__ . '/assets/css/registration-wizard.css') ? (string) filemtime(__DIR__ . '/assets/css/registration-wizard.css') : '1' ?>">
     <?php endif; ?>
 </head>
-<body class="staff-public-shell staff-public-shell--event-ops registration-page registration-page--compact<?= $wizardV2Enabled ? ' registration-page--wizard' : '' ?><?= $registrationGoogleEmail !== null ? ' registration-page--google-verified' : '' ?><?= $registrationGoogleRequired ? ' registration-page--google-required' : '' ?>" data-registration-page="true" data-pwa-install="1" data-theme-category="<?= h($themeCategory) ?>" data-backend-submit="true" data-flash="<?= htmlspecialchars($flash, ENT_QUOTES, 'UTF-8') ?>" data-registered-count="<?= $registeredCount ?>" data-site-name="<?= h($siteName) ?>" data-locked-role="<?= h($lockFormType ? $lockedRole : '') ?>" data-roles-on-shift-label="<?= h(t('roles_on_shift')) ?>" data-wizard-mode="<?= $wizardV2Enabled ? '1' : '0' ?>" data-wizard-analytics="<?= $wizardV2Enabled ? '1' : '0' ?>" data-analytics-session="<?= h($analyticsSessionId) ?>" data-analytics-csrf="<?= h(csrfToken()) ?>" data-analytics-form-slug="<?= h($formSlug !== '' && $linkedForm ? $formSlug : $selectedFormSlug) ?>" data-registration-google-email="<?= h($registrationGoogleEmail ?? '') ?>" data-shift-first-flow="<?= ($registrationGoogleRequired || $registrationGoogleEmail !== null) ? '1' : '0' ?>" data-google-registration-required="<?= $registrationGoogleRequired ? '1' : '0' ?>"<?= ($wizardV2Enabled && !empty($serverErrors)) ? ' data-server-error-restore="1"' : '' ?>>
+<body class="staff-public-shell staff-public-shell--event-ops registration-page registration-page--compact<?= $wizardV2Enabled ? ' registration-page--wizard' : '' ?><?= $registrationGoogleEmail !== null ? ' registration-page--google-verified' : '' ?><?= $registrationGoogleRequired ? ' registration-page--google-required' : '' ?>" data-registration-page="true" data-pwa-install="1" data-theme-category="<?= h($themeCategory) ?>" data-backend-submit="true" data-flash="<?= htmlspecialchars($flash, ENT_QUOTES, 'UTF-8') ?>" data-registered-count="<?= $registeredCount ?>" data-site-name="<?= h($siteName) ?>" data-locked-role="<?= h($lockFormType ? $lockedRole : '') ?>" data-roles-on-shift-label="<?= h(t('roles_on_shift')) ?>" data-wizard-mode="<?= $wizardV2Enabled ? '1' : '0' ?>" data-wizard-analytics="<?= $wizardV2Enabled ? '1' : '0' ?>" data-analytics-session="<?= h($analyticsSessionId) ?>" data-analytics-csrf="<?= h(csrfToken()) ?>" data-analytics-form-slug="<?= h($formSlug !== '' && $linkedForm ? $formSlug : $selectedFormSlug) ?>" data-registration-google-email="<?= h($registrationGoogleEmail ?? '') ?>" data-shift-first-flow="<?= ($registrationGoogleRequired || $registrationGoogleEmail !== null) ? '1' : '0' ?>" data-google-registration-required="<?= $registrationGoogleRequired ? '1' : '0' ?>" data-registration-account-only="1"<?= ($wizardV2Enabled && !empty($serverErrors)) ? ' data-server-error-restore="1"' : '' ?>>
     <?php renderStaffPublicBackground(true); ?>
 
     <?php
@@ -462,6 +462,11 @@ if (!headers_sent()) {
                         >
                             <p class="form-hint">Loading shifts…</p>
                         </div>
+                        <div id="no-shifts-register-offer" class="alert alert--info alert--visible no-shifts-register-offer" role="status" hidden style="display:none;margin-top:0.75rem;">
+                            <p><strong>There are currently no shifts available.</strong></p>
+                            <p>You can still register your account.</p>
+                            <p>When new shifts become available you can log in and apply.</p>
+                        </div>
                         <p class="shift-picker-summary" id="shift-picker-summary" aria-live="polite">0 shifts selected</p>
                         <input type="hidden" id="venue_id" name="venue_id" value="<?= (int) $selectedVenueId ?>">
                         <span class="form-error" id="event_ids-error"></span>
@@ -471,7 +476,7 @@ if (!headers_sent()) {
                                 <input type="checkbox" name="join_waiting_list" id="join_waiting_list" value="1">
                                 Add me to the waiting list
                             </label>
-                            <input type="hidden" name="registration_mode" id="registration_mode" value="">
+                            <input type="hidden" name="registration_mode" id="registration_mode" value="profile_only">
                         </div>
                     </div>
                     <?php if ($wizardV2Enabled): ?>
@@ -519,7 +524,8 @@ if (!headers_sent()) {
     <?php endif; ?>
 
     <script>window.REGISTRATION_FORM_SLUG = <?= json_encode($formSlug !== '' && $linkedForm ? $formSlug : $selectedFormSlug, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;</script>
-    <script src="assets/js/registration-fields.js"></script>
+    <?php $regFieldsVer = is_file(__DIR__ . '/assets/js/registration-fields.js') ? (string) filemtime(__DIR__ . '/assets/js/registration-fields.js') : '1'; ?>
+    <script src="assets/js/registration-fields.js?v=<?= h($regFieldsVer) ?>"></script>
     <?php $phoneJsVer = is_file(__DIR__ . '/assets/js/phone-input.js') ? (string) filemtime(__DIR__ . '/assets/js/phone-input.js') : '1'; ?>
     <script src="assets/js/phone-input.js?v=<?= h($phoneJsVer) ?>"></script>
     <?php $eventsJsVer = is_file(__DIR__ . '/assets/js/events.js') ? (string) filemtime(__DIR__ . '/assets/js/events.js') : '1'; ?>

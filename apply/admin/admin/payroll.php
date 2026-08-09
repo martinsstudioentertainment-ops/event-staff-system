@@ -9,6 +9,14 @@ require_once __DIR__ . '/../includes/payroll-xlsx-export.php';
 require_once __DIR__ . '/../includes/google-sheets-sync.php';
 require_once __DIR__ . '/../includes/main-admin-bridge.php';
 require_once __DIR__ . '/../includes/secure-pagination.php';
+require_once __DIR__ . '/../includes/apply-friendly.php';
+
+if (!isset($pdo) || !$pdo instanceof PDO) {
+    apply_render_error_page(
+        'Database unavailable',
+        (string) ($applyDatabaseError ?? 'The Apply vault database is not available.')
+    );
+}
 
 /** @return list<string> */
 function payroll_column_headers(): array

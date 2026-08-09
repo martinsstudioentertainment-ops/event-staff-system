@@ -1,0 +1,21 @@
+{
+  "executed_at": "2026-06-30T01:10:35.859Z",
+  "staff_auth": null,
+  "admin_auth": null,
+  "results": [
+    {
+      "area": "Staff App",
+      "test": "Authenticated session",
+      "status": "SKIP",
+      "detail": "Set STAFF_AUTH_STATE to Playwright storage JSON",
+      "at": "2026-06-30T01:10:33.240Z"
+    },
+    {
+      "area": "Admin",
+      "test": "Authenticated session",
+      "status": "SKIP",
+      "detail": "Set ADMIN_AUTH_STATE to Playwright storage JSON",
+      "at": "2026-06-30T01:10:33.240Z"
+    }
+  ]
+}

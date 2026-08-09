@@ -47,6 +47,20 @@ function calculateCommissionLineAmount(float $hoursBilled, float $hourlyRate): f
 }
 
 /**
+ * Events for commission invoice pickers — includes past and inactive events.
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function getEventsForCommissionInvoiceFilter(PDO $pdo): array
+{
+    return $pdo->query(
+        'SELECT id, name, event_date, is_active
+         FROM events
+         ORDER BY event_date DESC, name ASC'
+    )->fetchAll() ?: [];
+}
+
+/**
  * @param list<array<string, mixed>> $lines
  * @return array{staff_count: int, total_hours_worked: float, total_hours_billed: float, subtotal_amount: float, total_amount: float}
  */

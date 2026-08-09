@@ -7,6 +7,8 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/admin-capabilities.php';
 require_once __DIR__ . '/../includes/staff-allocation.php';
 require_once __DIR__ . '/../includes/events-repository.php';
+require_once __DIR__ . '/../includes/staff-repository.php';
+require_once __DIR__ . '/../includes/admin-pagination.php';
 
 requireAdminCapability('staff');
 
@@ -15,6 +17,10 @@ ensureStaffAllocationSchema($pdo);
 
 $eventFilter = (int) ($_GET['event_id'] ?? 0);
 $q           = trim((string) ($_GET['q'] ?? ''));
+$browseStaff = isset($_GET['browse_staff']) && (string) $_GET['browse_staff'] === '1';
+$staffRole   = trim((string) ($_GET['staff_role'] ?? ''));
+$browsePage  = adminListPage();
+$browsePerPage = adminStaffListPerPageFromRequest();
 $flash       = getAdminFlash();
 
 $eventRows = getAllocationCentreEventRows($pdo, $eventFilter > 0 ? $eventFilter : null, 150);
@@ -36,7 +42,34 @@ try {
     $eventOptions = [];
 }
 
-$searchResults = $q !== '' ? searchStaffForAllocation($pdo, $q, 20) : [];
+$searchResults = $q !== '' && !$browseStaff ? searchStaffForAllocation($pdo, $q, 100) : [];
+
+$browseFilters = array_filter([
+    'q'           => $q !== '' ? $q : null,
+    'role'        => $staffRole !== '' ? $staffRole : null,
+    'blacklisted' => false,
+]);
+$browseStaffTotal = 0;
+$browseStaffRows  = [];
+if ($browseStaff) {
+    $browseStaffTotal = countStaffDirectory($pdo, $browseFilters);
+    $browseStaffRows  = getStaffWithFilters(
+        $pdo,
+        $browseFilters,
+        $browsePerPage,
+        adminListOffset($browsePage, $browsePerPage)
+    );
+}
+
+$staffPickerRows = $browseStaff ? $browseStaffRows : $searchResults;
+
+$browsePaginationQuery = array_filter([
+    'browse_staff' => '1',
+    'event_id'     => $eventFilter > 0 ? $eventFilter : null,
+    'q'            => $q !== '' ? $q : null,
+    'staff_role'   => $staffRole !== '' ? $staffRole : null,
+    'per_page'     => $browsePerPage !== ADMIN_STAFF_LIST_PER_PAGE ? $browsePerPage : null,
+]);
 
 $pageTitle  = 'Allocation Centre';
 $activePage = 'allocation-centre';
@@ -52,24 +85,185 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 <div class="wf-hero">
     <div>
         <h1 class="wf-hero__title">Allocation Centre</h1>
-        <p class="wf-hero__subtitle">Manual shift assignment, waiting list, and capacity overview. All actions are audit logged.</p>
+        <p class="wf-hero__subtitle">Bulk or single shift assignment, waiting list, and capacity overview. All actions are audit logged.</p>
     </div>
 </div>
+
+<section class="card erp-card" id="bulk-assign">
+    <h2 class="card__title">Bulk assign shifts</h2>
+    <p class="form-hint" style="margin-bottom:1rem;">
+        Select one or more staff and one or more events — each person is registered for every selected shift.
+        <a href="allocation-centre.php?browse_staff=1<?= $eventFilter > 0 ? '&amp;event_id=' . (int) $eventFilter : '' ?>">Browse staff directory</a>
+        (paginated — use role/search filters, or assign all matching at once).
+    </p>
+    <form method="post" action="allocation-action.php" id="bulk-assign-form">
+        <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+        <input type="hidden" name="action" value="bulk_assign">
+        <input type="hidden" name="staff_filter_q" value="<?= h($q) ?>">
+        <input type="hidden" name="staff_filter_role" value="<?= h($staffRole) ?>">
+        <?php if ($eventFilter > 0): ?>
+            <input type="hidden" name="return_event_id" value="<?= (int) $eventFilter ?>">
+        <?php endif; ?>
+
+        <div class="alloc-bulk-grid">
+            <div class="alloc-bulk-col">
+                <div class="alloc-bulk-col__head">
+                    <h3 class="alloc-bulk-col__title">1. Select event(s) / shift(s)</h3>
+                    <label class="checkbox-label alloc-bulk-select-all">
+                        <input type="checkbox" id="events-select-all" aria-label="Select all events">
+                        <span>Select all</span>
+                    </label>
+                </div>
+                <div class="alloc-bulk-scroll" role="group" aria-label="Events">
+                    <?php if ($eventOptions === []): ?>
+                        <p class="form-hint">No active events.</p>
+                    <?php else: ?>
+                        <?php foreach ($eventOptions as $opt):
+                            $optId = (int) ($opt['id'] ?? 0);
+                            $preChecked = $eventFilter > 0 && $eventFilter === $optId;
+                            ?>
+                            <label class="alloc-bulk-check">
+                                <input type="checkbox" name="event_ids[]" value="<?= $optId ?>"<?= $preChecked ? ' checked' : '' ?>>
+                                <span>
+                                    <strong><?= h((string) ($opt['name'] ?? '')) ?></strong>
+                                    <span class="alloc-bulk-check__meta"><?= h(formatSystemDate((string) ($opt['event_date'] ?? ''), $pdo)) ?></span>
+                                </span>
+                            </label>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <div class="alloc-bulk-col">
+                <div class="alloc-bulk-col__head">
+                    <h3 class="alloc-bulk-col__title">2. Select staff</h3>
+                    <?php if ($staffPickerRows !== []): ?>
+                        <label class="checkbox-label alloc-bulk-select-all">
+                            <input type="checkbox" id="staff-select-all" aria-label="Select all staff">
+                            <span>Select all shown</span>
+                        </label>
+                    <?php endif; ?>
+                </div>
+                <div class="alloc-bulk-scroll" role="group" aria-label="Staff">
+                    <?php if ($staffPickerRows === []): ?>
+                        <p class="form-hint">Search for staff below or open the staff directory browser.</p>
+                    <?php else: ?>
+                        <?php foreach ($staffPickerRows as $staff):
+                            $staffId = (int) ($staff['id'] ?? 0);
+                            $staffName = trim((string) ($staff['first_name'] ?? '') . ' ' . (string) ($staff['surname'] ?? ''));
+                            ?>
+                            <label class="alloc-bulk-check">
+                                <input type="checkbox" name="staff_ids[]" value="<?= $staffId ?>">
+                                <span>
+                                    <strong><?= h($staffName !== '' ? $staffName : 'Staff #' . $staffId) ?></strong>
+                                    <span class="alloc-bulk-check__meta">
+                                        <?= h((string) ($staff['email'] ?? '')) ?>
+                                        <?php if (!empty($staff['staff_role'])): ?>
+                                            · <?= h(formatRoleLabel((string) $staff['staff_role'])) ?>
+                                        <?php endif; ?>
+                                    </span>
+                                </span>
+                            </label>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+                <?php if ($browseStaff): ?>
+                    <?php if ($browseStaffTotal > 0): ?>
+                        <div class="alloc-bulk-assign-all" style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid rgba(148,163,184,.2);">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="assign_all_matching" value="1" id="assign_all_matching">
+                                <span><strong>Assign all <?= (int) $browseStaffTotal ?> staff</strong> matching current filter<?= $q !== '' ? ' (search: ' . h($q) . ')' : '' ?><?= $staffRole !== '' ? ' · ' . h(formatRoleLabel($staffRole)) : '' ?> — not just this page</span>
+                            </label>
+                            <p class="form-hint" style="margin:0.35rem 0 0;">Use this for large rosters (e.g. 3,000+). Narrow with role or search first. Blacklisted staff and those without email are excluded.</p>
+                        </div>
+                        <?php
+                        renderAdminPagination($browsePage, $browseStaffTotal, 'allocation-centre.php', $browsePaginationQuery, $browsePerPage);
+                        ?>
+                    <?php else: ?>
+                        <p class="form-hint" style="margin-top:0.5rem;">No staff match the current filter.</p>
+                    <?php endif; ?>
+                <?php elseif ($q !== '' && $searchResults !== []): ?>
+                    <p class="form-hint" style="margin-top:0.5rem;">
+                        <?= count($searchResults) ?> search result(s) (max 100).
+                        <a href="allocation-centre.php?browse_staff=1&amp;q=<?= rawurlencode($q) ?><?= $eventFilter > 0 ? '&amp;event_id=' . (int) $eventFilter : '' ?>">Browse all matches</a>
+                    </p>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <div class="form-row" style="gap:0.75rem;align-items:flex-end;flex-wrap:wrap;margin-top:1rem;">
+            <div style="flex:1;min-width:240px;">
+                <label for="bulk_assign_reason">Reason for override</label>
+                <textarea id="bulk_assign_reason" name="reason" class="input" rows="2" required placeholder="Required for audit log"></textarea>
+            </div>
+            <div class="alloc-bulk-flags">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="confirm_duplicate" value="1">
+                    <span>Confirm if already on event</span>
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" name="confirm_same_day" value="1">
+                    <span>Confirm same-day override</span>
+                </label>
+            </div>
+            <button type="submit" class="btn btn--primary" id="bulk-assign-submit">
+                Assign selected
+            </button>
+        </div>
+    </form>
+</section>
+
+<style>
+.alloc-bulk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+.alloc-bulk-col { border: 1px solid rgba(148,163,184,.25); border-radius: 10px; padding: 0.75rem; background: rgba(15,23,42,.35); }
+.alloc-bulk-col__head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+.alloc-bulk-col__title { margin: 0; font-size: 0.95rem; }
+.alloc-bulk-scroll { max-height: 320px; overflow: auto; display: flex; flex-direction: column; gap: 0.35rem; }
+.alloc-bulk-check { display: flex; gap: 0.5rem; align-items: flex-start; padding: 0.35rem 0.25rem; cursor: pointer; }
+.alloc-bulk-check input { margin-top: 0.2rem; }
+.alloc-bulk-check__meta { display: block; font-size: 0.8rem; color: #94a3b8; }
+.alloc-bulk-flags { display: flex; flex-direction: column; gap: 0.35rem; min-width: 200px; }
+.alloc-bulk-select-all { font-size: 0.85rem; white-space: nowrap; }
+</style>
 
 <section class="card erp-card">
     <h2 class="card__title">Search staff</h2>
     <form method="get" class="form-row" style="gap:0.75rem;align-items:flex-end;flex-wrap:wrap;">
+        <input type="hidden" name="browse_staff" value="1">
         <?php if ($eventFilter > 0): ?>
             <input type="hidden" name="event_id" value="<?= (int) $eventFilter ?>">
         <?php endif; ?>
         <div style="flex:1;min-width:220px;">
-            <label for="q">Name, email, phone, PPS, PSA, or staff ID</label>
-            <input id="q" name="q" class="input" value="<?= h($q) ?>" placeholder="Search…">
+            <label for="q">Name, email, phone, or filter staff</label>
+            <input id="q" name="q" class="input" value="<?= h($q) ?>" placeholder="Search to narrow list…">
         </div>
-        <button type="submit" class="btn btn--primary">Search</button>
+        <div>
+            <label for="staff_role">Role</label>
+            <select id="staff_role" name="staff_role" class="input">
+                <option value="">All roles</option>
+                <?php foreach (['dsp', 'steward', 'static'] as $roleOpt): ?>
+                    <option value="<?= h($roleOpt) ?>"<?= $staffRole === $roleOpt ? ' selected' : '' ?>><?= h(formatRoleLabel($roleOpt)) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div>
+            <label for="per_page">Per page</label>
+            <select id="per_page" name="per_page" class="input">
+                <?php foreach (adminStaffListPerPageOptions() as $opt): ?>
+                    <option value="<?= (int) $opt ?>"<?= $browsePerPage === (int) $opt ? ' selected' : '' ?>><?= (int) $opt ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <button type="submit" class="btn btn--primary">Apply filter</button>
+        <?php if ($browseStaff): ?>
+            <a href="allocation-centre.php<?= $eventFilter > 0 ? '?event_id=' . (int) $eventFilter : '' ?>" class="btn btn--secondary">Exit browse</a>
+        <?php else: ?>
+            <a href="allocation-centre.php?browse_staff=1<?= $eventFilter > 0 ? '&amp;event_id=' . (int) $eventFilter : '' ?>" class="btn btn--secondary">Open directory</a>
+        <?php endif; ?>
     </form>
-    <?php if ($searchResults !== []): ?>
+    <?php if ($searchResults !== [] && !$browseStaff): ?>
         <div class="table-wrap" style="margin-top:1rem;">
+            <p class="form-hint">Results also appear in <a href="#bulk-assign">Bulk assign shifts</a> above — tick staff there, or assign one person below.</p>
             <table class="data-table">
                 <thead>
                     <tr>
@@ -366,6 +560,43 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             document.querySelectorAll('#pending-bulk-form input[name="registration_ids[]"]').forEach(function (cb) {
                 cb.checked = pendingAll.checked;
             });
+        });
+    }
+    function bindSelectAll(masterId, selector) {
+        var master = document.getElementById(masterId);
+        if (!master) return;
+        master.addEventListener('change', function () {
+            document.querySelectorAll(selector).forEach(function (cb) {
+                cb.checked = master.checked;
+            });
+        });
+    }
+    bindSelectAll('events-select-all', '#bulk-assign-form input[name="event_ids[]"]');
+    bindSelectAll('staff-select-all', '#bulk-assign-form input[name="staff_ids[]"]');
+
+    var bulkForm = document.getElementById('bulk-assign-form');
+    var bulkSubmit = document.getElementById('bulk-assign-submit');
+    if (bulkForm && bulkSubmit) {
+        bulkForm.addEventListener('submit', function (ev) {
+            var assignAll = document.getElementById('assign_all_matching');
+            var staffChecked = bulkForm.querySelectorAll('input[name="staff_ids[]"]:checked').length;
+            var eventsChecked = bulkForm.querySelectorAll('input[name="event_ids[]"]:checked').length;
+            if (eventsChecked < 1) {
+                ev.preventDefault();
+                alert('Select at least one event.');
+                return;
+            }
+            if (!(assignAll && assignAll.checked) && staffChecked < 1) {
+                ev.preventDefault();
+                alert('Select at least one staff member, or tick “Assign all matching”.');
+                return;
+            }
+            var msg = assignAll && assignAll.checked
+                ? 'Assign ALL staff matching the current filter to every selected event? This may take a few minutes for large rosters.'
+                : 'Assign every selected staff member to every selected event?';
+            if (!confirm(msg)) {
+                ev.preventDefault();
+            }
         });
     }
 })();

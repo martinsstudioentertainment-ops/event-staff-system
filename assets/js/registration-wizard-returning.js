@@ -198,12 +198,28 @@
     }
 
     function handleShiftSelectionAfterLookup(hadSelectionBefore) {
-        var validation = window.RegistrationWizardValidation;
-        var wizard = window.RegistrationWizard;
-        if (!validation || !wizard || typeof validation.hasValidEventSelection !== 'function') {
+        if (document.body.dataset.registrationAccountOnly === '1') {
+            var validation = window.RegistrationWizardValidation;
+            if (validation && typeof validation.clearEventShiftErrors === 'function') {
+                validation.clearEventShiftErrors();
+            }
             return;
         }
-        if (validation.hasValidEventSelection()) {
+        var validation = window.RegistrationWizardValidation;
+        var wizard = window.RegistrationWizard;
+        if (!validation || !wizard) {
+            return;
+        }
+        if (typeof validation.shouldRequireEventSelection === 'function' && !validation.shouldRequireEventSelection()) {
+            if (typeof validation.clearEventShiftErrors === 'function') {
+                validation.clearEventShiftErrors();
+            }
+            return;
+        }
+        if (validation.isRegisterWithoutShiftFlow && validation.isRegisterWithoutShiftFlow()) {
+            return;
+        }
+        if (typeof validation.hasValidEventSelection === 'function' && validation.hasValidEventSelection()) {
             return;
         }
 
@@ -274,7 +290,11 @@
         panel.hidden = false;
 
         if (window.RegistrationWizard && typeof window.RegistrationWizard.setFastTrack === 'function') {
-            window.RegistrationWizard.setFastTrack(isComplete);
+            var pickable = window.RegistrationWizardValidation
+                && typeof window.RegistrationWizardValidation.countPickableShifts === 'function'
+                ? window.RegistrationWizardValidation.countPickableShifts()
+                : null;
+            window.RegistrationWizard.setFastTrack(isComplete && pickable !== 0);
         }
 
         if (isComplete && window.RegistrationWizard && typeof window.RegistrationWizard.showStep === 'function') {
@@ -283,7 +303,9 @@
                 : 3;
             if (cur === 3) {
                 track('returning_fast_track', { auto_advance: true });
-                window.RegistrationWizard.showStep(2);
+                window.RegistrationWizard.showStep(
+                    document.body.dataset.registrationAccountOnly === '1' ? 8 : 2
+                );
             }
         }
     }

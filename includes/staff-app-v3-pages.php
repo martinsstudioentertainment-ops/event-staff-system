@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/staff-app-v3-shell.php';
 require_once __DIR__ . '/staff-app-easy.php';
 require_once __DIR__ . '/system-settings.php';
+require_once __DIR__ . '/mobile/services/MobileEventsService.php';
 
 /**
  * @param array<string, mixed> $ctx
@@ -25,6 +26,22 @@ function renderStaffV3HomePage(array $ctx): void
     }
 
     renderStaffV3TopBar($ctx);
+
+    $hasNoShifts = empty($metrics['has_data']);
+    $openEvents  = (int) ($ctx['open_events_count'] ?? 0);
+    $applyUrl    = (string) ($ctx['apply_shifts_url'] ?? 'staff-apply-shifts.php');
+    if ($hasNoShifts): ?>
+        <div class="es-v3__empty-card es-v3__animate-in" role="status" style="margin-bottom:1rem;">
+            <?php if ($openEvents > 0): ?>
+                <p><strong>No shifts assigned yet.</strong></p>
+                <p><?= $openEvents === 1 ? '1 open shift is' : $openEvents . ' open shifts are' ?> available — apply now and wait for coordinator approval.</p>
+                <p><a href="<?= h($applyUrl) ?>" class="es-v3__link">Browse available shifts</a></p>
+            <?php else: ?>
+                <p><strong>No open shifts right now.</strong></p>
+                <p>When new events open, you will get a notification and can apply here.</p>
+            <?php endif; ?>
+        </div>
+    <?php endif;
 
     $paidHoursDisplay = (float) ($monthly['hours_paid'] ?? 0) > 0
         ? number_format((float) $monthly['hours_paid'], 1)
@@ -56,12 +73,16 @@ function renderStaffV3HomePage(array $ctx): void
             $statusMeta   = getStaffV3ShiftStatusMeta($todayShift);
             $venue        = formatStaffStatusVenueLabel($todayShift);
             $todayProgress = getStaffV3ShiftTimeProgress($todayShift);
+            $isPendingToday = (string) ($todayShift['status'] ?? '') === 'pending';
             ?>
             <article class="es-v3__today-card es-v3__animate-in">
                 <div class="es-v3__today-card-head">
                     <h3><?= h((string) ($todayShift['event_name'] ?? 'Event')) ?></h3>
                     <span class="es-v3__badge es-v3__badge--<?= h($statusMeta['tone']) ?>"><?= h($statusMeta['label']) ?></span>
                 </div>
+                <?php if ($isPendingToday): ?>
+                    <p class="form-hint" style="margin:0 0 0.75rem;">Your application is with the coordinator. You can check in once it is approved.</p>
+                <?php endif; ?>
                 <p class="es-v3__today-location">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                     <?= h($venue) ?>
@@ -106,6 +127,12 @@ function renderStaffV3HomePage(array $ctx): void
                 <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
                 <span>Documents</span>
             </a>
+            <?php if ($openEvents > 0 || $hasNoShifts): ?>
+            <a href="<?= h($applyUrl) ?>" class="es-v3__action-card">
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                <span>Browse shifts</span>
+            </a>
+            <?php endif; ?>
         </div>
     </section>
 
@@ -123,11 +150,94 @@ function renderStaffV3HomePage(array $ctx): void
 }
 
 /**
+ * Shared open-shift cards (browse + shifts page).
+ *
+ * @param list<array<string, mixed>> $events
+ */
+function renderStaffV3OpenShiftCards(array $events, string $csrf): void
+{
+    foreach ($events as $event) {
+        $canApply = !empty($event['can_apply']);
+        $status   = (string) ($event['approval_status'] ?? 'Not applied');
+        $spaces   = (int) ($event['available_spaces'] ?? 0);
+        ?>
+        <article class="es-v3__shift-card">
+            <div class="es-v3__shift-card-top">
+                <h3 class="es-v3__shift-location"><?= h((string) ($event['event_name'] ?? 'Event')) ?></h3>
+                <?php if ($canApply): ?>
+                    <span class="es-v3__badge es-v3__badge--ok">Open</span>
+                <?php elseif ($status !== 'Not applied'): ?>
+                    <span class="es-v3__badge es-v3__badge--warn"><?= h($status) ?></span>
+                <?php else: ?>
+                    <span class="es-v3__badge es-v3__badge--muted">Full</span>
+                <?php endif; ?>
+            </div>
+            <p class="es-v3__shift-venue"><?= h((string) ($event['venue_name'] ?? '—')) ?></p>
+            <div class="es-v3__shift-meta">
+                <span class="es-v3__shift-date"><?= h((string) ($event['event_date'] ?? '—')) ?></span>
+                <span class="es-v3__shift-time"><?= h((string) ($event['time_label'] ?? '')) ?></span>
+            </div>
+            <div class="es-v3__shift-footer">
+                <span class="es-v3__employer-badge"><?= h((string) ($event['employer'] ?? '')) ?></span>
+                <?php if ($spaces > 0): ?>
+                    <span class="es-v3__shift-hours"><?= $spaces ?> space<?= $spaces === 1 ? '' : 's' ?> left</span>
+                <?php endif; ?>
+            </div>
+            <?php if ($canApply): ?>
+                <form method="post" action="api/staff-apply-events.php" class="es-v3__apply-form" style="margin-top:0.75rem;">
+                    <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
+                    <input type="hidden" name="event_id" value="<?= (int) ($event['event_id'] ?? 0) ?>">
+                    <button type="submit" class="btn btn--primary btn--block">Apply for this shift</button>
+                </form>
+            <?php elseif ($status === 'Pending approval'): ?>
+                <p class="form-hint" style="margin-top:0.75rem;">Application submitted — awaiting coordinator approval.</p>
+            <?php endif; ?>
+        </article>
+        <?php
+    }
+}
+
+/**
+ * @param array<string, mixed> $ctx
+ */
+function renderStaffV3ApplyShiftsPage(array $ctx): void
+{
+    $pdo         = $ctx['pdo'];
+    $portalStaff = $ctx['portal_staff'];
+    if ($portalStaff === null) {
+        return;
+    }
+
+    $list = mobileEventsServiceList($pdo, $portalStaff);
+    $events = !empty($list['ok']) ? ($list['events'] ?? []) : [];
+    $csrf   = csrfToken();
+    ?>
+    <header class="es-v3__page-header">
+        <h1 class="es-v3__page-title">Browse shifts</h1>
+        <p class="es-v3__page-sub">Open events you can apply for. Approved shifts appear under <a href="<?= h((string) $ctx['shifts_url']) ?>" class="es-v3__link">Shifts</a>.</p>
+    </header>
+
+    <section class="es-v3__shift-list" aria-label="Open shifts">
+        <?php if ($events === []): ?>
+            <div class="es-v3__empty-card">
+                <p><strong>No open shifts right now.</strong></p>
+                <p>Check back later or watch for notifications when new events open.</p>
+                <a href="<?= h((string) $ctx['home_url']) ?>" class="es-v3__link">Back to home</a>
+            </div>
+        <?php else: ?>
+            <?php renderStaffV3OpenShiftCards($events, $csrf); ?>
+        <?php endif; ?>
+    </section>
+    <?php
+}
+
+/**
  * @param array<string, mixed> $ctx
  */
 function renderStaffV3ShiftsPage(array $ctx): void
 {
     $pdo            = $ctx['pdo'];
+    $portalStaff    = $ctx['portal_staff'] ?? null;
     $rows           = $ctx['shift_rows'];
     $companyName    = (string) $ctx['company_name'];
     $filterEmployer = trim((string) ($_GET['employer'] ?? ''));
@@ -142,7 +252,10 @@ function renderStaffV3ShiftsPage(array $ctx): void
         $status    = (string) ($row['status'] ?? '');
         $eventDate = substr((string) ($row['event_date'] ?? ''), 0, 10);
 
-        if ($tab === 'upcoming' && ($status !== 'approved' || $eventDate < $today)) {
+        if ($tab === 'upcoming' && $eventDate < $today) {
+            return false;
+        }
+        if ($tab === 'upcoming' && !in_array($status, ['approved', 'pending'], true)) {
             return false;
         }
         if ($tab === 'past' && ($status !== 'approved' || $eventDate >= $today)) {
@@ -167,8 +280,25 @@ function renderStaffV3ShiftsPage(array $ctx): void
     ?>
     <header class="es-v3__page-header">
         <h1 class="es-v3__page-title">Shifts</h1>
-        <p class="es-v3__page-sub">Calendar view of your assignments</p>
+        <p class="es-v3__page-sub">Your assigned and pending shifts. <a href="<?= h((string) ($ctx['apply_shifts_url'] ?? 'staff-apply-shifts.php')) ?>" class="es-v3__link">Browse open shifts</a> to apply.</p>
     </header>
+
+    <?php
+    // Show open events staff can choose — same list as Browse (My Shifts alone never showed these).
+    $openList = $portalStaff !== null ? mobileEventsServiceList($pdo, $portalStaff) : ['ok' => false];
+    $openEvents = !empty($openList['ok']) ? ($openList['events'] ?? []) : [];
+    $openApplyable = array_values(array_filter(
+        $openEvents,
+        static fn(array $e): bool => !empty($e['can_apply'])
+    ));
+    if ($openApplyable !== [] && $tab === 'upcoming'):
+        $csrfOpen = csrfToken();
+        ?>
+    <section class="es-v3__shift-list" aria-label="Open shifts to apply" style="margin-bottom:1rem;">
+        <h2 class="es-v3__section-title" style="margin:0 0 0.75rem;font-size:1rem;">Open shifts — apply now</h2>
+        <?php renderStaffV3OpenShiftCards($openApplyable, $csrfOpen); ?>
+    </section>
+    <?php endif; ?>
 
     <form class="es-v3__search-bar" method="get" action="staff-shifts.php" role="search">
         <input type="hidden" name="tab" value="<?= h($tab) ?>">
@@ -221,8 +351,13 @@ function renderStaffV3ShiftsPage(array $ctx): void
     <section class="es-v3__shift-list" aria-label="Shift list">
         <?php if ($filtered === []): ?>
             <div class="es-v3__empty-card">
-                <p>No shifts match your filters.</p>
-                <a href="staff-shifts.php" class="es-v3__link">Clear filters</a>
+                <?php if ($rows === []): ?>
+                    <p><strong>You have not applied for any shifts yet.</strong></p>
+                    <p><a href="<?= h((string) ($ctx['apply_shifts_url'] ?? 'staff-apply-shifts.php')) ?>" class="es-v3__link">Browse available shifts</a></p>
+                <?php else: ?>
+                    <p>No shifts match your filters.</p>
+                    <a href="staff-shifts.php" class="es-v3__link">Clear filters</a>
+                <?php endif; ?>
             </div>
         <?php else: ?>
             <?php foreach ($filtered as $row): ?>
@@ -241,7 +376,7 @@ function renderStaffV3CheckinPage(array $ctx): void
     $pdo        = $ctx['pdo'];
     $todayShift = $ctx['today_shift'];
     $todayReg   = $ctx['today_registration'] ?? null;
-    $history    = getStaffV3CheckinHistory($pdo, (string) $ctx['staff_email']);
+    $history    = getStaffV3CheckinHistory($pdo, (string) $ctx['staff_email'], 12, (int) ($ctx['staff_id'] ?? 0));
     $flash      = $ctx['checkin_flash'] ?? null;
     $hasToday   = is_array($todayReg) && (string) ($todayReg['status'] ?? '') === 'approved';
     $signedInEmail = trim((string) ($ctx['staff_email'] ?? ''));
@@ -377,7 +512,13 @@ function renderStaffV3CheckinPage(array $ctx): void
                         <div class="es-v3__history-body">
                             <strong><?= h((string) ($item['event_name'] ?? 'Event')) ?></strong>
                             <span>
-                                <?= h(formatSystemDateTime((string) ($item['checked_in_at'] ?? ''), $pdo)) ?>
+                                <?php
+                                $historyCheckIn = trim((string) ($item['checked_in_at'] ?? ''));
+                                if ($historyCheckIn === '') {
+                                    $historyCheckIn = trim((string) ($item['activated_at'] ?? $item['check_in_gps_at'] ?? ''));
+                                }
+                                ?>
+                                <?= h($historyCheckIn !== '' ? formatSystemDateTime($historyCheckIn, $pdo) : '—') ?>
                                 <?php if ((float) ($item['hours_worked'] ?? 0) > 0): ?>
                                     · <?= h(number_format((float) $item['hours_worked'], 1)) ?> hrs
                                 <?php endif; ?>
@@ -510,9 +651,10 @@ function renderStaffV3NotificationsPage(
         ?>
     </section>
 
-    <section class="es-v3__section" aria-label="WhatsApp group">
+    <section class="es-v3__section" aria-label="WhatsApp groups">
         <?php
         require_once __DIR__ . '/components/whatsapp-join.php';
+        renderStaffEventWhatsappGroups($ctx['pdo'], (string) ($ctx['staff_email'] ?? ''));
         renderWhatsappGroupCard($ctx['pdo']);
         ?>
     </section>

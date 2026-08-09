@@ -1,0 +1,169 @@
+{
+  "executed_at": "2026-06-30T01:01:48.696Z",
+  "base": "https://register.olasentra.com",
+  "steward_email": "browser.steward.20260630010112@olasentra-e2e.test",
+  "static_email": "browser.static.20260630010112@olasentra-e2e.test",
+  "results": [
+    {
+      "area": "Steward",
+      "test": "PSA fields not on review step",
+      "status": "PASS",
+      "detail": "account-only steward path",
+      "at": "2026-06-30T01:01:23.925Z"
+    },
+    {
+      "area": "Complete Registration",
+      "test": "POST submit.php",
+      "status": "PASS",
+      "detail": "HTTP 302",
+      "at": "2026-06-30T01:01:24.595Z"
+    },
+    {
+      "area": "Complete Registration",
+      "test": "Redirect Location",
+      "status": "PASS",
+      "detail": "https://register.olasentra.com/staff-app.php?registered=profile",
+      "at": "2026-06-30T01:01:24.595Z"
+    },
+    {
+      "area": "Complete Registration",
+      "test": "Final URL staff-app",
+      "status": "PASS",
+      "detail": "https://register.olasentra.com/staff-app.php?registered=profile",
+      "at": "2026-06-30T01:01:25.301Z"
+    },
+    {
+      "area": "Browser Console",
+      "test": "No JS errors",
+      "status": "PASS",
+      "detail": "",
+      "at": "2026-06-30T01:01:25.301Z"
+    },
+    {
+      "area": "Steward",
+      "test": "Registration email",
+      "status": "INFO",
+      "detail": "browser.steward.20260630010112@olasentra-e2e.test",
+      "at": "2026-06-30T01:01:26.488Z"
+    },
+    {
+      "area": "Database",
+      "test": "staff=1, registrations=0",
+      "status": "PASS",
+      "detail": "{\"exactly_one_staff_row\":true,\"no_staff_registrations\":true,\"no_duplicate_staff\":true}",
+      "at": "2026-06-30T01:01:27.105Z"
+    },
+    {
+      "area": "Returning User",
+      "test": "Welcome back panel",
+      "status": "PASS",
+      "detail": "Welcome backWe found your email. Continue below to complete any missing details, then pick shifts.Profile statusPSA Miss",
+      "at": "2026-06-30T01:01:31.364Z"
+    },
+    {
+      "area": "Returning User",
+      "test": "Lookup finds profile-only staff",
+      "status": "PASS",
+      "detail": "",
+      "at": "2026-06-30T01:01:31.365Z"
+    },
+    {
+      "area": "Returning User",
+      "test": "No redirect to shift step",
+      "status": "PASS",
+      "detail": "step 3",
+      "at": "2026-06-30T01:01:31.365Z"
+    },
+    {
+      "area": "Returning User",
+      "test": "Incomplete profile stays on email/details",
+      "status": "PASS",
+      "detail": "step 3 (PSA onboarding flags incomplete for steward)",
+      "at": "2026-06-30T01:01:31.365Z"
+    },
+    {
+      "area": "Staff App",
+      "test": "Post-registration sign-in notice",
+      "status": "PASS",
+      "detail": "notice visible",
+      "at": "2026-06-30T01:01:32.418Z"
+    },
+    {
+      "area": "Staff App",
+      "test": "Guest sign-in UI loads",
+      "status": "PASS",
+      "detail": "unauthenticated guest page",
+      "at": "2026-06-30T01:01:32.418Z"
+    },
+    {
+      "area": "Staff App",
+      "test": "Dashboard URL reachable",
+      "status": "PASS",
+      "detail": "https://register.olasentra.com/staff-app.php?registered=profile",
+      "at": "2026-06-30T01:01:32.419Z"
+    },
+    {
+      "area": "Static",
+      "test": "PSA fields shown",
+      "status": "PASS",
+      "detail": "psa_licence visible on step 7",
+      "at": "2026-06-30T01:01:44.176Z"
+    },
+    {
+      "area": "Static",
+      "test": "PSA blocks without data",
+      "status": "PASS",
+      "detail": "PSA licence number is required.",
+      "at": "2026-06-30T01:01:45.687Z"
+    },
+    {
+      "area": "Admin",
+      "test": "Admin Dashboard",
+      "status": "PASS",
+      "detail": "HTTP 302",
+      "at": "2026-06-30T01:01:47.108Z"
+    },
+    {
+      "area": "Admin",
+      "test": "Events",
+      "status": "PASS",
+      "detail": "HTTP 302",
+      "at": "2026-06-30T01:01:47.570Z"
+    },
+    {
+      "area": "Admin",
+      "test": "Staff List",
+      "status": "PASS",
+      "detail": "HTTP 302",
+      "at": "2026-06-30T01:01:47.760Z"
+    },
+    {
+      "area": "Admin",
+      "test": "Staff Inbox",
+      "status": "PASS",
+      "detail": "HTTP 302",
+      "at": "2026-06-30T01:01:47.930Z"
+    },
+    {
+      "area": "Admin",
+      "test": "Staff Thread",
+      "status": "PASS",
+      "detail": "HTTP 302",
+      "at": "2026-06-30T01:01:48.086Z"
+    },
+    {
+      "area": "Admin",
+      "test": "Messaging",
+      "status": "PASS",
+      "detail": "HTTP 302",
+      "at": "2026-06-30T01:01:48.262Z"
+    },
+    {
+      "area": "Admin",
+      "test": "Profile Pages",
+      "status": "PASS",
+      "detail": "HTTP 302",
+      "at": "2026-06-30T01:01:48.428Z"
+    }
+  ]
+}

@@ -3,17 +3,36 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/staff-repository.php';
+require_once __DIR__ . '/events-repository.php';
 require_once __DIR__ . '/work-hours-repository.php';
 require_once __DIR__ . '/attendance-repository.php';
 
 /**
- * Events dropdown for attendance / scan check-in screens.
+ * Events dropdown for attendance / work hours / manual sign-in.
+ * Includes inactive (archived) events so past shifts remain selectable.
  *
  * @return array<int, array<string, mixed>>
  */
 function getEventsForAttendanceFilter(PDO $pdo): array
 {
-    return getEventsForFilter($pdo);
+    return $pdo->query(
+        'SELECT id, name, event_date, is_active
+         FROM events
+         ORDER BY event_date DESC, name ASC'
+    )->fetchAll() ?: [];
+}
+
+/**
+ * @param array<string, mixed> $event
+ */
+function formatEventFilterOptionLabel(array $event): string
+{
+    $label = trim((string) ($event['name'] ?? '')) . ' — ' . formatEventDateLabel((string) ($event['event_date'] ?? ''));
+    if ((int) ($event['is_active'] ?? 1) !== 1) {
+        $label .= ' (inactive)';
+    }
+
+    return $label;
 }
 
 /**

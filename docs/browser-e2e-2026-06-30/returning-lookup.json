@@ -1,0 +1,33 @@
+{
+  "found": true,
+  "profile_complete": false,
+  "profile_completion_pct": 67,
+  "profile_status": "psa_missing",
+  "profile_status_label": "PSA Missing",
+  "compliance_status": "PSA documentation incomplete · Profile needs attention",
+  "events_applied_count": 0,
+  "profile_url": "staff-profile.php",
+  "message": "Welcome back! Complete your profile before you can pick new shifts.",
+  "profile": {
+    "surname": "BrowserE2E",
+    "first_name": "Steward",
+    "full_address": "1 Browser Test Lane, Dublin",
+    "eircode": "D02 X285",
+    "mobile": "+353871234567",
+    "date_of_birth": "1990-06-15",
+    "gender": "male",
+    "staff_role": "steward",
+    "form_slug": "steward",
+    "location_lat": "",
+    "location_lng": "",
+    "pps_number": "1234567T",
+    "bank_iban": "IE29AIBK93115212345678",
+    "psa_licence": "",
+    "psa_expiry_date": "",
+    "has_psa_front": false,
+    "has_psa_back": false
+  },
+  "registered_event_ids": [],
+  "registered_event_dates": [],
+  "registered_events": []
+}

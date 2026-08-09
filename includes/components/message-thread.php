@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../staff-messages.php';
 require_once __DIR__ . '/../date-format.php';
 require_once __DIR__ . '/../rich-text.php';
+require_once __DIR__ . '/../system-settings.php';
 
 /**
  * @param array<int, array<string, mixed>> $messages
@@ -33,7 +34,6 @@ function renderMessageThread(array $messages, bool $adminView = false, ?PDO $pdo
         $senderMail = $isStaff ? trim((string) ($msg['staff_email'] ?? '')) : '';
 
         if ($adminView && !$isStaff && $pdo instanceof PDO) {
-            require_once __DIR__ . '/../system-settings.php';
             $fromEmail = trim((string) getSetting($pdo, 'mail_from_email', ''));
             if ($fromEmail !== '') {
                 $senderMail = $fromEmail;

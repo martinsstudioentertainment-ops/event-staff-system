@@ -273,7 +273,7 @@ XML);
         $zip->close();
 
         $filename = preg_replace('/[^a-zA-Z0-9._-]+/', '_', $basename) ?: 'staff_pool.xlsx';
-        if (!str_ends_with(strtolower($filename), '.xlsx')) {
+        if (substr(strtolower($filename), -5) !== '.xlsx') {
             $filename .= '.xlsx';
         }
 

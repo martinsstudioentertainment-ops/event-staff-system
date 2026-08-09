@@ -52,9 +52,19 @@
         return frontOk && backOk;
     }
 
+    function roleRequiresPsa() {
+        return typeof registrationRoleRequiresPsa === 'function'
+            ? registrationRoleRequiresPsa()
+            : true;
+    }
+
     function detailsComplete() {
         for (var i = 0; i < textFields.length; i++) {
-            if (fieldValue(textFields[i]) === '') {
+            var id = textFields[i];
+            if (!roleRequiresPsa() && (id === 'psa_licence' || id === 'psa_expiry_date')) {
+                continue;
+            }
+            if (fieldValue(id) === '') {
                 return false;
             }
         }
@@ -63,7 +73,11 @@
             return false;
         }
 
-        return psaFilesReady();
+        if (roleRequiresPsa() && !psaFilesReady()) {
+            return false;
+        }
+
+        return true;
     }
 
     function setLocked(locked) {

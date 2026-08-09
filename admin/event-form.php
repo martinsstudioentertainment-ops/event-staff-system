@@ -161,6 +161,18 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         </div>
 
         <div class="form-group form-group--full">
+            <label class="form-label" for="whatsapp_group_url">WhatsApp group invite link</label>
+            <input class="form-input" type="url" id="whatsapp_group_url" name="whatsapp_group_url" value="<?= eventOld($old, $event, 'whatsapp_group_url') ?>" placeholder="https://chat.whatsapp.com/…">
+            <p class="form-hint">Optional. Approved staff see a <strong>Join WhatsApp group</strong> button for this event in the staff app. Paste the invite link from WhatsApp → Group info → Invite via link. If blank, staff fall back to the company-wide link in Settings.</p>
+            <?php if ($isEdit && trim((string) ($event['whatsapp_group_url'] ?? '')) !== ''): ?>
+                <p class="form-hint" style="margin-top:0.5rem">
+                    <strong>Linked.</strong>
+                    <a href="<?= h((string) $event['whatsapp_group_url']) ?>" target="_blank" rel="noopener noreferrer">Open group invite ↗</a>
+                </p>
+            <?php endif; ?>
+        </div>
+
+        <div class="form-group form-group--full">
             <label class="form-label" for="google_sheet_url">Google Sheet URL</label>
             <input class="form-input" type="url" id="google_sheet_url" name="google_sheet_url" value="<?= eventOld($old, $event, 'google_sheet_url') ?>" placeholder="https://docs.google.com/spreadsheets/d/…/edit">
             <p class="form-hint">Approved staff appear on this sheet when you approve them (requires Google Sheets sync in Settings). Pending registrations stay in admin only. Or use <strong>Events → Create Google Sheet(s)</strong> to auto-generate.</p>

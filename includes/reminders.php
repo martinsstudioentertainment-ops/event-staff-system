@@ -17,6 +17,7 @@ require_once __DIR__ . '/date-format.php';
 require_once __DIR__ . '/email-copy.php';
 require_once __DIR__ . '/email-layout.php';
 require_once __DIR__ . '/email-branding.php';
+require_once __DIR__ . '/go-live-schema.php';
 
 function isReminderDailyEnabled(PDO $pdo): bool
 {
@@ -87,16 +88,32 @@ function getRegistrationsDueDailyReminder(PDO $pdo): array
 
 function markEventReminderSent(PDO $pdo, int $registrationId): void
 {
-    $stmt = $pdo->prepare(
-        'UPDATE staff_registrations SET last_event_reminder_date = CURDATE() WHERE id = :id'
-    );
-    $stmt->execute(['id' => $registrationId]);
+    require_once __DIR__ . '/go-live-schema.php';
+    require_once __DIR__ . '/staff-registration-schema.php';
+    ensureGoLiveReminderColumn($pdo);
 
-    logEmailReminder($pdo, (int) $registrationId, '', 'event_daily', $registrationId);
+    if (!staffRegistrationColumnExists($pdo, 'last_event_reminder_date')) {
+        logEmailReminder($pdo, (int) $registrationId, '', 'event_daily', $registrationId);
+
+        return;
+    }
+
+    try {
+        $stmt = $pdo->prepare(
+            'UPDATE staff_registrations SET last_event_reminder_date = CURDATE() WHERE id = :id'
+        );
+        $stmt->execute(['id' => $registrationId]);
+        logEmailReminder($pdo, (int) $registrationId, '', 'event_daily', $registrationId);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] markEventReminderSent: ' . $e->getMessage());
+    }
 }
 
 function logEmailReminder(PDO $pdo, int $registrationId, string $email, string $type, ?int $linkRegistrationId = null): void
 {
+    require_once __DIR__ . '/go-live-schema.php';
+    ensureEmailReminderLogSchema($pdo);
+
     if ($email === '' && $registrationId > 0) {
         $row = getStaffRegistrationById($pdo, $registrationId);
         $email = (string) ($row['email'] ?? '');
@@ -106,14 +123,18 @@ function logEmailReminder(PDO $pdo, int $registrationId, string $email, string $
         return;
     }
 
-    $stmt = $pdo->prepare(
-        'INSERT INTO email_reminder_log (email, registration_id, reminder_type) VALUES (:email, :registration_id, :type)'
-    );
-    $stmt->execute([
-        'email'            => $email,
-        'registration_id'  => $linkRegistrationId ?? ($registrationId > 0 ? $registrationId : null),
-        'type'             => $type,
-    ]);
+    try {
+        $stmt = $pdo->prepare(
+            'INSERT INTO email_reminder_log (email, registration_id, reminder_type) VALUES (:email, :registration_id, :type)'
+        );
+        $stmt->execute([
+            'email'            => $email,
+            'registration_id'  => $linkRegistrationId ?? ($registrationId > 0 ? $registrationId : null),
+            'type'             => $type,
+        ]);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] logEmailReminder: ' . $e->getMessage());
+    }
 }
 
 function getLastSignupNudgeDate(PDO $pdo, string $email): ?string
@@ -239,6 +260,10 @@ function sendDailyEventsReminderDigest(PDO $pdo, array $rows, bool $forceSend = 
         return false;
     }
 
+    require_once __DIR__ . '/go-live-schema.php';
+    ensureEmailReminderLogSchema($pdo);
+    ensureGoLiveReminderColumn($pdo);
+
     $email = strtolower(trim((string) ($rows[0]['email'] ?? '')));
     if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         return false;
@@ -294,7 +319,12 @@ function sendDailyEventsReminderDigest(PDO $pdo, array $rows, bool $forceSend = 
         $bodyLines[] = '';
     }
 
-    $statusToken = ensureStatusToken($pdo, (int) $rows[0]['id']);
+    $statusToken = null;
+    try {
+        $statusToken = ensureStatusToken($pdo, (int) $rows[0]['id']);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] ensureStatusToken (digest text): ' . $e->getMessage());
+    }
     if ($statusToken) {
         $bodyLines[] = 'View all registrations:';
         $bodyLines[] = getStatusUrl($statusToken, $pdo);
@@ -367,7 +397,12 @@ function sendDailyEventsReminderDigest(PDO $pdo, array $rows, bool $forceSend = 
     }
 
     $statusCta = '';
-    $statusToken = ensureStatusToken($pdo, (int) $rows[0]['id']);
+    $statusToken = null;
+    try {
+        $statusToken = ensureStatusToken($pdo, (int) $rows[0]['id']);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] ensureStatusToken (digest html): ' . $e->getMessage());
+    }
     if ($statusToken) {
         $statusUrl = getStatusUrl($statusToken, $pdo);
         $statusCta = buildEmailButton($pdo, $statusUrl, 'View all registrations');
@@ -559,7 +594,14 @@ function sendManualShiftReminderForRegistration(PDO $pdo, int $registrationId): 
  */
 function sendManualShiftRemindersForEvent(PDO $pdo, int $eventId): array
 {
-    $stats = ['sent' => 0, 'skipped' => 0];
+    $stats = [
+        'sent'            => 0,
+        'skipped'         => 0,
+        'skipped_ended'   => 0,
+        'skipped_email'   => 0,
+        'skipped_no_email'=> 0,
+        'errors'          => [],
+    ];
     if ($eventId < 1) {
         return $stats;
     }
@@ -579,21 +621,33 @@ function sendManualShiftRemindersForEvent(PDO $pdo, int $eventId): array
         $merged = mergeRegistrationWithEvent($pdo, $row);
         if (!eventReminderStillActive($merged)) {
             $stats['skipped']++;
+            $stats['skipped_ended']++;
             continue;
         }
         $email = strtolower(trim((string) ($merged['email'] ?? '')));
         if ($email === '') {
             $stats['skipped']++;
+            $stats['skipped_no_email']++;
             continue;
         }
         $byEmail[$email][] = $merged;
     }
 
     foreach ($byEmail as $emailRows) {
-        if (sendDailyEventsReminderDigest($pdo, $emailRows, true)) {
-            $stats['sent']++;
-        } else {
+        try {
+            if (sendDailyEventsReminderDigest($pdo, $emailRows, true)) {
+                $stats['sent']++;
+            } else {
+                $stats['skipped']++;
+                $stats['skipped_email']++;
+            }
+        } catch (Throwable $e) {
+            error_log('[EventStaff] sendManualShiftRemindersForEvent: ' . $e->getMessage());
             $stats['skipped']++;
+            $stats['skipped_email']++;
+            if (count($stats['errors']) < 5) {
+                $stats['errors'][] = $e->getMessage();
+            }
         }
     }
 

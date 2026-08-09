@@ -1,0 +1,13 @@
+[
+  {
+    "phase": "request",
+    "method": "POST",
+    "url": "https://register.olasentra.com/submit.php"
+  },
+  {
+    "phase": "response",
+    "status": 302,
+    "url": "https://register.olasentra.com/submit.php",
+    "location": "https://register.olasentra.com/staff-app.php?registered=profile"
+  }
+]

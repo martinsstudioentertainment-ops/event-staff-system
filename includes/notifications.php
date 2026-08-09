@@ -367,6 +367,73 @@ function notifyStaffRegistrationSubmitted(PDO $pdo, array $data, array $eventIds
     return sendEmail($pdo, $email, $subject, $text, $html);
 }
 
+/**
+ * In-app welcome for new profile-only staff accounts.
+ *
+ * @param array<string, mixed> $data
+ */
+function notifyStaffProfileAccountCreated(PDO $pdo, array $data, int $staffId, string $email): void
+{
+    require_once __DIR__ . '/notification-center.php';
+    require_once __DIR__ . '/site-urls.php';
+
+    $siteName = getSiteName($pdo);
+    $appUrl   = getStaffAppUrl($pdo);
+
+    notifyStaffInApp(
+        $pdo,
+        $email,
+        'profile_created',
+        'Account created',
+        'Your ' . $siteName . ' staff account is ready. Sign in to view and apply for available shifts.',
+        $appUrl,
+        'Open staff app',
+        $staffId
+    );
+}
+
+/**
+ * Welcome email for profile-only registration (uses notify_on_registration setting).
+ *
+ * @param array<string, mixed> $data
+ */
+function notifyStaffProfileOnlyWelcomeEmail(PDO $pdo, array $data): bool
+{
+    if (getSetting($pdo, 'notify_on_registration', '0') !== '1') {
+        return false;
+    }
+
+    $email = trim((string) ($data['email'] ?? ''));
+    if ($email === '') {
+        return false;
+    }
+
+    require_once __DIR__ . '/site-urls.php';
+
+    $siteName = getSiteName($pdo);
+    $appUrl   = getStaffAppUrl($pdo);
+    $subject  = $siteName . ' - Account created';
+    $bodyLines = [
+        'Dear ' . trim((string) ($data['first_name'] ?? '')) . ',',
+        '',
+        'Your staff account has been created successfully.',
+        '',
+        'Role: ' . formatRoleLabel((string) ($data['staff_role'] ?? '')),
+        '',
+        'Sign in to the staff app to view and apply for available shifts:',
+        $appUrl,
+    ];
+    $bodyLines = appendEmailPortalContext($pdo, $bodyLines);
+    $bodyLines[] = '';
+    $bodyLines[] = 'Regards,';
+    $bodyLines[] = $siteName;
+
+    $text = implode("\n", $bodyLines);
+    $html = buildStaffEmailHtmlFromLines($bodyLines, $appUrl, 'Open staff app', $pdo);
+
+    return sendEmail($pdo, $email, $subject, $text, $html);
+}
+
 function notifyStaffCheckin(PDO $pdo, int $registrationId, string $method = 'self'): bool
 {
     $row = getStaffRegistrationById($pdo, $registrationId);

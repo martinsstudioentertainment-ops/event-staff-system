@@ -1,5 +1,5 @@
 {
-    "generated_at": "2026-06-12T04:11:25Z",
+    "generated_at": "2026-06-30T06:39:54Z",
     "root": "E:\\event-staff-system",
     "mode": "read_only",
     "summary": {
@@ -13,13 +13,13 @@
         {
             "path": "storage/backups",
             "label": "Database backups",
-            "bytes": 2072281790,
+            "bytes": 5027244224,
             "writable": true
         },
         {
             "path": "storage/branding",
             "label": "Branding uploads",
-            "bytes": 4660937,
+            "bytes": 3695755,
             "writable": true
         },
         {
@@ -31,7 +31,7 @@
         {
             "path": "assets",
             "label": "CSS / JS assets",
-            "bytes": 1122883,
+            "bytes": 1076021,
             "writable": true
         },
         {
@@ -43,7 +43,7 @@
         {
             "path": "storage/logs",
             "label": "Log files",
-            "bytes": 218,
+            "bytes": 1219,
             "writable": true
         }
     ],

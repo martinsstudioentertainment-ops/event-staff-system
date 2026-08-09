@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/friendly-response.php';
 require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/staff-repository.php';
 require_once __DIR__ . '/../includes/attendance-repository.php';
@@ -9,28 +10,55 @@ require_once __DIR__ . '/../includes/work-hours-repository.php';
 require_once __DIR__ . '/../includes/staff-pass.php';
 require_once __DIR__ . '/../includes/maps.php';
 
-requireAdminCapability('events');
+try {
+    requireAdminCapability('events');
 
-$pdo     = getDB();
-$eventId = (int) ($_GET['event_id'] ?? 0);
-$event   = $eventId > 0 ? getEventById($pdo, $eventId) : null;
+    $pdo     = getDB();
+    $eventId = (int) ($_GET['event_id'] ?? 0);
 
-if ($eventId <= 0 || !$event) {
-    setAdminFlash('error', 'Please select an event to print the roster.');
-    header('Location: attendance.php');
-    exit;
+    if ($eventId <= 0) {
+        renderFriendlyHtmlPage(
+            'Print roster',
+            'Choose an event from Attendance before opening the printable roster.',
+            200,
+            [
+                ['label' => 'Open Attendance', 'href' => 'attendance.php'],
+                ['label' => 'Events', 'href' => 'events.php'],
+            ],
+            getSiteName($pdo)
+        );
+    }
+
+    $event = getEventById($pdo, $eventId);
+    if (!$event) {
+        renderFriendlyHtmlPage(
+            'Event not found',
+            'That event no longer exists or was removed. Pick another event from Attendance.',
+            200,
+            [['label' => 'Open Attendance', 'href' => 'attendance.php']],
+            getSiteName($pdo)
+        );
+    }
+
+    $list         = getAttendanceList($pdo, $eventId);
+    $rosterGroups = groupAttendanceRosterRows($list);
+    $group        = $rosterGroups[0] ?? ['checked_in' => [], 'waiting' => [], 'no_show' => []];
+    $stats        = getAttendanceStats($pdo, $eventId);
+    $roleCounts   = countRolesInList($list);
+    $siteName     = getSiteName($pdo);
+    $venue        = getEventVenueCoordinates($event);
+    $mapsUrl      = $venue
+        ? 'https://www.google.com/maps?q=' . rawurlencode($venue['lat'] . ',' . $venue['lng'])
+        : '';
+} catch (Throwable $e) {
+    friendlyLogError('print-roster', $e);
+    renderFriendlyHtmlPage(
+        'Print roster unavailable',
+        'We could not load this roster right now. Please try again from Attendance or contact support if the problem continues.',
+        200,
+        [['label' => 'Open Attendance', 'href' => 'attendance.php']]
+    );
 }
-
-$list      = getAttendanceList($pdo, $eventId);
-$rosterGroups = groupAttendanceRosterRows($list);
-$group     = $rosterGroups[0] ?? ['checked_in' => [], 'waiting' => []];
-$stats     = getAttendanceStats($pdo, $eventId);
-$roleCounts = countRolesInList($list);
-$siteName  = getSiteName($pdo);
-$venue     = getEventVenueCoordinates($event);
-$mapsUrl   = $venue
-    ? 'https://www.google.com/maps?q=' . rawurlencode($venue['lat'] . ',' . $venue['lng'])
-    : '';
 ?>
 <!DOCTYPE html>
 <html lang="en">

@@ -5,6 +5,14 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/secure-layout.php';
+require_once __DIR__ . '/../includes/apply-friendly.php';
+
+if (!isset($pdo) || !$pdo instanceof PDO) {
+    apply_render_error_page(
+        'Database unavailable',
+        (string) ($applyDatabaseError ?? 'The Apply vault database is not available. Check server configuration or try again later.')
+    );
+}
 
 $totalStaff = $incompleteCount = $pendingCount = $verifiedCount = $expiredCount = 0;
 

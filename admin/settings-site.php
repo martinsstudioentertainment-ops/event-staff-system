@@ -107,7 +107,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <div class="form-group form-group--full">
             <label class="form-label" for="company_whatsapp_group">WhatsApp group invite link</label>
             <input class="form-input" type="url" id="company_whatsapp_group" name="company_whatsapp_group" value="<?= h($settings['company_whatsapp_group'] ?? '') ?>" placeholder="https://chat.whatsapp.com/…">
-            <p class="form-hint">Staff see a “Join WhatsApp group” button on the staff app and notifications page.</p>
+            <p class="form-hint">Fallback link when an event has no group link of its own. Per-event links are set on each event under <strong>Events → Edit event</strong>. Staff see join buttons on shift cards and notifications.</p>
         </div>
         <div class="form-group form-group--full">
             <label class="form-label" for="company_whatsapp_group_label">WhatsApp group card title</label>

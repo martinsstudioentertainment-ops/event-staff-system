@@ -7,6 +7,7 @@ declare(strict_types=1);
  */
 
 require_once __DIR__ . '/email-branding.php';
+require_once __DIR__ . '/email-copy.php';
 
 function emailEsc(string $value): string
 {

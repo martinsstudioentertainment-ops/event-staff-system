@@ -30,9 +30,9 @@ function mobileDashboardServiceBuild(PDO $pdo, array $staff): array
     }
 
     $statusToken = $email !== '' ? (resolveStatusTokenByEmail($pdo, $email) ?? '') : '';
-    $metrics     = getStaffPortalDashboardMetrics($pdo, $email);
+    $metrics     = getStaffPortalDashboardMetrics($pdo, $email, $staffId);
     $monthly     = getStaffV3MonthlyStats($pdo, $email, $staffId);
-    $shiftRows   = getStaffV3ShiftRows($pdo, $email, $statusToken);
+    $shiftRows   = getStaffV3ShiftRows($pdo, $email, $statusToken, $staffId);
     $todayShift  = getStaffV3TodayShift($shiftRows, $pdo);
     $documents   = portal_staff_documents($pdo, $fresh);
     $docStatus   = mobileProfileSummarizeDocuments($documents);
@@ -40,7 +40,7 @@ function mobileDashboardServiceBuild(PDO $pdo, array $staff): array
 
     $profilePayload = mobileProfileServiceFormatStaff($pdo, $fresh, $metrics, $docStatus, $missing);
     $checkInStatus  = mobileDashboardBuildCheckInStatus($pdo, $email, $fresh, $todayShift, $shiftRows);
-    $activeMonitor  = getStaffActiveShiftMonitoring($pdo, $email);
+    $activeMonitor  = getStaffActiveShiftMonitoring($pdo, $email, $staffId);
 
     if ($activeMonitor !== null) {
         $checkInStatus['monitoring_active'] = true;

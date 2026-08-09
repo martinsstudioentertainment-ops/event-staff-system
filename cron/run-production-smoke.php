@@ -45,6 +45,7 @@ if (!function_exists('curl_init')) {
 
 $scripts = [
     'admin-production-smoke'  => $root . '/scripts/admin-production-smoke.php',
+    'staff-production-smoke'  => $root . '/scripts/staff-production-smoke.php',
     'apply-production-smoke'    => $root . '/scripts/apply-production-smoke.php',
     'platform-health-report'    => $root . '/scripts/platform-health-report.php',
 ];

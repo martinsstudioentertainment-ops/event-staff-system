@@ -42,6 +42,7 @@ function getDatabaseMigrationFiles(): array
         'migrate-phase52-gps-attendance-phase1.sql',
         'migrate-phase53-gps-attendance-phase15.sql',
         'migrate-phase54-platform-maturity.sql',
+        'migrate-phase55-event-whatsapp-group.sql',
     ];
 }
 

@@ -151,11 +151,16 @@ function getWorkHoursList(PDO $pdo, int $eventId = 0, string $workDate = ''): ar
         $params['work_date'] = $workDate;
     }
 
+    require_once __DIR__ . '/staff-registration-schema.php';
+    $bibSelect = staffRegistrationColumnExists($pdo, 'assigned_bib_number')
+        ? 'sr.assigned_bib_number'
+        : 'NULL AS assigned_bib_number';
+
     $sql = "SELECT a.id AS attendance_id, a.checked_in_at, a.work_end_at,
                    a.scheduled_hours, a.hours_worked, a.hours_paid, a.hours_note,
                    a.hours_adjusted_at, a.checked_in_method,
                    sr.id AS registration_id, sr.first_name, sr.surname, sr.email,
-                   sr.gender, sr.staff_role,
+                   sr.gender, sr.staff_role, {$bibSelect},
                    e.id AS event_id, e.name AS event_name, e.event_date,
                    e.start_time, e.end_time,
                    au.username AS adjusted_by_username
@@ -202,6 +207,27 @@ function getWorkHoursTotals(PDO $pdo, int $eventId = 0, string $workDate = ''): 
 function formatHoursDecimal(float $hours): string
 {
     return number_format($hours, 2) . ' h';
+}
+
+/**
+ * Scheduled shift length for an attendance row (event start → end).
+ */
+function resolveEventScheduledHoursFromRow(array $row): float
+{
+    $date      = (string) ($row['event_date'] ?? '');
+    $startTime = (string) ($row['start_time'] ?? '09:00:00');
+    $endTime   = (string) ($row['end_time'] ?? '23:00:00');
+
+    $eventStart = parseEventDateTime($date, $startTime) ?? new DateTime($date . ' 09:00:00');
+    $eventEnd   = parseEventDateTime($date, $endTime) ?? new DateTime($date . ' 23:00:00');
+
+    if ($eventEnd <= $eventStart) {
+        $eventEnd = (clone $eventStart)->modify('+8 hours');
+    }
+
+    $seconds = max(0, $eventEnd->getTimestamp() - $eventStart->getTimestamp());
+
+    return round($seconds / 3600, 2);
 }
 
 /**

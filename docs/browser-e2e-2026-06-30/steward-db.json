@@ -1,0 +1,17 @@
+{
+  "ok": true,
+  "email": "browser.steward.20260630010112@olasentra-e2e.test",
+  "staff_count": 1,
+  "staff_registrations": 0,
+  "profile_only_ok": true,
+  "staff": {
+    "id": 184,
+    "staff_role": "steward",
+    "created_at": "2026-06-30 02:01:23"
+  },
+  "checks": {
+    "exactly_one_staff_row": true,
+    "no_staff_registrations": true,
+    "no_duplicate_staff": true
+  }
+}

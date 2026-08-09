@@ -45,13 +45,21 @@ if (isset($_GET['logout'])) {
 }
 
 $profileComplete = !staffNeedsProfileForm($pdo, $staff);
+$requiresPsa     = staffRoleRequiresOnboardingPsa($staff);
+$welcomeFlow     = isset($_GET['welcome']) && (string) $_GET['welcome'] === '1';
+$welcomeMessage  = '';
+if (!empty($_SESSION['staff_profile_welcome_message'])) {
+    $welcomeMessage = trim((string) $_SESSION['staff_profile_welcome_message']);
+    unset($_SESSION['staff_profile_welcome_message']);
+}
 $editMode        = isset($_GET['edit']) && $_GET['edit'] === '1';
 $formOpen        = !$profileComplete
     || (isset($_GET['open']) && $_GET['open'] === '1')
     || $_SERVER['REQUEST_METHOD'] === 'POST';
 $missingFields   = getStaffOnboardingMissingFields($staff);
+$showWelcomeComplete = $welcomeFlow && $profileComplete && !$editMode && $_SERVER['REQUEST_METHOD'] !== 'POST';
 
-if ($profileComplete && !$editMode && $_SERVER['REQUEST_METHOD'] !== 'POST') {
+if ($profileComplete && !$editMode && !$welcomeFlow && $_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: staff-app.php');
     exit;
 }
@@ -98,16 +106,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $updateData['location_lng'] = (float) $_POST['location_lng'];
         }
 
-        $psaUpload = processStaffPsaFileUploadsWithErrors((int) $staff['id'], $_FILES);
-        if ($psaUpload['errors'] !== []) {
-            $fieldErrors = $psaUpload['errors'];
-            $flash = [
-                'type'    => 'error',
-                'message' => reset($psaUpload['errors']) ?: 'Could not save PSA photos.',
-            ];
-            throw new RuntimeException('PSA photo upload failed');
+        if ($requiresPsa) {
+            $psaUpload = processStaffPsaFileUploadsWithErrors((int) $staff['id'], $_FILES);
+            if ($psaUpload['errors'] !== []) {
+                $fieldErrors = $psaUpload['errors'];
+                $flash = [
+                    'type'    => 'error',
+                    'message' => reset($psaUpload['errors']) ?: 'Could not save PSA photos.',
+                ];
+                throw new RuntimeException('PSA photo upload failed');
+            }
+            $updateData = array_merge($updateData, $psaUpload['paths']);
         }
-        $updateData = array_merge($updateData, $psaUpload['paths']);
 
         $wasCompleteBefore = (int) ($staff['profile_completed'] ?? 0) === 1;
 
@@ -166,7 +176,7 @@ require_once __DIR__ . '/includes/theme.php';
 $themeColor = getThemeColor($pdo);
 
 $staffEmail      = strtolower(trim((string) ($staff['email'] ?? '')));
-$profileMetrics  = getStaffPortalDashboardMetrics($pdo, $staffEmail);
+$profileMetrics  = getStaffPortalDashboardMetrics($pdo, $staffEmail, (int) ($staff['id'] ?? 0));
 $profileStatus   = getStaffPortalStatusBadge($staff, $profileMetrics);
 $profileRole     = getStaffPortalRoleLabel($pdo, $staff, $staffEmail);
 $profileStaffId  = formatStaffPortalStaffId($staff);
@@ -240,10 +250,18 @@ $staffMsgUnread   = $staffEmail !== '' ? countUnreadAdminRepliesForStaff($pdo, $
                 </section>
             <?php endif; ?>
 
+            <?php if ($welcomeMessage !== ''): ?>
+                <div class="alert alert--success alert--visible staff-profile-alert">
+                    <?= h($welcomeMessage) ?>
+                </div>
+            <?php endif; ?>
+
             <?php if (!$profileComplete): ?>
                 <div class="alert alert--error alert--visible staff-profile-alert">
-                    <strong>Profile incomplete</strong>
-                    <p>Complete all fields before you can view registration status or check in.</p>
+                    <strong><?= $requiresPsa ? 'Profile or PSA incomplete' : 'Profile incomplete' ?></strong>
+                    <p><?= $requiresPsa
+                        ? 'Complete your payroll details and PSA licence before you can check in.'
+                        : 'Complete your contact and payroll details before you can check in.' ?></p>
                     <?php if ($missingFields !== []): ?>
                         <p class="staff-profile-alert__missing"><strong>Still needed:</strong> <?= h(implode(', ', $missingFields)) ?></p>
                     <?php endif; ?>
@@ -256,12 +274,27 @@ $staffMsgUnread   = $staffEmail !== '' ? countUnreadAdminRepliesForStaff($pdo, $
                 </div>
             <?php endif; ?>
 
-            <?php if ($editMode && $profileComplete && !$formOpen): ?>
+            <?php if ($showWelcomeComplete): ?>
                 <section class="staff-profile-summary" aria-label="Profile summary">
                     <h3 class="staff-profile-summary__heading">Personal details</h3>
                     <dl class="staff-profile-summary__list">
                         <div><dt>Address</dt><dd><?= h((string) ($staff['full_address'] ?? '—')) ?></dd></div>
+                        <div><dt>Eircode</dt><dd><?= h((string) ($staff['eircode'] ?? '—')) ?></dd></div>
+                        <?php if ($requiresPsa): ?>
                         <div><dt>PSA licence</dt><dd><?= h((string) ($staff['psa_licence'] ?? '—')) ?></dd></div>
+                        <?php endif; ?>
+                    </dl>
+                    <a href="staff-app.php" class="btn btn--primary btn--block staff-profile-summary__edit">Open staff app</a>
+                    <a href="staff-profile.php?edit=1&amp;open=1" class="btn btn--secondary btn--block" style="margin-top:0.5rem;">Edit my details</a>
+                </section>
+            <?php elseif ($editMode && $profileComplete && !$formOpen): ?>
+                <section class="staff-profile-summary" aria-label="Profile summary">
+                    <h3 class="staff-profile-summary__heading">Personal details</h3>
+                    <dl class="staff-profile-summary__list">
+                        <div><dt>Address</dt><dd><?= h((string) ($staff['full_address'] ?? '—')) ?></dd></div>
+                        <?php if ($requiresPsa): ?>
+                        <div><dt>PSA licence</dt><dd><?= h((string) ($staff['psa_licence'] ?? '—')) ?></dd></div>
+                        <?php endif; ?>
                     </dl>
                     <a href="staff-profile.php?edit=1&amp;open=1" class="btn btn--primary btn--block staff-profile-summary__edit">Edit my details</a>
                 </section>
@@ -346,6 +379,7 @@ $staffMsgUnread   = $staffEmail !== '' ? countUnreadAdminRepliesForStaff($pdo, $
                     <p class="form-hint">IBAN with country code only — not a bank name.</p>
                 </div>
 
+                <?php if ($requiresPsa): ?>
                 <h3 class="form-section-title form-group--full">PSA licence <span class="staff-profile-badge">Required</span></h3>
 
                 <div class="form-group">
@@ -384,6 +418,7 @@ $staffMsgUnread   = $staffEmail !== '' ? countUnreadAdminRepliesForStaff($pdo, $
                         <span class="form-error form-error--visible"><?= h($fieldErrors['psa_back_image']) ?></span>
                     <?php endif; ?>
                 </div>
+                <?php endif; ?>
 
                 <div class="form-group form-group--full form-actions staff-profile-form__submit">
                     <button type="submit" class="btn btn--primary btn--block">Save changes</button>

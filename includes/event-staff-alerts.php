@@ -143,10 +143,10 @@ function notifyRegisteredStaffNewEvent(PDO $pdo, int $eventId): int
     }
 
     $eventName = trim((string) ($event['name'] ?? 'New event'));
-    $regUrl    = getRegistrationFormUrl($pdo);
+    $regUrl    = getStaffAppUrl($pdo);
     $siteName  = getSiteName($pdo);
 
-    $intro = 'A new shift is open. Register now if you want to work this event.';
+    $intro = 'A new shift is open. Sign in to the staff app to view and apply.';
 
     $bodyInApp = 'A new shift is open: ' . $eventName;
     if (formatEventDateLabel((string) ($event['event_date'] ?? '')) !== '') {
@@ -160,7 +160,7 @@ function notifyRegisteredStaffNewEvent(PDO $pdo, int $eventId): int
     $emailContent = buildJobAlertEmailContent($pdo, $event, $intro, $regUrl);
 
     foreach (listStaffEmailsEligibleForShiftAlert($pdo, $eventId) as $email) {
-        if (notifyStaffInApp($pdo, $email, 'new_event', $titleInApp, $bodyInApp, $regUrl, 'Register now', $eventId) !== null) {
+        if (notifyStaffInApp($pdo, $email, 'new_event', $titleInApp, $bodyInApp, $regUrl, 'Open staff app', $eventId) !== null) {
             $notified++;
         }
 
@@ -210,11 +210,11 @@ function notifyRegisteredStaffOpenShiftSlot(PDO $pdo, int $eventId, string $reas
     }
 
     $eventName = trim((string) ($event['name'] ?? 'Shift'));
-    $regUrl    = getRegistrationFormUrl($pdo);
+    $regUrl    = getStaffAppUrl($pdo);
     $siteName  = getSiteName($pdo);
     $needed    = (int) ($event['staff_needed'] ?? 0);
 
-    $intro = $reason . ' for this shift. Register now if you want this shift.';
+    $intro = $reason . ' for this shift. Sign in to the staff app to apply.';
     if ($needed > 0) {
         $stmt = $pdo->prepare(
             "SELECT COUNT(*) FROM staff_registrations WHERE event_id = :eid AND status = 'approved'"
@@ -223,7 +223,7 @@ function notifyRegisteredStaffOpenShiftSlot(PDO $pdo, int $eventId, string $reas
         $approved = (int) $stmt->fetchColumn();
         $spaces   = max(0, $needed - $approved);
         if ($spaces > 0) {
-            $intro = $reason . ': ' . $spaces . ' space' . ($spaces === 1 ? '' : 's') . ' available on ' . $eventName . '. Register now if you want this shift.';
+            $intro = $reason . ': ' . $spaces . ' space' . ($spaces === 1 ? '' : 's') . ' available on ' . $eventName . '. Sign in to the staff app to apply.';
         }
     }
 
@@ -235,7 +235,7 @@ function notifyRegisteredStaffOpenShiftSlot(PDO $pdo, int $eventId, string $reas
     $emailContent = buildJobAlertEmailContent($pdo, $event, $intro, $regUrl);
 
     foreach (listStaffEmailsEligibleForShiftAlert($pdo, $eventId) as $email) {
-        if (notifyStaffInApp($pdo, $email, 'open_shift', $titleInApp, $bodyInApp, $regUrl, 'Register now', $eventId) !== null) {
+        if (notifyStaffInApp($pdo, $email, 'open_shift', $titleInApp, $bodyInApp, $regUrl, 'Open staff app', $eventId) !== null) {
             $notified++;
         }
 

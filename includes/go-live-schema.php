@@ -105,9 +105,35 @@ function ensureGoLiveReminderColumn(PDO $pdo): void
     $ready = true;
 }
 
-/**
- * Apply admin role columns in production (go-live only — does not throw).
- */
+function ensureEmailReminderLogSchema(PDO $pdo): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+
+    try {
+        $exists = (bool) $pdo->query("SHOW TABLES LIKE 'email_reminder_log'")->fetch();
+        if (!$exists) {
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS email_reminder_log (
+                    id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    email            VARCHAR(150) NOT NULL,
+                    registration_id  INT UNSIGNED NULL DEFAULT NULL,
+                    reminder_type    VARCHAR(32) NOT NULL,
+                    sent_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_reminder_email_type (email, reminder_type, sent_at),
+                    INDEX idx_reminder_registration (registration_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+        }
+    } catch (Throwable $e) {
+        error_log('[EventStaff] ensureEmailReminderLogSchema: ' . $e->getMessage());
+    }
+
+    $ready = true;
+}
+
 function ensureAdminUsersSchemaForGoLive(PDO $pdo): void
 {
     static $ready = false;

@@ -26,6 +26,17 @@ if (isset($_GET['signed_out'])) {
         ? 'You were signed out after 5 minutes of inactivity.'
         : 'You have been signed out.';
 }
+if (!empty($_SESSION['registration_status_message'])) {
+    $signedOutNotice = (string) $_SESSION['registration_status_message'];
+    unset($_SESSION['registration_status_message']);
+} elseif (isset($_GET['registered']) && (string) $_GET['registered'] === 'profile') {
+    $legacyStaff = getStaffFromPortalSession($pdo);
+    if ($legacyStaff !== null) {
+        header('Location: staff-profile.php?welcome=1');
+        exit;
+    }
+    $signedOutNotice = 'Registration complete. Sign in below to view available shifts.';
+}
 if (!empty($_SESSION['staff_google_signin_error'])) {
     $signedOutNotice = (string) $_SESSION['staff_google_signin_error'];
     unset($_SESSION['staff_google_signin_error']);

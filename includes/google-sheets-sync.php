@@ -47,9 +47,43 @@ function isGoogleServiceAccountConfigured(): bool
     return loadGoogleServiceAccount() !== null;
 }
 
+function getGoogleServiceAccountClientEmail(): string
+{
+    $sa = loadGoogleServiceAccount();
+
+    return is_array($sa) ? trim((string) ($sa['client_email'] ?? '')) : '';
+}
+
 function isGoogleSheetsConfigured(?PDO $pdo = null): bool
 {
     return isGoogleSheetsSyncEnabled($pdo) && googleSheetsResolveApiAuth($pdo) !== null;
+}
+
+/**
+ * Whether admins can manually link spreadsheets from the shared Drive folder
+ * (picker / link-from-folder) without relying on auto-create alone.
+ */
+function isGoogleSheetsManualLinkReady(?PDO $pdo = null): bool
+{
+    $pdo = $pdo ?? getDB();
+
+    if (getGoogleSheetsDriveParentFolderId($pdo) === '') {
+        return false;
+    }
+
+    if (isGoogleServiceAccountConfigured()) {
+        return true;
+    }
+
+    if (!googleDriveOAuthConfigured($pdo)) {
+        return false;
+    }
+
+    try {
+        return googleDriveGetUserAccessToken($pdo) !== '';
+    } catch (Throwable $e) {
+        return false;
+    }
 }
 
 /**

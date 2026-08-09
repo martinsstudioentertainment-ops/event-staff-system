@@ -56,7 +56,7 @@ if ($result === true) {
     setAdminFlash('error', (string) $result);
 }
 
-if ($redirectTo !== '' && str_starts_with($redirectTo, 'view-staff.php')) {
+if ($redirectTo !== '' && (str_starts_with($redirectTo, 'view-staff.php') || str_starts_with($redirectTo, 'contractor-sheet.php'))) {
     header('Location: ' . $redirectTo);
     exit;
 }

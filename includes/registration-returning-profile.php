@@ -16,9 +16,10 @@ function buildReturningRegistrantSummary(PDO $pdo, array $registrationRow, array
 {
     $merged = array_merge($registrationRow, $staffRow);
 
-    $required = getStaffOnboardingRequiredFields();
-    $total    = count($required);
-    $missing  = getStaffOnboardingMissingFields($merged);
+    $requiresPsa = staffRoleRequiresOnboardingPsa($merged);
+    $required    = getStaffOnboardingRequiredFields($merged);
+    $total       = count($required);
+    $missing     = getStaffOnboardingMissingFields($merged);
     $filled   = max(0, $total - count($missing));
     $pct      = $total > 0 ? (int) round(($filled / $total) * 100) : 0;
 
@@ -30,10 +31,12 @@ function buildReturningRegistrantSummary(PDO $pdo, array $registrationRow, array
         }
     }
 
-    $psaMissing = in_array('PSA licence number', $missing, true)
-        || in_array('PSA card front photo', $missing, true)
-        || in_array('PSA card back photo', $missing, true)
-        || in_array('PSA expiry date', $missing, true);
+    $psaMissing = $requiresPsa && (
+        in_array('PSA licence number', $missing, true)
+        || in_array('PSA front photo', $missing, true)
+        || in_array('PSA back photo', $missing, true)
+        || in_array('PSA expiry date', $missing, true)
+    );
 
     $psaExpiring = false;
     $expiryRaw   = trim((string) ($merged['psa_expiry_date'] ?? ''));
@@ -66,12 +69,14 @@ function buildReturningRegistrantSummary(PDO $pdo, array $registrationRow, array
     }
 
     $complianceParts = [];
-    if ($psaMissing) {
-        $complianceParts[] = 'PSA documentation incomplete';
-    } elseif ($psaExpiring) {
-        $complianceParts[] = 'PSA expiring within 30 days';
-    } else {
-        $complianceParts[] = 'PSA on file';
+    if ($requiresPsa) {
+        if ($psaMissing) {
+            $complianceParts[] = 'PSA documentation incomplete';
+        } elseif ($psaExpiring) {
+            $complianceParts[] = 'PSA expiring within 30 days';
+        } else {
+            $complianceParts[] = 'PSA on file';
+        }
     }
     if ($hasPending) {
         $complianceParts[] = 'Application(s) awaiting organiser review';

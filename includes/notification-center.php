@@ -204,6 +204,40 @@ function notifyAdminNewRegistration(PDO $pdo, string $staffName, string $email, 
     );
 }
 
+function notifyAdminNewStaffAccount(PDO $pdo, string $staffName, string $email, int $staffId): void
+{
+    $title = 'New staff account — ' . $staffName;
+    $body  = $staffName . ' completed profile registration (' . $email . '). No shift assigned yet.';
+    $url   = 'staff-edit.php?id=' . $staffId;
+
+    notifyAdminInApp($pdo, 'staff_account', $title, $body, $url, 'View profile', $staffId);
+
+    if (!isAdminEmailAlertEnabled($pdo, 'notify_admin_on_registration')) {
+        return;
+    }
+
+    $adminRoot = rtrim(getSetting($pdo, 'admin_site_url', ''), '/');
+    if ($adminRoot === '') {
+        $adminRoot = 'https://admin.olasentra.com';
+    }
+    $link = $adminRoot . '/admin/staff-edit.php?id=' . $staffId;
+
+    require_once __DIR__ . '/email-layout.php';
+
+    sendAdminAlertEmail(
+        $pdo,
+        'New staff account',
+        buildEmailNotificationCard(
+            $pdo,
+            'New staff account',
+            '<p style="margin:0 0 8px;"><strong>' . emailEsc($staffName) . '</strong> created a staff profile (account-only registration).</p>'
+            . '<p style="margin:0;">Email: ' . emailEsc($email) . '</p>',
+            $link,
+            'View staff profile'
+        )
+    );
+}
+
 function notifyAdminStaffCheckin(PDO $pdo, int $registrationId, string $method = 'self'): void
 {
     if (!isAdminEmailAlertEnabled($pdo, 'notify_ops_on_checkin')) {

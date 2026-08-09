@@ -305,11 +305,6 @@
     text-align: center;
 }
 
-.registration-page--wizard-no-shifts #reg-fast-track-consent-mount,
-.registration-page--wizard-no-shifts #reg-consent-home {
-    display: none;
-}
-
 .registration-page--wizard-no-shifts .shift-picker-list--error + .shift-picker-summary,
 .registration-page--wizard-no-shifts #event_ids-error.form-error--visible {
     display: none;
