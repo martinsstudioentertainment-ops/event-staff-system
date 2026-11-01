@@ -44,7 +44,7 @@ deploy_to() {
   /bin/chmod 755 "${DEST}/storage" "${DEST}/storage/logs" "${DEST}/storage/backups" \
     "${DEST}/storage/backups/database" "${DEST}/storage/backups/weekly" 2>/dev/null || true
 
-  for f in .htaccess sw.js config.production.example.php; do
+  for f in .htaccess sw.js config.production.example.php robots.txt sitemap.xml; do
     [ -f "${REPO}/${f}" ] && /bin/cp -f "${REPO}/${f}" "${DEST}/" 2>/dev/null || true
   done
 

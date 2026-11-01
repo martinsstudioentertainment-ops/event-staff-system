@@ -5,6 +5,10 @@ DirectoryIndex home.php index.php
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # Canonical host: www → apex (avoids duplicate-content indexing)
+    RewriteCond %{HTTP_HOST} ^www\.olasentra\.com$ [NC]
+    RewriteRule ^ https://olasentra.com%{REQUEST_URI} [L,R=301]
+
     # WhatsApp /aviva: serve logo HTML (no trailing-slash 301)
     RewriteCond %{HTTP_HOST} ^(www\.)?olasentra\.com$ [NC]
     RewriteRule ^aviva/?$ aviva.php [L]
@@ -95,6 +99,16 @@ DirectoryIndex home.php index.php
 
 # Disable directory listing
 Options -Indexes
+
+# Security headers (public pages, staff app and admin)
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(self)"
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    Header unset X-Powered-By
+</IfModule>
 
 # Protect config if ever exposed under web root misconfiguration
 <FilesMatch "^(config\.php|\.env)$">

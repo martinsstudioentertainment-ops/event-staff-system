@@ -4,11 +4,13 @@
 if (!function_exists('isFeatureEnabled')) {
     require_once __DIR__ . '/../feature-flags.php';
 }
-$isPremiumHomeFooter = ($web['pageSlug'] ?? '') === 'home'
+$premiumFooterSlugs = ['home', 'roles', 'events', 'how', 'faq', 'contact'];
+$isPremiumPublicFooter = in_array($web['pageSlug'] ?? '', $premiumFooterSlugs, true)
     && isFeatureEnabled($web['pdo'] ?? null, 'feature_public_premium_v2');
+$isPremiumHomeFooter = $isPremiumPublicFooter && ($web['pageSlug'] ?? '') === 'home';
 ?>
 
-<footer class="site-footer<?= $isPremiumHomeFooter ? ' site-footer--premium' : '' ?>">
+<footer class="site-footer<?= $isPremiumPublicFooter ? ' site-footer--premium' : '' ?>">
     <div class="site-footer__grid">
         <div class="site-footer__brand-col">
             <a class="site-footer__brand" href="<?= h(getWebsitePageUrl('home', $web['pdo'], $web['assetBase'])) ?>">
@@ -36,7 +38,9 @@ $isPremiumHomeFooter = ($web['pageSlug'] ?? '') === 'home'
             <h3 class="site-footer__heading">Contact</h3>
             <ul class="site-footer__links site-footer__contact">
                 <li><a href="mailto:<?= h($web['email']) ?>"><?= h($web['email']) ?></a></li>
-                <li><a href="<?= h(formatTelHref($web['phone'])) ?>"><?= h($web['phone']) ?></a></li>
+                <?php if (trim((string) ($web['phone'] ?? '')) !== ''): ?>
+                    <li><a href="<?= h(formatTelHref($web['phone'])) ?>"><?= h($web['phone']) ?></a></li>
+                <?php endif; ?>
                 <?php if (($web['whatsappUrl'] ?? '') !== ''): ?>
                     <li><a href="<?= h($web['whatsappUrl']) ?>" target="_blank" rel="noopener">WhatsApp: <?= h($web['whatsapp']) ?></a></li>
                 <?php endif; ?>

@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+
+# Block app internals and private tooling
+Disallow: /admin/
+Disallow: /api/
+Disallow: /includes/
+Disallow: /storage/
+Disallow: /cron/
+Disallow: /database/
+Disallow: /vendor/
+Disallow: /scripts/
+Disallow: /uploads/
+
+Sitemap: https://olasentra.com/sitemap.xml
