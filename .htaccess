@@ -9,6 +9,10 @@ DirectoryIndex home.php index.php
     RewriteCond %{HTTP_HOST} ^(www\.)?olasentra\.com$ [NC]
     RewriteRule ^aviva/?$ aviva.php [L]
 
+    # AVIVA Match – Event Staff short link (added 2026-11-01)
+    RewriteCond %{HTTP_HOST} ^(www\.)?olasentra\.com$ [NC]
+    RewriteRule ^aviva-match/?$ aviva-match-event.php [L]
+
     # --- register.olasentra.com: staff only (same public_html, shared DB) ---
     RewriteCond %{HTTP_HOST} ^register\.olasentra\.com$ [NC]
     RewriteRule ^$ /index.php [L]
