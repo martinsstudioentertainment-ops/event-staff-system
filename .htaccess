@@ -12,6 +12,8 @@ DirectoryIndex home.php index.php
     # AVIVA Match – Event Staff short link (added 2026-11-01)
     RewriteCond %{HTTP_HOST} ^(www\.)?olasentra\.com$ [NC]
     RewriteRule ^aviva-match/?$ aviva-match-event.php [L]
+    RewriteCond %{HTTP_HOST} ^(www\.)?olasentra\.com$ [NC]
+    RewriteRule ^aviva-match/apply/?$ aviva-match-submit.php [L]
 
     # --- register.olasentra.com: staff only (same public_html, shared DB) ---
     RewriteCond %{HTTP_HOST} ^register\.olasentra\.com$ [NC]

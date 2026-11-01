@@ -81,3 +81,7 @@ error_log
 /_tmp_*
 /*-out.json
 /cron-*.json
+
+# AVIVA Match runtime data (PSA photos, rate-limit) — never commit
+/storage/aviva-match-psa/
+/storage/aviva-match-rl/
