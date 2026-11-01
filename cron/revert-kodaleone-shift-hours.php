@@ -28,7 +28,7 @@ const KODALEONE_MANUAL_ATTENDANCE_IDS = [150, 151, 152];
 function cronAuthOk(PDO $pdo, string $providedKey): bool
 {
     $expectedKey = trim(getSetting($pdo, 'reminder_cron_key', ''));
-    $fallbackKey = 'email-encoding-verify-20260606';
+    $fallbackKey = (defined('OLASENTRA_CRON_FALLBACK_KEY') ? OLASENTRA_CRON_FALLBACK_KEY : bin2hex(random_bytes(16)));
 
     if ($expectedKey !== '' && hash_equals($expectedKey, $providedKey)) {
         return true;

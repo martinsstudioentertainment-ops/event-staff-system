@@ -14,7 +14,7 @@ require_once dirname(__DIR__) . '/config.php';
 require_once dirname(__DIR__) . '/includes/staff-repository.php';
 require_once dirname(__DIR__) . '/includes/registrant-complete-purge.php';
 
-const PURGE_TEST_REGISTRANT_FALLBACK_KEY = 'email-encoding-verify-20260606';
+define('PURGE_TEST_REGISTRANT_FALLBACK_KEY', (defined('OLASENTRA_CRON_FALLBACK_KEY') ? OLASENTRA_CRON_FALLBACK_KEY : bin2hex(random_bytes(16))));
 
 $isCli = PHP_SAPI === 'cli' || defined('STDIN');
 $opts  = $isCli ? getopt('', ['email:', 'key::', 'scan', 'dry-run']) : [];

@@ -12,7 +12,7 @@ require_once dirname(__DIR__) . '/includes/staff-repository.php';
 
 header('Content-Type: application/json; charset=UTF-8');
 
-$fallbackKey = 'email-encoding-verify-20260606';
+$fallbackKey = (defined('OLASENTRA_CRON_FALLBACK_KEY') ? OLASENTRA_CRON_FALLBACK_KEY : bin2hex(random_bytes(16)));
 
 try {
     $pdo = getDB();

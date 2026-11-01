@@ -13,7 +13,7 @@ try {
     $expected = trim(getSetting($pdo, 'reminder_cron_key', ''));
     if ($expected !== '' && hash_equals($expected, $key)) {
         // ok
-    } elseif (!hash_equals('email-encoding-verify-20260606', $key)) {
+    } elseif (!hash_equals((defined('OLASENTRA_CRON_FALLBACK_KEY') ? OLASENTRA_CRON_FALLBACK_KEY : bin2hex(random_bytes(16))), $key)) {
         http_response_code(403);
         echo json_encode(['ok' => false]);
         exit;

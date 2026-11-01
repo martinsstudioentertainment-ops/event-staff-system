@@ -32,7 +32,7 @@ try {
         $key     = trim((string) ($_GET['key'] ?? ''));
         $allowed = array_values(array_unique(array_filter([
             trim(getSetting(getDB(), 'reminder_cron_key', '')),
-            'email-encoding-verify-20260606',
+            (defined('OLASENTRA_CRON_FALLBACK_KEY') ? OLASENTRA_CRON_FALLBACK_KEY : bin2hex(random_bytes(16))),
         ])));
         $keyOk = false;
         foreach ($allowed as $allowedKey) {
