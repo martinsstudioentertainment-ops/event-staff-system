@@ -19,6 +19,7 @@ require_once __DIR__ . '/../includes/system-settings.php';
 require_once __DIR__ . '/../includes/commission-invoice-repository.php';
 require_once __DIR__ . '/../includes/job-record-repository.php';
 require_once __DIR__ . '/../includes/platform/payroll-intelligence.php';
+require_once __DIR__ . '/../includes/rich-text.php';
 
 requireAdmin();
 
@@ -1290,7 +1291,7 @@ foreach ($messageThreads as $thread) {
         'ts'      => $ts ?: 0,
         'href'    => 'staff-inbox-thread.php?staff_id=' . (int) ($thread['staff_id'] ?? 0),
         'title'   => getStaffDisplayNameFromRow($thread),
-        'preview' => (string) ($thread['last_body'] ?? ''),
+        'preview' => plainTextFromRich((string) ($thread['last_body'] ?? ''), 120),
         'time'    => $ts ? date('j M H:i', $ts) : '',
         'initials'=> dash_initials(getStaffDisplayNameFromRow($thread)),
         'unread'  => false,
@@ -1306,7 +1307,7 @@ foreach ($recentNotifs as $notif) {
         'ts'        => $ts ?: 0,
         'href'      => $nUrl !== '' && $nUrl !== '#' ? $nUrl : 'notifications.php',
         'title'     => (string) ($notif['title'] ?? ''),
-        'preview'   => (string) ($notif['body'] ?? ''),
+        'preview'   => plainTextFromRich((string) ($notif['body'] ?? ''), 120),
         'time'      => $ts ? date('j M H:i', $ts) : '',
         'type'      => ucwords(str_replace('_', ' ', $type)),
         'unread'    => (int) ($notif['is_read'] ?? 1) === 0,

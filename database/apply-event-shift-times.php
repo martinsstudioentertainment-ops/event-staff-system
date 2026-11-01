@@ -88,8 +88,8 @@ foreach ($rows as $index => $row) {
     }
 
     $event = $matches[0];
-    if ($start >= $end) {
-        echo "Invalid times for {$name} on {$date}: end must be after start\n";
+    if ($start === $end) {
+        echo "Invalid times for {$name} on {$date}: end cannot equal start\n";
         $skipped++;
         continue;
     }

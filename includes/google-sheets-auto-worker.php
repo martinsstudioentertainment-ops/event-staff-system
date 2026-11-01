@@ -69,8 +69,8 @@ function systemHeartbeatPingUrlAsync(string $url): void
     }
 
     curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT_MS        => 3000,
+        CURLOPT_RETURNTRANSFER    => true,
+        CURLOPT_TIMEOUT_MS        => 8000,
         CURLOPT_CONNECTTIMEOUT_MS => 1500,
         CURLOPT_NOSIGNAL          => 1,
         CURLOPT_FOLLOWLOCATION    => true,
@@ -78,6 +78,92 @@ function systemHeartbeatPingUrlAsync(string $url): void
 
     @curl_exec($ch);
     curl_close($ch);
+}
+
+function systemHeartbeatFunctionAllowed(string $fn): bool
+{
+    if (!function_exists($fn)) {
+        return false;
+    }
+    $disabled = array_map('trim', explode(',', (string) ini_get('disable_functions')));
+
+    return !in_array($fn, $disabled, true);
+}
+
+function systemHeartbeatInWorkerRequest(): bool
+{
+    if (PHP_SAPI === 'cli') {
+        return true;
+    }
+    $script = (string) ($_SERVER['SCRIPT_NAME'] ?? '') . ' ' . (string) ($_SERVER['SCRIPT_FILENAME'] ?? '');
+
+    return str_contains($script, 'system-heartbeat.php')
+        || str_contains($script, 'google-sheets-sync.php');
+}
+
+/**
+ * Fire the next heartbeat after $delaySeconds so the loop survives overnight
+ * with no page views. Immediate curl + "already ran" skip used to kill the chain.
+ */
+function systemHeartbeatSpawnDelayedPing(string $url, int $delaySeconds): bool
+{
+    if ($url === '' || PHP_OS_FAMILY === 'Windows') {
+        return false;
+    }
+
+    $delay = max(20, min(120, $delaySeconds));
+    $inner = sprintf('sleep %d; curl -sS -m 12 -o /dev/null %s', $delay, escapeshellarg($url));
+    $cmd = 'nohup sh -c ' . escapeshellarg($inner) . ' >/dev/null 2>&1 &';
+
+    if (systemHeartbeatFunctionAllowed('exec')) {
+        @exec($cmd);
+
+        return true;
+    }
+    if (systemHeartbeatFunctionAllowed('shell_exec')) {
+        @shell_exec($cmd);
+
+        return true;
+    }
+
+    return false;
+}
+
+function systemHeartbeatScheduleDelayedPing(string $url, int $delaySeconds): void
+{
+    if ($url === '') {
+        return;
+    }
+
+    $mode = 'immediate';
+    if (systemHeartbeatSpawnDelayedPing($url, $delaySeconds)) {
+        $mode = 'shell';
+    } elseif (systemHeartbeatInWorkerRequest()) {
+        $mode = 'sleep';
+    }
+
+    try {
+        $pdo = getDB();
+        if (getSetting($pdo, 'system_heartbeat_chain', '') !== $mode) {
+            setSetting($pdo, 'system_heartbeat_chain', $mode);
+        }
+    } catch (Throwable $e) {
+        // ignore
+    }
+
+    if ($mode === 'shell') {
+        return;
+    }
+
+    if ($mode === 'sleep') {
+        ignore_user_abort(true);
+        @set_time_limit($delaySeconds + 90);
+        sleep(max(20, min(120, $delaySeconds)));
+        systemHeartbeatPingUrlAsync($url);
+        return;
+    }
+
+    systemHeartbeatPingUrlAsync($url);
 }
 
 /**
@@ -94,10 +180,11 @@ function systemHeartbeatArmNext(PDO $pdo, int $pending = 0): void
         ? googleSheetsAutoWorkerDrainIntervalSeconds()
         : systemHeartbeatIdleIntervalSeconds();
 
-    $last = trim(getSetting($pdo, 'system_heartbeat_last_ping_at', ''));
-    if ($last !== '') {
-        $ts = strtotime($last . ' UTC');
-        if ($ts !== false && (time() - $ts) < $interval) {
+    $now = time();
+    $due = trim(getSetting($pdo, 'system_heartbeat_next_due_at', ''));
+    if ($due !== '') {
+        $dueTs = strtotime($due . ' UTC');
+        if ($dueTs !== false && $dueTs > ($now + 8)) {
             return;
         }
     }
@@ -108,7 +195,8 @@ function systemHeartbeatArmNext(PDO $pdo, int $pending = 0): void
     }
 
     setSetting($pdo, 'system_heartbeat_last_ping_at', gmdate('Y-m-d H:i:s'));
-    systemHeartbeatPingUrlAsync($url);
+    setSetting($pdo, 'system_heartbeat_next_due_at', gmdate('Y-m-d H:i:s', $now + $interval));
+    systemHeartbeatScheduleDelayedPing($url, $interval);
 }
 
 /**
@@ -129,9 +217,14 @@ function systemHeartbeatEnsureLoopRunning(PDO $pdo): void
         }
     }
 
-    $queue   = googleSheetsQueueSummary($pdo);
-    $pending = (int) ($queue['pending'] ?? 0);
-    systemHeartbeatArmNext($pdo, $pending);
+    $url = systemHeartbeatGetUrl($pdo);
+    if ($url === '') {
+        return;
+    }
+
+    setSetting($pdo, 'system_heartbeat_last_ping_at', gmdate('Y-m-d H:i:s'));
+    setSetting($pdo, 'system_heartbeat_next_due_at', gmdate('Y-m-d H:i:s', time() + 5));
+    systemHeartbeatPingUrlAsync($url);
 }
 
 /** Fire-and-forget when new sheet work is queued. */

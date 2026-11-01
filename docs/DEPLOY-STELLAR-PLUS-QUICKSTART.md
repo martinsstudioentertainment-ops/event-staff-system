@@ -18,7 +18,7 @@ git commit -m "Initial commit"
 
 ```powershell
 git branch -M main
-git remote add origin https://github.com/YOURUSER/event-staff-system.git
+git remote add origin https://github.com/YOUR[REDACTED]/event-staff-system.git
 git push -u origin main
 ```
 
@@ -28,9 +28,9 @@ git push -u origin main
 
 ### Database
 
-1. cPanel → **MySQL® Databases** → create DB + user → **ALL PRIVILEGES**
+1. cPanel → **MySQL® Databases** → create DB + [REDACTED] → **ALL PRIVILEGES**
 2. phpMyAdmin → **Import** → `database/database.sql`  
-   *(or skip import and use Admin → Go live → Apply safe schema updates after Phase 3)*
+   *(or skip import and use Admin → Go [REDACTED] → Apply safe schema updates after Phase 3)*
 
 ### config.php (once, never in Git)
 
@@ -51,7 +51,7 @@ cPanel → **SSL/TLS Status** → **Run AutoSSL**
 
 ## Phase 3 — cPanel Git deploy (~15 min)
 
-1. Edit **`.cpanel.yml`** in your PC repo — replace `YOUR_CPANEL_USER` with cPanel username (from File Manager path `/home/username/`)
+1. Edit **`.cpanel.yml`** in your PC repo — replace `YOUR_CPANEL_[REDACTED]` with cPanel [REDACTED]name (from File Manager path `/home/[REDACTED]name/`)
 2. Commit and push:
 
 ```powershell
@@ -61,30 +61,30 @@ git push
 ```
 
 3. cPanel → **Git™ Version Control** → **Create**
-4. **Clone URL:** `https://github.com/YOURUSER/event-staff-system.git`
-5. **Repository path:** e.g. `/home/CPANEL_USER/repos/event-staff` (cPanel suggests a path)
+4. **Clone URL:** `https://github.com/YOUR[REDACTED]/event-staff-system.git`
+5. **Repository path:** e.g. `/home/CPANEL_[REDACTED]/repos/event-staff` (cPanel suggests a path)
 6. **Create** → open repo → **Update from Remote** → **Deploy HEAD commit**
 7. Confirm files appear under `public_html` (admin, index.php, assets, vendor, …)
 8. Visit `https://yourdomain.com/admin/login.php`
 
 ---
 
-## Phase 4 — Go live (~20 min)
+## Phase 4 — Go [REDACTED] (~20 min)
 
 | Step | Where |
 |------|--------|
 | Change admin password | Admin → Settings → Account |
-| SMTP email | Admin → Settings → Email → Send test |
+| SMTP email | Admin → Settings → Email → Send [REDACTED] |
 | Company + notice | Admin → Website CMS |
-| Schema | Admin → **Go live** → Apply safe schema updates |
-| Backup | Go live → Run database backup now |
+| Schema | Admin → **Go [REDACTED]** → Apply safe schema updates |
+| Backup | Go [REDACTED] → Run database backup now |
 | Cron | cPanel → Cron Jobs (see below) |
 
 ### Cron (Stellar Plus)
 
 ```text
-0 9 * * * /usr/local/bin/php /home/CPANEL_USER/public_html/cron/daily-reminders.php
-0 3 * * 0 /usr/local/bin/php /home/CPANEL_USER/public_html/cron/weekly-backup.php
+0 9 * * * /usr/local/bin/php /home/CPANEL_[REDACTED]/public_html/cron/daily-reminders.php
+0 3 * * 0 /usr/local/bin/php /home/CPANEL_[REDACTED]/public_html/cron/weekly-backup.php
 ```
 
 Use **PHP** path from cPanel cron screen (may differ).
@@ -99,7 +99,7 @@ git commit -m "What you changed"
 git push
 ```
 
-Then cPanel → Git → **Update from Remote** → **Deploy HEAD commit** → test site.
+Then cPanel → Git → **Update from Remote** → **Deploy HEAD commit** → [REDACTED] site.
 
 ---
 

@@ -8,20 +8,20 @@ require_once __DIR__ . '/../includes/audit-log.php';
 requireAdminCapability('staff');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header('Location: staff-directory.php');
+    header('Location: staff.php?tab=people');
     exit;
 }
 
 if (!verifyCsrf($_POST['csrf_token'] ?? null)) {
     setAdminFlash('error', 'Invalid request. Please try again.');
-    header('Location: staff-directory.php');
+    header('Location: staff.php?tab=people');
     exit;
 }
 
 $pdo      = getDB();
-$redirect = trim((string) ($_POST['redirect'] ?? 'staff-directory.php'));
+$redirect = trim((string) ($_POST['redirect'] ?? 'staff.php?tab=people'));
 if ($redirect === '' || !str_starts_with($redirect, 'staff')) {
-    $redirect = 'staff-directory.php';
+    $redirect = 'staff.php?tab=people';
 }
 
 if (!empty($_POST['bulk_all'])) {
@@ -69,14 +69,14 @@ if (!empty($_POST['bulk_all'])) {
 $staffId = (int) ($_POST['staff_id'] ?? 0);
 if ($staffId < 1) {
     setAdminFlash('error', 'Invalid staff member.');
-    header('Location: staff-directory.php');
+    header('Location: staff.php?tab=people');
     exit;
 }
 
 $staff = getStaffById($pdo, $staffId);
 if ($staff === null) {
     setAdminFlash('error', 'Staff member not found.');
-    header('Location: staff-directory.php');
+    header('Location: staff.php?tab=people');
     exit;
 }
 

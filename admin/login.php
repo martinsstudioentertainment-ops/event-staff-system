@@ -10,8 +10,10 @@ require_once __DIR__ . '/../includes/admin-ui-settings.php';
 require_once __DIR__ . '/../includes/brand-logo.php';
 require_once __DIR__ . '/../includes/admin-login-otp.php';
 
+$returnTo = adminSafeReturnPath($_GET['return'] ?? $_POST['return'] ?? null);
+
 if (isAdminLoggedIn()) {
-    header('Location: dashboard.php');
+    header('Location: ' . $returnTo);
     exit;
 }
 
@@ -22,12 +24,12 @@ $otpStep  = getAdminLoginOtpPending() !== null;
 $otpEmail = getAdminLoginOtpEmail($pdo);
 
 if (isset($_GET['timeout'])) {
-    $error = 'Your session expired after 5 minutes of inactivity. Please sign in again.';
+    $error = 'Please sign in again.';
 }
 
 if (isset($_GET['cancel_otp'])) {
     clearAdminLoginOtpChallenge();
-    header('Location: login.php');
+    header('Location: login.php?return=' . rawurlencode($returnTo));
     exit;
 }
 
@@ -55,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ], !empty($_POST['remember_device']));
             require_once __DIR__ . '/../includes/audit-log.php';
             logAdminAudit($pdo, 'login', 'admin', (int) $pending['admin_id'], (string) $pending['username']);
-            header('Location: dashboard.php');
+            header('Location: ' . $returnTo);
             exit;
         }
     } else {
@@ -86,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 finalizeAdminLoginSession($pdo, $user, !empty($_POST['remember_device']));
                 require_once __DIR__ . '/../includes/audit-log.php';
                 logAdminAudit($pdo, 'login', 'admin', (int) $user['id'], $username);
-                header('Location: dashboard.php');
+                header('Location: ' . $returnTo);
                 exit;
             }
         }
@@ -136,6 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <p class="login-card__hint">We sent a 6-digit code to <strong><?= h($otpEmail) ?></strong>. It expires in 10 minutes.</p>
                 <form method="post" class="form-grid login-form">
                     <input type="hidden" name="step" value="otp">
+                    <input type="hidden" name="return" value="<?= h($returnTo) ?>">
                     <div class="form-group form-group--full">
                         <label class="form-label" for="otp_code">Verification code</label>
                         <input class="form-input" type="text" id="otp_code" name="otp_code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required autofocus>
@@ -148,9 +151,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <button type="submit" class="btn btn--primary btn--block">Verify &amp; sign in</button>
                     </div>
                 </form>
-                <p class="login-card__hint"><a href="login.php?cancel_otp=1">← Back to password login</a></p>
+                <p class="login-card__hint"><a href="login.php?cancel_otp=1&amp;return=<?= h(rawurlencode($returnTo)) ?>">← Back to password login</a></p>
             <?php else: ?>
                 <form method="post" class="form-grid login-form">
+                    <input type="hidden" name="return" value="<?= h($returnTo) ?>">
                     <div class="form-group form-group--full">
                         <label class="form-label" for="username">Username</label>
                         <input class="form-input" type="text" id="username" name="username" autocomplete="username" required<?= $lock['locked'] ? ' disabled' : '' ?>>

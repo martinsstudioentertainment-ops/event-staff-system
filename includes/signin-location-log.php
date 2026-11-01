@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/maps.php';
+require_once __DIR__ . '/maps-core.php';
 require_once __DIR__ . '/attendance-repository.php';
 require_once __DIR__ . '/events-repository.php';
 require_once __DIR__ . '/validation.php';

@@ -23,4 +23,6 @@ return [
     ['date' => '2026-08-23', 'name' => 'The Weekend', 'start' => '15:00', 'end' => '23:00'],
     ['date' => '2026-08-25', 'name' => 'Deftones', 'start' => '14:00', 'end' => '23:30'],
     ['date' => '2026-08-30', 'name' => 'Bon Jovi', 'start' => '15:00', 'end' => '23:00'],
+    ['date' => '2026-09-11', 'name' => 'Palmerstown House DSP', 'start' => '11:00', 'end' => '23:00'],
+    ['date' => '2026-09-12', 'name' => 'Palmerstown House DSP', 'start' => '10:00', 'end' => '02:00'],
 ];

@@ -12,20 +12,83 @@ if (session_status() === PHP_SESSION_NONE) {
 
 function isAdminLoggedIn(): bool
 {
+    if (!empty($_SESSION['admin_id'])) {
+        return true;
+    }
+
+    static $triedStayRestore = false;
+    if ($triedStayRestore) {
+        return false;
+    }
+    $triedStayRestore = true;
+
+    try {
+        require_once __DIR__ . '/admin-login-otp.php';
+        restoreAdminSessionFromStayCookie();
+    } catch (Throwable $e) {
+        return false;
+    }
+
     return !empty($_SESSION['admin_id']);
+}
+
+/**
+ * Safe post-login redirect within the admin folder only.
+ */
+function adminSafeReturnPath(?string $raw): string
+{
+    $raw = trim((string) $raw);
+    if ($raw === '') {
+        return 'dashboard.php';
+    }
+
+    // Allow attendant.php?date=...&name=... etc.
+    if (!preg_match('/^[a-zA-Z0-9_-]+\.php(?:\?[a-zA-Z0-9_\-=&%.+]*)?$/', $raw)) {
+        return 'dashboard.php';
+    }
+
+    $file = strtok($raw, '?') ?: '';
+    if ($file === '' || strcasecmp($file, 'login.php') === 0 || strcasecmp($file, 'logout.php') === 0) {
+        return 'dashboard.php';
+    }
+
+    return $raw;
+}
+
+function adminCurrentReturnPath(): string
+{
+    $script = basename((string) ($_SERVER['SCRIPT_NAME'] ?? 'dashboard.php'));
+    if ($script === '' || strcasecmp($script, 'login.php') === 0) {
+        return 'dashboard.php';
+    }
+
+    $query = trim((string) ($_SERVER['QUERY_STRING'] ?? ''));
+
+    return $query !== '' ? ($script . '?' . $query) : $script;
+}
+
+function adminLoginUrl(string $extraQuery = ''): string
+{
+    $return = rawurlencode(adminCurrentReturnPath());
+    $url = 'login.php?return=' . $return;
+    if ($extraQuery !== '') {
+        $url .= '&' . ltrim($extraQuery, '&');
+    }
+
+    return $url;
 }
 
 function requireAdmin(): void
 {
     if (!isAdminLoggedIn()) {
-        header('Location: login.php');
+        header('Location: ' . adminLoginUrl());
         exit;
     }
 
     $adminIdleTtl = defined('ADMIN_SESSION_IDLE_TTL') ? ADMIN_SESSION_IDLE_TTL : APP_SESSION_IDLE_TTL;
     if (sessionIdleExpired('app_session_last_activity', $adminIdleTtl)) {
         logoutAdmin();
-        header('Location: login.php?timeout=1');
+        header('Location: ' . adminLoginUrl('timeout=1'));
         exit;
     }
 
@@ -33,11 +96,18 @@ function requireAdmin(): void
     refreshAdminSession(getDB());
 
     if (!isAdminLoggedIn()) {
-        header('Location: login.php');
+        header('Location: ' . adminLoginUrl());
         exit;
     }
 
     touchSessionActivity();
+
+    require_once __DIR__ . '/admin-login-otp.php';
+    $adminId = (int) ($_SESSION['admin_id'] ?? 0);
+    if ($adminId > 0) {
+        issueAdminStaySignedInCookie($adminId);
+    }
+
     enforceDefaultPasswordChange();
 }
 
@@ -155,6 +225,9 @@ function attemptAdminLogin(string $username, string $password): bool
 
 function logoutAdmin(): void
 {
+    require_once __DIR__ . '/admin-login-otp.php';
+    clearAdminStaySignedInCookie();
+
     $_SESSION = [];
 
     if (ini_get('session.use_cookies')) {

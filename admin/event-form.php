@@ -4,7 +4,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/venues-repository.php';
 require_once __DIR__ . '/../includes/work-types-repository.php';
-require_once __DIR__ . '/../includes/maps.php';
+require_once __DIR__ . '/../includes/maps-core.php';
 require_once __DIR__ . '/../includes/attendance-gps-phase1.php';
 require_once __DIR__ . '/../includes/feature-flags.php';
 require_once __DIR__ . '/../includes/google-sheets-sync.php';
@@ -215,14 +215,18 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         </div>
 
         <div class="form-group form-group--full">
-            <label class="form-label form-label--required" for="venue_eircode">Venue Eircode</label>
+            <label class="form-label" for="venue_eircode">Venue Eircode (optional)</label>
             <div class="form-inline-group" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-start;">
-                <input class="form-input" type="text" id="venue_eircode" name="venue_eircode" value="<?= eventOld($old, $event, 'venue_eircode') ?>" placeholder="e.g. D02 X285" autocomplete="postal-code" maxlength="8" required style="flex:1;min-width:180px;">
+                <input class="form-input" type="text" id="venue_eircode" name="venue_eircode" value="<?= eventOld($old, $event, 'venue_eircode') ?>" placeholder="Auto from location — optional" autocomplete="postal-code" maxlength="8" style="flex:1;min-width:180px;">
                 <?php if ($mapsOn): ?>
-                    <button type="button" class="btn btn--secondary" id="venue_eircode_lookup">Look up GPS</button>
+                    <button type="button" class="btn btn--primary" id="venue_use_my_location" title="Stand at the venue entrance">Use my location</button>
+                    <button type="button" class="btn btn--secondary" id="venue_eircode_lookup">Look up from Eircode</button>
                 <?php endif; ?>
             </div>
-            <p class="form-hint">Required. GPS is set from this Eircode — venue sign-in only works within <?= h($radiusLabel) ?>.</p>
+            <p class="form-hint">
+                <strong>At the venue:</strong> tap <strong>Use my location</strong> — that sets the GPS pin. You do <strong>not</strong> need to type an Eircode.
+                Eircode fills automatically when available; leave blank if it does not. Sign-in radius: <?= h($radiusLabel) ?>.
+            </p>
             <p class="form-hint" id="venue_gps_status" hidden></p>
         </div>
 
@@ -271,7 +275,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                     </div>
                 </div>
             <?php endif; ?>
-            <div id="event-venue-map" class="event-venue-map" data-maps-enabled="<?= $mapsOn ? '1' : '0' ?>" style="height:280px;margin-top:0.75rem;border-radius:12px;background:#e2e8f0;<?= $mapsOn ? '' : ' display:none;' ?>">
+            <div id="event-venue-map" class="event-venue-map" data-maps-enabled="<?= $mapsOn ? '1' : '0' ?>" data-geocode-url="geocode-eircode.php" data-reverse-geocode-url="reverse-geocode.php" style="height:280px;margin-top:0.75rem;border-radius:12px;background:#e2e8f0;<?= $mapsOn ? '' : ' display:none;' ?>">
                 <?php if (!$mapsOn): ?>
                     <p class="event-venue-map__placeholder" style="padding:1rem;color:#64748b;">Map preview requires Google Maps API key.</p>
                 <?php endif; ?>
@@ -293,6 +297,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <div class="form-group">
             <label class="form-label form-label--required" for="end_time">End Time</label>
             <input class="form-input" type="time" id="end_time" name="end_time" value="<?= eventOld($old, $event, 'end_time', '23:00') ?>" required>
+            <p class="form-hint">Overnight shifts are allowed — end can be the next morning (e.g. 10:00–02:00).</p
         </div>
 
         <div class="form-group">
@@ -353,6 +358,59 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
     <?php if ($isEdit && $event !== null): ?>
         <?php
+        require_once __DIR__ . '/../includes/google-form-intake.php';
+        googleFormIntakeSeedAvivaIntegration($pdo);
+        $formImport = null;
+        foreach (googleFormEventIntegrationsList($pdo) as $gfi) {
+            if ((int) ($gfi['event_id'] ?? 0) === (int) $event['id']) {
+                $formImport = $gfi;
+                break;
+            }
+        }
+        ?>
+        <section class="card" id="google-form-import" style="margin-top:1.5rem;">
+            <div class="card__header card__header--row">
+                <div>
+                    <h2 class="card__title">Google Form import</h2>
+                    <p class="card__subtitle">
+                        Incoming registrations from a Google Form Responses Sheet.
+                        This is not the outbound roster spreadsheet.
+                    </p>
+                </div>
+                <?php if ($formImport): ?>
+                    <span class="status-badge status-badge--approved">Connected</span>
+                <?php endif; ?>
+            </div>
+            <?php if ($formImport): ?>
+                <p class="form-hint">
+                    Automatic import <?= (int) $formImport['enabled'] === 1 ? 'is on' : 'is paused' ?>.
+                    Last sync: <?= !empty($formImport['last_success_at']) ? h((string) $formImport['last_success_at']) : 'not yet' ?>.
+                </p>
+                <div class="form-actions">
+                    <a href="google-form-integrations.php" class="btn btn--secondary">Open Form import</a>
+                </div>
+            <?php else: ?>
+                <?php
+                $avivaEvent = googleFormIntakeFindAvivaEvent($pdo);
+                $isAvivaEvent = $avivaEvent !== null && (int) $avivaEvent['id'] === (int) $event['id'];
+                ?>
+                <p class="form-hint">
+                    <?= $isAvivaEvent
+                        ? 'The Aviva Google Form is locked and is not recreated from here.'
+                        : 'Create a Google Form for this event, or connect an existing Form and Responses Sheet.' ?>
+                </p>
+                <div class="form-actions">
+                    <?php if (!$isAvivaEvent): ?>
+                        <a href="google-form-integrations.php?event_id=<?= (int) $event['id'] ?>#create" class="btn btn--primary">Create Google Form</a>
+                    <?php endif; ?>
+                    <a href="google-form-integrations.php?event_id=<?= (int) $event['id'] ?>#connect" class="btn btn--secondary">Connect existing Google Form</a>
+                </div>
+            <?php endif; ?>
+        </section>
+    <?php endif; ?>
+
+    <?php if ($isEdit && $event !== null): ?>
+        <?php
         require_once __DIR__ . '/../includes/event-cancel-registrations.php';
         $cancelCounts = countEventRegistrationsEligibleForCancel($pdo, (int) $event['id']);
         ?>
@@ -399,6 +457,6 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 </section>
 
 <script>window.GOOGLE_MAPS_API_KEY = <?= json_encode($mapsKey, JSON_THROW_ON_ERROR) ?>;</script>
-<script src="../assets/js/admin-event-venue.js"></script>
+<script src="../assets/js/admin-event-venue.js?v=gps-locate-3"></script>
 
 <?php include __DIR__ . '/../includes/admin/layout-bottom.php'; ?>

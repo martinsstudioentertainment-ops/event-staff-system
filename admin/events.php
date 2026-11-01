@@ -139,7 +139,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     <div class="card__header card__header--row">
         <div>
             <h2 class="card__title">Events</h2>
-            <p class="card__subtitle">Manage gigs, capacity, and Google Sheet links.</p>
+            <p class="card__subtitle">Click an event card to open. Active events show first on the Upcoming filter.</p>
         </div>
         <div class="events-page__actions">
             <a href="event-form.php" class="btn btn--primary">+ Add event</a>
@@ -186,6 +186,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                                 </form>
                             <?php endif; ?>
                             <a href="google-sheets-diagnostic.php" class="btn btn--small btn--secondary">Sheets diagnostic</a>
+                            <a href="google-form-integrations.php" class="btn btn--small btn--secondary">Form import</a>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -269,6 +270,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     <?php if ($showSheetBulk): ?>
         <form method="post" action="events-sheets-action.php" class="bulk-toolbar events-page__bulk" id="events-sheets-bulk-form">
             <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+            <input type="checkbox" id="events-sheet-select-all" aria-label="Select all events">
             <span class="bulk-toolbar__label"><span id="events-sheet-selected-count">0</span> selected</span>
             <?php if ($canAutoSheet): ?>
                 <button type="submit" name="action" value="create_selected" class="btn btn--small btn--primary">Create sheets</button>
@@ -280,148 +282,154 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         </form>
     <?php endif; ?>
 
-    <div class="table-wrap">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <?php if ($showSheetBulk): ?>
-                        <th class="data-table__check"><input type="checkbox" id="events-sheet-select-all" aria-label="Select all events"></th>
-                    <?php endif; ?>
-                    <th>Event Name</th>
-                    <th>Listed contractor</th>
-                    <th>Date</th>
-                    <th>Venue</th>
-                    <th>Work type</th>
-                    <th>Location</th>
-                    <th>Staff needed</th>
-                    <th>Google Sheet</th>
-                    <th>Status</th>
-                    <th>Registrations</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if ($events === []): ?>
-                    <tr>
-                        <td colspan="<?= (int) $tableColCount ?>" class="data-table__empty">
-                            <?php if ($allEvents === []): ?>
-                                No events yet. Add your first event.
+    <?php if ($events === []): ?>
+        <p class="form-hint">
+            <?php if ($allEvents === []): ?>
+                No events yet. Add your first event.
+            <?php else: ?>
+                No events match this filter. <a href="events.php">Show all <?= (int) count($allEvents) ?> events</a>
+            <?php endif; ?>
+        </p>
+    <?php else: ?>
+        <div class="list-card-board">
+            <?php foreach ($events as $event): ?>
+                <?php
+                $sheetUrl = trim((string) ($event['google_sheet_url'] ?? ''));
+                $linkedSheetId = $sheetUrl !== '' ? (parseGoogleSpreadsheetId($sheetUrl) ?? '') : '';
+                $capacity = getEventCapacitySummary($pdo, $event);
+                $isActive = (int) ($event['is_active'] ?? 0) === 1;
+                $tone = !$isActive ? 'issue' : (($capacity['is_full'] ?? false) ? 'pending' : 'ok');
+                ?>
+                <details class="list-card list-card--<?= h($tone) ?>">
+                    <summary class="list-card__front">
+                        <?php if ($showSheetBulk): ?>
+                            <span class="list-card__check">
+                                <input
+                                    type="checkbox"
+                                    form="events-sheets-bulk-form"
+                                    name="event_ids[]"
+                                    value="<?= (int) $event['id'] ?>"
+                                    class="events-sheet-row-check"
+                                    aria-label="Select <?= h($event['name']) ?>"
+                                >
+                            </span>
+                        <?php endif; ?>
+                        <span class="list-card__who">
+                            <strong><?= h($event['name']) ?></strong>
+                            <span class="list-card__hint"><?= h(formatEventDateLabel($event['event_date'])) ?> · click to open</span>
+                        </span>
+                        <span class="list-card__badges">
+                            <?php if ($isActive): ?>
+                                <span class="badge badge--approved">Active</span>
                             <?php else: ?>
-                                No events match this filter. <a href="events.php">Show all <?= (int) count($allEvents) ?> events</a>
+                                <span class="badge badge--rejected">Inactive</span>
                             <?php endif; ?>
-                        </td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($events as $event): ?>
-                        <?php
-                        $sheetUrl = trim((string) ($event['google_sheet_url'] ?? ''));
-                        $linkedSheetId = $sheetUrl !== '' ? (parseGoogleSpreadsheetId($sheetUrl) ?? '') : '';
-                        ?>
-                        <tr>
-                            <?php if ($showSheetBulk): ?>
-                                <td class="data-table__check">
-                                    <input
-                                        type="checkbox"
-                                        form="events-sheets-bulk-form"
-                                        name="event_ids[]"
-                                        value="<?= (int) $event['id'] ?>"
-                                        class="events-sheet-row-check"
-                                        aria-label="Select <?= h($event['name']) ?>"
-                                    >
-                                </td>
+                            <?php if ($sheetUrl !== ''): ?>
+                                <span class="badge badge--approved">Sheet linked</span>
+                            <?php else: ?>
+                                <span class="badge badge--pending">Sheet not linked</span>
                             <?php endif; ?>
-                            <td><?= h($event['name']) ?></td>
-                            <td><?= h(formatEventMainSecurityLabel($event) !== '' ? formatEventMainSecurityLabel($event) : '—') ?></td>
-                            <td><?= h(formatEventDateLabel($event['event_date'])) ?></td>
-                            <td><?= h((string) ($event['venue_name'] ?? '—')) ?></td>
-                            <td><?= h(formatWorkTypeLabel((string) ($event['work_type'] ?? 'special_event'))) ?></td>
-                            <td><?= h(formatEventLocationLabel($event)) ?></td>
-                            <td>
-                                <?php
-                                $capacity = getEventCapacitySummary($pdo, $event);
-                                if ($capacity['needed'] === null): ?>
-                                    —
-                                <?php else: ?>
-                                    <?= h(formatEventCapacityAdminLabel($pdo, $event)) ?>
-                                    <?php if ($capacity['is_full']): ?>
-                                        <br><span class="badge badge--pending">Full</span>
-                                    <?php elseif ($capacity['remaining'] !== null && $capacity['remaining'] <= 3): ?>
-                                        <br><span class="form-hint"><?= (int) $capacity['remaining'] ?> slot<?= $capacity['remaining'] === 1 ? '' : 's' ?> left</span>
+                        </span>
+                    </summary>
+                    <div class="list-card__body">
+                        <dl class="list-card__facts">
+                            <div>
+                                <dt>Listed contractor</dt>
+                                <dd><?= h(formatEventMainSecurityLabel($event) !== '' ? formatEventMainSecurityLabel($event) : '—') ?></dd>
+                            </div>
+                            <div>
+                                <dt>Date</dt>
+                                <dd><?= h(formatEventDateLabel($event['event_date'])) ?></dd>
+                            </div>
+                            <div>
+                                <dt>Venue</dt>
+                                <dd><?= h((string) ($event['venue_name'] ?? '—')) ?></dd>
+                            </div>
+                            <div>
+                                <dt>Work type</dt>
+                                <dd><?= h(formatWorkTypeLabel((string) ($event['work_type'] ?? 'special_event'))) ?></dd>
+                            </div>
+                            <div>
+                                <dt>Location</dt>
+                                <dd><?= h(formatEventLocationLabel($event)) ?></dd>
+                            </div>
+                            <div>
+                                <dt>Staff needed</dt>
+                                <dd>
+                                    <?php if ($capacity['needed'] === null): ?>
+                                        —
+                                    <?php else: ?>
+                                        <?= h(formatEventCapacityAdminLabel($pdo, $event)) ?>
+                                        <?php if ($capacity['is_full']): ?>
+                                            <span class="badge badge--pending">Full</span>
+                                        <?php endif; ?>
                                     <?php endif; ?>
-                                <?php endif; ?>
-                            </td>
-                            <td class="events-sheet-cell">
-                                <?php if ($sheetUrl !== ''): ?>
-                                    <a href="<?= h($sheetUrl) ?>" target="_blank" rel="noopener" class="badge badge--approved" title="Open Google Sheet">Linked ↗</a>
-                                <?php else: ?>
-                                    <span class="form-hint">Not linked</span>
-                                <?php endif; ?>
-                                <?php if (($canAutoSheet || $canManualLink) && $driveSheets !== []): ?>
-                                    <form method="post" action="events-sheets-action.php" class="events-sheet-picker">
-                                        <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
-                                        <input type="hidden" name="action" value="link_pick">
-                                        <input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>">
-                                        <select name="spreadsheet_id" class="form-input events-sheet-picker__select" aria-label="Pick Google Sheet for <?= h($event['name']) ?>">
-                                            <option value="">Pick Google Sheet…</option>
-                                            <?php foreach ($driveSheets as $driveFile): ?>
-                                                <option
-                                                    value="<?= h($driveFile['id']) ?>"
-                                                    <?= $linkedSheetId === $driveFile['id'] ? ' selected' : '' ?>
-                                                ><?= h($driveFile['name']) ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                        <button type="submit" class="btn btn--small btn--secondary">Link</button>
-                                    </form>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <?php if ((int) $event['is_active'] === 1): ?>
-                                    <span class="badge badge--approved">Active</span>
-                                    <?php if ($capacity['is_full'] ?? false): ?>
-                                        <br><span class="badge badge--pending" title="Hidden from staff registration until you increase staff needed">Hidden from registration</span>
-                                    <?php endif; ?>
-                                <?php else: ?>
-                                    <span class="badge badge--rejected">Inactive</span>
-                                <?php endif; ?>
-                            </td>
-                            <td><?= (int) $event['registration_count'] ?></td>
-                            <td>
-                                <div class="action-group">
-                                    <a href="event-sign-qr.php?id=<?= (int) $event['id'] ?>" class="btn btn--small btn--primary">Sign-in</a>
-                                    <?php if (adminCan('export')): ?>
-                                        <a href="export-event-signins.php?event_id=<?= (int) $event['id'] ?>&format=xlsx" class="btn btn--small btn--secondary">Sign-ins Excel</a>
-                                    <?php endif; ?>
-                                    <a href="event-form.php?id=<?= (int) $event['id'] ?>" class="btn btn--small btn--secondary">Edit</a>
+                                </dd>
+                            </div>
+                            <div>
+                                <dt>Google Sheet</dt>
+                                <dd>
                                     <?php if ($sheetUrl !== ''): ?>
-                                        <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Unlink this event from its Google Sheet? The file in Drive is not deleted.');">
-                                            <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
-                                            <input type="hidden" name="action" value="unlink_one">
-                                            <input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>">
-                                            <input type="hidden" name="redirect" value="events.php">
-                                            <button type="submit" class="btn btn--small btn--secondary">Unlink sheet</button>
-                                        </form>
+                                        <a href="<?= h($sheetUrl) ?>" target="_blank" rel="noopener">Open sheet ↗</a>
+                                    <?php else: ?>
+                                        Not linked
                                     <?php endif; ?>
-                                    <a href="event-form.php?id=<?= (int) $event['id'] ?>#cancel-event-shifts" class="btn btn--small btn--danger">Cancel shifts</a>
-                                    <form method="post" action="toggle-event.php">
-                                        <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
-                                        <input type="hidden" name="id" value="<?= (int) $event['id'] ?>">
-                                        <input type="hidden" name="active" value="<?= (int) $event['is_active'] === 1 ? '0' : '1' ?>">
-                                        <button type="submit" class="btn btn--small btn--secondary">
-                                            <?= (int) $event['is_active'] === 1 ? 'Deactivate' : 'Activate' ?>
-                                        </button>
-                                    </form>
-                                    <a
-                                        href="delete-event.php?id=<?= (int) $event['id'] ?>"
-                                        class="btn btn--small btn--secondary events-delete-btn"
-                                    >Delete</a>
-                                </div>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
+                                </dd>
+                            </div>
+                            <div>
+                                <dt>Registrations</dt>
+                                <dd><?= (int) $event['registration_count'] ?></dd>
+                            </div>
+                        </dl>
+                        <?php if (($canAutoSheet || $canManualLink) && $driveSheets !== []): ?>
+                            <form method="post" action="events-sheets-action.php" class="events-sheet-picker" style="margin-bottom:0.85rem;">
+                                <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                                <input type="hidden" name="action" value="link_pick">
+                                <input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>">
+                                <select name="spreadsheet_id" class="form-input events-sheet-picker__select" aria-label="Pick Google Sheet for <?= h($event['name']) ?>">
+                                    <option value="">Pick Google Sheet…</option>
+                                    <?php foreach ($driveSheets as $driveFile): ?>
+                                        <option
+                                            value="<?= h($driveFile['id']) ?>"
+                                            <?= $linkedSheetId === $driveFile['id'] ? ' selected' : '' ?>
+                                        ><?= h($driveFile['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <button type="submit" class="btn btn--small btn--secondary">Link</button>
+                            </form>
+                        <?php endif; ?>
+                        <div class="list-card__actions">
+                            <a href="event-sign-qr.php?id=<?= (int) $event['id'] ?>" class="btn btn--small btn--primary">Sign-in</a>
+                            <?php if (adminCan('export')): ?>
+                                <a href="export-event-signins.php?event_id=<?= (int) $event['id'] ?>&format=xlsx" class="btn btn--small btn--secondary">Sign-ins Excel</a>
+                            <?php endif; ?>
+                            <a href="event-form.php?id=<?= (int) $event['id'] ?>" class="btn btn--small btn--secondary">Edit</a>
+                            <a href="google-form-integrations.php?event_id=<?= (int) $event['id'] ?>#connect" class="btn btn--small btn--secondary">Form import</a>
+                            <?php if ($sheetUrl !== ''): ?>
+                                <form method="post" action="events-sheets-action.php" class="inline-form" onsubmit="return confirm('Unlink this event from its Google Sheet? The file in Drive is not deleted.');">
+                                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                                    <input type="hidden" name="action" value="unlink_one">
+                                    <input type="hidden" name="event_id" value="<?= (int) $event['id'] ?>">
+                                    <input type="hidden" name="redirect" value="events.php">
+                                    <button type="submit" class="btn btn--small btn--secondary">Unlink sheet</button>
+                                </form>
+                            <?php endif; ?>
+                            <a href="event-form.php?id=<?= (int) $event['id'] ?>#cancel-event-shifts" class="btn btn--small btn--danger">Cancel shifts</a>
+                            <form method="post" action="toggle-event.php">
+                                <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                                <input type="hidden" name="id" value="<?= (int) $event['id'] ?>">
+                                <input type="hidden" name="active" value="<?= $isActive ? '0' : '1' ?>">
+                                <button type="submit" class="btn btn--small btn--secondary">
+                                    <?= $isActive ? 'Deactivate' : 'Activate' ?>
+                                </button>
+                            </form>
+                            <a href="delete-event.php?id=<?= (int) $event['id'] ?>" class="btn btn--small btn--secondary events-delete-btn">Delete</a>
+                        </div>
+                    </div>
+                </details>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
     <?php renderAdminPagination($page, $totalEvents, 'events.php', $view !== 'all' ? ['view' => $view] : [], $eventsPerPage); ?>
 </section>
 

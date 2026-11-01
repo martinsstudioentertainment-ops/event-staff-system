@@ -73,8 +73,8 @@ const ADMIN_LOGIN_LOCK_MINUTES = 15;
 /** Idle timeout before automatic sign-out (staff portal). */
 const APP_SESSION_IDLE_TTL = 300;
 
-/** Admin panel idle timeout before automatic sign-out (10 minutes). */
-const ADMIN_SESSION_IDLE_TTL = 600;
+/** Admin panel: 0 = stay signed in (unlock the phone with Face ID / fingerprint). */
+const ADMIN_SESSION_IDLE_TTL = 0;
 
 function touchSessionActivity(string $key = 'app_session_last_activity'): void
 {
@@ -83,6 +83,10 @@ function touchSessionActivity(string $key = 'app_session_last_activity'): void
 
 function sessionIdleExpired(string $key = 'app_session_last_activity', int $ttl = APP_SESSION_IDLE_TTL): bool
 {
+    if ($ttl <= 0) {
+        return false;
+    }
+
     $last = (int) ($_SESSION[$key] ?? 0);
 
     return $last > 0 && (time() - $last) > $ttl;

@@ -541,13 +541,17 @@ function countStaffRegistrations(PDO $pdo, array $filters): int
  */
 function getStaffRegistrations(PDO $pdo, array $filters, ?int $limit = null, int $offset = 0): array
 {
+    require_once __DIR__ . '/psa-licence-verify.php';
     [$where, $params] = buildStaffWhereClause($filters);
 
     $sql = "SELECT sr.*, e.name AS event_name, e.event_date
             FROM staff_registrations sr
             " . staffRegistrationsEventsJoin() . "
+            LEFT JOIN staff st ON TRIM(COALESCE(sr.email, '')) <> ''
+                AND LOWER(TRIM(st.email)) = LOWER(TRIM(sr.email))
             WHERE {$where}
-            ORDER BY sr.created_at DESC";
+            ORDER BY " . psaRegisterStatusOrderSql('st.psa_register_status') . " ASC,
+                     sr.created_at DESC";
 
     if ($limit !== null) {
         $sql .= ' LIMIT ' . max(1, $limit) . ' OFFSET ' . max(0, $offset);
@@ -634,6 +638,8 @@ function getUniqueStaffRegistrants(PDO $pdo, array $filters, ?int $limit = null,
         $statusReg = "MAX(CASE WHEN sr.status = '{$statusLit}' THEN sr.id END) AS status_reg_id,";
     }
 
+    require_once __DIR__ . '/psa-licence-verify.php';
+
     $inner = "SELECT
                 {$emailGroup} AS email_key,
                 {$statusReg}
@@ -646,21 +652,24 @@ function getUniqueStaffRegistrants(PDO $pdo, array $filters, ?int $limit = null,
             FROM staff_registrations sr
             WHERE {$where}
             GROUP BY {$emailGroup}
-            {$having}
-            ORDER BY MAX(sr.created_at) DESC";
-
-    if ($limit !== null) {
-        $inner .= ' LIMIT ' . max(1, $limit) . ' OFFSET ' . max(0, $offset);
-    }
+            {$having}";
 
     $joinOn = $statusFilter !== ''
         ? 'COALESCE(g.status_reg_id, g.latest_reg_id)'
         : 'g.latest_reg_id';
 
+    // Verified PSA first (pagination must apply after that sort).
     $sql = "SELECT g.*, sr.*
             FROM ({$inner}) g
             INNER JOIN staff_registrations sr ON sr.id = {$joinOn}
-            ORDER BY g.last_registered DESC";
+            LEFT JOIN staff st ON TRIM(COALESCE(sr.email, '')) <> ''
+                AND LOWER(TRIM(st.email)) = LOWER(TRIM(sr.email))
+            ORDER BY " . psaRegisterStatusOrderSql('st.psa_register_status') . " ASC,
+                     g.last_registered DESC";
+
+    if ($limit !== null) {
+        $sql .= ' LIMIT ' . max(1, $limit) . ' OFFSET ' . max(0, $offset);
+    }
 
     try {
         $stmt = $pdo->prepare($sql);
@@ -754,7 +763,7 @@ function updateStaffStatus(PDO $pdo, int $id, string $status, bool $allowIncompl
  */
 function buildStaffRegistrationsAdminUrl(string $email, ?string $status = null): string
 {
-    $params = ['q' => trim($email)];
+    $params = ['tab' => 'signups', 'q' => trim($email)];
     if ($status !== null && $status !== '') {
         $params['status'] = $status;
     }
@@ -1013,6 +1022,8 @@ function mergeRegistrationWithStaff(PDO $pdo, array $row): array
             'location_lat', 'location_lng', 'email', 'mobile',
             'date_of_birth', 'gender', 'pps_number', 'bank_iban', 'staff_role',
             'psa_licence', 'psa_expiry_date', 'psa_front_image', 'psa_back_image',
+            'psa_register_status', 'psa_register_name', 'psa_register_checked_at',
+            'psa_register_snapshot',
             'profile_completed',
         ];
 
@@ -1066,6 +1077,11 @@ function getStaffRegistrationById(PDO $pdo, int $id): ?array
  */
 function getStaffRegistrationsByEmail(PDO $pdo, string $email): array
 {
+    $email = strtolower(trim($email));
+    if ($email === '') {
+        return [];
+    }
+
     $sql = 'SELECT sr.*, e.name AS event_name, e.event_date, e.start_time, e.end_time,
                    e.checkin_open_time, e.checkin_close_time,
                    a.id AS attendance_id, a.checked_in_at, a.checked_out_at,
@@ -1074,11 +1090,46 @@ function getStaffRegistrationsByEmail(PDO $pdo, string $email): array
             FROM staff_registrations sr
             ' . staffRegistrationsEventsJoin() . '
             LEFT JOIN attendance a ON a.registration_id = sr.id
-            WHERE sr.email = :email
+            WHERE LOWER(sr.email) = :email
             ORDER BY e.event_date ASC, sr.created_at DESC';
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute(['email' => $email]);
+
+    $rows = $stmt->fetchAll() ?: [];
+
+    return array_map(static function (array $row) use ($pdo): array {
+        $row = mergeRegistrationWithStaff($pdo, $row);
+        $row = mergeRegistrationWithEvent($pdo, $row);
+
+        return $row;
+    }, $rows);
+}
+
+/**
+ * Related shift registrations for a staff directory id (used when email is not set yet).
+ *
+ * @return list<array<string, mixed>>
+ */
+function getStaffRegistrationsByStaffId(PDO $pdo, int $staffId): array
+{
+    if ($staffId < 1) {
+        return [];
+    }
+
+    $sql = 'SELECT sr.*, e.name AS event_name, e.event_date, e.start_time, e.end_time,
+                   e.checkin_open_time, e.checkin_close_time,
+                   a.id AS attendance_id, a.checked_in_at, a.checked_out_at,
+                   a.hours_worked, a.attendance_status,
+                   CASE WHEN a.id IS NULL THEN 0 ELSE 1 END AS is_checked_in
+            FROM staff_registrations sr
+            ' . staffRegistrationsEventsJoin() . '
+            LEFT JOIN attendance a ON a.registration_id = sr.id
+            WHERE sr.staff_id = :staff_id
+            ORDER BY e.event_date ASC, sr.created_at DESC';
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(['staff_id' => $staffId]);
 
     $rows = $stmt->fetchAll() ?: [];
 
@@ -1569,6 +1620,17 @@ function buildStaffDirectoryWhereClause(array $filters): array
         $where[]    = $profile === 'complete' ? $profileSql : 'NOT ' . $profileSql;
     }
 
+    $psa = trim((string) ($filters['psa'] ?? ''));
+    if ($psa === 'verified') {
+        $where[] = "s.psa_register_status = 'verified'";
+    } elseif ($psa === 'issue') {
+        $where[] = "s.psa_register_status IN ('expired','not_found','name_mismatch','invalid_format')";
+    } elseif ($psa === 'missing') {
+        $where[] = "(s.psa_licence IS NULL OR TRIM(s.psa_licence) = '' OR s.psa_licence LIKE 'TEMP-PSA-%')";
+    } elseif ($psa === 'unchecked') {
+        $where[] = "(s.psa_licence IS NOT NULL AND TRIM(s.psa_licence) <> '' AND s.psa_licence NOT LIKE 'TEMP-PSA-%' AND (s.psa_register_status IS NULL OR TRIM(s.psa_register_status) = '' OR s.psa_register_status = 'unreachable'))";
+    }
+
     return [implode(' AND ', $where), $params];
 }
 
@@ -1608,6 +1670,7 @@ function getAllStaff(PDO $pdo, ?int $limit = null, int $offset = 0): array
 function getStaffWithFilters(PDO $pdo, array $filters, ?int $limit = null, int $offset = 0): array
 {
     try {
+        require_once __DIR__ . '/psa-licence-verify.php';
         [$where, $params] = buildStaffDirectoryWhereClause($filters);
 
         $sql = 'SELECT s.*,
@@ -1616,7 +1679,8 @@ function getStaffWithFilters(PDO $pdo, array $filters, ?int $limit = null, int $
                        (SELECT COUNT(*) FROM staff_registrations sr WHERE LOWER(sr.email) = LOWER(s.email) AND sr.status = "pending") AS pending_count
                 FROM staff s
                 WHERE ' . $where . '
-                ORDER BY s.surname ASC, s.first_name ASC';
+                ORDER BY ' . psaRegisterStatusOrderSql('s.psa_register_status') . ' ASC,
+                         s.surname ASC, s.first_name ASC';
 
         if ($limit !== null) {
             $sql .= ' LIMIT ' . max(1, $limit) . ' OFFSET ' . max(0, $offset);
@@ -1707,7 +1771,11 @@ function generateStaffProfileToken(PDO $pdo, int $staffId): string
  */
 function updateStaffProfile(PDO $pdo, int $staffId, array $data): bool
 {
-    if (array_intersect_key($data, array_flip(['psa_licence', 'psa_expiry_date', 'psa_front_image', 'psa_back_image'])) !== []) {
+    if (array_intersect_key($data, array_flip([
+        'psa_licence', 'psa_expiry_date', 'psa_front_image', 'psa_back_image',
+        'psa_register_status', 'psa_register_name', 'psa_register_checked_at',
+        'psa_register_snapshot',
+    ])) !== []) {
         require_once __DIR__ . '/staff-psa.php';
         ensureStaffPsaSchema($pdo);
     }
@@ -1716,7 +1784,9 @@ function updateStaffProfile(PDO $pdo, int $staffId, array $data): bool
         'surname', 'first_name', 'full_address', 'eircode',
         'location_lat', 'location_lng', 'mobile', 'gender',
         'pps_number', 'bank_iban', 'staff_role',
-        'psa_licence', 'psa_expiry_date', 'psa_front_image', 'psa_back_image'
+        'psa_licence', 'psa_expiry_date', 'psa_front_image', 'psa_back_image',
+        'psa_register_status', 'psa_register_name', 'psa_register_checked_at',
+        'psa_register_snapshot',
     ];
 
     $updates = [];

@@ -58,15 +58,30 @@ $venueShareDesc   = 'Scan at the venue to sign in for ' . $event['name'] . '. GP
         .signin-link-card {
             border: 1px solid #e2e8f0;
             border-radius: 12px;
-            padding: 1.25rem;
+            padding: 1rem 1.1rem;
             background: #f8fafc;
         }
-        .signin-link-card h2 { font-size: 1.1rem; margin: 0 0 0.5rem; }
-        .signin-link-card p { margin: 0 0 0.75rem; color: #475569; font-size: 14px; line-height: 1.5; }
+        .signin-link-card h2 { font-size: 1.05rem; margin: 0 0 0.35rem; }
+        .signin-link-card p { margin: 0 0 0.6rem; color: #475569; font-size: 14px; line-height: 1.45; }
         .signin-link-card__copy {
             position: relative;
             z-index: 1;
-            margin-bottom: 0.75rem;
+            margin-bottom: 0.65rem;
+            display: flex;
+            flex-direction: row;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .signin-link-card__copy .copy-field__input {
+            flex: 1 1 auto;
+            min-width: 0;
+            min-height: 2.25rem;
+            height: 2.25rem;
+        }
+        .signin-link-card__copy .copy-field__btn {
+            flex: 0 0 auto;
+            white-space: nowrap;
         }
         .share-preview-card__image img {
             display: block;

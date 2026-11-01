@@ -6,20 +6,20 @@ Use this once so every `git push` uploads the app **and** a correct `config.php`
 
 Repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
 
-| Secret | Example (olasentra.com) |
+| Secret | Example ([REDACTED]sentra.com) |
 |--------|-------------------------|
-| `FTP_SERVER` | `ftp.olasentra.com` or server hostname from cPanel |
-| `FTP_USERNAME` | cPanel FTP user (often `olastofx`) |
+| `FTP_SERVER` | `ftp.[REDACTED]sentra.com` or server hostname from cPanel |
+| `FTP_[REDACTED]NAME` | cPanel FTP [REDACTED] (often `[REDACTED]stofx`) |
 | `FTP_PASSWORD` | FTP password from cPanel → FTP Accounts |
 | `FTP_SERVER_DIR` | `/public_html/` |
 | `DB_HOST` | `localhost` |
-| `DB_NAME` | `olastofx_eventstaff` |
-| `DB_USER` | `olastofx_dbuser` |
+| `DB_NAME` | `[REDACTED]stofx_eventstaff` |
+| `DB_[REDACTED]` | `[REDACTED]stofx_db[REDACTED]` |
 | `DB_PASS` | MySQL password from cPanel → MySQL Databases |
-| `REGISTRATION_SITE_URL` | `https://olasentra.com` |
-| `ADMIN_SITE_URL` | `https://olasentra.com/admin` |
+| `REGISTRATION_SITE_URL` | `https://[REDACTED]sentra.com` |
+| `ADMIN_SITE_URL` | `https://[REDACTED]sentra.com/admin` |
 
-Also in cPanel: **MySQL** → add user to database with **ALL PRIVILEGES**.
+Also in cPanel: **MySQL** → add [REDACTED] to database with **ALL PRIVILEGES**.
 
 ## 2. Push from your PC
 
@@ -30,10 +30,10 @@ git push origin main
 
 **Actions** tab → workflow **Deploy to Namecheap** → green check.
 
-## 3. Verify
+## 3. [REDACTED]
 
-- `https://olasentra.com/api/health.php` → `"database":"ok"`
-- `https://olasentra.com/admin/login.php`
+- `https://[REDACTED]sentra.com/api/health.php` → `"database":"ok"`
+- `https://[REDACTED]sentra.com/admin/login.php`
 
 ## Without FTP secrets
 

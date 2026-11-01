@@ -33,7 +33,7 @@ function normalizePsaLicence(string $value): string
 
 function normalizeBankIban(string $value): string
 {
-    return strtoupper(preg_replace('/\s+/', '', trim($value)));
+    return strtoupper(preg_replace('/[\s\*]+/', '', trim($value)));
 }
 
 function isValidPsaLicenceFormat(string $value): bool

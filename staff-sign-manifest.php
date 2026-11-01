@@ -1,0 +1,39 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Serve Staff Sign web app manifest with the correct Content-Type.
+ */
+
+header('Content-Type: application/manifest+json; charset=UTF-8');
+header('Cache-Control: public, max-age=3600');
+header('X-Robots-Tag: noindex, nofollow');
+
+$manifest = [
+    'name' => 'Olasentra Staff Sign',
+    'short_name' => 'Staff Sign',
+    'description' => 'Security and steward sign-in for Olasentra events',
+    'start_url' => '/staff-sign-hub-app.php?app=1&from_gate=1',
+    'scope' => '/',
+    'display' => 'standalone',
+    'orientation' => 'portrait',
+    'background_color' => '#0b3d2e',
+    'theme_color' => '#0b3d2e',
+    'icons' => [
+        [
+            'src' => '/api/pwa-icon.php?size=192',
+            'sizes' => '192x192',
+            'type' => 'image/png',
+            'purpose' => 'any',
+        ],
+        [
+            'src' => '/api/pwa-icon.php?size=512',
+            'sizes' => '512x512',
+            'type' => 'image/png',
+            'purpose' => 'any maskable',
+        ],
+    ],
+];
+
+echo json_encode($manifest, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);

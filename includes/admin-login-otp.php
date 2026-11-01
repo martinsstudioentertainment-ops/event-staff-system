@@ -8,6 +8,8 @@ require_once __DIR__ . '/settings-repository.php';
 
 const ADMIN_LOGIN_OTP_TTL_SECONDS = 600;
 const ADMIN_TRUSTED_DEVICE_DAYS = 30;
+const ADMIN_STAY_SIGNED_IN_DAYS = 3650;
+const ADMIN_STAY_COOKIE_NAME = 'olasentra_admin_stay';
 
 function isAdminLoginOtpEnabled(?PDO $pdo = null): bool
 {
@@ -146,6 +148,107 @@ function setAdminTrustedDeviceCookie(int $adminId): void
     setcookie(getAdminTrustedDeviceCookieName(), $token, $options);
 }
 
+function getAdminStayCookieDomain(): string
+{
+    return '';
+}
+
+function adminStayCookieOptions(int $expires): array
+{
+    $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+    $options = [
+        'expires'  => $expires,
+        'path'     => '/',
+        'secure'   => $secure,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ];
+    $domain = getAdminStayCookieDomain();
+    if ($domain !== '') {
+        $options['domain'] = $domain;
+    }
+
+    return $options;
+}
+
+function persistAdminPhpSessionCookie(int $expires): void
+{
+    if (headers_sent() || session_status() !== PHP_SESSION_ACTIVE) {
+        return;
+    }
+
+    setcookie(session_name(), (string) session_id(), adminStayCookieOptions($expires));
+}
+
+function issueAdminStaySignedInCookie(int $adminId): void
+{
+    if ($adminId < 1 || headers_sent()) {
+        return;
+    }
+
+    $expires = time() + ADMIN_STAY_SIGNED_IN_DAYS * 86400;
+    $token = createAdminTrustedDeviceToken($adminId, ADMIN_STAY_SIGNED_IN_DAYS);
+    setcookie(ADMIN_STAY_COOKIE_NAME, $token, adminStayCookieOptions($expires));
+    persistAdminPhpSessionCookie($expires);
+    $_SESSION['admin_stay_signed_in'] = 1;
+}
+
+function clearAdminStaySignedInCookie(): void
+{
+    if (headers_sent()) {
+        return;
+    }
+
+    setcookie(ADMIN_STAY_COOKIE_NAME, '', adminStayCookieOptions(time() - 3600));
+}
+
+/**
+ * Restore admin login when the phone dropped the short PHP session cookie.
+ */
+function restoreAdminSessionFromStayCookie(): bool
+{
+    if (!empty($_SESSION['admin_id'])) {
+        return true;
+    }
+
+    $token = (string) ($_COOKIE[ADMIN_STAY_COOKIE_NAME] ?? '');
+    $payload = verifyAdminTrustedDeviceToken($token);
+    if ($payload === null) {
+        return false;
+    }
+
+    try {
+        $pdo = getDB();
+    } catch (Throwable $e) {
+        return false;
+    }
+
+    require_once __DIR__ . '/admin-users-schema.php';
+    ensureAdminUsersSchema($pdo);
+
+    $stmt = $pdo->prepare(
+        'SELECT id, username, full_name, email, role, is_active FROM admin_users WHERE id = :id LIMIT 1'
+    );
+    $stmt->execute(['id' => (int) $payload['admin_id']]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$user || !(int) ($user['is_active'] ?? 0)) {
+        clearAdminStaySignedInCookie();
+
+        return false;
+    }
+
+    $_SESSION['admin_id']       = (int) $user['id'];
+    $_SESSION['admin_username'] = (string) $user['username'];
+    $_SESSION['admin_name']     = (string) $user['full_name'];
+    $_SESSION['admin_role']     = (string) ($user['role'] ?? 'staff');
+    $_SESSION['admin_email']    = (string) ($user['email'] ?? '');
+    $_SESSION['admin_stay_signed_in'] = 1;
+    touchSessionActivity();
+    issueAdminStaySignedInCookie((int) $user['id']);
+
+    return true;
+}
+
 /**
  * @param array<string, mixed> $user
  */
@@ -252,6 +355,8 @@ function finalizeAdminLoginSession(PDO $pdo, array $user, bool $rememberDevice =
     if ($rememberDevice) {
         setAdminTrustedDeviceCookie((int) $user['id']);
     }
+
+    issueAdminStaySignedInCookie((int) $user['id']);
 
     require_once __DIR__ . '/apply-sso.php';
     setApplySsoCookie((int) $user['id'], 86400);

@@ -61,3 +61,23 @@ storage/tmp-staff-template-content.xml
 *.apk
 *.aab
 /play-store-assets/build-aab/
+# Added 2026-11-01 live sync — never commit
+/staging/
+/uploads/
+/downloads/
+/cgi-bin/
+/.well-known/
+error_log
+*.zip
+*.csv
+*.xlsx
+*.xls
+*.ods
+*.bak
+*.phpback
+*.pem
+*.key
+*.p12
+/_tmp_*
+/*-out.json
+/cron-*.json

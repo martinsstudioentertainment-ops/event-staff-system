@@ -70,5 +70,5 @@ Admin QR scan stays in `/admin/` (optional install; not primary PWA).
 | `assets/js/pwa-install.js` | Install banner |
 | `assets/js/pwa-push.js` | Push subscribe |
 | `includes/pwa-schema.php` | DB tables |
-| `api/push-subscribe.php` | Save subscription |
+| `api/push-subscribe.php` | [REDACTED] subscription |
 | `includes/pwa-push.php` | Send notifications |

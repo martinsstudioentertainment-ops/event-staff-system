@@ -139,7 +139,14 @@ function getStaffV3MonthlyStats(PDO $pdo, string $email, int $staffId): array
         $checkins    = (int) ($row['checkins'] ?? 0);
 
         $earnings = null;
-        if ($staffId > 0 && $hoursPaid > 0) {
+        $showEarnings = false;
+        try {
+            require_once __DIR__ . '/settings-repository.php';
+            $showEarnings = getSetting($pdo, 'staff_show_pay_earnings', '0') === '1';
+        } catch (Throwable $e) {
+            $showEarnings = false;
+        }
+        if ($showEarnings && $staffId > 0 && $hoursPaid > 0) {
             require_once __DIR__ . '/automation/payroll-repository.php';
             $rate = payroll_default_hourly_rate($pdo, $staffId);
             if ($rate > 0) {

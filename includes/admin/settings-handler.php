@@ -59,12 +59,23 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
                 'company_whatsapp_group_hint'  => trim((string) ($_POST['company_whatsapp_group_hint'] ?? '')),
                 'notify_admin_on_registration' => isset($_POST['notify_admin_on_registration']) ? '1' : '0',
                 'notify_admin_email'           => trim((string) ($_POST['notify_admin_email'] ?? '')),
+                'mail_bcc_copy'                => trim((string) ($_POST['mail_bcc_copy'] ?? '')),
                 'company_about'                => trim((string) ($_POST['company_about'] ?? '')),
             ]);
             saveSettings($pdo, $toSave);
             $settings = getAllSettings($pdo);
             $success  = 'Site settings saved. Company name updates the public homepage header, footer, and registration form.';
         }
+    } elseif ($action === 'outgoing_email_toggle') {
+        if (!adminCan('settings')) {
+            return ['error' => 'You do not have permission to change email settings.', 'success' => '', 'settings' => $settings];
+        }
+        $enabled = ((string) ($_POST['outgoing_email_enabled'] ?? '')) === '1' ? '1' : '0';
+        saveSettings($pdo, ['outgoing_email_enabled' => $enabled]);
+        $settings = getAllSettings($pdo);
+        $success  = $enabled === '1'
+            ? 'Outgoing email is ON — system emails will send.'
+            : 'Outgoing email is OFF — no emails will be sent (approvals, reminders, OTP, tests).';
     } elseif ($action === 'email') {
         if (!adminCan('settings')) {
             return ['error' => 'You do not have permission to change email settings.', 'success' => '', 'settings' => $settings];
@@ -94,6 +105,7 @@ function processSettingsPost(PDO $pdo, array $adminUser, string $expectedAction)
                 'reminder_signup_nudge_interval_days' => (string) max(1, (int) ($_POST['reminder_signup_nudge_interval_days'] ?? 3)),
                 'reminder_cron_key'      => trim((string) ($_POST['reminder_cron_key'] ?? '')),
                 'mail_from_name'         => trim((string) ($_POST['mail_from_name'] ?? '')),
+                'mail_bcc_copy'          => trim((string) ($_POST['mail_bcc_copy'] ?? '')),
                 'mail_from_email'        => $fromEmail,
                 'mail_transport'         => $transport,
                 'smtp_host'              => trim((string) ($_POST['smtp_host'] ?? '')),

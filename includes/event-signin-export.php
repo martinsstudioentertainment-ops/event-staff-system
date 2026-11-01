@@ -7,6 +7,7 @@ require_once __DIR__ . '/events-repository.php';
 require_once __DIR__ . '/system-settings.php';
 require_once __DIR__ . '/staff-roster-download.php';
 require_once __DIR__ . '/attendance-repository.php';
+require_once __DIR__ . '/attendant-actions.php';
 
 function formatSignInMethodLabel(?string $method): string
 {
@@ -164,7 +165,7 @@ function getEventSignInExportRows(PDO $pdo, int $eventId): array
                         LIMIT 1";
 
     $stmt = $pdo->prepare(
-        "SELECT sr.first_name, sr.surname, sr.email, sr.mobile, sr.staff_role, sr.pps_number{$bibSelect},
+        "SELECT sr.id, sr.first_name, sr.surname, sr.email, sr.mobile, sr.staff_role, sr.pps_number{$bibSelect},
                 e.name AS event_name, e.event_date, e.start_time, e.end_time,
                 e.event_start_time, e.event_end_time, e.checkin_open_time, e.checkin_close_time,
                 {$signInAtSql} AS export_checked_in_at,
@@ -462,6 +463,7 @@ function buildContractorSheetExportSheet(array $rows, PDO $pdo): array
         'Event',
         'Event date',
         'Sign-in time',
+        'Start time',
         'Sign-in type',
         'Shift end',
         'Hours worked',
@@ -495,6 +497,7 @@ function buildContractorSheetExportSheet(array $rows, PDO $pdo): array
             formatEventLabel($row),
             formatEventDateLabel((string) ($row['event_date'] ?? '')),
             $checkInAt !== '' ? formatSystemDateTime($checkInAt, $pdo) : '',
+            attendanceGateStartTimeForRegistration($pdo, (int) ($row['id'] ?? 0)),
             resolveContractorSheetSignInType($row),
             $shiftEnd !== '' ? formatSystemDateTime($shiftEnd, $pdo) : '',
             isset($row['hours_worked']) && $row['hours_worked'] !== null ? (string) $row['hours_worked'] : '',
@@ -522,6 +525,7 @@ function buildEventSignInExportSheet(array $rows, PDO $pdo): array
         'Event',
         'Event date',
         'Sign-in time',
+        'Start time',
         'Sign-in type',
         'Shift end',
         'Hours worked',
@@ -544,6 +548,7 @@ function buildEventSignInExportSheet(array $rows, PDO $pdo): array
             formatEventLabel($row),
             formatEventDateLabel((string) ($row['event_date'] ?? '')),
             $checkInAt !== '' ? formatSystemDateTime($checkInAt, $pdo) : '',
+            attendanceGateStartTimeForRegistration($pdo, (int) ($row['id'] ?? 0)),
             resolveContractorSheetSignInType($row),
             $shiftEnd !== '' ? formatSystemDateTime($shiftEnd, $pdo) : '',
             isset($row['hours_worked']) && $row['hours_worked'] !== null ? (string) $row['hours_worked'] : '',

@@ -7,7 +7,7 @@ require_once __DIR__ . '/attendance-gps-signout-schema.php';
 require_once __DIR__ . '/attendance-gps-phase15.php';
 require_once __DIR__ . '/attendance-repository.php';
 require_once __DIR__ . '/work-hours-repository.php';
-require_once __DIR__ . '/maps.php';
+require_once __DIR__ . '/maps-core.php';
 
 const ATTENDANCE_STATUS_AUTO_SIGNED_OUT = 'auto_signed_out';
 
@@ -60,6 +60,7 @@ function finalizeWorkHoursOnSignOut(PDO $pdo, int $attendanceId, DateTimeInterfa
     $endTime   = (string) ($row['end_time'] ?? '23:00:00');
     $eventStart = parseEventDateTime($date, $startTime) ?? new DateTime($date . ' 09:00:00');
     $eventEnd   = parseEventDateTime($date, $endTime) ?? new DateTime($date . ' 23:00:00');
+    $eventEnd   = applyOvernightEventEnd($eventStart, $eventEnd);
 
     $workStartRaw = !empty($row['activated_at']) ? (string) $row['activated_at'] : (string) ($row['checked_in_at'] ?? '');
     if ($workStartRaw === '') {
@@ -400,7 +401,7 @@ function closeStaleActiveAttendanceForPastEvents(PDO $pdo): int
     $today = getOperationalTodayYmd($pdo);
     $stmt  = $pdo->prepare(
         "SELECT a.id, a.hours_worked, a.work_end_at, a.checked_out_at,
-                e.event_date, e.end_time
+                e.event_date, e.start_time, e.end_time
          FROM attendance a
          INNER JOIN events e ON e.id = a.event_id
          WHERE a.attendance_status = :active
@@ -424,9 +425,12 @@ function closeStaleActiveAttendanceForPastEvents(PDO $pdo): int
         if ($workEnd !== '') {
             $checkedOutAt = new DateTime($workEnd);
         } else {
-            $date    = (string) ($row['event_date'] ?? '');
-            $endTime = (string) ($row['end_time'] ?? '23:00:00');
-            $checkedOutAt = parseEventDateTime($date, $endTime) ?? new DateTime('now');
+            $date      = (string) ($row['event_date'] ?? '');
+            $startTime = (string) ($row['start_time'] ?? '09:00:00');
+            $endTime   = (string) ($row['end_time'] ?? '23:00:00');
+            $eventStart = parseEventDateTime($date, $startTime) ?? new DateTime($date . ' 09:00:00');
+            $eventEnd   = parseEventDateTime($date, $endTime) ?? new DateTime($date . ' 23:00:00');
+            $checkedOutAt = applyOvernightEventEnd($eventStart, $eventEnd);
         }
 
         $update = $pdo->prepare(

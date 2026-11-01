@@ -17,3 +17,5 @@ register_shutdown_function(static function (): void {
         // Never block page loads for analytics.
     }
 });
+
+require_once __DIR__ . '/background-workers-bootstrap.php';

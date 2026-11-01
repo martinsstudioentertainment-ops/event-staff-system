@@ -96,6 +96,8 @@ function mobileVerifyGoogleIdToken(PDO $pdo, string $idToken): array
         return ['ok' => false, 'message' => 'Google ID token is required.'];
     }
 
+    require_once __DIR__ . '/../google-oauth-errors.php';
+
     $clientId = trim(getSetting($pdo, 'google_oauth_client_id', ''));
     $url      = 'https://oauth2.googleapis.com/tokeninfo?id_token=' . rawurlencode($idToken);
 
@@ -118,6 +120,11 @@ function mobileVerifyGoogleIdToken(PDO $pdo, string $idToken): array
     }
 
     if ($clientId !== '' && ($data['aud'] ?? '') !== $clientId) {
+        googleOAuthLogEvent('mobile_id_token', 'audience_mismatch', [
+            'error'             => 'audience_mismatch',
+            'error_description' => 'ID token aud does not match google_oauth_client_id',
+        ]);
+
         return ['ok' => false, 'message' => 'Google token audience mismatch.'];
     }
 

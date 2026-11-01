@@ -16,12 +16,16 @@ require_once __DIR__ . '/../includes/events-repository.php';
 require_once __DIR__ . '/../includes/admin-manual-signin.php';
 require_once __DIR__ . '/../includes/staff-app-v3-data.php';
 require_once __DIR__ . '/../includes/registration-bib.php';
+require_once __DIR__ . '/../includes/psa-licence-verify.php';
+require_once __DIR__ . '/../includes/staff-psa.php';
+require_once __DIR__ . '/../includes/event-start-time-form.php';
 
 requireAdminCapability('staff');
 
 $id  = (int) ($_GET['id'] ?? 0);
 $pdo = getDB();
 ensureStaffRegistrationSaveSchema($pdo);
+ensureEventStartTimeSchema($pdo);
 $row = $id > 0 ? getStaffRegistrationById($pdo, $id) : null;
 
 if (!$row) {
@@ -30,7 +34,15 @@ if (!$row) {
     exit;
 }
 
-$relatedRows        = getStaffRegistrationsByEmail($pdo, $row['email']);
+$emailForLookup = trim((string) ($row['email'] ?? ''));
+$staffIdLookup  = (int) ($row['staff_id'] ?? 0);
+if ($emailForLookup !== '') {
+    $relatedRows = getStaffRegistrationsByEmail($pdo, $emailForLookup);
+} elseif ($staffIdLookup > 0) {
+    $relatedRows = getStaffRegistrationsByStaffId($pdo, $staffIdLookup);
+} else {
+    $relatedRows = [$row];
+}
 $attendance         = $row['status'] === 'approved' ? getAttendanceByRegistration($pdo, (int) $row['id']) : null;
 $currentShiftOutcome = null;
 foreach ($relatedRows as $relatedShiftRow) {
@@ -170,7 +182,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <div class="detail-group">
             <h3 class="form-section-title">Contact &amp; Financial</h3>
             <dl class="detail-list">
-                <div class="detail-list__row"><dt>Email</dt><dd><?= h($row['email']) ?></dd></div>
+                <div class="detail-list__row"><dt>Email</dt><dd><?= h(trim((string) ($row['email'] ?? '')) !== '' ? (string) $row['email'] : 'Not set yet') ?></dd></div>
                 <div class="detail-list__row"><dt>Mobile</dt><dd><?= h($row['mobile']) ?></dd></div>
                 <div class="detail-list__row">
                     <dt>NI / PPS Number</dt>
@@ -187,6 +199,30 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                     </dd>
                 </div>
                 <p class="form-hint">Full IBAN is included in CSV export for company payments.</p>
+            </dl>
+        </div>
+
+        <?php
+        $psaStaff = $staffIdForTrust > 0 ? getStaffById($pdo, $staffIdForTrust) : null;
+        $psaStatus = trim((string) (($psaStaff['psa_register_status'] ?? '') !== '' ? $psaStaff['psa_register_status'] : ($row['psa_register_status'] ?? '')));
+        $psaLicence = trim((string) (($psaStaff['psa_licence'] ?? '') !== '' ? $psaStaff['psa_licence'] : ($row['psa_licence'] ?? '')));
+        $psaRegName = trim((string) ($psaStaff['psa_register_name'] ?? ''));
+        ?>
+        <div class="detail-group detail-group--full">
+            <h3 class="form-section-title">PSA licence</h3>
+            <dl class="detail-list">
+                <div class="detail-list__row"><dt>Licence number</dt><dd><?= $psaLicence !== '' ? h($psaLicence) : 'Not on file' ?></dd></div>
+                <div class="detail-list__row"><dt>Register check</dt><dd><?= psaRegisterStatusBadgeHtml($psaStatus) ?>
+                    <?php if ($psaStatus !== ''): ?>
+                        <span class="form-hint"><?= h(psaRegisterStatusLabel($psaStatus)) ?></span>
+                    <?php endif; ?>
+                </dd></div>
+                <?php if ($psaRegName !== ''): ?>
+                    <div class="detail-list__row"><dt>Name on PSA register</dt><dd><?= h($psaRegName) ?></dd></div>
+                <?php endif; ?>
+                <?php if ($staffIdForTrust > 0): ?>
+                    <div class="detail-list__row"><dt>Profile</dt><dd><a href="staff-edit.php?id=<?= (int) $staffIdForTrust ?>">Open full PSA photos and status</a></dd></div>
+                <?php endif; ?>
             </dl>
         </div>
 
@@ -217,6 +253,36 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 </div>
                 <?php endif; ?>
                 <div class="detail-list__row"><dt>Event</dt><dd><?= h(formatEventLabel($row)) ?></dd></div>
+                <?php if ((int) ($row['event_id'] ?? 0) === avivaOct1StartTimeEventId() && $canEditHours): ?>
+                <?php
+                $plannedStart = trim((string) ($row['planned_start_time'] ?? ''));
+                $adminStartSlots = eventStartTimeSlotSummaries($pdo, (int) $row['event_id']);
+                ?>
+                <div class="detail-list__row">
+                    <dt>Start time</dt>
+                    <dd>
+                        <?php if ($plannedStart !== ''): ?>
+                            <p class="form-hint" style="margin:0 0 0.5rem;">Locked at <?= h(eventStartTimeLabel($plannedStart)) ?>. Staff cannot change this.</p>
+                        <?php endif; ?>
+                        <form method="post" action="start-time-action.php" style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:flex-end;">
+                            <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                            <input type="hidden" name="registration_id" value="<?= (int) $row['id'] ?>">
+                            <div>
+                                <label class="form-label" for="admin_start_time">Admin change</label>
+                                <select class="form-input" id="admin_start_time" name="start_time" required>
+                                    <option value="">Choose</option>
+                                    <?php foreach ($adminStartSlots as $adminSlot): ?>
+                                        <option value="<?= h((string) $adminSlot['start_time']) ?>" <?= $plannedStart === (string) $adminSlot['start_time'] ? 'selected' : '' ?>>
+                                            <?= h((string) $adminSlot['label']) ?> — <?= (int) $adminSlot['remaining'] ?> of <?= (int) $adminSlot['cap'] ?> left
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn--small btn--secondary">Save start time</button>
+                        </form>
+                    </dd>
+                </div>
+                <?php endif; ?>
                 <?php if ($allocationType !== '' && $allocationType !== 'standard'): ?>
                 <div class="detail-list__row"><dt>Allocation</dt><dd><?= h(formatAllocationTypeLabel($allocationType)) ?></dd></div>
                 <?php endif; ?>
@@ -466,7 +532,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 <section class="card">
     <div class="card__header">
         <h2 class="card__title">Shifts &amp; events</h2>
-        <p class="card__subtitle"><?= count($relatedRows) ?> shift<?= count($relatedRows) === 1 ? '' : 's' ?> for <?= h($row['email']) ?></p>
+        <p class="card__subtitle"><?= count($relatedRows) ?> shift<?= count($relatedRows) === 1 ? '' : 's' ?><?= $emailForLookup !== '' ? ' for ' . h($emailForLookup) : '' ?></p>
     </div>
     <div class="table-wrap">
         <table class="data-table">

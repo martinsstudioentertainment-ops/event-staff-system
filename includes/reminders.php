@@ -82,6 +82,11 @@ function getRegistrationsDueDailyReminder(PDO $pdo): array
     }
 
     return array_values(array_filter($merged, static function (array $row): bool {
+        require_once __DIR__ . '/aviva-shift-time-reminder.php';
+        if (avivaShiftTimeReminderHandlesRegistration($row)) {
+            return false;
+        }
+
         return eventReminderStillActive($row);
     }));
 }

@@ -28,61 +28,53 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <a href="work-type-form.php" class="btn btn--primary">+ Add work type</a>
     </div>
 
-    <div class="table-wrap">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Code</th>
-                    <th>Order</th>
-                    <th>Events</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if ($workTypes === []): ?>
-                    <tr>
-                        <td colspan="6" class="data-table__empty">No work types yet.</td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($workTypes as $type): ?>
-                        <tr>
-                            <td><?= h($type['name']) ?></td>
-                            <td><code><?= h($type['slug']) ?></code></td>
-                            <td><?= (int) ($type['sort_order'] ?? 0) ?></td>
-                            <td><?= (int) ($type['event_count'] ?? 0) ?></td>
-                            <td>
-                                <?php if ((int) ($type['is_active'] ?? 0) === 1): ?>
-                                    <span class="badge badge--approved">Active</span>
-                                <?php else: ?>
-                                    <span class="badge badge--rejected">Inactive</span>
-                                <?php endif; ?>
-                            </td>
-                            <td class="data-table__actions">
-                                <a href="work-type-form.php?id=<?= (int) $type['id'] ?>" class="btn btn--secondary btn--sm">Edit</a>
-                                <?php if ((int) ($type['is_active'] ?? 0) === 1): ?>
-                                    <form method="post" action="work-type-action.php" style="display:inline;">
-                                        <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
-                                        <input type="hidden" name="id" value="<?= (int) $type['id'] ?>">
-                                        <input type="hidden" name="action" value="deactivate">
-                                        <button type="submit" class="btn btn--secondary btn--sm">Deactivate</button>
-                                    </form>
-                                <?php else: ?>
-                                    <form method="post" action="work-type-action.php" style="display:inline;">
-                                        <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
-                                        <input type="hidden" name="id" value="<?= (int) $type['id'] ?>">
-                                        <input type="hidden" name="action" value="activate">
-                                        <button type="submit" class="btn btn--secondary btn--sm">Activate</button>
-                                    </form>
-                                <?php endif; ?>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
+    <?php if ($workTypes === []): ?>
+        <p class="form-hint">No work types yet.</p>
+    <?php else: ?>
+        <div class="list-card-board">
+            <?php foreach ($workTypes as $type): ?>
+                <?php $activeType = (int) ($type['is_active'] ?? 0) === 1; ?>
+                <details class="list-card list-card--<?= $activeType ? 'ok' : 'issue' ?>">
+                    <summary class="list-card__front">
+                        <span class="list-card__who">
+                            <strong><?= h($type['name']) ?></strong>
+                            <span class="list-card__hint">Click to open</span>
+                        </span>
+                        <?php if ($activeType): ?>
+                            <span class="badge badge--approved">Active</span>
+                        <?php else: ?>
+                            <span class="badge badge--rejected">Inactive</span>
+                        <?php endif; ?>
+                    </summary>
+                    <div class="list-card__body">
+                        <dl class="list-card__facts">
+                            <div>
+                                <dt>Code</dt>
+                                <dd><code><?= h($type['slug']) ?></code></dd>
+                            </div>
+                            <div>
+                                <dt>Order</dt>
+                                <dd><?= (int) ($type['sort_order'] ?? 0) ?></dd>
+                            </div>
+                            <div>
+                                <dt>Events</dt>
+                                <dd><?= (int) ($type['event_count'] ?? 0) ?></dd>
+                            </div>
+                        </dl>
+                        <div class="list-card__actions">
+                            <a href="work-type-form.php?id=<?= (int) $type['id'] ?>" class="btn btn--secondary btn--sm">Edit</a>
+                            <form method="post" action="work-type-action.php">
+                                <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                                <input type="hidden" name="id" value="<?= (int) $type['id'] ?>">
+                                <input type="hidden" name="action" value="<?= $activeType ? 'deactivate' : 'activate' ?>">
+                                <button type="submit" class="btn btn--secondary btn--sm"><?= $activeType ? 'Deactivate' : 'Activate' ?></button>
+                            </form>
+                        </div>
+                    </div>
+                </details>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
 </section>
 
 <?php include __DIR__ . '/../includes/admin/layout-bottom.php'; ?>

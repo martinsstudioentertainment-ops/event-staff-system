@@ -54,7 +54,7 @@ On every invoice, show **aggregates for the whole event**:
 | **Total hours billed** | Sum of all lads’ editable billed hours |
 | **Total commission** | Sum of all line amounts (editable per lad) |
 
-Stored on invoice header (snapshot at save) and **recomputed from lines** in draft mode.
+Stored on invoice header (snapshot at [REDACTED]) and **recomputed from lines** in draft mode.
 
 ```
 Event: Nick Cave — 10/06/2026
@@ -77,7 +77,7 @@ Commission total:         €1,642.50
 | Hourly rate | Yes | Event/role default or settings |
 | Line amount | Yes | `hours_billed × rate` until manually overridden |
 
-If admin edits **line amount** directly, set `amount_override = 1` and do not auto-change it when hours/rate change unless user clicks “Recalculate”.
+If admin edits **line amount** directly, set `amount_override = 1` and do not auto-change it when hours/rate change unless [REDACTED] clicks “Recalculate”.
 
 ---
 
@@ -111,7 +111,7 @@ CREATE TABLE commission_invoices (
     CONSTRAINT fk_commission_invoice_event
         FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE RESTRICT,
     CONSTRAINT fk_commission_invoice_admin
-        FOREIGN KEY (created_by) REFERENCES admin_users(id) ON DELETE SET NULL
+        FOREIGN KEY (created_by) REFERENCES admin_[REDACTED]s(id) ON DELETE SET NULL
 );
 
 CREATE TABLE commission_invoice_lines (
@@ -142,7 +142,7 @@ CREATE TABLE commission_invoice_lines (
 **Optional on `events`:**
 
 - `commission_client_name`
-- `default_rate_dsp`, `default_rate_steward`, `default_rate_static` (DECIMAL)
+- `default_rate_dsp`, `default_rate_[REDACTED]`, `default_rate_static` (DECIMAL)
 
 ---
 
@@ -158,7 +158,7 @@ CREATE TABLE commission_invoice_lines (
 |--------|---------|
 | `admin/invoices.php` | List invoices; columns: event, date, staff count, **total hours billed**, **total amount**, status |
 | `admin/invoice-form.php` | Create/edit; pull lines from event attendance |
-| `admin/invoice-action.php` | Save lines + recompute event totals |
+| `admin/invoice-action.php` | [REDACTED] lines + recompute event totals |
 | `admin/print-invoice.php` | Print/PDF — header totals + line table |
 | `admin/export-invoices.php` | CSV |
 
@@ -167,8 +167,8 @@ CREATE TABLE commission_invoice_lines (
 1. Admin → **Invoices** → **New from event** (or Work hours → **Create commission invoice**)
 2. Pick event → system loads all sign-ins with work hours
 3. Pre-fill lines from `getWorkHoursList($pdo, $eventId)`
-4. Show **event totals** at top (live-updating as lines edit)
-5. Save as `draft` → totals persisted on `commission_invoices`
+4. Show **event totals** at top ([REDACTED]-updating as lines edit)
+5. [REDACTED] as `draft` → totals persisted on `commission_invoices`
 
 ### Work hours integration
 
@@ -223,7 +223,7 @@ foreach ($lines as $line) {
 9. Default rates per role (settings or event form)
 10. `print-invoice.php` + CSV export
 11. Invoice number auto-sequence (`INV-2026-0001`)
-12. Audit log entries on save/send
+12. Audit log entries on [REDACTED]/send
 
 ### Phase C (optional)
 
@@ -283,6 +283,6 @@ foreach ($lines as $line) {
 |------|------|
 | `includes/work-hours-repository.php` | `getWorkHoursList`, `getWorkHoursTotals`, `updateWorkHours` |
 | `admin/work-hours.php` | Per-lad ledger + event stat cards |
-| `admin/work-hours-action.php` | Save payable hours |
+| `admin/work-hours-action.php` | [REDACTED] payable hours |
 | `admin/export-work-hours.php` | Hours CSV (no amounts) |
 | `includes/system-settings.php` | Currency for invoice |

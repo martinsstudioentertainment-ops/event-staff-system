@@ -4,7 +4,7 @@
  */
 
 require_once __DIR__ . '/../config.php';
-require_once __DIR__ . '/maps.php';
+require_once __DIR__ . '/maps-core.php';
 require_once __DIR__ . '/events-repository.php';
 require_once __DIR__ . '/event-checkin-window-schema.php';
 require_once __DIR__ . '/attendance-gps-phase1.php';
@@ -24,6 +24,16 @@ function parseEventDateTime(string $date, string $time): ?DateTime
     $dt   = DateTime::createFromFormat('Y-m-d H:i:s', $date . ' ' . $time, $tz);
 
     return $dt ?: null;
+}
+
+function applyOvernightEventEnd(DateTime $eventStart, DateTime $eventEnd): DateTime
+{
+    if ($eventEnd <= $eventStart) {
+        $eventEnd = clone $eventEnd;
+        $eventEnd->modify('+1 day');
+    }
+
+    return $eventEnd;
 }
 
 /**
@@ -82,6 +92,7 @@ function getEventCheckinWindowInner(array $event): array
 
     $eventStart = parseEventDateTime($date, $startTime) ?? new DateTime($date . ' 09:00:00');
     $eventEnd   = parseEventDateTime($date, $endTime) ?? new DateTime($date . ' 23:00:00');
+    $eventEnd   = applyOvernightEventEnd($eventStart, $eventEnd);
     $tz         = $eventStart->getTimezone();
 
     $customOpen  = trim((string) ($event['checkin_open_time'] ?? ''));

@@ -43,6 +43,60 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <div class="alert alert--error alert--visible"><?= h($error) ?></div>
     <?php endif; ?>
 
+    <?php
+    $outgoingOn = ($settings['outgoing_email_enabled'] ?? '1') === '1';
+    ?>
+    <style>
+        .email-master-switch{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin:0 0 1.25rem;padding:1rem 1.15rem;border:2px solid <?= $outgoingOn ? '#1f7a4c' : '#9b2c2c' ?>;background:<?= $outgoingOn ? '#eef8f2' : '#fdecec' ?>;}
+        .email-master-switch__copy h3{margin:0;font-size:1.1rem}
+        .email-master-switch__copy p{margin:0.35rem 0 0;color:inherit;opacity:.9;font-size:.92rem}
+        .switch{position:relative;display:inline-block;width:64px;height:36px;flex:0 0 auto}
+        .switch input{opacity:0;width:0;height:0}
+        .switch__slider{position:absolute;cursor:pointer;inset:0;background:#9b2c2c;transition:.2s;border-radius:36px}
+        .switch__slider:before{position:absolute;content:"";height:28px;width:28px;left:4px;top:4px;background:#fff;transition:.2s;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+        .switch input:checked + .switch__slider{background:#1f7a4c}
+        .switch input:checked + .switch__slider:before{transform:translateX(28px)}
+        .switch__label{display:inline-flex;align-items:center;gap:.75rem;font-weight:800;user-select:none}
+    </style>
+    <div class="email-master-switch">
+        <div class="email-master-switch__copy">
+            <h3>Outgoing email — <?= $outgoingOn ? 'ON' : 'OFF' ?></h3>
+            <p><?= $outgoingOn
+                ? 'Emails will send (approvals, reminders, OTP, staff messages, tests).'
+                : 'No emails will leave the system. Triggers still run, but nothing is delivered.' ?></p>
+        </div>
+        <form method="post" id="outgoing-email-switch-form" style="margin:0;">
+            <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+            <input type="hidden" name="action" value="outgoing_email_toggle">
+            <input type="hidden" name="outgoing_email_enabled" id="outgoing_email_enabled_value" value="<?= $outgoingOn ? '1' : '0' ?>">
+            <label class="switch__label" for="outgoing_email_switch">
+                <span><?= $outgoingOn ? 'ON' : 'OFF' ?></span>
+                <span class="switch">
+                    <input type="checkbox" id="outgoing_email_switch"<?= $outgoingOn ? ' checked' : '' ?> aria-label="Outgoing email on or off">
+                    <span class="switch__slider"></span>
+                </span>
+            </label>
+        </form>
+    </div>
+    <script>
+    (function () {
+        var box = document.getElementById('outgoing_email_switch');
+        var form = document.getElementById('outgoing-email-switch-form');
+        var hidden = document.getElementById('outgoing_email_enabled_value');
+        if (!box || !form || !hidden) return;
+        box.addEventListener('change', function () {
+            hidden.value = box.checked ? '1' : '0';
+            form.submit();
+        });
+    })();
+    </script>
+
+    <?php if (!$outgoingOn): ?>
+        <div class="alert alert--error alert--visible">
+            <strong>Outgoing email is OFF.</strong> Staff will not receive approval, reminder, or check-in emails. Admin login codes also will not send until you turn it ON.
+        </div>
+    <?php endif; ?>
+
     <?php if (isProductionApp() && ($settings['mail_transport'] ?? 'php_mail') !== 'smtp'): ?>
         <div class="alert alert--warning alert--visible">
             <strong>Go live requires SMTP.</strong> Create <code><?= h($emailGuide['from_email']) ?></code> in cPanel → set transport to <strong>SMTP</strong>,
@@ -147,6 +201,11 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <label class="form-label" for="reminder_cron_key">Cron secret key (optional)</label>
             <input class="form-input" type="text" id="reminder_cron_key" name="reminder_cron_key" value="<?= h($settings['reminder_cron_key'] ?? '') ?>" autocomplete="off" placeholder="Random secret for web cron URL">
             <p class="form-hint">Web cron URL: <code>cron/daily-reminders.php?key=YOUR_KEY</code> — or use CLI: <code>php cron/daily-reminders.php</code></p>
+        </div>
+        <div class="form-group form-group--full">
+            <label class="form-label" for="mail_bcc_copy">Copy of every email</label>
+            <input class="form-input" type="text" id="mail_bcc_copy" name="mail_bcc_copy" value="<?= h($settings['mail_bcc_copy'] ?? '') ?>">
+            <p class="form-hint">Leave blank. Staff emails go only to the staff member.</p>
         </div>
         <div class="form-group">
             <label class="form-label" for="mail_from_name">From name</label>

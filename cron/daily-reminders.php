@@ -38,6 +38,8 @@ if (!$isCli) {
 
 try {
     $pdo            = getDB();
+    require_once dirname(__DIR__) . '/includes/aviva-shift-time-reminder.php';
+    sendAvivaShiftTimeRemindersIfDue($pdo);
     $stats          = runDailyReminders($pdo);
     require_once dirname(__DIR__) . '/includes/attendance-repository.php';
     $noShowStats    = processAutoNoShowsForPastEvents($pdo);

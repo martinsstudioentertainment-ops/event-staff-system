@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/settings-repository.php';
 require_once __DIR__ . '/site-urls.php';
+require_once __DIR__ . '/google-oauth-errors.php';
 require_once __DIR__ . '/google-drive-oauth.php';
 require_once __DIR__ . '/staff-portal-session.php';
 require_once __DIR__ . '/staff-portal-remember.php';
@@ -97,13 +98,14 @@ function staffGoogleOAuthAuthorizeUrl(?PDO $pdo = null, string $returnUrl = 'sta
     $_SESSION['staff_google_return']           = staffGoogleSanitizeReturnUrl($returnUrl);
 
     $params = [
-        'client_id'     => $clientId,
-        'redirect_uri'  => staffGoogleOAuthRedirectUri($pdo),
-        'response_type' => 'code',
-        'scope'         => implode(' ', staffGoogleOAuthScopes()),
-        'access_type'   => 'online',
-        'prompt'        => 'select_account',
-        'state'         => $state,
+        'client_id'               => $clientId,
+        'redirect_uri'            => staffGoogleOAuthRedirectUri($pdo),
+        'response_type'           => 'code',
+        'scope'                   => implode(' ', staffGoogleOAuthScopes()),
+        'access_type'             => 'online',
+        'prompt'                  => 'select_account',
+        'include_granted_scopes'  => 'false',
+        'state'                   => $state,
     ];
 
     return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query($params);
@@ -153,7 +155,11 @@ function staffGoogleOAuthExchangeCode(PDO $pdo, string $code): array
     curl_close($ch);
 
     if ($codeHttp !== 200 || !is_string($responseBody)) {
-        return ['ok' => false, 'message' => 'Google sign-in failed (token exchange). Check redirect URI in Google Cloud.'];
+        googleOAuthLogTokenExchangeFailure('staff_signin', $codeHttp, is_string($responseBody) ? $responseBody : '');
+        $parsed = is_string($responseBody) ? googleOAuthParseJsonErrorBody($responseBody) : ['error' => '', 'error_description' => ''];
+        $userError = $parsed['error'] !== '' ? $parsed['error'] : 'server_error';
+
+        return ['ok' => false, 'message' => googleOAuthUserMessage($userError, 'staff')];
     }
 
     $data = json_decode($responseBody, true);

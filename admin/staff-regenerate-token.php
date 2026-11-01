@@ -10,7 +10,7 @@ $staffId = (int) ($_GET['id'] ?? 0);
 
 if ($staffId < 1) {
     setAdminFlash('error', 'Invalid staff ID');
-    header('Location: staff-directory.php');
+    header('Location: staff.php?tab=people');
     exit;
 }
 

@@ -42,6 +42,14 @@ if (!$isCli) {
 
 try {
     $pdo   = getDB();
+
+    try {
+        require_once dirname(__DIR__) . '/includes/google-form-intake.php';
+        googleFormIntakeSyncAllSheets($pdo);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] Aviva Google Form sheet sync: ' . $e->getMessage());
+    }
+
     $stats = googleSheetsProcessSyncQueue($pdo);
     $queue = googleSheetsQueueSummary($pdo);
 

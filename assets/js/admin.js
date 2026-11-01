@@ -121,7 +121,25 @@
         initEventsSheetBulkSelect();
         initEventDeleteModal();
         initUserMenu();
+        initListCardChecks();
     });
+
+    function initListCardChecks() {
+        document.addEventListener('click', function (event) {
+            var wrap = event.target.closest('.list-card__front .list-card__check');
+            if (!wrap) {
+                return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            var input = wrap.querySelector('input[type="checkbox"]');
+            if (!input) {
+                return;
+            }
+            input.checked = !input.checked;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }, true);
+    }
 
     function initStaffBulkSelect() {
         var selectAll = document.getElementById('staff-select-all');

@@ -115,8 +115,20 @@ function ensureStaffPsaSchema(PDO $pdo): void
     if (empty($columns['psa_back_image'])) {
         $alters[] = 'ADD COLUMN psa_back_image VARCHAR(255) NULL DEFAULT NULL AFTER psa_front_image';
     }
+    if (empty($columns['psa_register_status'])) {
+        $alters[] = "ADD COLUMN psa_register_status VARCHAR(32) NULL DEFAULT NULL AFTER psa_back_image";
+    }
+    if (empty($columns['psa_register_name'])) {
+        $alters[] = 'ADD COLUMN psa_register_name VARCHAR(255) NULL DEFAULT NULL AFTER psa_register_status';
+    }
+    if (empty($columns['psa_register_checked_at'])) {
+        $alters[] = 'ADD COLUMN psa_register_checked_at DATETIME NULL DEFAULT NULL AFTER psa_register_name';
+    }
+    if (empty($columns['psa_register_snapshot'])) {
+        $alters[] = 'ADD COLUMN psa_register_snapshot TEXT NULL DEFAULT NULL AFTER psa_register_checked_at';
+    }
     if (empty($columns['profile_completed'])) {
-        $alters[] = 'ADD COLUMN profile_completed TINYINT(1) NOT NULL DEFAULT 0 AFTER psa_back_image';
+        $alters[] = 'ADD COLUMN profile_completed TINYINT(1) NOT NULL DEFAULT 0 AFTER psa_register_checked_at';
     }
     if (empty($columns['profile_reverify_required'])) {
         $alters[] = 'ADD COLUMN profile_reverify_required TINYINT(1) NOT NULL DEFAULT 0 AFTER profile_completed';
@@ -136,7 +148,7 @@ function ensureStaffPsaSchema(PDO $pdo): void
 function psaUploadErrorMessage(int $error): string
 {
     return match ($error) {
-        UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'Photo is too large. Use an image under 8 MB or take a new photo.',
+        UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'Photo is too large. Use an image under 100 MB, take a screenshot of the badge, or take a new photo.',
         UPLOAD_ERR_PARTIAL      => 'Upload was interrupted. Please try again.',
         UPLOAD_ERR_NO_TMP_DIR   => 'Server upload folder is not available. Contact support.',
         UPLOAD_ERR_CANT_WRITE   => 'Could not save photo on server. Contact support.',
@@ -299,8 +311,8 @@ function validatePsaFileUpload(array $files, string $field): ?string
     }
 
     $size = (int) ($files[$field]['size'] ?? 0);
-    if ($size > 8 * 1024 * 1024) {
-        return 'Image must be 8 MB or smaller.';
+    if ($size > 100 * 1024 * 1024) {
+        return 'Image must be 100 MB or smaller. Take a screenshot of the badge and upload that.';
     }
 
     if (!isAllowedPsaImageFile($files[$field])) {
@@ -404,6 +416,20 @@ function saveStaffPsaFromForm(PDO $pdo, int $staffId, array $data, array $files,
     }
 
     if (updateStaffProfile($pdo, $staffId, $update)) {
+        if ($licence !== '') {
+            require_once __DIR__ . '/psa-licence-verify.php';
+            $staffRow = getStaffById($pdo, $staffId);
+            $holder = $staffRow !== null
+                ? trim((string) ($staffRow['first_name'] ?? '') . ' ' . (string) ($staffRow['surname'] ?? ''))
+                : null;
+            applyPsaRegisterCheckToStaff($pdo, $staffId, $licence, $holder);
+            try {
+                require_once __DIR__ . '/google-form-sheet-sync.php';
+                googleFormPushPsaAfterOlasentraUpdate($pdo, $staffId, $licence);
+            } catch (Throwable $e) {
+                error_log('[EventStaff] PSA form sheet after profile save: ' . $e->getMessage());
+            }
+        }
         $staff = getStaffById($pdo, $staffId);
         if ($staff !== null && isStaffOnboardingComplete($staff)) {
             markStaffProfileCompleted($pdo, $staffId, $runProfilePostJobs);

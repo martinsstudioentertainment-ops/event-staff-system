@@ -69,6 +69,14 @@ function notifyStaffStatusChanges(PDO $pdo, array $registrationIds, string $newS
     foreach ($byEmail as $rows) {
         if ($newStatus === 'approved') {
             sendConsolidatedAccessPassEmail($pdo, $rows);
+            try {
+                require_once __DIR__ . '/google-form-intake.php';
+                foreach ($rows as $row) {
+                    googleFormSendShiftDetailsForRegistration($pdo, (int) ($row['id'] ?? 0));
+                }
+            } catch (Throwable $e) {
+                error_log('[EventStaff] shift details on approve: ' . $e->getMessage());
+            }
         } else {
             sendConsolidatedRejectionEmail($pdo, $rows);
         }

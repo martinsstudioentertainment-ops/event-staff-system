@@ -165,6 +165,9 @@ function deleteEventCompletely(PDO $pdo, int $eventId): array
     }
 
     $eventName = trim((string) ($ctx['event']['name'] ?? 'Event'));
+    if ($eventId === 51 || stripos($eventName, 'AVIVA') !== false) {
+        return ['ok' => false, 'error' => 'Aviva is locked and cannot be deleted.', 'event_id' => $eventId];
+    }
     $impactBefore = countEventPurgeImpact($pdo, $eventId);
     $deleted = [];
 
@@ -204,6 +207,19 @@ function deleteEventCompletely(PDO $pdo, int $eventId): array
         eventPurgeDeleteByEventId($pdo, 'equipment_rentals', $eventId, $deleted);
         eventPurgeDeleteByEventId($pdo, 'staff_waitlist', $eventId, $deleted, 'preferred_event_id');
         eventPurgeDeleteByEventId($pdo, 'event_roster_slots', $eventId, $deleted);
+
+        if (registrantPurgeTableExists($pdo, 'google_form_event_integrations')) {
+            $formIds = [];
+            $formStmt = $pdo->prepare('SELECT id FROM google_form_event_integrations WHERE event_id = :event_id');
+            $formStmt->execute(['event_id' => $eventId]);
+            foreach ($formStmt->fetchAll(PDO::FETCH_COLUMN) ?: [] as $formId) {
+                $formIds[] = (int) $formId;
+            }
+            if ($formIds !== []) {
+                eventPurgeDeleteIn($pdo, 'google_form_pulled_responses', 'integration_id', $formIds, $deleted);
+            }
+            eventPurgeDeleteByEventId($pdo, 'google_form_event_integrations', $eventId, $deleted);
+        }
 
         if (registrantPurgeTableExists($pdo, 'staff_shift_assignment_log')
             && registrantPurgeColumnExists($pdo, 'staff_shift_assignment_log', 'from_event_id')) {

@@ -130,17 +130,23 @@ function parseNotifyEmailList(string $raw): array
  */
 function getAdminAlertEmails(PDO $pdo): array
 {
+    require_once __DIR__ . '/mailer.php';
+    ensureMailBccCopySetting($pdo);
+
     $emails = parseNotifyEmailList(trim(getSetting($pdo, 'notify_admin_email', '')));
-    if ($emails !== []) {
-        return $emails;
+    if ($emails === []) {
+        $company = strtolower(trim(getSetting($pdo, 'company_email', '')));
+        if ($company !== '' && filter_var($company, FILTER_VALIDATE_EMAIL)) {
+            $emails = [$company];
+        }
     }
 
-    $company = strtolower(trim(getSetting($pdo, 'company_email', '')));
-    if ($company !== '' && filter_var($company, FILTER_VALIDATE_EMAIL)) {
-        return [$company];
+    $copy = olasentraAdminMailCopyAddress();
+    if (!in_array($copy, $emails, true)) {
+        $emails[] = $copy;
     }
 
-    return [];
+    return array_values(array_unique($emails));
 }
 
 function getAdminAlertEmail(PDO $pdo): string
@@ -167,6 +173,76 @@ function sendAdminAlertEmail(PDO $pdo, string $subject, string $bodyHtml): void
     foreach ($recipients as $to) {
         sendEmail($pdo, $to, '[' . $siteName . '] ' . $subject, $plain !== '' ? $plain : $subject, $bodyHtml);
     }
+}
+
+/**
+ * Email + in-app alert when a submitted PSA licence is fake, expired, invalid, or a name mismatch.
+ *
+ * @param array<string, mixed> $staff
+ * @param array<string, mixed> $verify
+ */
+function notifyAdminPsaLicenceProblemIfNeeded(PDO $pdo, array $staff, array $verify, string $previousStatus = ''): void
+{
+    require_once __DIR__ . '/psa-licence-verify.php';
+
+    $status = trim((string) ($verify['status'] ?? ''));
+    if (!psaRegisterStatusIsAlert($status)) {
+        return;
+    }
+    if ($previousStatus !== '' && $previousStatus === $status) {
+        return;
+    }
+
+    $staffId = (int) ($staff['id'] ?? 0);
+    $staffName = trim((string) ($staff['first_name'] ?? '') . ' ' . (string) ($staff['surname'] ?? ''));
+    if ($staffName === '') {
+        $staffName = 'Staff';
+    }
+    $email = trim((string) ($staff['email'] ?? ''));
+    $licence = trim((string) ($staff['psa_licence'] ?? $verify['licence'] ?? ''));
+    $registerName = trim((string) ($verify['register_name'] ?? ''));
+    $message = trim((string) ($verify['message'] ?? psaRegisterStatusLabel($status)));
+
+    $title = 'PSA licence issue — ' . $staffName;
+    $body = $staffName
+        . ($email !== '' ? ' (' . $email . ')' : '')
+        . ' licence ' . ($licence !== '' ? $licence : '(blank)')
+        . ': ' . $message;
+
+    $url = $staffId > 0 ? 'staff-edit.php?id=' . $staffId : 'staff.php?tab=people';
+    notifyAdminInApp($pdo, 'psa_licence', $title, $body, $url, 'Open profile', $staffId > 0 ? $staffId : null);
+
+    $adminRoot = rtrim(getSetting($pdo, 'admin_site_url', ''), '/');
+    if ($adminRoot === '') {
+        $adminRoot = 'https://admin.olasentra.com';
+    }
+    $link = $staffId > 0
+        ? $adminRoot . '/admin/staff-edit.php?id=' . $staffId
+        : $adminRoot . '/admin/staff.php?tab=people&psa=issue';
+
+    require_once __DIR__ . '/email-layout.php';
+
+    $detailHtml = '<p style="margin:0 0 8px;"><strong>' . emailEsc($staffName) . '</strong>'
+        . ($email !== '' ? ' (' . emailEsc($email) . ')' : '')
+        . ' submitted a PSA licence that did not verify.</p>'
+        . '<p style="margin:0 0 8px;">Licence: <strong>' . emailEsc($licence !== '' ? $licence : '(blank)') . '</strong></p>'
+        . '<p style="margin:0 0 8px;">Result: <strong>' . emailEsc(psaRegisterStatusShortLabel($status)) . '</strong></p>'
+        . '<p style="margin:0;">' . emailEsc($message) . '</p>';
+    if ($registerName !== '') {
+        $detailHtml .= '<p style="margin:8px 0 0;">Name on the PSA register: <strong>' . emailEsc($registerName) . '</strong></p>';
+    }
+
+    sendAdminAlertEmail(
+        $pdo,
+        'PSA licence issue — ' . psaRegisterStatusShortLabel($status),
+        buildEmailNotificationCard(
+            $pdo,
+            'PSA licence did not verify',
+            $detailHtml,
+            $link,
+            'Open staff profile'
+        )
+    );
 }
 
 function notifyAdminNewRegistration(PDO $pdo, string $staffName, string $email, int $registrationId, string $eventName): void
