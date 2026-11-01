@@ -37,7 +37,7 @@ foreach ($f in $files) {
 }
 
 Write-Host 'Files uploaded. Applying settings on server...' -ForegroundColor Cyan
-$applyUrl = 'https://register.olasentra.com/cron/apply-olasentra-branding.php?key=email-encoding-verify-20260606'
+$applyUrl = "https://register.olasentra.com/cron/apply-olasentra-branding.php?key=$env:OLASENTRA_CRON_KEY"
 try {
     $resp = Invoke-RestMethod -Uri $applyUrl -Method Get -TimeoutSec 120
     $resp | ConvertTo-Json -Depth 5

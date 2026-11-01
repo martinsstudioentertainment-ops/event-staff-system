@@ -383,7 +383,7 @@ async function runAdminSmoke() {
 }
 
 async function verifyDb(email) {
-  const url = `${BASE}/cron/probe-profile-only-registration.php?key=email-encoding-verify-20260606&email=${encodeURIComponent(email)}`;
+  const url = `${BASE}/cron/probe-profile-only-registration.php?key=${encodeURIComponent(process.env.OLASENTRA_CRON_KEY || '')}&email=${encodeURIComponent(email)}`;
   try {
     const res = await fetch(url);
     const json = await res.json();

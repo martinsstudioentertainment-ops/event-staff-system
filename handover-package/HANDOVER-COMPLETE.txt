@@ -504,7 +504,7 @@ Copies in this handover: branding\ subfolder
 ================================================================================
 
 CRON KEY (fallback when reminder_cron_key not set):
-  email-encoding-verify-20260606
+  (stored only in server config.php as OLASENTRA_CRON_FALLBACK_KEY — not in repo)
   (Also check Admin → Email for reminder_cron_key in DB)
 
 USEFUL CRON URLS (append ?key=...):
@@ -520,7 +520,7 @@ PROBES:
   api/probe-ping.php                        Basic ping
 
 Example:
-  https://register.olasentra.com/api/probe-staff-full-verify.php?key=email-encoding-verify-20260606
+  https://register.olasentra.com/api/probe-staff-full-verify.php?key=CRON_KEY
 
 ================================================================================
 12. TEST ACCOUNTS AND PRODUCTION DATA NOTES
