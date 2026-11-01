@@ -65,3 +65,13 @@ Why I did it this way:
    - a PSA email goes out only for not_found/invalid_format
    - running the script a second time sends nothing new
 5. Test with one real accepted row first if possible.
+
+## Update 2026-11-02 00:15: merge/deploy prep (approved, [pt29u]). BLOCKED on server access
+- Approved: the two extra PSA email lines (already in 6769fe6); the AVIVA event stays inactive.
+- Inactive event vs the import: the import never reads `is_active`. It uses `aviva_match_event_id` and getEventById, and the shift email doesn't check it either. /aviva-match reads aviva_match_signups and google_form_aviva_match_url, not the events row, so the counter and the form button are unaffected (from the code; still to be tested live).
+- The box has no SSH/terminal access to olasentra.com, so the server steps need the cPanel Terminal in a browser. Scripts are ready in `scripts/ops/` (no secrets; DB credentials are read from config.php into a temporary 600 file and never printed):
+  1. `1-backup-and-bundle.sh` → `/home/olastofx/backups/pre-merge-<TS>/`. It saves public_html.tgz, server-repo.tgz, olastofx_eventstaff.sql.gz, crontab.txt, server-repo-HEAD.txt, and kimi-commits.bundle and kimi-commits.txt (the server commits not on GitHub main).
+  2. Download kimi-commits.bundle to the box. Cursor then pushes it to the `kimi-homepage-og` branch and merges it into main (Kimi wins on homepage/OG files, AVIVA wins on AVIVA files).
+  3. `2-deploy-merged-main.sh`: fast-forwards the server repo to GitHub main and runs scripts/cpanel-deploy.sh. The server HEAD then equals GitHub main.
+  4. `rollback.sh <backup dir> [--db]`: resets the repo HEAD, restores the files (it doesn't touch uploads/ or logs) and, with --db, the database.
+- Roster sheet: Admin → Events → tick "AVIVA Match – Event Staff (13:00 – Finish)" → **Create sheets**. This is the same createGoogleSheetForEvent format as 1 Oct, and it fills events.google_sheet_url/google_sheet_tab. To link a sheet by hand instead: Edit event → "Google Sheet URL" (`https://docs.google.com/spreadsheets/d/<ID>/edit`) and "Sheet tab name". The sheet must be shared with event-staff-sheets@event-staff-system-498114.iam.gserviceaccount.com as Editor. Keep Active unticked.
