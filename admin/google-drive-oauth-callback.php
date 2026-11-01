@@ -6,14 +6,24 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/google-drive-oauth.php';
+require_once __DIR__ . '/../includes/google-oauth-errors.php';
 
 $pdo = getDB();
+googleOAuthLogCallbackErrors('admin_drive');
 
-$redirect = static function (string $query): void {
-    $path = isAdminLoggedIn()
-        ? 'settings-production.php?' . $query . '#google-sheets'
-        : 'login.php?' . $query;
-    header('Location: ' . $path);
+$returnPath = (string) ($_SESSION['google_drive_oauth_return'] ?? '');
+unset($_SESSION['google_drive_oauth_return']);
+if ($returnPath !== 'google-form-integrations.php') {
+    $returnPath = 'settings-production.php';
+}
+
+$redirect = static function (string $query) use ($returnPath): void {
+    if (!isAdminLoggedIn()) {
+        header('Location: login.php?' . $query);
+        exit;
+    }
+    $hash = $returnPath === 'settings-production.php' ? '#google-sheets' : '';
+    header('Location: ' . $returnPath . '?' . $query . $hash);
     exit;
 };
 
@@ -32,8 +42,9 @@ if (!$stateOk) {
     $redirect('google_oauth=invalid_state');
 }
 
-if (isset($_GET['error'])) {
-    $_SESSION['google_oauth_error'] = 'Google sign-in was cancelled or denied.';
+$oauthError = googleOAuthSanitizeCode((string) ($_GET['error'] ?? ''));
+if ($oauthError !== '') {
+    $_SESSION['google_oauth_error'] = googleOAuthUserMessage($oauthError, 'admin_drive');
     $redirect('google_oauth=denied');
 }
 

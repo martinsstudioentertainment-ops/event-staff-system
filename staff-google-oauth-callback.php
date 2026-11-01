@@ -20,6 +20,9 @@ $redirectError = static function (string $message) use (&$registrationFlow): voi
 };
 
 try {
+    require_once __DIR__ . '/includes/google-oauth-errors.php';
+    googleOAuthLogCallbackErrors('staff_signin');
+
     if (!isStaffGoogleSigninEnabled($pdo)) {
         $redirectError('Google sign-in is not enabled.');
     }
@@ -29,8 +32,9 @@ try {
         $redirectError('Google sign-in session expired. Please try again.');
     }
 
-    if (isset($_GET['error'])) {
-        $redirectError('Google sign-in was cancelled.');
+    $oauthError = googleOAuthSanitizeCode((string) ($_GET['error'] ?? ''));
+    if ($oauthError !== '') {
+        $redirectError(googleOAuthUserMessage($oauthError, 'staff'));
     }
 
     $code = (string) ($_GET['code'] ?? '');

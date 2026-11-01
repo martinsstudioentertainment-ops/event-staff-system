@@ -29,7 +29,7 @@ $paths = [
     'index.php',
     'submit.php',
     'api/registrant-lookup.php?email=smoke@test.invalid',
-    'cron/probe-profile-only-registration.php?key=email-encoding-verify-20260606&email=smoke@test.invalid',
+    'cron/probe-profile-only-registration.php?key=<CRON_KEY>&email=smoke@test.invalid',
 ];
 
 $caBundle = dirname(__DIR__) . '/cacert.pem';

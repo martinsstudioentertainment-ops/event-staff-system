@@ -14,7 +14,7 @@ require_once dirname(__DIR__) . '/includes/staff-repository.php';
 require_once dirname(__DIR__) . '/includes/status-change-post-save.php';
 require_once dirname(__DIR__) . '/includes/google-sheets-queue.php';
 
-const FIX_STAFF_NAME_FALLBACK_KEY = 'email-encoding-verify-20260606';
+define('FIX_STAFF_NAME_FALLBACK_KEY', (defined('OLASENTRA_CRON_FALLBACK_KEY') ? OLASENTRA_CRON_FALLBACK_KEY : bin2hex(random_bytes(16))));
 
 function fix_staff_name_json(array $payload, int $code = 200): void
 {

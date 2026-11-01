@@ -14,18 +14,18 @@ requireAdminCapability('staff');
 
 if (!isAdminSuperUser()) {
     setAdminFlash('error', 'Only administrators can permanently delete staff profiles.');
-    header('Location: staff-directory.php');
+    header('Location: staff.php?tab=people');
     exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header('Location: staff-directory.php');
+    header('Location: staff.php?tab=people');
     exit;
 }
 
 if (!verifyCsrf($_POST['csrf_token'] ?? null)) {
     setAdminFlash('error', 'Invalid request. Please try again.');
-    header('Location: staff-directory.php');
+    header('Location: staff.php?tab=people');
     exit;
 }
 
@@ -34,7 +34,7 @@ $confirm = trim((string) ($_POST['confirm_email'] ?? ''));
 
 if ($staffId < 1) {
     setAdminFlash('error', 'Invalid staff ID.');
-    header('Location: staff-directory.php');
+    header('Location: staff.php?tab=people');
     exit;
 }
 
@@ -43,7 +43,7 @@ $staff = getStaffById($pdo, $staffId);
 
 if ($staff === null) {
     setAdminFlash('error', 'Staff member not found.');
-    header('Location: staff-directory.php');
+    header('Location: staff.php?tab=people');
     exit;
 }
 
@@ -80,5 +80,5 @@ setAdminFlash(
     'success',
     'Staff profile deleted permanently (' . (int) $result['deleted_registrations'] . ' registration(s) removed).'
 );
-header('Location: staff-directory.php');
+header('Location: staff.php?tab=people');
 exit;

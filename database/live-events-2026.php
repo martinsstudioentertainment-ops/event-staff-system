@@ -41,5 +41,7 @@ return [
     ['date' => '2026-08-30', 'name' => 'Electric Picnic', 'location' => 'Stradbally', 'staff_needed' => 139, 'times' => 'TBC'],
     ['date' => '2026-08-30', 'name' => 'Bon Jovi', 'location' => 'Croke Park', 'staff_needed' => 74, 'times' => '15:00-23:00'],
     ['date' => '2026-08-31', 'name' => 'Electric Picnic', 'location' => 'Stradbally', 'staff_needed' => 9, 'times' => 'TBC'],
+    ['date' => '2026-09-11', 'name' => 'Palmerstown House DSP', 'location' => 'Palmerstown', 'staff_needed' => 20, 'times' => '11:00-23:00', 'staff_note' => 'Camping available · meeting point TBC'],
+    ['date' => '2026-09-12', 'name' => 'Palmerstown House DSP', 'location' => 'Palmerstown', 'staff_needed' => 20, 'times' => '10:00-02:00', 'staff_note' => 'Camping available · meeting point TBC'],
     ],
 ];

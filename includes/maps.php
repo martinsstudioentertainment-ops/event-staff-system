@@ -8,10 +8,6 @@ const EVENT_SIGNIN_RADIUS_LEGACY_M = 100;
 /** Default sign-in radius when events.signin_radius_m is null (feature_gps_attendance_v2 ON). */
 const EVENT_SIGNIN_RADIUS_DEFAULT_M = 1000;
 
-/** Allowed per-event sign-in radius range (metres) when GPS v2 is ON. */
-const EVENT_SIGNIN_RADIUS_MIN_M = 50;
-const EVENT_SIGNIN_RADIUS_MAX_M = 5000;
-
 /** @deprecated Use EVENT_SIGNIN_RADIUS_LEGACY_M */
 const EVENT_SIGNIN_RADIUS_M = EVENT_SIGNIN_RADIUS_LEGACY_M;
 

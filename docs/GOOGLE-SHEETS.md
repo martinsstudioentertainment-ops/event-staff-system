@@ -1,8 +1,8 @@
-# Google Sheets — live registration sync
+# Google Sheets — [REDACTED] registration sync
 
 When a staff member registers on the website, a new row is appended to **that event’s Google Sheet** (each event has its own sheet URL).
 
-Data is always saved to the **database first**. Google Sheets sync is extra — if it fails, registration still succeeds (errors go to `storage/logs/google-sheets.log`).
+Data is always [REDACTED]d to the **database first**. Google Sheets sync is extra — if it fails, registration still succeeds (errors go to `storage/logs/google-sheets.log`).
 
 ---
 
@@ -16,7 +16,7 @@ Data is always saved to the **database first**. Google Sheets sync is extra — 
 6. **Keys → Add key → JSON** — download the file (create a **new** key after APIs are enabled)
 7. Admin → **Settings → System → Google Sheets sync** → upload the JSON file
 8. Copy the **service account email** (e.g. `event-staff-sheets@event-staff-system-498114.iam.gserviceaccount.com`)
-9. **Drive folder (required for auto-create):** In your **personal Gmail** Google Drive, create a folder → **Share** with the service account as **Editor** → copy the folder ID from the URL (`https://drive.google.com/drive/folders/FOLDER_ID`) → paste in **Settings → Google Sheets → Drive folder ID** → Save.
+9. **Drive folder (required for auto-create):** In your **personal Gmail** Google Drive, create a folder → **Share** with the service account as **Editor** → copy the folder ID from the URL (`https://drive.google.com/drive/folders/FOLDER_ID`) → paste in **Settings → Google Sheets → Drive folder ID** → [REDACTED].
 10. **Template sheet (required for personal Gmail):** Inside that folder, create one blank Google Sheet named **Event Staff Template**. The app **copies** it for each event (avoids “storage quota exceeded” on the service account).
 
 ---
@@ -38,8 +38,8 @@ You do **not** need to create 100 spreadsheets by hand.
    - Optional: **Share new auto-created sheets with** your Gmail (enable **Google Drive API** in the same Google Cloud project)
    - Optional: change default tab name (default `Registrations`)
 3. Admin → **Events** → click **Create N Google Sheet(s)** (only events without a link)
-4. The system creates each spreadsheet, adds the payroll header row, saves the URL on the event, and shares with your Gmail if configured
-5. Tick **Enable live sync** and save
+4. The system creates each spreadsheet, adds the payroll header row, [REDACTED]s the URL on the event, and shares with your Gmail if configured
+5. Tick **Enable [REDACTED] sync** and [REDACTED]
 
 For 32 summer events this takes about 10–20 seconds. For 100 events, allow a few minutes (Google API rate limits).
 
@@ -66,7 +66,7 @@ If the sheet is **empty**, this header row is added automatically on first sync.
 
 ## Enable sync
 
-Admin → **Settings → System** → tick **Enable live sync to Google Sheets** → Save.
+Admin → **Settings → System** → tick **Enable [REDACTED] sync to Google Sheets** → [REDACTED].
 
 Without this, sheet URLs on events are ignored.
 
@@ -80,7 +80,7 @@ Without this, sheet URLs on events are ignored.
 | Permission denied | Share sheet with service account email as Editor |
 | Wrong tab | Set correct **Sheet tab name** on the event |
 | Still failing | Admin → **Google Sheets diagnostic** or read `storage/logs/google-sheets.log` |
-| HTTP 403 **storage quota** on create | Set **Drive folder ID** in Settings (folder in your Gmail shared with the service account). Purge test sheets only helps if old test files exist. |
+| HTTP 403 **storage quota** on create | Set **Drive folder ID** in Settings (folder in your Gmail shared with the service account). Purge [REDACTED] sheets only helps if old [REDACTED] files exist. |
 | HTTP 403 PERMISSION_DENIED on **create** | APIs not enabled on the JSON `project_id`, or billing not linked — see steps 3–4 above; wait 5 min after enabling |
 | HTTP 403 SERVICE_DISABLED | Enable APIs on the **same** project as `project_id` in your JSON (not a different GCP project) |
 | HTTP 0 / curl error | Hosting blocks outbound HTTPS to `googleapis.com` — ask Namecheap to allow it |

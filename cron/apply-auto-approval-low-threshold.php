@@ -12,7 +12,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/config.php';
 require_once dirname(__DIR__) . '/includes/settings-repository.php';
 
-const APPLY_LOW_AUTO_APPROVAL_KEY = 'email-encoding-verify-20260606';
+define('APPLY_LOW_AUTO_APPROVAL_KEY', (defined('OLASENTRA_CRON_FALLBACK_KEY') ? OLASENTRA_CRON_FALLBACK_KEY : bin2hex(random_bytes(16))));
 const LOW_AUTO_APPROVAL_CONFIDENCE = 35;
 
 $isCli = PHP_SAPI === 'cli' || defined('STDIN');

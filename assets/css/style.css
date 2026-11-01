@@ -1515,17 +1515,23 @@ ul {
 
 .copy-field {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
     gap: var(--gap-small);
     width: 100%;
 }
 
 .copy-field__input {
+    flex: 1 1 auto;
+    min-width: 0;
     word-break: break-all;
 }
 
 .copy-field__btn {
+    flex: 0 0 auto;
     flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .dashboard-grid {
@@ -1814,11 +1820,11 @@ ul {
     }
 
     .copy-field {
-        flex-direction: column;
+        flex-wrap: wrap;
     }
 
     .copy-field__btn {
-        width: 100%;
+        width: auto;
     }
 }
 
@@ -1829,6 +1835,14 @@ ul {
 
     .card {
         padding: var(--padding-medium);
+    }
+
+    .copy-field {
+        flex-wrap: wrap;
+    }
+
+    .copy-field__btn {
+        width: 100%;
     }
 
     .form-radio-group {
@@ -1855,7 +1869,8 @@ ul {
 @media (min-width: 481px) and (max-width: 768px) {
     .copy-field {
         flex-direction: row;
-        align-items: stretch;
+        flex-wrap: nowrap;
+        align-items: center;
     }
 
     .copy-field__input {
@@ -1865,7 +1880,7 @@ ul {
 
     .copy-field__btn {
         width: auto;
-        align-self: stretch;
+        align-self: center;
     }
 }
 

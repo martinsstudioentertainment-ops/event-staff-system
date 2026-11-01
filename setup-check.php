@@ -5,7 +5,7 @@
  */
 declare(strict_types=1);
 
-$expectedToken = 'CHANGE_ME_BEFORE_USE';
+$expectedToken = defined('OLASENTRA_SETUP_CHECK_TOKEN') ? OLASENTRA_SETUP_CHECK_TOKEN : bin2hex(random_bytes(16));
 
 header('Content-Type: text/plain; charset=utf-8');
 

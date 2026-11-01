@@ -1036,14 +1036,17 @@
 
 .staff-edit-token-row {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: row;
+    flex-wrap: nowrap;
     gap: 0.5rem;
-    align-items: stretch;
+    align-items: center;
 }
 
 .staff-edit-token-row .form-input {
-    flex: 1 1 12rem;
+    flex: 1 1 auto;
     min-width: 0;
+    min-height: 2.25rem;
+    height: 2.25rem;
 }
 
 .staff-edit-form.is-readonly .form-input:disabled,
@@ -1654,20 +1657,26 @@
 
 .admin-shell .copy-field {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: row;
+    flex-wrap: nowrap;
     gap: 0.5rem;
-    align-items: stretch;
+    align-items: center;
 }
 
 .admin-shell .copy-field__input {
-    flex: 1 1 12rem;
+    flex: 1 1 auto;
     min-width: 0;
     font-size: 0.75rem;
     word-break: break-all;
+    min-height: 2.25rem;
+    height: 2.25rem;
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
 }
 
 .admin-shell .copy-field__btn {
     flex: 0 0 auto;
+    white-space: nowrap;
 }
 
 .admin-shell .staff-edit-layout .card__header--row {
@@ -1756,6 +1765,35 @@
     text-decoration-color: #93c5fd;
 }
 
+.admin-shell a.staff-dir-email,
+.admin-shell a.staff-dir-email:link,
+.admin-shell a.staff-dir-email:visited {
+    color: #f8fafc !important;
+    font-weight: 500;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-color: rgba(148, 163, 184, 0.75);
+}
+
+.admin-shell a.staff-dir-email:hover,
+.admin-shell a.staff-dir-email:focus {
+    color: #ffffff !important;
+    text-decoration-color: #93c5fd;
+}
+
+[data-theme="light"] .admin-shell a.staff-dir-email,
+[data-theme="light"] .admin-shell a.staff-dir-email:link,
+[data-theme="light"] .admin-shell a.staff-dir-email:visited {
+    color: #0f172a !important;
+    text-decoration-color: rgba(15, 23, 42, 0.4);
+}
+
+[data-theme="light"] .admin-shell a.staff-dir-email:hover,
+[data-theme="light"] .admin-shell a.staff-dir-email:focus {
+    color: #020617 !important;
+    text-decoration-color: #2563eb;
+}
+
 .admin-shell .data-table--staff-dir .staff-dir-shifts a {
     color: #cbd5e1 !important;
     text-decoration: none;
@@ -1779,6 +1817,163 @@
     margin-top: 0.15rem;
     line-height: 1.3;
     word-break: break-word;
+}
+
+.admin-shell .staff-dir-psa {
+    display: block;
+    margin-top: 0.35rem;
+    white-space: nowrap;
+}
+
+.admin-shell .staff-dir-psa .badge {
+    white-space: nowrap;
+}
+
+.admin-shell .staff-psa-board,
+.admin-shell .list-card-board {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.admin-shell .staff-psa-tile,
+.admin-shell .list-card {
+    margin: 0;
+    border: 1px solid var(--erp-card-border);
+    border-radius: 12px;
+    background: var(--erp-card);
+    overflow: hidden;
+}
+
+.admin-shell .staff-psa-tile--verified,
+.admin-shell .list-card--ok {
+    border-color: rgba(34, 197, 94, 0.45);
+}
+
+.admin-shell .staff-psa-tile--issue,
+.admin-shell .list-card--issue {
+    border-color: rgba(248, 113, 113, 0.5);
+}
+
+.admin-shell .list-card--pending {
+    border-color: rgba(251, 191, 36, 0.45);
+}
+
+.admin-shell .staff-psa-tile__front,
+.admin-shell .list-card__front {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    list-style: none;
+    cursor: pointer;
+    padding: 0.9rem 1rem;
+}
+
+.admin-shell .staff-psa-tile__front::-webkit-details-marker,
+.admin-shell .staff-psa-tile__front::marker,
+.admin-shell .list-card__front::-webkit-details-marker,
+.admin-shell .list-card__front::marker {
+    display: none;
+    content: '';
+}
+
+.admin-shell .list-card__check {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+.admin-shell .list-card__check input {
+    width: 1.1rem;
+    height: 1.1rem;
+    margin: 0;
+    cursor: pointer;
+}
+
+.admin-shell .staff-psa-tile__who,
+.admin-shell .list-card__who {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.admin-shell .staff-psa-tile__who strong,
+.admin-shell .list-card__who strong {
+    font-size: 14px;
+    color: #f8fafc;
+}
+
+.admin-shell .staff-psa-tile__hint,
+.admin-shell .list-card__hint {
+    font-size: 11px;
+    color: var(--erp-text-muted);
+}
+
+.admin-shell .staff-psa-tile__front .badge,
+.admin-shell .list-card__front .badge,
+.admin-shell .list-card__badges {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.admin-shell .list-card__badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.35rem;
+}
+
+.admin-shell .staff-psa-tile[open] .staff-psa-tile__hint,
+.admin-shell .list-card[open] .list-card__hint {
+    display: none;
+}
+
+.admin-shell .staff-psa-tile__body,
+.admin-shell .list-card__body {
+    padding: 0 1rem 1rem;
+    border-top: 1px solid var(--erp-card-border);
+}
+
+.admin-shell .staff-psa-tile__facts,
+.admin-shell .list-card__facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.75rem 1.25rem;
+    margin: 0.85rem 0 1rem;
+}
+
+.admin-shell .staff-psa-tile__facts dt,
+.admin-shell .list-card__facts dt {
+    font-size: 11px;
+    color: var(--erp-text-muted);
+    margin: 0 0 0.15rem;
+}
+
+.admin-shell .staff-psa-tile__facts dd,
+.admin-shell .list-card__facts dd {
+    margin: 0;
+    font-size: 13px;
+    color: #f1f5f9;
+    word-break: break-word;
+}
+
+.admin-shell .staff-psa-tile__actions,
+.admin-shell .list-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.admin-shell .staff-psa-tile__actions form,
+.admin-shell .list-card__actions form {
+    margin: 0;
+}
+
+.admin-shell .bulk-toolbar .list-card__check {
+    margin-right: 0.25rem;
 }
 
 .admin-shell .staff-dir-shifts {
@@ -1827,10 +2022,10 @@
 .admin-shell .staff-dir-portal-banner {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.75rem 1rem;
+    gap: 0.5rem 1rem;
     align-items: center;
-    margin-bottom: 1rem;
-    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+    padding: 0.55rem 0.85rem;
     border-radius: var(--admin-radius);
     border: 1px solid var(--admin-border);
     background: var(--erp-card, var(--admin-surface));
@@ -1841,8 +2036,8 @@
 }
 
 .admin-shell .staff-dir-email-preview {
-    margin-bottom: 1rem;
-    padding: 0.65rem 0.85rem;
+    margin-bottom: 0.75rem;
+    padding: 0.5rem 0.75rem;
     border: 1px solid var(--admin-border);
     border-radius: var(--admin-radius);
     background: rgba(255, 255, 255, 0.02);
@@ -1921,7 +2116,7 @@
 }
 
 .admin-shell .staff-dir-portal-banner__text {
-    flex: 1 1 12rem;
+    flex: 1 1 10rem;
     min-width: 0;
 }
 
@@ -1930,10 +2125,24 @@
     font-size: 13px;
 }
 
+.admin-shell .staff-dir-portal-banner__text .form-hint {
+    margin: 0.15rem 0 0;
+}
+
 .admin-shell .staff-dir-portal-banner__copy {
-    flex: 2 1 16rem;
+    flex: 1 1 18rem;
     min-width: 0;
     max-width: 100%;
+}
+
+@media (max-width: 640px) {
+    .admin-shell .copy-field {
+        flex-wrap: wrap;
+    }
+
+    .admin-shell .copy-field__btn {
+        width: 100%;
+    }
 }
 
 .admin-shell .filter-bar--compact {

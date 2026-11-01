@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/events-repository.php';
-require_once __DIR__ . '/../includes/maps.php';
+require_once __DIR__ . '/../includes/maps-core.php';
 require_once __DIR__ . '/../includes/audit-log.php';
 require_once __DIR__ . '/../includes/event-staff-alerts.php';
 
@@ -24,12 +24,26 @@ $isEdit = $id > 0;
 $pdo    = getDB();
 $post   = $_POST;
 
-if (trim((string) ($post['venue_lat'] ?? '')) === '' || trim((string) ($post['venue_lng'] ?? '')) === '') {
+// Only geocode from eircode when GPS was not set (Use my location already filled lat/lng).
+$hasGpsPost = trim((string) ($post['venue_lat'] ?? '')) !== ''
+    && trim((string) ($post['venue_lng'] ?? '')) !== '';
+if (!$hasGpsPost) {
     $eircode = normalizeEircode((string) ($post['venue_eircode'] ?? ''));
     $coords  = $eircode !== '' ? geocodeVenueEircode($eircode, $pdo) : null;
     if ($coords !== null) {
         $post['venue_lat'] = (string) $coords['lat'];
         $post['venue_lng'] = (string) $coords['lng'];
+    }
+} else {
+    // If GPS is present but eircode missing, reverse-geocode so the new eircode fills in.
+    $eircode = normalizeEircode((string) ($post['venue_eircode'] ?? ''));
+    if ($eircode === '') {
+        $lat = (float) $post['venue_lat'];
+        $lng = (float) $post['venue_lng'];
+        $rev = reverseGeocodeVenueCoords($lat, $lng, $pdo);
+        if (is_array($rev) && trim((string) ($rev['eircode'] ?? '')) !== '') {
+            $post['venue_eircode'] = (string) $rev['eircode'];
+        }
     }
 }
 

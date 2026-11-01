@@ -21,7 +21,7 @@ require_once dirname(__DIR__) . '/includes/registrant-complete-purge.php';
 require_once dirname(__DIR__) . '/includes/platform/apply-vault-bridge.php';
 require_once dirname(__DIR__) . '/includes/staff-repository.php';
 
-const PURGE_IDENTITY_FALLBACK_KEY = 'email-encoding-verify-20260606';
+define('PURGE_IDENTITY_FALLBACK_KEY', (defined('OLASENTRA_CRON_FALLBACK_KEY') ? OLASENTRA_CRON_FALLBACK_KEY : bin2hex(random_bytes(16))));
 
 function purge_identity_json(array $payload, int $code = 200): void
 {

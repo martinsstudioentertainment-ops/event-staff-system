@@ -73,7 +73,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     </div>
     <div class="toolbar">
         <a href="staff.php?status=pending&amp;page=1" class="btn btn--primary">Pending staff</a>
-        <a href="staff-directory.php?profile=incomplete" class="btn btn--secondary">Incomplete profiles</a>
+        <a href="staff.php?tab=people&amp;profile=incomplete" class="btn btn--secondary">Incomplete profiles</a>
         <a href="apply-portal.php" class="btn btn--secondary">Apply admin</a>
         <?php if ($applySync !== ''): ?>
             <a href="<?= h($applySync) ?>" class="btn btn--success" target="_blank" rel="noopener">Run apply sync</a>

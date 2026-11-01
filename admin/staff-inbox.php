@@ -17,27 +17,21 @@ require_once __DIR__ . '/../includes/audit-log.php';
 require_once __DIR__ . '/../includes/notification-center.php';
 
 require_once __DIR__ . '/../includes/date-format.php';
-
-
+require_once __DIR__ . '/../includes/rich-text.php';
+require_once __DIR__ . '/../includes/admin-pagination.php';
 
 requireAdminCapability('staff');
 
-
-
 $pdo       = getDB();
-
 $adminUser = getAdminUser();
-
-$threads   = listStaffInboxThreads($pdo, 80);
-
+$perPage   = adminListPerPage();
+$threadTotal = countStaffInboxThreads($pdo);
+$page      = min(adminListPage(), adminListTotalPages($threadTotal, $perPage));
+$threads   = listStaffInboxThreads($pdo, $perPage, adminListOffset($page, $perPage));
 $unread    = countUnreadStaffMessagesForAdmin($pdo);
-
 $messageCount      = countAllStaffMessages($pdo);
-
 $notificationCount = countAllNotifications($pdo, 'all');
-
 $flash     = getAdminFlash();
-
 $broadcast = getActiveStaffFlashBroadcast($pdo);
 
 
@@ -169,7 +163,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
 
 
-<link rel="stylesheet" href="<?= h($assetBase) ?>assets/css/messages.css">
+<link rel="stylesheet" href="<?= h($assetBase) ?>assets/css/messages.css?v=<?= h((string) (@filemtime(__DIR__ . '/../assets/css/messages.css') ?: time())) ?>">
 
 
 
@@ -332,7 +326,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 $threadEmail  = normalizeStaffMessageEmail((string) ($thread['staff_email'] ?? ''));
                 $name         = getStaffDisplayNameFromRow($thread);
 
-                $preview      = trim((string) ($thread['last_body'] ?? ''));
+                $preview      = plainTextFromRich((string) ($thread['last_body'] ?? ''), 140);
                 $lastSubject  = trim((string) ($thread['last_subject'] ?? ''));
 
                 $threadUnread = (int) ($thread['unread_count'] ?? 0);
@@ -368,6 +362,8 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <?php endforeach; ?>
 
         </ul>
+
+        <?php renderAdminPagination($page, $threadTotal, 'staff-inbox.php'); ?>
 
     <?php endif; ?>
 

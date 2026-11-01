@@ -71,9 +71,10 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
     <h2 style="font-size:1.1rem;margin:0 0 0.75rem;">Google Cloud Console (one-time)</h2>
     <ol style="margin:0 0 1.25rem;line-height:1.6;padding-left:1.25rem;">
-        <li>Open your <strong>Web client</strong> (same as Google Sheets).</li>
+        <li>Open Google Cloud as <strong>martinsstudioentertainment@gmail.com</strong> → your <strong>Web client</strong> (same as Google Sheets).</li>
         <li><strong>Authorized redirect URIs</strong> → add: <code><?= h($redirect) ?></code></li>
         <li><strong>Authorized JavaScript origins</strong> → add: <code><?= h($origin) ?></code></li>
+        <li>Staff sign-in requests only <code>openid email profile</code> and does not reuse Drive permission.</li>
         <li>Save in Google Cloud, wait ~1 minute, then test on your phone.</li>
     </ol>
 

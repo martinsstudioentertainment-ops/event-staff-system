@@ -2,7 +2,7 @@
 /**
  * Production SMTP wire audit — confirms deployed smtpDotStuff() on server.
  *
- *   https://register.olasentra.com/cron/smtp-mime-wire-audit.php?key=email-encoding-verify-20260606
+ *   https://register.olasentra.com/cron/smtp-mime-wire-audit.php?key=<CRON_KEY>
  */
 declare(strict_types=1);
 
@@ -10,7 +10,7 @@ require_once dirname(__DIR__) . '/includes/email-copy.php';
 require_once dirname(__DIR__) . '/includes/mailer.php';
 require_once dirname(__DIR__) . '/config.php';
 
-const SMTP_WIRE_AUDIT_FALLBACK_KEY = 'email-encoding-verify-20260606';
+define('SMTP_WIRE_AUDIT_FALLBACK_KEY', (defined('OLASENTRA_CRON_FALLBACK_KEY') ? OLASENTRA_CRON_FALLBACK_KEY : bin2hex(random_bytes(16))));
 
 $key = trim((string) ($_GET['key'] ?? ''));
 $allowed = [SMTP_WIRE_AUDIT_FALLBACK_KEY];

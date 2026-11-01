@@ -1,0 +1,94 @@
+{
+    "description": "UI files must deploy with their API/includes partners. Used by upload-safe-fix-bundle.ps1 and deploy reviews.",
+    "version": "1.0-stable",
+    "bundles": [
+        {
+            "name": "registration-email-otp",
+            "ui": [
+                "index.php",
+                "includes/registration-google-gate.php",
+                "assets/js/registration-email-otp.js",
+                "assets/js/registration-wizard.js",
+                "assets/js/registration-wizard-autosave.js",
+                "assets/js/registration-wizard-validation.js",
+                "assets/js/registration-wizard-review.js",
+                "assets/js/app.js"
+            ],
+            "api": [
+                "api/registration-email-otp-send.php",
+                "api/registration-email-otp-verify.php",
+                "api/registration-google-verify.php",
+                "api/registrant-lookup.php",
+                "api/events.php"
+            ],
+            "includes": [
+                "includes/staff-google-oauth.php",
+                "includes/mobile/services/MobileOtpService.php",
+                "submit.php"
+            ]
+        },
+        {
+            "name": "staff-portal-email-otp",
+            "ui": [
+                "includes/staff-app-easy.php",
+                "assets/js/staff-portal-email-otp.js",
+                "includes/staff-app-v3-shell.php"
+            ],
+            "api": [
+                "api/staff-portal-otp-send.php",
+                "api/staff-portal-otp-verify.php"
+            ],
+            "includes": [
+                "includes/staff-portal-email-otp.php",
+                "includes/staff-google-oauth.php",
+                "includes/mobile/services/MobileOtpService.php"
+            ]
+        },
+        {
+            "name": "mobile-auth",
+            "api": [
+                "api/mobile/index.php",
+                "includes/mobile/mobile-router.php",
+                "includes/mobile/mobile-auth.php",
+                "includes/mobile/services/MobileAuthService.php",
+                "includes/mobile/services/MobileEmailOtpAuthService.php",
+                "includes/mobile/services/MobileOtpService.php",
+                "includes/mobile/services/MobileConfigService.php",
+                "includes/mobile/services/MobilePreferencesService.php",
+                "includes/mobile/services/MobilePortalConfigService.php"
+            ],
+            "includes": [
+                "includes/staff-google-oauth.php",
+                "includes/staff-blacklist.php",
+                "includes/app-build-version.php",
+                "storage/version.json"
+            ]
+        },
+        {
+            "name": "attendance-checkin",
+            "ui": [
+                "staff-checkin.php"
+            ],
+            "api": [
+                "api/attendance-gps-ping.php",
+                "api/staff-shift-gps.php",
+                "api/signin-location-verify.php"
+            ],
+            "includes": [
+                "includes/attendance-repository.php",
+                "includes/staff-venue-checkin.php",
+                "includes/staff-blacklist.php"
+            ]
+        },
+        {
+            "name": "admin-health",
+            "ui": [
+                "admin/system-health.php"
+            ],
+            "includes": [
+                "includes/admin/system-health.php",
+                "includes/app-build-version.php"
+            ]
+        }
+    ]
+}

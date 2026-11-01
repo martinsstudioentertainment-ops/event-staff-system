@@ -315,7 +315,7 @@ function getGoogleSheetsSyncHeaders(): array
 {
     return array_merge(
         getEmployeeSpreadsheetHeaders(),
-        ['Registration ID', 'Status', 'Event date', 'Event name', 'Role', 'PSA Licence', 'PSA Expiry']
+        ['Registration ID', 'Status', 'Event date', 'Event name', 'Role', 'PSA Licence', 'PSA Expiry', 'Start time']
     );
 }
 
@@ -344,6 +344,8 @@ function buildGoogleSheetsSyncRow(array $row): array
 {
     require_once __DIR__ . '/date-format.php';
     require_once __DIR__ . '/staff-psa.php';
+    require_once __DIR__ . '/attendant-actions.php';
+    require_once __DIR__ . '/event-start-time-form.php';
 
     $pdo = null;
     if (function_exists('getDB')) {
@@ -372,6 +374,7 @@ function buildGoogleSheetsSyncRow(array $row): array
             formatRoleLabel((string) ($row['staff_role'] ?? '')),
             exportPsaLicenceForSheet((string) ($row['psa_licence'] ?? '')),
             googleSheetsDateCell(isset($row['psa_expiry_date']) ? (string) $row['psa_expiry_date'] : null, $pdo),
+            eventStartTimeSheetValue($pdo instanceof PDO ? $pdo : null, $row),
         ]
     );
 }
@@ -1601,14 +1604,30 @@ function googleSheetsValidateSheetCreateSetup(?PDO $pdo = null): array
         return ['ok' => false, 'message' => 'Service account credentials missing.'];
     }
 
-    if (getGoogleSheetsDriveParentFolderId($pdo) === '') {
+    $folderId = getGoogleSheetsDriveParentFolderId($pdo);
+    if ($folderId === '') {
         return ['ok' => false, 'message' => 'Set the Drive folder ID in Settings → Google Sheets.'];
+    }
+
+    $saFolder = googleDriveInspectParentFolder($serviceAccount, $folderId);
+    if ($saFolder['ok']) {
+        $templateId = googleDriveResolveTemplateSpreadsheetId($serviceAccount, $folderId, $pdo);
+        if ($templateId === null || $templateId === '') {
+            return [
+                'ok'      => false,
+                'message' => 'Add a Google Sheet named Event Staff Template inside your shared Drive folder (or paste its URL in Settings).'
+                    . googleSheetsTemplateMissingHint($serviceAccount, $pdo, $folderId),
+            ];
+        }
+
+        return ['ok' => true, 'message' => ''];
     }
 
     if (!function_exists('googleDriveOAuthConfigured') || !googleDriveOAuthConfigured($pdo)) {
         return [
             'ok'      => false,
-            'message' => 'Connect your Google account in Settings → Google Sheets (required). Service accounts cannot create new spreadsheets.',
+            'message' => 'Drive folder is not writable by the service account: ' . $saFolder['summary']
+                . ' Share the Event Staff Sheets folder as Editor with the service account.',
         ];
     }
 
@@ -1616,17 +1635,17 @@ function googleSheetsValidateSheetCreateSetup(?PDO $pdo = null): array
     if ($userToken === '') {
         return [
             'ok'      => false,
-            'message' => 'Gmail access token expired — open Settings → Google Sheets and click Connect Google account again.',
+            'message' => 'Drive folder is not writable by the service account (' . $saFolder['summary']
+                . ') and Gmail access expired — reconnect Google in Settings → Google Sheets.',
         ];
     }
 
-    $folderId = getGoogleSheetsDriveParentFolderId($pdo);
     $folderCheck = googleDriveInspectParentFolderWithToken($userToken, null, $folderId);
     if (!$folderCheck['ok']) {
         return [
             'ok'      => false,
-            'message' => 'Your connected Gmail cannot open the Drive folder: ' . $folderCheck['summary']
-                . ' In Drive, share the folder with the same Gmail you used for Connect Google account (Editor), not only the service account.',
+            'message' => 'Cannot open the Drive folder as the service account (' . $saFolder['summary']
+                . ') or Gmail: ' . $folderCheck['summary'],
         ];
     }
 
@@ -1643,15 +1662,6 @@ function googleSheetsValidateSheetCreateSetup(?PDO $pdo = null): array
             'ok'      => false,
             'message' => 'Add a Google Sheet named Event Staff Template inside your shared Drive folder (or paste its URL in Settings).'
                 . googleSheetsTemplateMissingHint($serviceAccount, $pdo, $folderId),
-        ];
-    }
-
-    $templateCheck = googleDriveInspectParentFolderWithToken($userToken, null, $templateId);
-    if (!$templateCheck['ok']) {
-        return [
-            'ok'      => false,
-            'message' => 'Your Gmail cannot open Event Staff Template: ' . $templateCheck['summary']
-                . ' Open the folder in Drive while signed in as the connected Gmail and confirm the template file is visible.',
         ];
     }
 
@@ -1970,15 +1980,24 @@ function buildGoogleSheetsTitleVariantsForEvent(array $event): array
         : '';
 
     $variants = [buildGoogleSheetsTitleForEvent($event)];
+    $location = trim((string) ($event['location'] ?? ''));
 
     if ($dateLabel !== '') {
         $variants[] = $dateLabel . ' — ' . $name;
         $variants[] = $dateLabel . ' - ' . $name;
         $variants[] = $dateLabel . ' — ' . $name . ' — Staff';
+        if ($location !== '' && strcasecmp($location, $name) !== 0) {
+            $variants[] = $dateLabel . ' — ' . $location . ' — Staff';
+            $variants[] = $dateLabel . ' — ' . $location;
+        }
         $compactDate = str_replace('/', '', $dateLabel);
         if ($compactDate !== $dateLabel) {
             $variants[] = $compactDate . ' — ' . $name . ' — Staff';
             $variants[] = $compactDate . ' — ' . $name;
+            if ($location !== '' && strcasecmp($location, $name) !== 0) {
+                $variants[] = $compactDate . ' — ' . $location . ' — Staff';
+                $variants[] = $compactDate . ' — ' . $location;
+            }
         }
         $variants[] = $name . ' — ' . $dateLabel;
         $variants[] = $name . ' - ' . $dateLabel;
@@ -2665,6 +2684,103 @@ function googleSheetsTemplateMissingHint(array $serviceAccount, ?PDO $pdo, strin
  * @param array<string, mixed> $serviceAccount
  * @return array{spreadsheetId: string, tabName: string, url: string}|null
  */
+function googleDriveOauthAccountEmail(PDO $pdo): string
+{
+    $cached = trim(getSetting($pdo, 'google_oauth_account_email', ''));
+    if ($cached !== '' && filter_var($cached, FILTER_VALIDATE_EMAIL)) {
+        return strtolower($cached);
+    }
+
+    $share = trim(getSetting($pdo, 'google_sheets_share_with_email', ''));
+    if ($share !== '' && filter_var($share, FILTER_VALIDATE_EMAIL)) {
+        return strtolower($share);
+    }
+
+    if (!function_exists('googleDriveGetUserAccessToken')) {
+        return '';
+    }
+    $token = googleDriveGetUserAccessToken($pdo);
+    if ($token === '') {
+        return '';
+    }
+
+    $response = googleSheetsHttpRequest(
+        'GET',
+        'https://www.googleapis.com/oauth2/v2/userinfo',
+        ['Authorization: Bearer ' . $token],
+        null
+    );
+    if ($response['code'] !== 200) {
+        return '';
+    }
+    $data = json_decode($response['body'], true);
+    $email = is_array($data) ? strtolower(trim((string) ($data['email'] ?? ''))) : '';
+    if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        setSetting($pdo, 'google_oauth_account_email', $email);
+        if (trim(getSetting($pdo, 'google_sheets_share_with_email', '')) === '') {
+            setSetting($pdo, 'google_sheets_share_with_email', $email);
+        }
+
+        return $email;
+    }
+
+    return '';
+}
+
+function googleDriveAddWriterPermission(array $serviceAccount, string $fileId, string $email): bool
+{
+    $fileId = trim($fileId);
+    $email = strtolower(trim($email));
+    if ($fileId === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return false;
+    }
+
+    $token = googleSheetsGetAccessToken($serviceAccount, ['https://www.googleapis.com/auth/drive']);
+    if ($token === '') {
+        return false;
+    }
+
+    $payload = json_encode([
+        'type' => 'user',
+        'role' => 'writer',
+        'emailAddress' => $email,
+    ], JSON_UNESCAPED_UNICODE);
+    if ($payload === false) {
+        return false;
+    }
+
+    $project = (string) ($serviceAccount['project_id'] ?? '');
+    $url = 'https://www.googleapis.com/drive/v3/files/' . rawurlencode($fileId)
+        . '/permissions?supportsAllDrives=true&sendNotificationEmail=false';
+    $response = googleSheetsHttpRequest(
+        'POST',
+        $url,
+        googleSheetsAuthHeaders($token, $project),
+        $payload
+    );
+
+    if ($response['code'] >= 200 && $response['code'] < 300) {
+        return true;
+    }
+
+    $body = strtolower($response['body']);
+
+    return str_contains($body, 'already') || $response['code'] === 409;
+}
+
+function googleDriveEnsureGmailCanAccessCreateFolder(PDO $pdo, array $serviceAccount, string $folderId, string $templateId): bool
+{
+    $email = googleDriveOauthAccountEmail($pdo);
+    if ($email === '') {
+        return false;
+    }
+
+    $okFolder = $folderId === '' ? true : googleDriveAddWriterPermission($serviceAccount, $folderId, $email);
+    $okTemplate = $templateId === '' ? true : googleDriveAddWriterPermission($serviceAccount, $templateId, $email);
+
+    return $okFolder && $okTemplate;
+}
+
 function googleDriveCopySpreadsheetFromTemplate(
     array $serviceAccount,
     string $templateId,
@@ -2673,7 +2789,13 @@ function googleDriveCopySpreadsheetFromTemplate(
     string $tabName
 ): ?array {
     $project   = (string) ($serviceAccount['project_id'] ?? '');
-    $userToken = googleDriveGetUserAccessToken();
+    $pdo       = getDB();
+    if (!function_exists('googleDriveGetUserAccessToken')) {
+        require_once __DIR__ . '/google-drive-oauth.php';
+    }
+    googleDriveEnsureGmailCanAccessCreateFolder($pdo, $serviceAccount, $parentFolderId, $templateId);
+
+    $userToken = googleDriveGetUserAccessToken($pdo);
     $oauthOn   = function_exists('googleDriveOAuthConfigured') && googleDriveOAuthConfigured();
 
     $tokenPlan = [];
@@ -2941,6 +3063,7 @@ function googleDriveMatchSpreadsheetForEvent(array $filesByKey, array $event): ?
     }
 
     $nameNorm = googleDriveNormalizeSheetTitle((string) ($event['name'] ?? ''));
+    $locNorm  = googleDriveNormalizeSheetTitle((string) ($event['location'] ?? ''));
     $dateNorm = '';
     if (!empty($event['event_date'])) {
         require_once __DIR__ . '/events-repository.php';
@@ -2955,6 +3078,10 @@ function googleDriveMatchSpreadsheetForEvent(array $filesByKey, array $event): ?
     foreach ($filesByKey as $fileNorm => $file) {
         $score = 0;
         if ($nameNorm !== '' && str_contains($fileNorm, $nameNorm)) {
+            $score += 2;
+        } elseif ($locNorm !== '' && str_contains($fileNorm, $locNorm)) {
+            $score += 2;
+        } elseif (str_contains($fileNorm, 'palmerstown') && (str_contains($nameNorm, 'palmerstown') || str_contains($locNorm, 'palmerstown'))) {
             $score += 2;
         }
         if ($dateNorm !== '' && str_contains($fileNorm, $dateNorm)) {
@@ -3269,11 +3396,86 @@ function createGoogleSheetForEvent(PDO $pdo, int $eventId): array
 
     googleSheetsLog("Auto-created sheet for event {$eventId}: {$created['url']}");
 
+    try {
+        require_once __DIR__ . '/google-sheets-queue.php';
+        googleSheetsEnqueueEventRebuild($pdo, $eventId, 'auto_create', null, true, 2);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] queue after sheet create: ' . $e->getMessage());
+    }
+
     return [
         'ok'      => true,
         'message' => 'Google Sheet created and linked.',
         'url'     => $created['url'],
     ];
+}
+
+/**
+ * Link existing Drive sheets, then auto-create any still missing. No admin click.
+ *
+ * @return array{linked: int, created: int, failed: int, skipped: int, errors: list<string>}
+ */
+function googleSheetsEnsureMissingRosterSheets(PDO $pdo, int $maxCreate = 3): array
+{
+    ensureGoogleSheetsSchema($pdo);
+    $out = ['linked' => 0, 'created' => 0, 'failed' => 0, 'skipped' => 0, 'errors' => []];
+
+    if (isGoogleServiceAccountConfigured() && getSetting($pdo, 'google_sheets_sync_enabled', '0') !== '1') {
+        setSetting($pdo, 'google_sheets_sync_enabled', '1');
+    }
+
+    try {
+        $link = linkExistingGoogleSheetsFromDriveFolder($pdo);
+        $out['linked'] = (int) ($link['linked'] ?? 0);
+        $out['skipped'] += (int) ($link['skipped'] ?? 0);
+        foreach (($link['errors'] ?? []) as $err) {
+            $out['errors'][] = (string) $err;
+        }
+    } catch (Throwable $e) {
+        $out['errors'][] = $e->getMessage();
+    }
+
+    $maxCreate = max(0, min(20, $maxCreate));
+    if ($maxCreate < 1) {
+        return $out;
+    }
+
+    $ids = $pdo->query(
+        "SELECT id FROM events
+         WHERE google_sheet_url IS NULL OR TRIM(google_sheet_url) = ''
+         ORDER BY (event_date >= CURDATE()) DESC, is_active DESC, event_date ASC, id ASC"
+    )->fetchAll(PDO::FETCH_COLUMN) ?: [];
+
+    $made = 0;
+    foreach ($ids as $rawId) {
+        if ($made >= $maxCreate) {
+            break;
+        }
+        $eventId = (int) $rawId;
+        if ($eventId < 1) {
+            continue;
+        }
+        $result = createGoogleSheetForEvent($pdo, $eventId);
+        if (!empty($result['ok'])) {
+            $out['created']++;
+            $made++;
+        } else {
+            $out['failed']++;
+            $out['errors'][] = 'Event #' . $eventId . ': ' . (string) ($result['message'] ?? 'create failed');
+            break;
+        }
+    }
+
+    if ($out['created'] > 0 || $out['linked'] > 0) {
+        try {
+            require_once __DIR__ . '/google-sheets-auto-worker.php';
+            googleSheetsScheduleAutoWorker($pdo);
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+
+    return $out;
 }
 
 /**

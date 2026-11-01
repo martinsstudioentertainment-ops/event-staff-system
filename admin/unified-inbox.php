@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/admin-capabilities.php';
 require_once __DIR__ . '/../includes/platform/platform-schema.php';
 require_once __DIR__ . '/../includes/platform/unified-inbox.php';
+require_once __DIR__ . '/../includes/rich-text.php';
 
 requireAdminCapability('dashboard');
 requirePlatformFeature(getDB(), 'unified_inbox', 'Unified Inbox');
@@ -68,7 +69,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
                 <tr class="<?= empty($item['is_read']) ? 'inbox-item--unread' : '' ?>">
                     <td><span class="inbox-cat"><?= h((string) $item['category']) ?></span></td>
                     <td><?= h((string) $item['title']) ?></td>
-                    <td><?= h(mb_strimwidth((string) ($item['body'] ?? ''), 0, 80, '…')) ?></td>
+                    <td><?= h(plainTextFromRich((string) ($item['body'] ?? ''), 80)) ?></td>
                     <td><?= h(formatSystemDateTime((string) ($item['created_at'] ?? ''), $pdo)) ?></td>
                     <td class="table-actions">
                         <?php if ((string) ($item['action_url'] ?? '') !== ''): ?>

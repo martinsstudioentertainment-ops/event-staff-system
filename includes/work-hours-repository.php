@@ -23,10 +23,7 @@ function calculateWorkHoursForCheckin(array $event, DateTimeInterface $checkedIn
 
     $eventStart = parseEventDateTime($date, $startTime) ?? new DateTime($date . ' 09:00:00');
     $eventEnd   = parseEventDateTime($date, $endTime) ?? new DateTime($date . ' 23:00:00');
-
-    if ($eventEnd <= $eventStart) {
-        $eventEnd = (clone $eventStart)->modify('+8 hours');
-    }
+    $eventEnd   = applyOvernightEventEnd($eventStart, $eventEnd);
 
     $checkedIn = $checkedInAt instanceof DateTime
         ? clone $checkedInAt
@@ -220,10 +217,7 @@ function resolveEventScheduledHoursFromRow(array $row): float
 
     $eventStart = parseEventDateTime($date, $startTime) ?? new DateTime($date . ' 09:00:00');
     $eventEnd   = parseEventDateTime($date, $endTime) ?? new DateTime($date . ' 23:00:00');
-
-    if ($eventEnd <= $eventStart) {
-        $eventEnd = (clone $eventStart)->modify('+8 hours');
-    }
+    $eventEnd   = applyOvernightEventEnd($eventStart, $eventEnd);
 
     $seconds = max(0, $eventEnd->getTimestamp() - $eventStart->getTimestamp());
 
@@ -313,6 +307,7 @@ function recordStaffSentHome(PDO $pdo, int $attendanceId, float $hoursPaid, stri
     $endTime    = (string) ($row['end_time'] ?? '23:00:00');
     $eventStart = parseEventDateTime($date, $startTime) ?? new DateTime($date . ' 09:00:00');
     $eventEnd   = parseEventDateTime($date, $endTime) ?? new DateTime($date . ' 23:00:00');
+    $eventEnd   = applyOvernightEventEnd($eventStart, $eventEnd);
 
     $workStartRaw = !empty($row['activated_at']) ? (string) $row['activated_at'] : (string) ($row['checked_in_at'] ?? '');
     if ($workStartRaw === '') {
@@ -399,10 +394,7 @@ function correctAdminShiftHours(PDO $pdo, int $attendanceId, float $hoursPaid, s
     $endTime    = (string) ($row['end_time'] ?? '23:00:00');
     $eventStart = parseEventDateTime($date, $startTime) ?? new DateTime($date . ' 09:00:00');
     $eventEnd   = parseEventDateTime($date, $endTime) ?? new DateTime($date . ' 23:00:00');
-
-    if ($eventEnd <= $eventStart) {
-        $eventEnd = (clone $eventStart)->modify('+8 hours');
-    }
+    $eventEnd   = applyOvernightEventEnd($eventStart, $eventEnd);
 
     $scheduledSeconds = max(0, $eventEnd->getTimestamp() - $eventStart->getTimestamp());
     $scheduledHours   = round($scheduledSeconds / 3600, 2);

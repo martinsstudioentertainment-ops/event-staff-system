@@ -33,7 +33,11 @@ $pwaAppTitle         = 'Admin';
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title><?= h($pageTitle) ?> | Admin · <?= h($siteName) ?></title>
     <?php include __DIR__ . '/../pwa-head.php'; ?>
-    <link rel="stylesheet" href="<?= h($assetBase) ?>assets/css/admin.css">
+    <?php
+    $adminCssPath = dirname(__DIR__, 2) . '/assets/css/admin.css';
+    $adminCssVer  = is_file($adminCssPath) ? (string) filemtime($adminCssPath) : '1';
+    ?>
+    <link rel="stylesheet" href="<?= h($assetBase) ?>assets/css/admin.css?v=<?= h($adminCssVer) ?>">
     <?php
     $sidebarCssPath = dirname(__DIR__, 2) . '/assets/css/admin-sidebar.css';
     $sidebarCssVer  = is_file($sidebarCssPath) ? (string) filemtime($sidebarCssPath) : '1';

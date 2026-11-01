@@ -6,9 +6,9 @@ The AI in Cursor **cannot** log into your cPanel. This script uploads **`config.
 
 1. Copy **`deploy.local.ps1.example`** → **`deploy.local.ps1`** (project root).
 2. Edit **`deploy.local.ps1`** with:
-   - **FTP** — cPanel → **FTP Accounts** (server, username, password)
-   - **MySQL** — cPanel → **MySQL Databases** (`olastofx_eventstaff`, `olastofx_dbuser`, password)
-3. In cPanel: add MySQL user to database with **ALL PRIVILEGES**.
+   - **FTP** — cPanel → **FTP Accounts** (server, [REDACTED]name, password)
+   - **MySQL** — cPanel → **MySQL Databases** (`[REDACTED]stofx_eventstaff`, `[REDACTED]stofx_db[REDACTED]`, password)
+3. In cPanel: add MySQL [REDACTED] to database with **ALL PRIVILEGES**.
 
 ## Each time you need to fix / update production config
 
@@ -19,10 +19,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\push-production.ps1
 
 Then open:
 
-- `https://olasentra.com/api/health.php` → `"database":"ok"` and `"storage":"ok"`
+- `https://[REDACTED]sentra.com/api/health.php` → `"database":"ok"` and `"storage":"ok"`
 
 **If cPanel shows 0-byte files named `logs` or `database` inside `storage` (not folders):** delete those files, create real **folders** named `logs` (and `backups/database`, etc.), chmod `logs` to **755**, then run the script again.
-- `https://olasentra.com/admin/login.php`
+- `https://[REDACTED]sentra.com/admin/login.php`
 
 `deploy.local.ps1` is **not** committed to Git.
 

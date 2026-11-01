@@ -4,14 +4,14 @@
  *
  * Usage:
  *   php scripts/verify-email-production.php
- *   php scripts/verify-email-production.php --to=admin@olasentra.com --key=email-encoding-verify-20260606
+ *   php scripts/verify-email-production.php --to=admin@olasentra.com --key=<CRON_KEY>
  */
 declare(strict_types=1);
 
 $opts    = getopt('', ['base::', 'to::', 'key::', 'json', 'no-screenshots']);
 $baseUrl = rtrim((string) ($opts['base'] ?? 'https://register.olasentra.com'), '/');
 $to      = trim((string) ($opts['to'] ?? ''));
-$key     = trim((string) ($opts['key'] ?? 'email-encoding-verify-20260606'));
+$key     = trim((string) ($opts['key'] ?? (getenv('OLASENTRA_CRON_KEY') ?: '')));
 $jsonOut = array_key_exists('json', $opts);
 $root    = dirname(__DIR__);
 $shotDir = $root . '/docs/screenshots/email-production';

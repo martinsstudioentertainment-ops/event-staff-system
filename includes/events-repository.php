@@ -4,7 +4,7 @@
  */
 
 require_once __DIR__ . '/../config.php';
-require_once __DIR__ . '/maps.php';
+require_once __DIR__ . '/maps-core.php';
 require_once __DIR__ . '/validation.php';
 require_once __DIR__ . '/venues-repository.php';
 require_once __DIR__ . '/work-types-repository.php';
@@ -200,11 +200,10 @@ function validateEventData(array $data, bool $isEdit = false): array
         $errors['reporting_point'] = 'Reporting point is too long.';
     }
 
+    // Eircode is optional — admin can set GPS with "Use my location" at the venue.
     $eircode = normalizeEircode((string) ($data['venue_eircode'] ?? ''));
-    if ($eircode === '') {
-        $errors['venue_eircode'] = 'Venue Eircode is required for GPS sign-in.';
-    } elseif (!isValidEircode($eircode)) {
-        $errors['venue_eircode'] = 'Please enter a valid Eircode (e.g. D02 X285).';
+    if ($eircode !== '' && !isValidEircode($eircode)) {
+        $errors['venue_eircode'] = 'Please enter a valid Eircode (e.g. D02 X285), or leave blank if using GPS location.';
     }
 
     $startTime = trim((string) ($data['start_time'] ?? ''));
@@ -225,8 +224,8 @@ function validateEventData(array $data, bool $isEdit = false): array
         $endTime .= ':00';
     }
 
-    if ($startTime !== '' && $endTime !== '' && $startTime >= $endTime) {
-        $errors['end_time'] = 'End time must be after start time.';
+    if ($startTime !== '' && $endTime !== '' && $startTime === $endTime) {
+        $errors['end_time'] = 'End time cannot be the same as start time.';
     }
 
     $checkinOpen  = trim((string) ($data['checkin_open_time'] ?? ''));
@@ -260,7 +259,7 @@ function validateEventData(array $data, bool $isEdit = false): array
     $venueLng = normalizeCoordinate(isset($data['venue_lng']) ? (string) $data['venue_lng'] : null);
 
     if ($venueLat === null || $venueLng === null) {
-        $errors['venue_lat'] = 'Look up GPS from the Eircode and confirm the pin on the map.';
+        $errors['venue_lat'] = 'Set the venue pin — tap Use my location at the venue, or look up from Eircode.';
     }
 
     $staffNeededRaw = trim((string) ($data['staff_needed'] ?? ''));
@@ -459,7 +458,18 @@ function syncEventFieldsFromVenue(PDO $pdo, int $venueId, array &$payload): void
         return;
     }
 
-    $payload['location'] = (string) $venue['name'];
+    // Keep venue display name only when the form did not send a location.
+    if (trim((string) ($payload['location'] ?? '')) === '' && !empty($venue['name'])) {
+        $payload['location'] = (string) $venue['name'];
+    }
+
+    $formHasGps = $payload['venue_lat'] !== null && $payload['venue_lng'] !== null;
+
+    // Critical: if admin set GPS via "Use my location", never pull the old
+    // Dublin eircode / pin from the linked venue back over the form values.
+    if ($formHasGps) {
+        return;
+    }
 
     if (trim((string) ($payload['venue_eircode'] ?? '')) === '' && !empty($venue['venue_eircode'])) {
         $payload['venue_eircode'] = (string) $venue['venue_eircode'];
@@ -484,20 +494,23 @@ function persistVenueGpsFromEventPayload(PDO $pdo, array $payload): void
         return;
     }
 
-    $eircode = trim((string) ($payload['venue_eircode'] ?? ''));
-    if ($eircode === '' || $payload['venue_lat'] === null || $payload['venue_lng'] === null) {
+    if ($payload['venue_lat'] === null || $payload['venue_lng'] === null) {
         return;
     }
 
+    $eircode = trim((string) ($payload['venue_eircode'] ?? ''));
+
     ensureVenuesSchema($pdo);
 
+    // Always write the form GPS onto the venue. If eircode is blank, clear the
+    // old venue eircode so a Dublin code cannot be re-propagated to this event.
     $stmt = $pdo->prepare(
         'UPDATE venues
          SET venue_eircode = :venue_eircode, venue_lat = :venue_lat, venue_lng = :venue_lng
          WHERE id = :id'
     );
     $stmt->execute([
-        'venue_eircode' => $eircode,
+        'venue_eircode' => $eircode !== '' ? $eircode : null,
         'venue_lat'     => $payload['venue_lat'],
         'venue_lng'     => $payload['venue_lng'],
         'id'            => $venueId,
@@ -555,6 +568,15 @@ function createEvent(PDO $pdo, array $data): int
     $stmt->execute($payload);
     $newId = (int) $pdo->lastInsertId();
     persistVenueGpsFromEventPayload($pdo, $payload);
+
+    if ($newId > 0 && trim((string) ($payload['google_sheet_url'] ?? '')) === '') {
+        try {
+            require_once __DIR__ . '/google-sheets-sync.php';
+            createGoogleSheetForEvent($pdo, $newId);
+        } catch (Throwable $e) {
+            error_log('[EventStaff] auto sheet on createEvent: ' . $e->getMessage());
+        }
+    }
 
     return $newId;
 }

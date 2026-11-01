@@ -28,6 +28,7 @@ function getLiveEventsVenueCatalog(): array
         'RHK'           => ['name' => 'RHK', 'venue_type' => 'arena', 'address' => 'Royal Hospital Kilmainham, Dublin 8'],
         'Croke Park'    => ['name' => 'Croke Park', 'venue_type' => 'arena', 'address' => 'Jones Road, Dublin 3'],
         'Stradbally'    => ['name' => 'Stradbally Hall', 'venue_type' => 'festival_site', 'address' => 'Stradbally, Co. Laois'],
+        'Palmerstown'   => ['name' => 'Palmerstown House Estate', 'venue_type' => 'festival_site', 'address' => 'Johnstown, Naas, Co. Kildare'],
     ];
 }
 
@@ -198,10 +199,7 @@ function parseLiveEventTimes(string $times): ?array
     $start = sprintf('%02d:%02d:00', $startH, $startM);
     $end   = sprintf('%02d:%02d:00', $endH, $endM);
 
-    if ($start >= $end) {
-        return null;
-    }
-
+    // Overnight shifts (end next calendar morning) are valid — e.g. 11:00–00:30.
     return ['start' => $start, 'end' => $end, 'confirmed' => 1];
 }
 

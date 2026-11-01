@@ -30,7 +30,7 @@ function smtpFail(string $step, string $response = ''): bool
 /**
  * @param array{host: string, port: int, encryption: string, username: string, password: string} $config
  */
-function sendSmtpMessage(array $config, string $to, string $subject, string $body, string $fromName, string $fromEmail, ?string $htmlBody = null): bool
+function sendSmtpMessage(array $config, string $to, string $subject, string $body, string $fromName, string $fromEmail, ?string $htmlBody = null, array $bccEmails = []): bool
 {
     setLastSmtpError('');
     $host        = trim($config['host']);
@@ -147,6 +147,14 @@ function sendSmtpMessage(array $config, string $to, string $subject, string $bod
         'X-Mailer: Event-Staff-System',
     ];
 
+    $bccEmails = array_values(array_unique(array_filter(array_map(
+        static fn($email): string => strtolower(trim((string) $email)),
+        $bccEmails
+    ), static fn(string $email): bool => $email !== '' && $email !== strtolower($to) && filter_var($email, FILTER_VALIDATE_EMAIL))));
+    if ($bccEmails !== []) {
+        $headers[] = 'Bcc: ' . implode(', ', $bccEmails);
+    }
+
     $mime = buildEmailMimePayload($body, $htmlBody);
     $headers[] = 'Content-Type: ' . $mime['content_type'];
     $headers[] = 'Content-Transfer-Encoding: ' . $mime['transfer_encoding'];
@@ -164,6 +172,13 @@ function sendSmtpMessage(array $config, string $to, string $subject, string $bod
         fclose($socket);
 
         return smtpFail('RCPT TO rejected', smtpRead($socket));
+    }
+    foreach ($bccEmails as $bcc) {
+        if (!smtpCommand($socket, 'RCPT TO:<' . $bcc . '>', [250, 251])) {
+            fclose($socket);
+
+            return smtpFail('BCC RCPT TO rejected', smtpRead($socket));
+        }
     }
     if (!smtpCommand($socket, 'DATA', [354])) {
         fclose($socket);

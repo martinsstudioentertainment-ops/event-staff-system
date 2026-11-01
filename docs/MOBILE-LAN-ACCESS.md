@@ -6,7 +6,7 @@
 |-------|-----|
 | `localhost:8080` | That is the phone itself, not your PC |
 | `127.0.0.1:8080` | Same |
-| `event-staff-system.test:8080` | `.test` usually does not resolve on the phone |
+| `event-staff-system.[REDACTED]:8080` | `.[REDACTED]` usually does not resolve on the phone |
 
 ## Use your PC’s Wi-Fi IP
 
@@ -50,7 +50,7 @@ http://YOUR-IP:8080/event-staff-system/staff-app.php
 - Phone on **Wi‑Fi**, not **4G/5G**
 - Not on a **guest network** that blocks device-to-device traffic
 
-### 4. Test from PC first
+### 4. [REDACTED] from PC first
 
 ```bat
 curl http://10.0.0.59:8080/staff-app.php

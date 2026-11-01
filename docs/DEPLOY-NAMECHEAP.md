@@ -1,6 +1,6 @@
 # Deploy to Namecheap with Git push (no manual file upload)
 
-This guide gives you a **repeatable** flow: change code on your PC → **push** → live site updates in a few minutes.
+This guide gives you a **repeatable** flow: change code on your PC → **push** → [REDACTED] site updates in a few minutes.
 
 ---
 
@@ -20,7 +20,7 @@ Namecheap **Stellar Plus** includes **cPanel**, **AutoSSL**, **unlimited MySQL d
 
 1. **PC:** `git commit` → `git push` → GitHub  
 2. **cPanel:** Git Version Control → **Update from Remote** → **Deploy HEAD commit** (~1–2 min)  
-3. **Admin (live):** Go live → schema updates only when DB changed  
+3. **Admin ([REDACTED]):** Go [REDACTED] → schema updates only when DB changed  
 
 **Optional:** enable **SSH** (Namecheap support or cPanel → **SSH Access**) so you can run `git pull` in terminal later — not required if you use cPanel Git.
 
@@ -72,13 +72,13 @@ git commit -m "Initial commit — Event Staff System"
 
 1. GitHub → **New repository** → name e.g. `event-staff-system` → **Private** recommended.
 2. Do **not** add README if you already committed locally.
-3. Copy the repo URL, e.g. `https://github.com/YOURUSER/event-staff-system.git`
+3. Copy the repo URL, e.g. `https://github.com/YOUR[REDACTED]/event-staff-system.git`
 
 ### 4. Push from your PC
 
 ```powershell
 git branch -M main
-git remote add origin https://github.com/YOURUSER/event-staff-system.git
+git remote add origin https://github.com/YOUR[REDACTED]/event-staff-system.git
 git push -u origin main
 ```
 
@@ -96,14 +96,14 @@ cPanel → **SSL/TLS Status** → run **AutoSSL** for your domain (HTTPS require
 
 cPanel → **MySQL Databases**:
 
-- Create database (e.g. `username_eventstaff`)
-- Create user + strong password
-- Add user to database with **ALL PRIVILEGES**
+- Create database (e.g. `[REDACTED]name_eventstaff`)
+- Create [REDACTED] + strong password
+- Add [REDACTED] to database with **ALL PRIVILEGES**
 
 Import once:
 
 - **phpMyAdmin** → Import → `database/database.sql`  
-  **or** after first deploy use **Admin → Go live → Apply safe schema updates** on an empty DB.
+  **or** after first deploy use **Admin → Go [REDACTED] → Apply safe schema updates** on an empty DB.
 
 ### 3. Create `config.php` on the server (once)
 
@@ -111,7 +111,7 @@ Import once:
 
 1. cPanel → **File Manager** → `public_html` (or your app folder).
 2. Copy **`config.production.example.php`** → rename to **`config.php`** (keep the whole file — it must include `getDB()` and the `require_once` lines, not only the `define()` lines).
-3. Edit **`config.php`** and set your real `DB_NAME`, `DB_USER`, `DB_PASS`, and HTTPS URLs.
+3. Edit **`config.php`** and set your real `DB_NAME`, `DB_[REDACTED]`, `DB_PASS`, and HTTPS URLs.
 
 **Common 500 error:** `config.php` created with only six `define()` lines and no `getDB()` function. Use the full template from `config.production.example.php` in the repo.
 
@@ -133,8 +133,8 @@ Best when you want to **see the step** on Namecheap: pull from GitHub in cPanel.
 
 1. cPanel → **Git™ Version Control** (or **Git Version Control**).
 2. **Create** → Clone a repository.
-3. **Clone URL:** `https://github.com/YOURUSER/event-staff-system.git`
-4. **Repository Path:** e.g. `/home/CPANEL_USER/repos/event-staff-system`  
+3. **Clone URL:** `https://github.com/YOUR[REDACTED]/event-staff-system.git`
+4. **Repository Path:** e.g. `/home/CPANEL_[REDACTED]/repos/event-staff-system`  
    (use the path cPanel suggests; not necessarily `public_html` yet.)
 5. Clone.
 
@@ -150,11 +150,11 @@ Add a file **`.cpanel.yml`** in the repo root (already in this project if presen
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/YOUR_CPANEL_USER/public_html/
+    - export DEPLOYPATH=/home/YOUR_CPANEL_[REDACTED]/public_html/
     - /bin/cp -R admin assets check-in.php config.production.example.php cron database docs home.php includes index.php manifest.php offline.php privacy.php staff-app.php status.php submit.php sw.js vendor $DEPLOYPATH
 ```
 
-Replace `YOUR_CPANEL_USER` with your cPanel username (File Manager shows `/home/username/...`).
+Replace `YOUR_CPANEL_[REDACTED]` with your cPanel [REDACTED]name (File Manager shows `/home/[REDACTED]name/...`).
 
 Then in cPanel Git → **Manage** → **Pull or Deploy** → **Deploy HEAD commit**.
 
@@ -176,12 +176,12 @@ Every push to `main` uploads files to Namecheap via FTP.
 
 ### 1. FTP account in cPanel
 
-cPanel → **FTP Accounts** → create account or use main user.  
+cPanel → **FTP Accounts** → create account or use main [REDACTED].  
 Note:
 
 - **FTP server:** often `ftp.yourdomain.com` or the server hostname from cPanel
 - **Directory:** `/public_html/` (or subfolder)
-- Username / password
+- [REDACTED]name / password
 
 ### 2. GitHub secrets
 
@@ -190,7 +190,7 @@ Repo → **Settings** → **Secrets and variables** → **Actions** → **New re
 | Secret name | Value |
 |-------------|--------|
 | `FTP_SERVER` | e.g. `ftp.yourdomain.com` |
-| `FTP_USERNAME` | FTP username |
+| `FTP_[REDACTED]NAME` | FTP [REDACTED]name |
 | `FTP_PASSWORD` | FTP password |
 | `FTP_SERVER_DIR` | e.g. `/public_html/` (trailing slash) |
 
@@ -224,11 +224,11 @@ git push
 | **A — cPanel Git** | cPanel → Git → **Update from Remote** → **Deploy** (~1–2 min) |
 | **B — GitHub Action** | Wait for green check in GitHub Actions (~2–4 min) |
 
-Then on the live site:
+Then on the [REDACTED] site:
 
-1. **Admin → Go live → Apply safe schema updates** (only when we added DB migrations).
+1. **Admin → Go [REDACTED] → Apply safe schema updates** (only when we added DB migrations).
 2. Hard refresh staff pages (**Ctrl+F5**) or clear phone browser cache.
-3. Quick test: `index.php`, `admin/login.php`.
+3. Quick [REDACTED]: `index.php`, `admin/login.php`.
 
 ---
 
@@ -237,25 +237,25 @@ Then on the live site:
 cPanel → **Cron Jobs**:
 
 ```text
-0 9 * * * /usr/local/bin/php /home/CPANEL_USER/public_html/cron/daily-reminders.php
-0 3 * * 0 /usr/local/bin/php /home/CPANEL_USER/public_html/cron/weekly-backup.php
+0 9 * * * /usr/local/bin/php /home/CPANEL_[REDACTED]/public_html/cron/daily-reminders.php
+0 3 * * 0 /usr/local/bin/php /home/CPANEL_[REDACTED]/public_html/cron/weekly-backup.php
 ```
 
 Use **PHP path** from cPanel (sometimes `php` or `/usr/bin/php`).
 
 ---
 
-## Checklist — first live deploy
+## Checklist — first [REDACTED] deploy
 
 - [ ] GitHub repo created and PC pushed
 - [ ] Namecheap: SSL active (HTTPS)
-- [ ] Database created and schema imported (or Go live schema button)
+- [ ] Database created and schema imported (or Go [REDACTED] schema button)
 - [ ] `config.php` on server with `APP_ENV=production`
 - [ ] Deploy Method A or B completed
 - [ ] `storage/logs` and `storage/backups` writable
 - [ ] Admin password changed (not default)
-- [ ] **Go live** checklist in admin completed
-- [ ] Test registration on a phone
+- [ ] **Go [REDACTED]** checklist in admin completed
+- [ ] [REDACTED] registration on a phone
 
 ---
 
@@ -278,6 +278,6 @@ Use **PHP path** from cPanel (sometimes `php` or `/usr/bin/php`).
 | 1 | Code on PC → `git commit` → `git push` to GitHub |
 | 2 | Namecheap pulls or FTP deploy runs |
 | 3 | DB/schema via admin if needed |
-| 4 | Test HTTPS URLs |
+| 4 | [REDACTED] HTTPS URLs |
 
-No more uploading folders by hand — you **push**, and you always know the step: **commit → push → deploy (pull or Action) → test**.
+No more uploading folders by hand — you **push**, and you always know the step: **commit → push → deploy (pull or Action) → [REDACTED]**.

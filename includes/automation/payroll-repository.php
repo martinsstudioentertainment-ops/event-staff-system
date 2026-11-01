@@ -48,6 +48,17 @@ function payroll_build_preview(PDO $pdo, int $eventId = 0, string $workDate = ''
 
         $rate    = payroll_default_hourly_rate($pdo, $staffId);
 
+        // Prefer admin confidential rates (never written to staff-visible rate cards).
+        try {
+            require_once __DIR__ . '/../admin-confidential-pay.php';
+            $conf = getAdminConfidentialPayRate($pdo, $staffId, (int) ($row['event_id'] ?? 0));
+            if ($conf !== null && (float) $conf['staff_hourly_rate'] > 0) {
+                $rate = (float) $conf['staff_hourly_rate'];
+            }
+        } catch (Throwable $e) {
+            // optional table
+        }
+
         if ($rate <= 0 && tableExists($pdo, 'commission_invoice_lines')) {
             try {
                 $stmt = $pdo->prepare(

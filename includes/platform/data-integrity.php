@@ -425,10 +425,19 @@ function recommendCanonicalStaffId(PDO $pdo, array $staffIds): int
         $stmt = $pdo->query("
             SELECT s.id FROM staff s
             LEFT JOIN (
-                SELECT staff_id, COUNT(*) AS reg_cnt FROM staff_registrations WHERE staff_id IN ({$in}) GROUP BY staff_id
+                SELECT staff_id, COUNT(*) AS reg_cnt
+                FROM staff_registrations
+                WHERE staff_id IN ({$in})
+                GROUP BY staff_id
             ) r ON r.staff_id = s.id
             WHERE s.id IN ({$in})
-            ORDER BY COALESCE(r.reg_cnt, 0) DESC, s.id ASC
+            ORDER BY
+                CASE WHEN s.psa_register_status = 'verified' THEN 1 ELSE 0 END DESC,
+                CASE WHEN s.profile_completed = 1 THEN 1 ELSE 0 END DESC,
+                CASE WHEN s.psa_licence IS NOT NULL AND TRIM(s.psa_licence) <> '' AND s.psa_licence NOT LIKE 'TEMP-PSA-%' THEN 1 ELSE 0 END DESC,
+                COALESCE(r.reg_cnt, 0) DESC,
+                COALESCE(s.updated_at, s.created_at) DESC,
+                s.id ASC
             LIMIT 1
         ");
 
@@ -882,13 +891,506 @@ function previewStaffMergePlan(PDO $pdo, int $keepId, int $mergeId): array
 
     return [
         'ok'      => true,
-        'message' => 'Preview only — no changes made',
+        'message' => 'Preview — execute via merge-duplicate-staff cron with confirm=1',
         'plan'    => [
             'Keep staff #' . $keepId . ' (' . dataIntegrityStaffLabel($keep) . ')',
-            'Reassign staff_registrations.staff_id from #' . $mergeId . ' → #' . $keepId,
-            'Reassign staff_messages.staff_id from #' . $mergeId . ' → #' . $keepId,
-            'Flag staff #' . $mergeId . ' as duplicate (no row deletion)',
-            'Requires superuser confirmation to execute',
+            'Copy missing/newer profile fields from #' . $mergeId . ' onto #' . $keepId,
+            'Reassign all staff_id foreign keys from #' . $mergeId . ' → #' . $keepId,
+            'Delete staff row #' . $mergeId,
         ],
+    ];
+}
+
+/**
+ * @return list<array{reason: string, key: string, staff_ids: list<int>, recommended: int}>
+ */
+function findMergeableStaffDuplicateGroups(PDO $pdo): array
+{
+    require_once dirname(__DIR__) . '/staff-repository.php';
+
+    $groups = [];
+    $seen   = [];
+
+    $addGroup = static function (string $reason, string $key, array $ids) use ($pdo, &$groups, &$seen): void {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $id): bool => $id > 0)));
+        sort($ids);
+        if (count($ids) < 2) {
+            return;
+        }
+        $sig = implode('-', $ids);
+        if (isset($seen[$sig])) {
+            return;
+        }
+        $seen[$sig] = true;
+        $groups[] = [
+            'reason'      => $reason,
+            'key'         => $key,
+            'staff_ids'   => $ids,
+            'recommended' => recommendCanonicalStaffId($pdo, $ids),
+        ];
+    };
+
+    foreach (auditDuplicateEmailsMain($pdo) as $dup) {
+        $email = strtolower(trim((string) ($dup['email'] ?? '')));
+        if ($email === '' || $email === 'null') {
+            continue;
+        }
+        $addGroup('same_email', 'email:' . $email, $dup['staff_ids'] ?? []);
+    }
+
+    try {
+        $psaRows = $pdo->query("
+            SELECT UPPER(TRIM(psa_licence)) AS psa_key,
+                   GROUP_CONCAT(id ORDER BY id) AS staff_ids,
+                   COUNT(*) AS cnt
+            FROM staff
+            WHERE psa_licence IS NOT NULL
+              AND TRIM(psa_licence) <> ''
+              AND psa_licence NOT LIKE 'TEMP-PSA-%'
+              AND psa_licence NOT LIKE 'EM000000/%'
+            GROUP BY psa_key
+            HAVING cnt > 1
+            LIMIT 200
+        ")->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e) {
+        $psaRows = [];
+    }
+    foreach ($psaRows as $row) {
+        $ids = array_map('intval', explode(',', (string) ($row['staff_ids'] ?? '')));
+        if (!staffDuplicateGroupNamesCompatible($pdo, $ids)) {
+            continue;
+        }
+        $addGroup('same_psa', 'psa:' . strtolower((string) ($row['psa_key'] ?? '')), $ids);
+    }
+
+    foreach (auditDuplicatePhonesMain($pdo) as $dup) {
+        $ids = $dup['staff_ids'] ?? [];
+        if (count($ids) < 2) {
+            continue;
+        }
+        if (!staffDuplicateGroupSafeForPhoneMerge($pdo, $ids)) {
+            continue;
+        }
+        $addGroup('same_phone_same_person', 'phone:' . preg_replace('/\D+/', '', (string) ($dup['phone'] ?? '')), $ids);
+    }
+
+    // Exact same first+surname (different emails/phones) — merge only when clearly same person.
+    foreach (auditDuplicateStaffNamesMain($pdo) as $dup) {
+        $ids = $dup['staff_ids'] ?? [];
+        if (count($ids) < 2) {
+            continue;
+        }
+        if (!staffDuplicateGroupSafeForNameMerge($pdo, $ids)) {
+            continue;
+        }
+        $addGroup(
+            'same_name',
+            'name:' . strtolower(trim((string) ($dup['fn'] ?? '') . '|' . (string) ($dup['sn'] ?? ''))),
+            $ids
+        );
+    }
+
+    return $groups;
+}
+
+/** @return list<array<string, mixed>> */
+function auditDuplicateStaffNamesMain(PDO $pdo): array
+{
+    try {
+        $rows = $pdo->query("
+            SELECT LOWER(TRIM(first_name)) AS fn, LOWER(TRIM(surname)) AS sn,
+                   COUNT(*) AS cnt, GROUP_CONCAT(id ORDER BY id) AS staff_ids
+            FROM staff
+            WHERE TRIM(first_name) <> '' AND TRIM(surname) <> ''
+              AND LOWER(TRIM(surname)) NOT LIKE '%(duplicate)%'
+            GROUP BY fn, sn
+            HAVING cnt > 1
+            ORDER BY cnt DESC
+            LIMIT 100
+        ")->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+
+    $out = [];
+    foreach ($rows as $row) {
+        $ids = array_map('intval', explode(',', (string) ($row['staff_ids'] ?? '')));
+        $out[] = [
+            'fn'          => (string) ($row['fn'] ?? ''),
+            'sn'          => (string) ($row['sn'] ?? ''),
+            'count'       => (int) ($row['cnt'] ?? 0),
+            'staff_ids'   => $ids,
+            'recommended' => recommendCanonicalStaffId($pdo, $ids),
+        ];
+    }
+
+    return $out;
+}
+
+/** @param list<int> $staffIds */
+function staffDuplicateGroupSafeForNameMerge(PDO $pdo, array $staffIds): bool
+{
+    $emails = [];
+    $phones = [];
+    $psas = [];
+    $hasDobMatch = false;
+    $dobs = [];
+
+    foreach ($staffIds as $id) {
+        $row = getStaffById($pdo, (int) $id);
+        if ($row === null) {
+            continue;
+        }
+        $email = strtolower(trim((string) ($row['email'] ?? '')));
+        $phone = preg_replace('/\D+/', '', (string) ($row['mobile'] ?? '')) ?? '';
+        $psa = strtoupper(trim((string) ($row['psa_licence'] ?? '')));
+        $dob = substr(trim((string) ($row['date_of_birth'] ?? '')), 0, 10);
+        if ($email !== '') {
+            $emails[] = $email;
+        }
+        if ($phone !== '') {
+            $phones[] = $phone;
+        }
+        if ($psa !== '' && !str_starts_with($psa, 'TEMP-PSA-') && !str_starts_with($psa, 'EM000000/')) {
+            $psas[] = $psa;
+        }
+        if ($dob !== '') {
+            $dobs[] = $dob;
+        }
+    }
+
+    $emails = array_values(array_unique($emails));
+    $phones = array_values(array_unique($phones));
+    $psas = array_values(array_unique($psas));
+    $dobs = array_values(array_unique($dobs));
+
+    // Same DOB → same person
+    if (count($dobs) === 1 && count($staffIds) >= 2) {
+        $hasDobMatch = true;
+    }
+
+    // Shared phone or PSA → same person
+    $sharedContact = count($phones) === 1 || count($psas) === 1;
+
+    // Only one real email among the set (others blank) → safe to merge onto that profile
+    $oneEmail = count($emails) <= 1;
+
+    $markedDuplicate = false;
+    foreach ($staffIds as $id) {
+        $row = getStaffById($pdo, (int) $id);
+        if ($row !== null && stripos((string) ($row['surname'] ?? ''), '(duplicate)') !== false) {
+            $markedDuplicate = true;
+            break;
+        }
+    }
+
+    // Same phone + same name already required by caller for phone groups;
+    // for name groups, also allow merge when they share a phone.
+    return $hasDobMatch || $sharedContact || $oneEmail || $markedDuplicate;
+}
+
+/** @param list<int> $staffIds */
+function staffDuplicateGroupNamesCompatible(PDO $pdo, array $staffIds): bool
+{
+    $names = [];
+    foreach ($staffIds as $id) {
+        $row = staffRecordSummary($pdo, (int) $id);
+        if ($row === []) {
+            continue;
+        }
+        $raw = trim((string) ($row['first_name'] ?? '') . ' ' . (string) ($row['surname'] ?? ''));
+        $names[] = staffNormalizeCompareName($raw);
+    }
+    $names = array_values(array_filter($names, static fn (string $n): bool => $n !== ''));
+    if (count($names) < 2) {
+        return true;
+    }
+    $base = $names[0];
+    foreach ($names as $n) {
+        similar_text($base, $n, $pct);
+        if ($pct < 70.0) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function staffNormalizeCompareName(string $name): string
+{
+    $name = strtolower(trim($name));
+    $name = preg_replace('/\s*\(\s*duplicate\s*\)\s*/i', ' ', $name) ?? $name;
+    $name = preg_replace('/\s+/', ' ', $name) ?? $name;
+
+    return trim($name);
+}
+
+/** @param list<int> $staffIds */
+function staffDuplicateGroupSafeForPhoneMerge(PDO $pdo, array $staffIds): bool
+{
+    if (!staffDuplicateGroupNamesCompatible($pdo, $staffIds)) {
+        return false;
+    }
+    $emails = [];
+    $markedDuplicate = false;
+    foreach ($staffIds as $id) {
+        $row = staffRecordSummary($pdo, (int) $id);
+        $email = strtolower(trim((string) ($row['email'] ?? '')));
+        $surname = (string) ($row['surname'] ?? '');
+        if (stripos($surname, '(duplicate)') !== false) {
+            $markedDuplicate = true;
+        }
+        if ($email !== '') {
+            $emails[] = $email;
+        }
+    }
+    $emails = array_values(array_unique($emails));
+
+    // Explicit "(duplicate)" surname → merge even if emails differ.
+    if ($markedDuplicate) {
+        return true;
+    }
+
+    // Different real emails + same phone → likely different people; skip.
+    return count($emails) <= 1;
+}
+
+/**
+ * Prefer keep row; fill blanks from merge; prefer verified PSA / newer timestamps.
+ *
+ * @param array<string, mixed> $keep
+ * @param array<string, mixed> $merge
+ * @return array<string, mixed>
+ */
+function buildMergedStaffProfileFields(array $keep, array $merge): array
+{
+    $fields = [
+        'surname', 'first_name', 'full_address', 'eircode', 'mobile', 'gender',
+        'pps_number', 'bank_iban', 'staff_role', 'date_of_birth',
+        'psa_licence', 'psa_expiry_date', 'psa_front_image', 'psa_back_image',
+        'psa_register_status', 'psa_register_name', 'psa_register_checked_at',
+        'email',
+    ];
+    $out = [];
+
+    foreach ($fields as $field) {
+        $keepVal  = trim((string) ($keep[$field] ?? ''));
+        $mergeVal = trim((string) ($merge[$field] ?? ''));
+        if ($field === 'email') {
+            if ($keepVal === '' && $mergeVal !== '') {
+                $out[$field] = $mergeVal;
+            }
+            continue;
+        }
+        if ($field === 'psa_register_status') {
+            $keepRank  = $keepVal === 'verified' ? 2 : ($keepVal !== '' ? 1 : 0);
+            $mergeRank = $mergeVal === 'verified' ? 2 : ($mergeVal !== '' ? 1 : 0);
+            if ($mergeRank > $keepRank) {
+                $out[$field] = $mergeVal;
+                if ($mergeVal !== '') {
+                    foreach (['psa_register_name', 'psa_register_checked_at', 'psa_licence', 'psa_expiry_date'] as $psaField) {
+                        $mv = trim((string) ($merge[$psaField] ?? ''));
+                        if ($mv !== '') {
+                            $out[$psaField] = $mv;
+                        }
+                    }
+                }
+            }
+            continue;
+        }
+        if ($keepVal === '' && $mergeVal !== '') {
+            $out[$field] = $mergeVal;
+        }
+    }
+
+    if ((int) ($keep['is_blacklisted'] ?? 0) !== 1 && (int) ($merge['is_blacklisted'] ?? 0) === 1) {
+        $out['is_blacklisted'] = 1;
+        $out['blacklist_reason'] = trim((string) ($merge['blacklist_reason'] ?? 'Merged from duplicate profile'));
+    }
+
+    if ((int) ($keep['profile_completed'] ?? 0) !== 1 && (int) ($merge['profile_completed'] ?? 0) === 1) {
+        $out['profile_completed'] = 1;
+    }
+
+    return $out;
+}
+
+/**
+ * @return array{ok: bool, keep_id: int, merge_id: int, fields_updated: list<string>, reassigned: array<string, int>, deleted: bool, error?: string}
+ */
+function executeStaffMerge(PDO $pdo, int $keepId, int $mergeId): array
+{
+    require_once dirname(__DIR__) . '/staff-repository.php';
+    require_once dirname(__DIR__) . '/staff-registration-schema.php';
+
+    if ($keepId < 1 || $mergeId < 1 || $keepId === $mergeId) {
+        return ['ok' => false, 'keep_id' => $keepId, 'merge_id' => $mergeId, 'fields_updated' => [], 'reassigned' => [], 'deleted' => false, 'error' => 'Invalid IDs'];
+    }
+
+    $keep  = getStaffById($pdo, $keepId);
+    $merge = getStaffById($pdo, $mergeId);
+    if ($keep === null || $merge === null) {
+        return ['ok' => false, 'keep_id' => $keepId, 'merge_id' => $mergeId, 'fields_updated' => [], 'reassigned' => [], 'deleted' => false, 'error' => 'Staff not found'];
+    }
+
+    $fields = buildMergedStaffProfileFields($keep, $merge);
+    $reassigned = [];
+
+    try {
+        $pdo->beginTransaction();
+
+        if ($fields !== []) {
+            $sets = [];
+            $params = ['id' => $keepId];
+            foreach ($fields as $col => $val) {
+                if (!preg_match('/^[a-z_]+$/', $col)) {
+                    continue;
+                }
+                $sets[] = "`{$col}` = :{$col}";
+                $params[$col] = $val;
+            }
+            if ($sets !== []) {
+                $pdo->prepare('UPDATE staff SET ' . implode(', ', $sets) . ' WHERE id = :id')->execute($params);
+            }
+        }
+
+        $tableStmt = $pdo->query("
+            SELECT DISTINCT TABLE_NAME
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND COLUMN_NAME = 'staff_id'
+              AND TABLE_NAME <> 'staff'
+        ");
+        foreach ($tableStmt->fetchAll(PDO::FETCH_COLUMN) ?: [] as $table) {
+            $table = (string) $table;
+            if (!preg_match('/^[a-z0-9_]+$/i', $table)) {
+                continue;
+            }
+            try {
+                $upd = $pdo->prepare("UPDATE `{$table}` SET staff_id = :keep WHERE staff_id = :merge");
+                $upd->execute(['keep' => $keepId, 'merge' => $mergeId]);
+                $reassigned[$table] = $upd->rowCount();
+            } catch (Throwable $e) {
+                // Unique constraint clashes — leave and continue; delete of merge may fail if still referenced.
+                $reassigned[$table] = -1;
+            }
+        }
+
+        $keepEmail  = strtolower(trim((string) ($fields['email'] ?? $keep['email'] ?? '')));
+        $mergeEmail = strtolower(trim((string) ($merge['email'] ?? '')));
+        if ($keepEmail !== '' && $mergeEmail !== '' && $keepEmail === $mergeEmail) {
+            // already same
+        } elseif ($keepEmail !== '' && staffRegistrationColumnExists($pdo, 'staff_id')) {
+            $pdo->prepare(
+                'UPDATE staff_registrations SET staff_id = :keep
+                 WHERE staff_id = :merge OR (LOWER(TRIM(email)) = :email AND (staff_id IS NULL OR staff_id = 0 OR staff_id = :merge2))'
+            )->execute([
+                'keep' => $keepId,
+                'merge' => $mergeId,
+                'email' => $mergeEmail !== '' ? $mergeEmail : $keepEmail,
+                'merge2' => $mergeId,
+            ]);
+        }
+
+        $pdo->prepare('DELETE FROM staff WHERE id = :id')->execute(['id' => $mergeId]);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        return [
+            'ok' => false,
+            'keep_id' => $keepId,
+            'merge_id' => $mergeId,
+            'fields_updated' => array_keys($fields),
+            'reassigned' => $reassigned,
+            'deleted' => false,
+            'error' => $e->getMessage(),
+        ];
+    }
+
+    return [
+        'ok' => true,
+        'keep_id' => $keepId,
+        'merge_id' => $mergeId,
+        'fields_updated' => array_keys($fields),
+        'reassigned' => $reassigned,
+        'deleted' => true,
+    ];
+}
+
+/**
+ * @return array{ok: bool, dry_run: bool, before_staff: int, after_staff: int, groups: int, merges: list<array<string, mixed>>, errors: list<string>}
+ */
+function mergeAllDuplicateStaff(PDO $pdo, bool $dryRun = true): array
+{
+    require_once dirname(__DIR__) . '/staff-repository.php';
+
+    $before = (int) $pdo->query('SELECT COUNT(*) FROM staff')->fetchColumn();
+    $groups = findMergeableStaffDuplicateGroups($pdo);
+    $merges = [];
+    $errors = [];
+
+    foreach ($groups as $group) {
+        $ids = $group['staff_ids'];
+        $keepId = (int) ($group['recommended'] ?? 0);
+        if ($keepId < 1 || !in_array($keepId, $ids, true)) {
+            $keepId = $ids[0];
+        }
+        $toMerge = array_values(array_filter($ids, static fn (int $id): bool => $id !== $keepId));
+        foreach ($toMerge as $mergeId) {
+            if ($dryRun) {
+                $keep = staffRecordSummary($pdo, $keepId);
+                $lose = staffRecordSummary($pdo, $mergeId);
+                $merges[] = [
+                    'dry_run' => true,
+                    'reason'  => $group['reason'],
+                    'keep_id' => $keepId,
+                    'merge_id'=> $mergeId,
+                    'keep'    => dataIntegrityStaffLabel($keep),
+                    'merge'   => dataIntegrityStaffLabel($lose),
+                    'keep_email' => (string) ($keep['email'] ?? ''),
+                    'merge_email'=> (string) ($lose['email'] ?? ''),
+                ];
+                continue;
+            }
+
+            // Re-resolve keep in case earlier merge already deleted an id.
+            if (getStaffById($pdo, $keepId) === null) {
+                $alive = [];
+                foreach ($ids as $id) {
+                    if (getStaffById($pdo, (int) $id) !== null) {
+                        $alive[] = (int) $id;
+                    }
+                }
+                if (count($alive) < 2) {
+                    continue;
+                }
+                $keepId = recommendCanonicalStaffId($pdo, $alive);
+                if ($mergeId === $keepId || getStaffById($pdo, $mergeId) === null) {
+                    continue;
+                }
+            }
+
+            $result = executeStaffMerge($pdo, $keepId, $mergeId);
+            $result['reason'] = $group['reason'];
+            $merges[] = $result;
+            if (!$result['ok']) {
+                $errors[] = 'merge #' . $mergeId . '→#' . $keepId . ': ' . (string) ($result['error'] ?? 'failed');
+            }
+        }
+    }
+
+    $after = (int) $pdo->query('SELECT COUNT(*) FROM staff')->fetchColumn();
+
+    return [
+        'ok'           => $errors === [],
+        'dry_run'      => $dryRun,
+        'before_staff' => $before,
+        'after_staff'  => $after,
+        'groups'       => count($groups),
+        'merges'       => $merges,
+        'errors'       => $errors,
     ];
 }

@@ -1,25 +1,31 @@
 {
-    "generated_at": "2026-06-30T06:39:54Z",
-    "root": "E:\\event-staff-system",
+    "generated_at": "2026-06-10T14:13:31Z",
+    "root": "/home/olastofx/public_html",
     "mode": "read_only",
     "summary": {
         "issues_critical": 0,
         "issues_high": 0,
-        "issues_medium": 0,
-        "issues_low": 3,
-        "total_findings": 3
+        "issues_medium": 4,
+        "issues_low": 0,
+        "total_findings": 4
     },
     "storage": [
         {
             "path": "storage/backups",
             "label": "Database backups",
-            "bytes": 5027244224,
+            "bytes": 576785216,
+            "writable": true
+        },
+        {
+            "path": "assets",
+            "label": "CSS / JS assets",
+            "bytes": 5746576,
             "writable": true
         },
         {
             "path": "storage/branding",
             "label": "Branding uploads",
-            "bytes": 3695755,
+            "bytes": 3488210,
             "writable": true
         },
         {
@@ -29,51 +35,69 @@
             "writable": true
         },
         {
-            "path": "assets",
-            "label": "CSS / JS assets",
-            "bytes": 1076021,
+            "path": "storage/logs",
+            "label": "Log files",
+            "bytes": 462879,
             "writable": true
         },
         {
             "path": "storage/google",
             "label": "Google credentials",
-            "bytes": 2418,
-            "writable": true
-        },
-        {
-            "path": "storage/logs",
-            "label": "Log files",
-            "bytes": 1219,
+            "bytes": 2405,
             "writable": true
         }
     ],
-    "large_files": [],
+    "large_files": [
+        {
+            "path": "uploads/psa/psa_back_44_1780940056_fb2a25d8.jpg",
+            "bytes": 5998191
+        },
+        {
+            "path": "uploads/psa/psa_back_44_1780940608_322e6741.jpg",
+            "bytes": 5998191
+        }
+    ],
     "old_backups": [],
     "duplicate_assets": [],
-    "empty_directories": [
-        "uploads/psa",
-        "docs/api/mobile/signoff-screenshots",
-        "docs/screenshots/a5-verification/mobile"
+    "empty_directories": [],
+    "log_files": [
+        {
+            "file": "mail.log",
+            "bytes": 333343
+        },
+        {
+            "file": "google-sheets.log",
+            "bytes": 129536
+        }
     ],
-    "log_files": [],
     "findings": [
         {
-            "severity": "low",
-            "category": "empty_directory",
-            "path": "uploads/psa",
-            "message": "Empty directory \u2014 safe to review for removal"
+            "severity": "medium",
+            "category": "large_file",
+            "path": "uploads/psa/psa_back_44_1780940056_fb2a25d8.jpg",
+            "bytes": 5998191,
+            "message": "File exceeds 5 MB outside vendor/"
         },
         {
-            "severity": "low",
-            "category": "empty_directory",
-            "path": "docs/api/mobile/signoff-screenshots",
-            "message": "Empty directory \u2014 safe to review for removal"
+            "severity": "medium",
+            "category": "large_file",
+            "path": "uploads/psa/psa_back_44_1780940608_322e6741.jpg",
+            "bytes": 5998191,
+            "message": "File exceeds 5 MB outside vendor/"
         },
         {
-            "severity": "low",
-            "category": "empty_directory",
-            "path": "docs/screenshots/a5-verification/mobile",
-            "message": "Empty directory \u2014 safe to review for removal"
+            "severity": "medium",
+            "category": "large_log",
+            "path": "storage/logs/mail.log",
+            "bytes": 333343,
+            "message": "Large log file \u2014 truncate via System cleanup (manual)"
+        },
+        {
+            "severity": "medium",
+            "category": "large_log",
+            "path": "storage/logs/google-sheets.log",
+            "bytes": 129536,
+            "message": "Large log file \u2014 truncate via System cleanup (manual)"
         }
     ],
     "rollback_note": "Restore from storage/backups/pre-deploy-*.zip or admin \u2192 Backups. Never auto-delete."

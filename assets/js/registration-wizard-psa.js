@@ -127,7 +127,7 @@
                 status.textContent = '';
                 return;
             }
-            status.textContent = 'Checking licence format…';
+            status.textContent = 'Checking licence against the PSA register…';
             var body = new FormData();
             body.append('csrf_token', csrf);
             body.append('psa_licence', licence);

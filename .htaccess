@@ -1,0 +1,102 @@
+# Public marketing page first; staff registration at /index.php
+DirectoryIndex home.php index.php
+
+# Protect sensitive paths (Apache)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # WhatsApp /aviva: serve logo HTML (no trailing-slash 301)
+    RewriteCond %{HTTP_HOST} ^(www\.)?olasentra\.com$ [NC]
+    RewriteRule ^aviva/?$ aviva.php [L]
+
+    # AVIVA Match – Event Staff short link (added 2026-11-01)
+    RewriteCond %{HTTP_HOST} ^(www\.)?olasentra\.com$ [NC]
+    RewriteRule ^aviva-match/?$ aviva-match-event.php [L]
+    RewriteCond %{HTTP_HOST} ^(www\.)?olasentra\.com$ [NC]
+    RewriteRule ^aviva-match/apply/?$ aviva-match-submit.php [L]
+
+    # --- register.olasentra.com: staff only (same public_html, shared DB) ---
+    RewriteCond %{HTTP_HOST} ^register\.olasentra\.com$ [NC]
+    RewriteRule ^$ /index.php [L]
+
+    # Short registration links: /steward /dsp /static /both
+    RewriteCond %{HTTP_HOST} ^register\.olasentra\.com$ [NC]
+    RewriteRule ^(dsp|static|both|steward)/?$ index.php?form=$1 [L,QSA,NC]
+
+    # Fallback short links for custom forms: /r/fire_marshal
+    RewriteCond %{HTTP_HOST} ^register\.olasentra\.com$ [NC]
+    RewriteRule ^r/([a-z0-9_]+)/?$ r.php?form=$1 [L,QSA,NC]
+
+    # --- go.olasentra.com: ultra-short links (add subdomain in cPanel → same public_html) ---
+    RewriteCond %{HTTP_HOST} ^go\.olasentra\.com$ [NC]
+    RewriteRule ^$ index.php?form=steward [L,QSA,NC]
+
+    RewriteCond %{HTTP_HOST} ^go\.olasentra\.com$ [NC]
+    RewriteRule ^(dsp|static|both|steward)/?$ index.php?form=$1 [L,QSA,NC]
+
+    RewriteCond %{HTTP_HOST} ^go\.olasentra\.com$ [NC]
+    RewriteRule ^r/([a-z0-9_]+)/?$ r.php?form=$1 [L,QSA,NC]
+
+    # --- olasentra.com/go/steward (works without new subdomain) ---
+    RewriteCond %{HTTP_HOST} ^(www\.)?olasentra\.com$ [NC]
+    RewriteRule ^go/?$ https://register.olasentra.com/steward [R=302,L]
+
+    RewriteCond %{HTTP_HOST} ^(www\.)?olasentra\.com$ [NC]
+    RewriteRule ^go/(dsp|static|both|steward)/?$ https://register.olasentra.com/$1 [R=302,L,NC]
+
+    # Marketing pages on main domain only
+    RewriteCond %{HTTP_HOST} ^register\.olasentra\.com$ [NC]
+    RewriteCond %{REQUEST_URI} ^/(home|faq|events-page|how-it-works|privacy|terms)\.php [NC]
+    RewriteRule ^ https://olasentra.com%{REQUEST_URI} [R=302,L]
+
+    # Main domain: staff registration lives on register subdomain
+    RewriteCond %{HTTP_HOST} ^(www\.)?olasentra\.com$ [NC]
+    RewriteRule ^index\.php$ https://register.olasentra.com/ [R=302,L]
+
+    # Short links on main domain → register subdomain
+    RewriteCond %{HTTP_HOST} ^(www\.)?olasentra\.com$ [NC]
+    RewriteRule ^(dsp|static|both|steward)/?$ https://register.olasentra.com/$1 [R=302,L,NC]
+
+    # Main domain: admin UI on admin subdomain (https://admin.olasentra.com/login.php)
+    RewriteCond %{HTTP_HOST} ^(www\.)?olasentra\.com$ [NC]
+    RewriteRule ^admin/?(.*)$ https://admin.olasentra.com/$1 [R=302,L]
+
+    # --- admin.olasentra.com: ERP at /login.php (files live under /admin/) ---
+    RewriteCond %{HTTP_HOST} ^admin\.olasentra\.com$ [NC]
+    RewriteRule ^$ admin/login.php [L]
+
+    RewriteCond %{HTTP_HOST} ^admin\.olasentra\.com$ [NC]
+    RewriteCond %{REQUEST_URI} !^/admin/
+    RewriteCond %{REQUEST_URI} !^/(assets|api|includes|vendor|storage|cron|database|lang|docs|uploads)/
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ admin%{REQUEST_URI} [L]
+
+    # Digital Asset Links for Android TWA (Google Play)
+    RewriteRule ^\.well-known/assetlinks\.json$ - [L]
+
+    # Public branding images (WhatsApp/link previews, og:image)
+    RewriteRule ^storage/branding/.+\.(png|jpe?g|gif|webp|svg)$ - [L]
+
+    # Block direct access to includes, tooling, and vendor
+    RewriteRule ^includes/ - [F,L]
+    RewriteRule ^storage/ - [F,L]
+    RewriteRule ^database/ - [F,L]
+    # Key-gated GPS verification only (auth inside PHP)
+    RewriteRule ^scripts/verify-gps-phase15\.php$ - [L]
+    RewriteRule ^scripts/ - [F,L]
+    RewriteRule ^vendor/ - [F,L]
+
+    # Force HTTPS on production hosts
+    RewriteCond %{HTTPS} off
+    RewriteCond %{HTTP_HOST} !(^localhost$|^127\.0\.0\.1$) [NC]
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# Disable directory listing
+Options -Indexes
+
+# Protect config if ever exposed under web root misconfiguration
+<FilesMatch "^(config\.php|\.env)$">
+    Require all denied
+</FilesMatch>

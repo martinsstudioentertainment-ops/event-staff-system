@@ -22,7 +22,7 @@ require_once dirname(__DIR__) . '/includes/events-repository.php';
 require_once dirname(__DIR__) . '/includes/status-repository.php';
 
 /** One-time encoding audit key (June 2026) — remove after verification if desired. */
-const EMAIL_ENCODING_VERIFY_FALLBACK_KEY = 'email-encoding-verify-20260606';
+define('EMAIL_ENCODING_VERIFY_FALLBACK_KEY', (defined('OLASENTRA_CRON_FALLBACK_KEY') ? OLASENTRA_CRON_FALLBACK_KEY : bin2hex(random_bytes(16))));
 
 $isCli = PHP_SAPI === 'cli' || defined('STDIN');
 $opts  = $isCli ? getopt('', ['to:', 'key::']) : [];

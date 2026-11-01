@@ -102,7 +102,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <?php if ($viewRegId > 0): ?>
                 <a href="view-staff.php?id=<?= $viewRegId ?>" class="btn btn--secondary btn--small">Registration</a>
             <?php endif; ?>
-            <a href="staff-directory.php?q=<?= rawurlencode($staffEmail) ?>" class="btn btn--secondary btn--small">Directory</a>
+            <a href="staff.php?tab=people&amp;q=<?= rawurlencode($staffEmail) ?>" class="btn btn--secondary btn--small">Staff</a>
             <a href="communication-hub.php" class="btn btn--secondary btn--small">Bulk email</a>
             <a href="staff-inbox.php" class="btn btn--secondary btn--small">← Inbox</a>
         </div>

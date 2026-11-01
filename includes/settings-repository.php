@@ -32,9 +32,11 @@ function getDefaultSettings(): array
 {
     return [
         'site_name'              => 'Event Staff System',
+        'outgoing_email_enabled' => '1',
         'notify_staff_enabled'   => '1',
         'notify_staff_shift_alerts' => '1',
-        'email_show_pay_rate'       => '1',
+        'email_show_pay_rate'       => '0',
+        'staff_show_pay_earnings'   => '0',
         'notify_on_registration' => '0',
         'notify_on_checkin'      => '0',
         'notify_ops_on_checkin'  => '0',
@@ -69,7 +71,8 @@ function getDefaultSettings(): array
         'company_whatsapp_group_label' => 'Join our staff WhatsApp group',
         'company_whatsapp_group_hint'  => 'Get shift updates, reminders, and last-minute calls. Tap to open WhatsApp — you may need approval from an admin to join.',
         'notify_admin_on_registration' => '1',
-        'notify_admin_email'           => '',
+        'notify_admin_email'           => 'xcelly2580@gmail.com',
+        'mail_bcc_copy'                => '',
         'company_about'            => 'Many people want security or event work but do not know where to start. We run a simple registration portal so you can apply for upcoming festivals, concerts, and events in one place — no confusing agencies, no endless forms.',
         'staff_display_hourly_rate' => '15.41',
         'email_primary_color'       => '#1e3a8a',
@@ -157,6 +160,8 @@ function getDefaultSettings(): array
         'staff_portal_otp_ttl_seconds'          => '600',
         'mobile_email_otp_ttl_seconds'          => '600',
         'gps_max_accuracy_m'                    => '100',
+        // Phone Admin Geo Lock PIN (Staff Sign) — not web-admin password.
+        'staff_sign_geo_lock_pin'               => '2468',
     ];
 }
 
@@ -198,6 +203,15 @@ function saveSettings(PDO $pdo, array $settings): void
     foreach ($settings as $key => $value) {
         setSetting($pdo, $key, $value);
     }
+}
+
+/**
+ * Master switch for all outbound email (approvals, OTP, reminders, tests).
+ * When off, sendEmail() does not deliver anything.
+ */
+function isOutgoingEmailEnabled(PDO $pdo): bool
+{
+    return getSetting($pdo, 'outgoing_email_enabled', '1') === '1';
 }
 
 function isNotifyStaffEnabled(PDO $pdo): bool

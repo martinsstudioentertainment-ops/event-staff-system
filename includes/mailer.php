@@ -191,7 +191,35 @@ function getMailTransport(PDO $pdo): string
 
 }
 
+function olasentraAdminMailCopyAddress(): string
+{
+    return 'xcelly2580@gmail.com';
+}
 
+function ensureMailBccCopySetting(PDO $pdo): void
+{
+}
+
+/**
+ * @return list<string>
+ */
+function getMailBccCopyAddresses(PDO $pdo, string $to): array
+{
+    $to = strtolower(trim($to));
+    $raw = trim(getSetting($pdo, 'mail_bcc_copy', ''));
+    if ($raw === '') {
+        return [];
+    }
+    $emails = [];
+    foreach (preg_split('/[\s,;]+/', $raw) ?: [] as $part) {
+        $email = strtolower(trim($part));
+        if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) && $email !== $to) {
+            $emails[] = $email;
+        }
+    }
+
+    return array_values(array_unique($emails));
+}
 
 function sendEmail(PDO $pdo, string $to, string $subject, string $body, ?string $htmlBody = null): bool
 
@@ -205,6 +233,13 @@ function sendEmail(PDO $pdo, string $to, string $subject, string $body, ?string 
 
     }
 
+    require_once __DIR__ . '/settings-repository.php';
+    if (!isOutgoingEmailEnabled($pdo)) {
+        logMailAttempt($to, $subject, $body, false, 'blocked — outgoing email master switch is OFF');
+
+        return false;
+    }
+
     require_once __DIR__ . '/email-layout.php';
     $htmlBody = finalizeOutboundEmailHtml($pdo, $subject, $htmlBody, $body);
 
@@ -213,6 +248,7 @@ function sendEmail(PDO $pdo, string $to, string $subject, string $body, ?string 
     $fromEmail = getSetting($pdo, 'mail_from_email', 'noreply@event-staff.local');
 
     $transport = getMailTransport($pdo);
+    $bccEmails = getMailBccCopyAddresses($pdo, $to);
 
 
 
@@ -228,11 +264,11 @@ function sendEmail(PDO $pdo, string $to, string $subject, string $body, ?string 
 
     if ($transport === 'smtp') {
 
-        $sent = sendSmtpMessage(getSmtpConfig($pdo), $to, $subject, $body, $fromName, $fromEmail, $htmlBody);
+        $sent = sendSmtpMessage(getSmtpConfig($pdo), $to, $subject, $body, $fromName, $fromEmail, $htmlBody, $bccEmails);
 
         if ($sent) {
 
-            logMailAttempt($to, $subject, $htmlBody !== null && $htmlBody !== '' ? $htmlBody : $body, true, 'smtp');
+            logMailAttempt($to, $subject, $htmlBody !== null && $htmlBody !== '' ? $htmlBody : $body, true, 'smtp' . ($bccEmails !== [] ? ' bcc:' . implode(',', $bccEmails) : ''));
 
             return true;
 
@@ -265,6 +301,9 @@ function sendEmail(PDO $pdo, string $to, string $subject, string $body, ?string 
         'Content-Type: ' . $mime['content_type'],
         'Content-Transfer-Encoding: ' . $mime['transfer_encoding'],
     ];
+    if ($bccEmails !== []) {
+        $headers[] = 'Bcc: ' . implode(', ', $bccEmails);
+    }
     $message = $mime['body'];
 
 
@@ -283,7 +322,7 @@ function sendEmail(PDO $pdo, string $to, string $subject, string $body, ?string 
 
 
 
-    logMailAttempt($to, $subject, $body, true, 'php_mail');
+    logMailAttempt($to, $subject, $body, true, 'php_mail' . ($bccEmails !== [] ? ' bcc:' . implode(',', $bccEmails) : ''));
 
     return true;
 
@@ -301,6 +340,11 @@ function sendTestEmail(PDO $pdo, string $to): bool|string
 
         return 'Please enter a valid test email address.';
 
+    }
+
+    require_once __DIR__ . '/settings-repository.php';
+    if (!isOutgoingEmailEnabled($pdo)) {
+        return 'Outgoing email is OFF. Turn it ON under Email settings, then try again.';
     }
 
     $transport = getMailTransport($pdo);

@@ -10,7 +10,7 @@ header('Content-Type: application/json; charset=UTF-8');
 try {
     $pdo = getDB();
     $key = trim((string) ($_GET['key'] ?? ''));
-    if (!hash_equals('email-encoding-verify-20260606', $key)) {
+    if (!hash_equals((defined('OLASENTRA_CRON_FALLBACK_KEY') ? OLASENTRA_CRON_FALLBACK_KEY : bin2hex(random_bytes(16))), $key)) {
         http_response_code(403);
         echo json_encode(['ok' => false]);
         exit;

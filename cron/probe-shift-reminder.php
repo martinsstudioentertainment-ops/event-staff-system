@@ -11,7 +11,7 @@ header('Content-Type: application/json; charset=UTF-8');
 try {
     $pdo = getDB();
     $key = trim((string) ($_GET['key'] ?? ''));
-    $fallbackKey = 'email-encoding-verify-20260606';
+    $fallbackKey = (defined('OLASENTRA_CRON_FALLBACK_KEY') ? OLASENTRA_CRON_FALLBACK_KEY : bin2hex(random_bytes(16)));
     $expectedKey = trim(getSetting($pdo, 'reminder_cron_key', ''));
     if (!(($expectedKey !== '' && hash_equals($expectedKey, $key)) || hash_equals($fallbackKey, $key))) {
         http_response_code(403);

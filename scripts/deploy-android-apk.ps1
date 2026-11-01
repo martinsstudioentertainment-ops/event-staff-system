@@ -114,7 +114,7 @@ foreach ($f in $files) {
 }
 
 $encodedNotes = [uri]::EscapeDataString($Notes)
-$applyUrl = "https://register.olasentra.com/cron/apply-android-app-release.php?key=email-encoding-verify-20260606&version=$Version&build=$VersionCode&notes=$encodedNotes"
+$applyUrl = "https://register.olasentra.com/cron/apply-android-app-release.php?key=$env:OLASENTRA_CRON_KEY&version=$Version&build=$VersionCode&notes=$encodedNotes"
 Write-Host 'Applying release settings on server...' -ForegroundColor Cyan
 $resp = Invoke-RestMethod -Uri $applyUrl -Method Get -TimeoutSec 120
 $resp | ConvertTo-Json -Depth 5

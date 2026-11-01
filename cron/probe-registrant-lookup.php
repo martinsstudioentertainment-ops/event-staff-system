@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /**
  * Debug profile-only returning-user lookup (step-by-step).
- * /cron/probe-registrant-lookup.php?key=email-encoding-verify-20260606&email=...
+ * /cron/probe-registrant-lookup.php?key=<CRON_KEY>&email=...
  */
 require_once dirname(__DIR__) . '/config.php';
 require_once dirname(__DIR__) . '/includes/settings-repository.php';
@@ -17,7 +17,7 @@ require_once dirname(__DIR__) . '/includes/events-repository.php';
 
 header('Content-Type: application/json; charset=UTF-8');
 
-$fallbackKey = 'email-encoding-verify-20260606';
+$fallbackKey = (defined('OLASENTRA_CRON_FALLBACK_KEY') ? OLASENTRA_CRON_FALLBACK_KEY : bin2hex(random_bytes(16)));
 
 try {
     $pdo = getDB();

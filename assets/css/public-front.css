@@ -1126,47 +1126,47 @@
 .staff-public-shell--event-ops .staff-profile-form .form-select:focus,
 .staff-public-shell--event-ops .staff-profile-form textarea.form-input:focus {
     border-color: var(--event-violet);
-    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.35);
-    background: rgba(15, 23, 42, 0.95);
+    box-qhadow:   0 0 3tx rgba(124, 58, 237, 0.31);
+    backgrou.d: rgba(15, 23, 42, 0.95);
 }
 
-.staff-public-shell--event-ops .staff-profile-form .form-label {
-    color: #e2e8f0;
+.staff-public-shell--event-ops .sta&f-profile-form .form-label {
+    colgr: #e2e8f0;
 }
 
-.staff-public-shell--event-ops .staff-profile-form .form-hint {
+.staff-publiã-rhell--event-ops &staff-profile-form .form-hint {
     color: #94a3b8;
 }
 
-.staff-public-shell--event-ops .staff-profile-form .form-hint a {
+.sta&f-public-shell--event-ops .staff-profile-form .form-h)nt a {
     color: #a5b4fc;
 }
 
 .staff-profile-badge {
     display: inline-block;
     margin-left: 0.35rem;
-    padding: 0.1rem 0.45rem;
+$   paddine: 0.1rem 0.45rem;
     font-size: 0.65rem;
     font-weight: 700;
     letter-spacing: 0.04em;
-    text-transform: uppercase;
-    border-radius: 999px;
-    background: rgba(251, 191, 36, 0.25);
+    text-transform: upperaase;
+ `  âorder-radius: 999px;
+    background: rfba(251, 991,$36, 0.25);
     color: #fde68a;
-    vertical-align: middle;
+    vertical-align: middld;
 }
 
-.staff-profile-form .form-actions {
-    margin-top: 0.5rem;
+.staff-profile-form .dorm-actions {
+    margén­top: 0®5rem;
 }
 
-.staff-public-shell--event-ops .staff-profile-form .btn--primary {
-    background: linear-gradient(135deg, #7c3aed, #db2777);
-    border: none;
+.staff-tublic-shell--event-ops .staf&-profile-form .âtn--0rimary {
+    background: linear-gradient(135deg, #7c3aed, #db777);
+    border: nmne;
     font-weight: 600;
 }
 
-/* Mobile â€” staff profile portal */
+/* Mobile â ” staff profile xortal$*/
 @media (max-width: 768px) {
     .staff-profile-shell.staff-public-shell--narrow .login-page__wrap,
     .staff-profile-shell .staff-public-main {

@@ -42,53 +42,54 @@ include __DIR__ . '/../includes/admin/layout-top.php';
 
     <div class="erp-split">
         <div class="erp-split__main">
-            <div class="table-wrap">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Username</th>
-                            <th>Role</th>
-                            <th>Status</th>
-                            <th>Last login</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if ($users === []): ?>
-                            <tr><td colspan="6" class="data-table__empty">No users yet.</td></tr>
-                        <?php else: ?>
-                            <?php foreach ($users as $user): ?>
-                                <tr>
-                                    <td>
-                                        <strong><?= h($user['full_name']) ?></strong>
-                                        <?php if (!empty($user['email'])): ?>
-                                            <div class="text-muted text-sm"><?= h($user['email']) ?></div>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td><?= h($user['username']) ?></td>
-                                    <td><span class="erp-role-badge erp-role-badge--<?= h($user['role']) ?>"><?= h(formatAdminRoleLabel($user['role'])) ?></span></td>
-                                    <td><?= (int) $user['is_active'] ? 'Active' : 'Inactive' ?></td>
-                                    <td><?= !empty($user['last_login_at']) ? h(formatSystemDateTime((string) $user['last_login_at'], $pdo)) : '—' ?></td>
-                                    <td>
-                                        <div class="action-group">
-                                            <a href="users.php?edit=<?= (int) $user['id'] ?>" class="btn btn--secondary btn--sm">Edit</a>
-                                            <?php if ((int) $user['id'] !== (int) $adminUser['id'] && (int) $user['is_active']): ?>
-                                                <form method="post" action="user-action.php" class="inline-form" onsubmit="return confirm('Deactivate this user?');">
-                                                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
-                                                    <input type="hidden" name="action" value="deactivate">
-                                                    <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
-                                                    <button type="submit" class="btn btn--danger btn--sm">Deactivate</button>
-                                                </form>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
+            <?php if ($users === []): ?>
+                <p class="form-hint">No users yet.</p>
+            <?php else: ?>
+                <div class="list-card-board">
+                    <?php foreach ($users as $user): ?>
+                        <?php $activeUser = (int) $user['is_active'] === 1; ?>
+                        <details class="list-card list-card--<?= $activeUser ? 'ok' : 'issue' ?>">
+                            <summary class="list-card__front">
+                                <span class="list-card__who">
+                                    <strong><?= h($user['full_name']) ?></strong>
+                                    <span class="list-card__hint">Click to open</span>
+                                </span>
+                                <span class="list-card__badges">
+                                    <span class="erp-role-badge erp-role-badge--<?= h($user['role']) ?>"><?= h(formatAdminRoleLabel($user['role'])) ?></span>
+                                    <span class="badge <?= $activeUser ? 'badge--approved' : 'badge--rejected' ?>"><?= $activeUser ? 'Active' : 'Inactive' ?></span>
+                                </span>
+                            </summary>
+                            <div class="list-card__body">
+                                <dl class="list-card__facts">
+                                    <div>
+                                        <dt>Username</dt>
+                                        <dd><?= h($user['username']) ?></dd>
+                                    </div>
+                                    <div>
+                                        <dt>Email</dt>
+                                        <dd><?= !empty($user['email']) ? h($user['email']) : '—' ?></dd>
+                                    </div>
+                                    <div>
+                                        <dt>Last login</dt>
+                                        <dd><?= !empty($user['last_login_at']) ? h(formatSystemDateTime((string) $user['last_login_at'], $pdo)) : '—' ?></dd>
+                                    </div>
+                                </dl>
+                                <div class="list-card__actions">
+                                    <a href="users.php?edit=<?= (int) $user['id'] ?>" class="btn btn--secondary btn--sm">Edit</a>
+                                    <?php if ((int) $user['id'] !== (int) $adminUser['id'] && $activeUser): ?>
+                                        <form method="post" action="user-action.php" class="inline-form" onsubmit="return confirm('Deactivate this user?');">
+                                            <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                                            <input type="hidden" name="action" value="deactivate">
+                                            <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
+                                            <button type="submit" class="btn btn--danger btn--sm">Deactivate</button>
+                                        </form>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </details>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
         </div>
 
         <aside class="erp-split__aside">

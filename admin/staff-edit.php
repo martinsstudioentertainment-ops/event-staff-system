@@ -10,6 +10,7 @@ require_once __DIR__ . '/../includes/site-urls.php';
 require_once __DIR__ . '/../includes/audit-log.php';
 require_once __DIR__ . '/../includes/staff-profile-email.php';
 require_once __DIR__ . '/../includes/staff-psa.php';
+require_once __DIR__ . '/../includes/psa-licence-verify.php';
 require_once __DIR__ . '/../includes/phone-numbers.php';
 require_once __DIR__ . '/../includes/components/phone-input.php';
 
@@ -23,14 +24,14 @@ $canDangerZone = isAdminSuperUser();
 
 if ($staffId < 1) {
     setAdminFlash('error', 'Invalid staff ID');
-    header('Location: staff-directory.php');
+    header('Location: staff.php?tab=people');
     exit;
 }
 
 $staff = getStaffById($pdo, $staffId);
 if (!$staff) {
     setAdminFlash('error', 'Staff member not found');
-    header('Location: staff-directory.php');
+    header('Location: staff.php?tab=people');
     exit;
 }
 
@@ -165,6 +166,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit && !isset($_POST['reset_pr
                 updateStaffProfile($pdo, $staffId, $psaUpload['paths']);
             }
 
+            $savedLicence = normalizePsaLicence((string) ($_POST['psa_licence'] ?? ''));
+            if ($savedLicence !== '') {
+                applyPsaRegisterCheckToStaff(
+                    $pdo,
+                    $staffId,
+                    $savedLicence,
+                    trim($syncData['first_name'] . ' ' . $syncData['surname'])
+                );
+            }
+
             syncStaffPersonalDataToRegistrations($pdo, $staffId, array_merge($syncData, [
                 'date_of_birth' => $dob,
             ]));
@@ -211,7 +222,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit && !isset($_POST['reset_pr
 
 $flash = getAdminFlash();
 $pageTitle = 'Edit Staff';
-$activePage = 'staff-directory';
+$activePage = 'staff';
 $readonlyAttr = $canEdit ? '' : ' disabled';
 $readonlyClass = $canEdit ? '' : ' is-readonly';
 
@@ -237,7 +248,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
             <a href="<?= h(buildStaffRegistrationsAdminUrl((string) $staff['email'])) ?>" class="btn btn--secondary">All registrations</a>
             <a href="<?= h(buildStaffRegistrationsAdminUrl((string) $staff['email'], 'pending')) ?>" class="btn btn--secondary">Pending shifts</a>
             <a href="<?= h(buildStaffRegistrationsAdminUrl((string) $staff['email'], 'approved')) ?>" class="btn btn--secondary">Approved shifts</a>
-            <a href="staff-directory.php" class="btn btn--secondary">← Directory</a>
+            <a href="staff.php?tab=people" class="btn btn--secondary">← Staff</a>
         </div>
     </div>
 
@@ -381,7 +392,23 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <div class="form-group">
             <label class="form-label">PSA licence number</label>
             <input type="text" name="psa_licence" id="psa_licence" class="form-input" value="<?= h((string) ($staff['psa_licence'] ?? '')) ?>" placeholder="EM123456/00"<?= $readonlyAttr ?>>
-            <p class="form-hint">Format EM123456/00 (optional until staff completes profile)</p>
+            <p class="form-hint">Checked automatically against the official PSA registered employees list by licence number.</p>
+            <?php
+            $psaRegStatus = trim((string) ($staff['psa_register_status'] ?? ''));
+            $psaRegName   = trim((string) ($staff['psa_register_name'] ?? ''));
+            $psaRegAt     = trim((string) ($staff['psa_register_checked_at'] ?? ''));
+            ?>
+            <p><?= psaRegisterStatusBadgeHtml($psaRegStatus) ?></p>
+            <?php if ($psaRegStatus !== ''): ?>
+                <p class="form-hint"><strong>PSA register:</strong> <?= h(psaRegisterStatusLabel($psaRegStatus)) ?>
+                    <?php if ($psaRegName !== ''): ?>
+                        — register name: <?= h($psaRegName) ?>
+                    <?php endif; ?>
+                    <?php if ($psaRegAt !== ''): ?>
+                        (checked <?= h($psaRegAt) ?>)
+                    <?php endif; ?>
+                </p>
+            <?php endif; ?>
         </div>
 
         <div class="form-group">
@@ -474,7 +501,7 @@ include __DIR__ . '/../includes/admin/layout-top.php';
         <?php if ($canEdit): ?>
             <div class="form-group form-group--full form-actions form-actions--end">
                 <button type="submit" class="btn btn--primary">Save changes</button>
-                <a href="staff-directory.php" class="btn btn--secondary">Cancel</a>
+                <a href="staff.php?tab=people" class="btn btn--secondary">Cancel</a>
             </div>
         <?php endif; ?>
     </form>

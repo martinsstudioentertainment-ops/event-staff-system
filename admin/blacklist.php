@@ -39,54 +39,64 @@ include __DIR__ . '/../includes/admin/layout-top.php';
     <?php if ($rows === []): ?>
         <p class="form-hint">No one is currently blacklisted.</p>
     <?php else: ?>
-        <div class="table-wrap">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Mobile</th>
-                        <th>Reason</th>
-                        <th>No-shows</th>
-                        <th>Since</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($rows as $row): ?>
-                        <?php
-                        $name = trim((string) (($row['first_name'] ?? '') . ' ' . ($row['surname'] ?? '')));
-                        $latest = getLatestRegistrationByEmail($pdo, (string) $row['email']);
-                        ?>
-                        <tr>
-                            <td><?= h($name !== '' ? $name : '—') ?></td>
-                            <td><?= h((string) $row['email']) ?></td>
-                            <td><?= h((string) ($row['mobile'] ?? '—')) ?></td>
-                            <td>
-                                <?= h((string) $row['reason']) ?>
-                                <?php if ((int) ($row['auto_blacklisted'] ?? 0) === 1): ?>
-                                    <span class="badge badge--pending">Auto</span>
-                                <?php else: ?>
-                                    <span class="badge badge--approved">Manual</span>
-                                <?php endif; ?>
-                            </td>
-                            <td><?= (int) ($row['consecutive_no_shows'] ?? 0) ?></td>
-                            <td><?= h(formatSystemDateTime((string) $row['blacklisted_at'], $pdo)) ?></td>
-                            <td class="table-actions">
-                                <?php if ($latest): ?>
-                                    <a href="view-staff.php?id=<?= (int) $latest['id'] ?>" class="btn btn--small btn--secondary">View</a>
-                                <?php endif; ?>
-                                <form method="post" action="blacklist-action.php" class="inline-form">
-                                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
-                                    <input type="hidden" name="action" value="remove">
-                                    <input type="hidden" name="email" value="<?= h((string) $row['email']) ?>">
-                                    <button type="submit" class="btn btn--small btn--primary">Remove from blacklist</button>
-                                </form>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+        <div class="list-card-board">
+            <?php foreach ($rows as $row): ?>
+                <?php
+                $name = trim((string) (($row['first_name'] ?? '') . ' ' . ($row['surname'] ?? '')));
+                $latest = getLatestRegistrationByEmail($pdo, (string) $row['email']);
+                ?>
+                <details class="list-card list-card--issue">
+                    <summary class="list-card__front">
+                        <span class="list-card__who">
+                            <strong><?= h($name !== '' ? $name : (string) $row['email']) ?></strong>
+                            <span class="list-card__hint">Click to open</span>
+                        </span>
+                        <span class="badge badge--rejected">Blacklisted</span>
+                    </summary>
+                    <div class="list-card__body">
+                        <dl class="list-card__facts">
+                            <div>
+                                <dt>Email</dt>
+                                <dd><?= h((string) $row['email']) ?></dd>
+                            </div>
+                            <div>
+                                <dt>Mobile</dt>
+                                <dd><?= h((string) ($row['mobile'] ?? '—')) ?></dd>
+                            </div>
+                            <div>
+                                <dt>Reason</dt>
+                                <dd>
+                                    <?= h((string) $row['reason']) ?>
+                                    <?php if ((int) ($row['auto_blacklisted'] ?? 0) === 1): ?>
+                                        <span class="badge badge--pending">Auto</span>
+                                    <?php else: ?>
+                                        <span class="badge badge--approved">Manual</span>
+                                    <?php endif; ?>
+                                </dd>
+                            </div>
+                            <div>
+                                <dt>No-shows</dt>
+                                <dd><?= (int) ($row['consecutive_no_shows'] ?? 0) ?></dd>
+                            </div>
+                            <div>
+                                <dt>Since</dt>
+                                <dd><?= h(formatSystemDateTime((string) $row['blacklisted_at'], $pdo)) ?></dd>
+                            </div>
+                        </dl>
+                        <div class="list-card__actions">
+                            <?php if ($latest): ?>
+                                <a href="view-staff.php?id=<?= (int) $latest['id'] ?>" class="btn btn--small btn--secondary">View</a>
+                            <?php endif; ?>
+                            <form method="post" action="blacklist-action.php" class="inline-form">
+                                <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                                <input type="hidden" name="action" value="remove">
+                                <input type="hidden" name="email" value="<?= h((string) $row['email']) ?>">
+                                <button type="submit" class="btn btn--small btn--primary">Remove from blacklist</button>
+                            </form>
+                        </div>
+                    </div>
+                </details>
+            <?php endforeach; ?>
         </div>
         <?php renderAdminPagination($page, $total, 'blacklist.php'); ?>
     <?php endif; ?>

@@ -5,7 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/attendance-gps-phase1.php';
 require_once __DIR__ . '/attendance-gps-phase15-schema.php';
 require_once __DIR__ . '/attendance-repository.php';
-require_once __DIR__ . '/maps.php';
+require_once __DIR__ . '/maps-core.php';
 require_once __DIR__ . '/settings-repository.php';
 
 const GPS_ACTIVATION_PROOF_MAX_AGE_SEC = 900;
@@ -20,7 +20,7 @@ function getGpsRequiredMessage(): string
  */
 function checkinMethodBypassesGpsRules(string $method): bool
 {
-    return in_array($method, ['admin', 'scan', 'admin_manual'], true);
+    return in_array($method, ['admin', 'scan', 'admin_manual', 'attendant'], true);
 }
 
 function getGpsAdminBypassMessage(): string

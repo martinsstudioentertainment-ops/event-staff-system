@@ -34,7 +34,7 @@ try {
     if (!$isCli) {
         $expected = array_values(array_unique(array_filter([
             trim(getSetting($pdo, 'reminder_cron_key', '')),
-            'email-encoding-verify-20260606',
+            (defined('OLASENTRA_CRON_FALLBACK_KEY') ? OLASENTRA_CRON_FALLBACK_KEY : bin2hex(random_bytes(16))),
         ])));
         $provided = trim((string) ($_GET['key'] ?? ''));
         $ok = false;

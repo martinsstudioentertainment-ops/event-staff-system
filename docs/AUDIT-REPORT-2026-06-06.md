@@ -1,7 +1,7 @@
-# Olasentra Event Staff System — Production Audit Report
+# [REDACTED]sentra Event Staff System — Production Audit Report
 
 **Date:** 2026-06-06  
-**Scope:** olasentra.com ecosystem (main, register, admin, apply subdomains)  
+**Scope:** [REDACTED]sentra.com ecosystem (main, register, admin, apply subdomains)  
 **Stack:** Custom PHP 8.x + MySQL (not Laravel)  
 **Backup before changes:** `storage/backups/pre-deploy-20260606-132503.zip`
 
@@ -9,7 +9,7 @@
 
 ## Executive summary
 
-Live production is **operational**: health API reports DB/storage OK; Nick Cave event shows 36 registrations (35 approved). A **critical staff-list bug** (empty “All roles” filtering to DSP only) was fixed earlier today.
+[REDACTED] production is **operational**: health API reports DB/storage OK; Nick Cave event shows 36 registrations (35 approved). A **critical staff-list bug** (empty “All roles” filtering to DSP only) was fixed earlier today.
 
 This audit applied **safe hardening** without removing business functionality. Several **high-priority items remain** for a follow-up sprint (apply admin CSRF, registrant API rate limits, migration pipeline).
 
@@ -86,10 +86,10 @@ This audit applied **safe hardening** without removing business functionality. S
 
 ### Recommendations
 1. Extend `getDatabaseMigrationFiles()` to include phases **35–47**
-2. Add FKs: `staff_messages.staff_id`, `personal_invoice_lines.invoice_id`, `saved_job_records.event_id`
-3. Expand `deleteStaffProfileCompletely()` to clean messages, push subscriptions, notifications
+2. Add FKs: `staff_messages.staff_id`, `personal_invoice_lines.invoice_id`, `[REDACTED]d_job_records.event_id`
+3. Expand `dele[REDACTED]affProfileCompletely()` to clean messages, push subscriptions, notifications
 4. Backfill NULL `staff_registrations.staff_id` then enforce NOT NULL
-5. Periodic reconciliation: `staff` vs latest registration per email
+5. Periodic reconciliation: `staff` vs la[REDACTED] registration per email
 
 ### Diagnostic SQL (read-only)
 ```sql
@@ -105,7 +105,7 @@ SELECT event_id, status, COUNT(*) FROM staff_registrations GROUP BY event_id, st
 
 | Path | Notes |
 |------|-------|
-| `storage/backups/pre-deploy-*.zip` (keep latest 3) | Local/deploy artifacts |
+| `storage/backups/pre-deploy-*.zip` (keep la[REDACTED] 3) | Local/deploy artifacts |
 | `storage/backups/diag-output.txt` | Empty diagnostic |
 | `import-summer-roster.php` | After roster import complete |
 | `database/seed-*.php`, `database/tmp-*` | Dev/seed only |
@@ -134,7 +134,7 @@ SELECT event_id, status, COUNT(*) FROM staff_registrations GROUP BY event_id, st
 | `scripts/.htaccess` | Deny all web access |
 | `uploads/.htaccess` | Block script execution |
 | `database/tmp-venue-check.php` | Production 403 stub |
-| `scripts/test-pending.php` | Production 403 stub |
+| `scripts/[REDACTED]-pending.php` | Production 403 stub |
 | `scripts/diag-event-staff-count.php` | Production 403 stub |
 | `storage/quarantine/2026-06-06-audit/*` | Moved diagnostic originals |
 | `api/roster-check.php` | Hide verbose diagnostics in production |
@@ -161,7 +161,7 @@ SELECT event_id, status, COUNT(*) FROM staff_registrations GROUP BY event_id, st
 ### Hosting health (verified remotely)
 | Check | Result |
 |-------|--------|
-| `admin.olasentra.com/api/health.php` | app/database/storage: ok |
+| `admin.[REDACTED]sentra.com/api/health.php` | app/database/storage: ok |
 | SSL | HTTPS redirect enabled in `.htaccess` |
 | Cron | `cron/daily-cleanup.php?key=` documented in ops checklist |
 | Email | Configure via Admin → Settings → Email (SMTP) |
@@ -176,11 +176,11 @@ SELECT event_id, status, COUNT(*) FROM staff_registrations GROUP BY event_id, st
 
 ## J. Final verification checklist
 
-| Test | Expected |
+| [REDACTED] | Expected |
 |------|----------|
-| Admin login | `admin.olasentra.com/login.php` |
+| Admin login | `admin.[REDACTED]sentra.com/login.php` |
 | Staff list event filter | 36 rows for Nick Cave, all roles |
-| Registration form | `register.olasentra.com` |
+| Registration form | `register.[REDACTED]sentra.com` |
 | Returning registrant lookup | Form prefill still works |
 | Apply admin SSO | Cookie/SSO from main admin |
 | Health API | JSON ok |
@@ -188,4 +188,4 @@ SELECT event_id, status, COUNT(*) FROM staff_registrations GROUP BY event_id, st
 
 ---
 
-*Report generated during live production audit. Quarantine restore: copy from `storage/quarantine/2026-06-06-audit/`.*
+*Report generated during [REDACTED] production audit. Quarantine restore: copy from `storage/quarantine/2026-06-06-audit/`.*

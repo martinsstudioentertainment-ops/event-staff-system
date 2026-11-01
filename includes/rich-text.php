@@ -47,7 +47,16 @@ function renderRichText(?string $html): string
 
 function plainTextFromRich(?string $html, int $maxLen = 200): string
 {
-    $text = trim(preg_replace('/\s+/u', ' ', strip_tags((string) $html)));
+    $raw = (string) $html;
+    if ($raw === '') {
+        return '';
+    }
+
+    // Turn common block/break tags into spaces so words don't stick together.
+    $raw = preg_replace('/<\s*br\s*\/?\s*>/i', ' ', $raw) ?? $raw;
+    $raw = preg_replace('/<\/\s*(p|div|li|h[1-6]|tr|blockquote)\s*>/i', ' ', $raw) ?? $raw;
+    $text = html_entity_decode(strip_tags($raw), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $text = trim(preg_replace('/\s+/u', ' ', $text) ?? $text);
     if ($text === '') {
         return '';
     }

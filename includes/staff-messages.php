@@ -297,10 +297,11 @@ function countUnreadAdminRepliesForStaff(PDO $pdo, string $email): int
 /**
  * @return array<int, array<string, mixed>>
  */
-function listStaffInboxThreads(PDO $pdo, int $limit = 50): array
+function listStaffInboxThreads(PDO $pdo, int $limit = 50, int $offset = 0): array
 {
     ensureStaffMessagesSchema($pdo);
-    $limit = max(1, min($limit, 100));
+    $limit  = max(1, min($limit, 100));
+    $offset = max(0, $offset);
 
     try {
         $sql = "
@@ -319,7 +320,7 @@ function listStaffInboxThreads(PDO $pdo, int $limit = 50): array
             LEFT JOIN staff s ON LOWER(TRIM(s.email)) = LOWER(TRIM(m.staff_email))
             GROUP BY LOWER(TRIM(m.staff_email)), s.first_name, s.surname
             ORDER BY last_at DESC
-            LIMIT {$limit}
+            LIMIT {$limit} OFFSET {$offset}
         ";
 
         return $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -327,6 +328,27 @@ function listStaffInboxThreads(PDO $pdo, int $limit = 50): array
         error_log('[EventStaff] listStaffInboxThreads: ' . $e->getMessage());
 
         return [];
+    }
+}
+
+function countStaffInboxThreads(PDO $pdo): int
+{
+    ensureStaffMessagesSchema($pdo);
+
+    try {
+        $count = $pdo->query(
+            'SELECT COUNT(*) FROM (
+                SELECT LOWER(TRIM(staff_email)) AS email_key
+                FROM staff_messages
+                GROUP BY LOWER(TRIM(staff_email))
+             ) t'
+        )->fetchColumn();
+
+        return max(0, (int) $count);
+    } catch (Throwable $e) {
+        error_log('[EventStaff] countStaffInboxThreads: ' . $e->getMessage());
+
+        return 0;
     }
 }
 

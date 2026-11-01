@@ -426,12 +426,14 @@ if (!headers_sent()) {
                     <div class="form-group form-group--full">
                         <label class="form-label form-label--required" for="psa_front_image">PSA card, front photo</label>
                         <input class="form-input form-input--file" type="file" id="psa_front_image" name="psa_front_image" accept="<?= h(psaImageFileAcceptAttribute()) ?>" data-psa-upload="front">
+                        <p class="form-hint">If an iPhone photo will not attach, take a screenshot of the badge and upload that.</p>
                         <span class="form-error" id="psa_front_image-error"></span>
                     </div>
 
                     <div class="form-group form-group--full">
                         <label class="form-label form-label--required" for="psa_back_image">PSA card, back photo</label>
                         <input class="form-input form-input--file" type="file" id="psa_back_image" name="psa_back_image" accept="<?= h(psaImageFileAcceptAttribute()) ?>" data-psa-upload="back">
+                        <p class="form-hint">Same as the front: a screenshot is fine if the camera file will not upload.</p>
                         <span class="form-error" id="psa_back_image-error"></span>
                     </div>
                     <?php wiz_step_close(); ?>

@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/settings-repository.php';
 require_once __DIR__ . '/site-urls.php';
+require_once __DIR__ . '/google-oauth-errors.php';
 
 function isGoogleOAuthClientSecretConfigured(?PDO $pdo = null): bool
 {
@@ -62,9 +63,10 @@ function googleDriveOAuthJavaScriptOrigin(?PDO $pdo = null): string
 function googleDriveOAuthScopes(): array
 {
     return [
-        // drive.file cannot copy an existing template in your folder — need full Drive for copy
         'https://www.googleapis.com/auth/drive',
         'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/forms.body',
+        'https://www.googleapis.com/auth/forms.responses.readonly',
     ];
 }
 
@@ -88,7 +90,7 @@ function googleDriveOAuthValidateState(PDO $pdo, string $state): bool
     return hash_equals($expected, $state);
 }
 
-function googleDriveOAuthAuthorizeUrl(?PDO $pdo = null): string
+function googleDriveOAuthAuthorizeUrl(?PDO $pdo = null, string $returnPath = ''): string
 {
     $pdo = $pdo ?? getDB();
     if (function_exists('initSecureSession')) {
@@ -98,16 +100,22 @@ function googleDriveOAuthAuthorizeUrl(?PDO $pdo = null): string
     $clientId = trim(getSetting($pdo, 'google_oauth_client_id', ''));
     $state    = bin2hex(random_bytes(16));
     $_SESSION['google_drive_oauth_state'] = $state;
+    $allowedReturn = ['settings-production.php', 'google-form-integrations.php'];
+    $returnPath = trim($returnPath);
+    if (in_array($returnPath, $allowedReturn, true)) {
+        $_SESSION['google_drive_oauth_return'] = $returnPath;
+    }
     googleDriveOAuthStoreState($pdo, $state);
 
     $params = [
-        'client_id'     => $clientId,
-        'redirect_uri'  => googleDriveOAuthRedirectUri($pdo),
-        'response_type' => 'code',
-        'scope'         => implode(' ', googleDriveOAuthScopes()),
-        'access_type'   => 'offline',
-        'prompt'        => 'consent',
-        'state'         => $state,
+        'client_id'              => $clientId,
+        'redirect_uri'           => googleDriveOAuthRedirectUri($pdo),
+        'response_type'          => 'code',
+        'scope'                  => implode(' ', googleDriveOAuthScopes()),
+        'access_type'            => 'offline',
+        'prompt'                 => 'consent',
+        'include_granted_scopes' => 'true',
+        'state'                  => $state,
     ];
 
     return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query($params);
@@ -145,17 +153,18 @@ function googleDriveOAuthExchangeCode(PDO $pdo, string $code): array
     curl_close($ch);
 
     if ($codeHttp !== 200 || !is_string($responseBody)) {
-        $data = is_string($responseBody) ? json_decode($responseBody, true) : null;
-        if (is_array($data) && ($data['error'] ?? '') === 'invalid_client') {
+        googleOAuthLogTokenExchangeFailure('admin_drive', $codeHttp, is_string($responseBody) ? $responseBody : '');
+        $parsed = is_string($responseBody) ? googleOAuthParseJsonErrorBody($responseBody) : ['error' => '', 'error_description' => ''];
+        if ($parsed['error'] === 'invalid_client') {
             return [
                 'ok'      => false,
                 'message' => 'OAuth client secret is wrong. In Google Cloud open Credentials → your Web client → copy the Client secret (starts with GOCSPX-), paste it here, Save, then Connect again. Use a Web application client, not Desktop or API key.',
             ];
         }
 
-        $snippet = is_string($responseBody) ? mb_substr($responseBody, 0, 200) : '';
+        $userError = $parsed['error'] !== '' ? $parsed['error'] : 'server_error';
 
-        return ['ok' => false, 'message' => 'Token exchange failed (HTTP ' . $codeHttp . '). ' . $snippet];
+        return ['ok' => false, 'message' => googleOAuthUserMessage($userError, 'admin_drive')];
     }
 
     $data = json_decode($responseBody, true);
@@ -212,6 +221,8 @@ function googleDriveGetUserAccessToken(?PDO $pdo = null): string
     curl_close($ch);
 
     if ($codeHttp !== 200 || !is_string($responseBody)) {
+        googleOAuthLogTokenExchangeFailure('admin_drive_refresh', $codeHttp, is_string($responseBody) ? $responseBody : '');
+
         return '';
     }
 
