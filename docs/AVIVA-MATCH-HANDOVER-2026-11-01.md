@@ -24,3 +24,44 @@
 - Form is limited to 1 response per Google account (verified email collection on).
 - Exposed keys in public repo history (cron fallback key, Google Form intake key) should be rotated.
 - Branch not merged to main.
+
+## Update 2026-11-01 (later): 1 Oct steps now run for accepted AVIVA Match rows (on main, NOT deployed)
+
+New file `includes/aviva-match-onboard.php`, called at the end of `avivaMatchSheetSync()` (so the existing cron runs it).
+For each `aviva_match_signups` row with `onboarded_at IS NULL` and `is_test = 0` (10 per run, max 5 attempts each). This covers new rows and backfills rows that were accepted earlier:
+
+1. `lookupPsaLicenceOnRegister` (the form number, or the profile number if the form one is blank)
+2. `googleFormIntakeUpdateStaff`, with PSA fields only (licence, register status/name/checked_at)
+3. `googleFormIntakeSavePsaBadgePhotos`, using the form's Drive links
+4. `notifyAdminPsaLicenceProblemIfNeeded`
+5. The AVIVA Match PSA-number email. It is sent only for not_found/invalid_format, once per staff member per event (setting `aviva_match_psa_email_sent_{staff}_{event}`)
+6. An approved `staff_registrations` row. It is inserted only if this staff member/email has no row for the event yet
+7. `sendGoogleFormShiftDetailsEmailIfNeeded` (1 Oct dedupe key)
+8. `syncRegistrationToGoogleSheet`
+
+A failed or unreachable PSA check never blocks: the person stays accepted and still gets the shift email.
+New columns on aviva_match_signups: event_registration_id, psa_status, onboarded_at, onboard_attempts, onboard_error.
+
+**Event row:** it is created once with a direct INSERT and its id is saved in setting `aviva_match_event_id`. The values are:
+- name "AVIVA Match – Event Staff (13:00 – Finish)"
+- date 2026-11-08, start 13:00, staff_needed 70
+- **is_active = 0** and times_confirmed = 0
+
+Why I did it this way:
+- I did not use createEvent() because it rewrites venue GPS and spreads it to every event linked to that venue, which could change the 1 Oct event. It also creates a roster sheet.
+- With is_active = 0, the event is not on the public olasentra.com sign-up list, so nobody can get round the 70 cap or the registered-only check.
+- With times_confirmed = 0, the shared email code does not print "13:00 – 23:00". The 13:00 – Finish time is in the event name instead.
+- The event has no roster sheet linked, so step 8 is skipped until an admin links one.
+
+**Deploy/test (pending: wait until Kimi's server commits 4713097/e90f4a9 are merged to GitHub main):**
+1. Merge, then run cPanel Git Deploy HEAD.
+2. Before you enable the cron, mark any test signups `is_test=1`, so they don't get real emails.
+3. Run `php -q cron/aviva-match-sheet-sync.php` once over SSH and check `onboard` in storage/logs/aviva-match-sheet-sync.log.
+4. Check:
+   - setting aviva_match_event_id exists, and the event is inactive
+   - each accepted signup has onboarded_at and event_registration_id set
+   - staff_registrations rows are approved
+   - one shift email is sent per person
+   - a PSA email goes out only for not_found/invalid_format
+   - running the script a second time sends nothing new
+5. Test with one real accepted row first if possible.

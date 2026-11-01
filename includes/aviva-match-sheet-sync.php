@@ -8,6 +8,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/aviva-match.php';
 require_once __DIR__ . '/google-sheets-sync.php';
 require_once __DIR__ . '/google-form-event-integrations.php';
+require_once __DIR__ . '/aviva-match-onboard.php';
 
 const AVIVA_MATCH_SHEET_DEFAULT_TAB = 'Form Responses 1';
 const AVIVA_MATCH_STATUS_TEXT = [
@@ -194,6 +195,13 @@ function avivaMatchSheetSync(PDO $pdo, int $maxRows = 200): array
         } else {
             $out['write_back'] = 'no_access'; // Viewer only: skip silently
         }
+    }
+
+    // Accepted rows (new + backfill): PSA check, emails, approved registration, roster (1 Oct steps).
+    try {
+        $out['onboard'] = avivaMatchOnboardPending($pdo, 10);
+    } catch (Throwable $e) {
+        $out['onboard'] = ['error' => $e->getMessage()];
     }
 
     $out['ok'] = true;
