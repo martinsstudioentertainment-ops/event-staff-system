@@ -49,6 +49,7 @@ deploy_to() {
   done
 
   /bin/cp -f "${REPO}"/*.php "${DEST}/" 2>/dev/null || true
+  /bin/cp -f "${REPO}"/*.png "${REPO}"/*.jpg "${REPO}"/*.jpeg "${REPO}"/*.webp "${REPO}"/*.webmanifest "${DEST}/" 2>/dev/null || true
   echo "OK: ${DEST}"
   return 0
 }

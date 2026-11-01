@@ -6,7 +6,12 @@ require_once __DIR__ . '/rich-text.php';
 
 function getAbsolutePublicUrl(string $path, ?PDO $pdo = null): string
 {
-    $base = normalizePublicSiteUrl(getRegistrationSiteUrl($pdo));
+    // Canonical/OG URLs must live on the host that serves the page:
+    // marketing pages on the apex domain, staff pages on register.*.
+    $isRegHost = function_exists('isRegistrationSubdomain') && isRegistrationSubdomain();
+    $base = normalizePublicSiteUrl(
+        $isRegHost ? getRegistrationSiteUrl($pdo) : getMarketingSiteUrl($pdo)
+    );
     $path = '/' . ltrim($path, '/');
 
     return $base . $path;
@@ -34,7 +39,10 @@ function getShareImageAbsoluteUrl(?PDO $pdo): string
         return '';
     }
 
-    $base = normalizePublicSiteUrl(getRegistrationSiteUrl($pdo));
+    $isRegHost = function_exists('isRegistrationSubdomain') && isRegistrationSubdomain();
+    $base = normalizePublicSiteUrl(
+        $isRegHost ? getRegistrationSiteUrl($pdo) : getMarketingSiteUrl($pdo)
+    );
     $path = getShareImageRelativePath($pdo);
 
     return $base . '/' . ltrim($path, '/');
