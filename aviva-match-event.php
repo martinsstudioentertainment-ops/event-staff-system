@@ -34,7 +34,7 @@ include __DIR__ . '/includes/public/layout-top.php';
     <?php if ($full): ?>
       <p class="hp-btn hp-btn--secondary" aria-disabled="true">Event full</p>
     <?php else: ?>
-      <p><a class="hp-btn hp-btn--primary" href="/aviva-match/apply">Open staff form</a></p>
+      <p><a class="hp-btn hp-btn--primary" href="<?= h($formUrl !== '' ? $formUrl : AVIVA_MATCH_FORM_FALLBACK_URL) ?>">Open staff form</a></p>
     <?php endif; ?>
   </div>
 </section>

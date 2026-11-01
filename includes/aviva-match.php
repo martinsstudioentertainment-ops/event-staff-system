@@ -14,6 +14,7 @@ const AVIVA_MATCH_CAPACITY  = 70;
 const AVIVA_MATCH_MSG_UNREG = 'Please register on olasentra.com first, then come back to this form.';
 const AVIVA_MATCH_MSG_DUP   = 'You already have a place on this event. One person, one place.';
 const AVIVA_MATCH_MSG_FULL  = 'Event full';
+const AVIVA_MATCH_FORM_FALLBACK_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSdE_ZTal9HKrAdVh2ZY3H2R5Hd-L4NFK1VhAzCWpUK3cbkmFg/viewform';
 
 /** Single placeholder for the match date: DB setting aviva_match_date (YYYY-MM-DD). */
 function avivaMatchDate(PDO $pdo): string
