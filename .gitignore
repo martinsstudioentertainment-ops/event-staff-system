@@ -85,3 +85,4 @@ error_log
 # AVIVA Match runtime data (PSA photos, rate-limit) — never commit
 /storage/aviva-match-psa/
 /storage/aviva-match-rl/
+/storage/reports/live-config.php
