@@ -16,11 +16,16 @@ $themeColor      = $web['themeColor'];
 $assetBase       = $web['assetBase'];
 $pdo             = $web['pdo'];
 $enablePwa       = false;
-$isPremiumHome   = ($web['pageSlug'] ?? '') === 'home'
+// Premium public UI (feature_public_premium_v2): homepage gets the full hp-*
+// experience; the same flag now extends the premium design system to all
+// public marketing pages so the whole site feels consistent.
+$premiumPublicSlugs = ['home', 'roles', 'events', 'how', 'faq', 'contact'];
+$isPremiumPublic = in_array($web['pageSlug'] ?? '', $premiumPublicSlugs, true)
     && isFeatureEnabled($pdo, 'feature_public_premium_v2');
+$isPremiumHome   = $isPremiumPublic && ($web['pageSlug'] ?? '') === 'home';
 ?>
 <!DOCTYPE html>
-<html lang="en" data-theme="<?= $isPremiumHome ? 'dark' : 'light' ?>">
+<html lang="en" data-theme="<?= $isPremiumPublic ? 'dark' : 'light' ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -37,14 +42,17 @@ $isPremiumHome   = ($web['pageSlug'] ?? '') === 'home'
     <link rel="stylesheet" href="<?= h($assetBase) ?>assets/css/website.css">
     <link rel="stylesheet" href="<?= h($assetBase) ?>assets/css/mobile.css">
     <link rel="stylesheet" href="<?= h($assetBase) ?>assets/css/site-notice.css">
-    <?php if ($isPremiumHome): ?>
+    <?php if ($isPremiumPublic): ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <?php if ($isPremiumHome): ?>
     <link rel="stylesheet" href="<?= h($assetBase) ?>assets/css/home-premium.css">
     <?php endif; ?>
+    <link rel="stylesheet" href="<?= h($assetBase) ?>assets/css/premium-site.css">
+    <?php endif; ?>
 </head>
-<body class="site-page<?= $isPremiumHome ? ' site-page--premium-home' : '' ?>" data-page="<?= h($web['pageSlug']) ?>">
+<body class="site-page<?= $isPremiumPublic ? ' site-page--premium' : '' ?><?= $isPremiumHome ? ' site-page--premium-home' : '' ?>" data-page="<?= h($web['pageSlug']) ?>">
 
 <header class="site-header">
     <div class="site-header__inner">

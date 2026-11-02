@@ -258,16 +258,16 @@ function outputOgShareImage(PDO $pdo): void
     imagesavealpha($canvas, true);
 
     $navy = imagecolorallocate($canvas, 15, 23, 42);
-    $blue = imagecolorallocate($canvas, 37, 99, 235);
-    $purple = imagecolorallocate($canvas, 99, 102, 241);
+    $blue = imagecolorallocate($canvas, 5, 150, 105);
+    $purple = imagecolorallocate($canvas, 6, 182, 212);
     $white = imagecolorallocate($canvas, 248, 250, 252);
     $muted = imagecolorallocate($canvas, 148, 163, 184);
 
     for ($y = 0; $y < $h; $y++) {
         $ratio = $y / max(1, $h - 1);
-        $r = (int) (15 + (37 - 15) * $ratio * 0.35);
-        $g = (int) (23 + (99 - 23) * $ratio * 0.35);
-        $b = (int) (42 + (235 - 42) * $ratio * 0.25);
+        $r = (int) (15 + (5 - 15) * $ratio * 0.35);
+        $g = (int) (23 + (150 - 23) * $ratio * 0.35);
+        $b = (int) (42 + (105 - 42) * $ratio * 0.25);
         $line = imagecolorallocate($canvas, $r, $g, $b);
         imageline($canvas, 0, $y, $w, $y, $line);
     }
