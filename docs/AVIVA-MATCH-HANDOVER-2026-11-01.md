@@ -75,3 +75,17 @@ Why I did it this way:
   3. `2-deploy-merged-main.sh`: fast-forwards the server repo to GitHub main and runs scripts/cpanel-deploy.sh. The server HEAD then equals GitHub main.
   4. `rollback.sh <backup dir> [--db]`: resets the repo HEAD, restores the files (it doesn't touch uploads/ or logs) and, with --db, the database.
 - Roster sheet: Admin → Events → tick "AVIVA Match – Event Staff (13:00 – Finish)" → **Create sheets**. This is the same createGoogleSheetForEvent format as 1 Oct, and it fills events.google_sheet_url/google_sheet_tab. To link a sheet by hand instead: Edit event → "Google Sheet URL" (`https://docs.google.com/spreadsheets/d/<ID>/edit`) and "Sheet tab name". The sheet must be shared with event-staff-sheets@event-staff-system-498114.iam.gserviceaccount.com as Editor. Keep Active unticked.
+
+## Update 2026-11-02 00:25: Kimi merge done on GitHub main (NOT deployed yet)
+- Backup on the server: `/home/olastofx/backups/pre-merge-20261101-1905/` (public_html.tgz, DB dump, crontab, server-repo.tgz, HEAD).
+- Rollback: `bash /home/olastofx/repositories/event-staff-system/scripts/ops/rollback.sh /home/olastofx/backups/pre-merge-20261101-1905` (add `--db` to restore the database as well). Run it after the deploy, when the script is in the repo, or use the copy in public_html/../ (see the commands below).
+- Branch `kimi-homepage-og` = 4713097 (12442ef → e90f4a9 → 4713097), pushed to GitHub.
+- Merge commit **263359d** on main. There were no git conflicts: Kimi's commits touch only homepage/theme/OG/.htaccess/robots/sitemap/deploy-script files, and the AVIVA work touches only AVIVA files.
+- One manual change in the merge: `.htaccess` Permissions-Policy changed from `camera=()` to `camera=(self)`, because admin QR scan check-in (assets/js/admin-scan-checkin.js) uses the camera.
+- Checked:
+  - The www→apex 301 runs before the /aviva-match rewrites, so the page still works.
+  - cron/.htaccess deny is unaffected.
+  - The deploy script only adds robots.txt, sitemap.xml and root images.
+  - php -l is clean on all 9 changed PHP files.
+  - 4713097 is an ancestor of main, so the server fast-forwards.
+- Watch after deploy: HSTS includeSubDomains (every subdomain must have a valid SSL certificate), and X-Frame-Options SAMEORIGIN (stops other sites from showing olasentra pages inside a frame).
