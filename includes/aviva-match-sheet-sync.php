@@ -90,7 +90,7 @@ function avivaMatchSheetColumnLetter(int $zeroBased): string
 }
 
 /** @return array<string,mixed> */
-function avivaMatchSheetSync(PDO $pdo, int $maxRows = 200): array
+function avivaMatchSheetSync(PDO $pdo, int $maxRows = 200, bool $onboard = true): array
 {
     avivaMatchSheetEnsureSchema($pdo);
     $out = ['ok' => false, 'action' => 'aviva_match_sheet_sync', 'new' => 0, 'accepted' => 0, 'rejected' => 0,
@@ -198,7 +198,7 @@ function avivaMatchSheetSync(PDO $pdo, int $maxRows = 200): array
     }
 
     // Accepted rows (new + backfill): PSA check, emails, approved registration, roster (1 Oct steps).
-    try {
+    if ($onboard) try {
         $out['onboard'] = avivaMatchOnboardPending($pdo, 10);
     } catch (Throwable $e) {
         $out['onboard'] = ['error' => $e->getMessage()];

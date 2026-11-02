@@ -89,3 +89,10 @@ Why I did it this way:
   - php -l is clean on all 9 changed PHP files.
   - 4713097 is an ancestor of main, so the server fast-forwards.
 - Watch after deploy: HSTS includeSubDomains (every subdomain must have a valid SSL certificate), and X-Frame-Options SAMEORIGIN (stops other sites from showing olasentra pages inside a frame).
+
+## Update 2026-11-02 00:40: deployed f532306; helper added
+- Live: server and public_html at f532306. Checked: www redirect, /aviva-match 200, cron URL 403, homepage canonical/og. The old curl cron now gets 403, so imports are paused at 15/70.
+- Roster sheet: 1qLEZsz88k7SapELtn0JV2AbE93nMYdTWl9O5d_EPjPY, tab "Registrations", shared with the service account.
+- New command-line-only helper `cron/aviva-match-admin.php` (web access denied in the file and in cron/.htaccess). Commands: setup, list, import (no onboarding), find, onboard-one, cleanup-test.
+- `avivaMatchSheetSync($pdo, $max, $onboard = true)`: the cron still onboards; the helper's `import` does not.
+- Test plan: register a dummy staff member with a test email you control. Submit the form with a fake PSA number such as EM000000/00 so the not_found path runs. Run `import`, then `onboard-one` twice, then `cleanup-test --delete-staff`. Leave the test row in the sheet: deleting form-response rows shifts the row counter.
