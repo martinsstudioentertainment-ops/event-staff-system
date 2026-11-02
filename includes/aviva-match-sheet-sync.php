@@ -5,6 +5,8 @@ declare(strict_types=1);
  * Additive. Never calls processGoogleFormStaffIntake(), never creates staff.
  * Read auth: googleFormIntakeGetReadAuth() (service account event-staff-sheets@…, same as 1 Oct Aviva).
  */
+// Load maps.php before anything pulls in maps-core.php (maps-core guards its functions; maps.php does not).
+require_once __DIR__ . '/maps.php';
 require_once __DIR__ . '/aviva-match.php';
 require_once __DIR__ . '/google-sheets-sync.php';
 require_once __DIR__ . '/google-form-event-integrations.php';

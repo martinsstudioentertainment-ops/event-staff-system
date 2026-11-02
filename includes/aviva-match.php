@@ -4,6 +4,8 @@ declare(strict_types=1);
  * AVIVA Match – Event Staff (registered-only, capped). Additive module; does not touch the
  * 1 Oct Aviva event, the registration system, or shared tables. Own table: aviva_match_signups.
  */
+// Load maps.php before anything pulls in maps-core.php (maps-core guards its functions; maps.php does not).
+require_once __DIR__ . '/maps.php';
 require_once __DIR__ . '/settings-repository.php';
 require_once __DIR__ . '/phone-numbers.php';
 

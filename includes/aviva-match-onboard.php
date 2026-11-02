@@ -12,6 +12,8 @@ declare(strict_types=1);
  * Idempotent: each aviva_match_signups row is marked onboarded_at when finished, and every send has its
  * own dedupe setting, so the cron can re-run and backfill already-accepted rows safely.
  */
+// Load maps.php before anything pulls in maps-core.php (maps-core guards its functions; maps.php does not).
+require_once __DIR__ . '/maps.php';
 require_once __DIR__ . '/aviva-match.php';
 require_once __DIR__ . '/google-form-intake.php';
 require_once __DIR__ . '/notification-center.php';

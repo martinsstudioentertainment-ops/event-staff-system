@@ -96,3 +96,8 @@ Why I did it this way:
 - New command-line-only helper `cron/aviva-match-admin.php` (web access denied in the file and in cron/.htaccess). Commands: setup, list, import (no onboarding), find, onboard-one, cleanup-test.
 - `avivaMatchSheetSync($pdo, $max, $onboard = true)`: the cron still onboards; the helper's `import` does not.
 - Test plan: register a dummy staff member with a test email you control. Submit the form with a fake PSA number such as EM000000/00 so the not_found path runs. Run `import`, then `onboard-one` twice, then `cleanup-test --delete-staff`. Leave the test row in the sheet: deleting form-response rows shifts the row counter.
+
+## Update 2026-11-02 00:50: include-order fatal fixed
+- On the server, `aviva-match-admin.php list/setup` died with "Cannot redeclare getGoogleMapsApiKey()". Cause: events-repository.php loads maps-core.php, which guards its functions; validation.php later loads maps.php, which does not, so that order fatals.
+- Fix (AVIVA files only, no shared files edited): aviva-match.php, aviva-match-sheet-sync.php and aviva-match-onboard.php now `require_once maps.php` first. maps-core.php then skips its own copies.
+- Tested locally with a dummy config.php in a throwaway worktree. The fatal reproduced before the fix. After it, the whole include chain loads and both `cron/aviva-match-admin.php list` and `cron/aviva-match-sheet-sync.php` (the real cron path, with onboarding) get as far as the DB call. The mailer, email-layout, company, google-sheets-sync, staff-psa and notification-center files that the send path loads later also load cleanly.
