@@ -101,3 +101,29 @@ Why I did it this way:
 - On the server, `aviva-match-admin.php list/setup` died with "Cannot redeclare getGoogleMapsApiKey()". Cause: events-repository.php loads maps-core.php, which guards its functions; validation.php later loads maps.php, which does not, so that order fatals.
 - Fix (AVIVA files only, no shared files edited): aviva-match.php, aviva-match-sheet-sync.php and aviva-match-onboard.php now `require_once maps.php` first. maps-core.php then skips its own copies.
 - Tested locally with a dummy config.php in a throwaway worktree. The fatal reproduced before the fix. After it, the whole include chain loads and both `cron/aviva-match-admin.php list` and `cron/aviva-match-sheet-sync.php` (the real cron path, with onboarding) get as far as the DB call. The mailer, email-layout, company, google-sheets-sync, staff-psa and notification-center files that the send path loads later also load cleanly.
+
+## State 2026-11-02 00:29 (Europe/Dublin)
+**Live**
+- Deployed 276a625. The homepage and /aviva-match both return 200.
+- `setup` created AVIVA event **id 56**: inactive, 70 places, 13:00. Roster sheet 1qLEZsz88k7SapELtn0JV2AbE93nMYdTWl9O5d_EPjPY, tab "Registrations", is linked.
+- `list`: count=15, onboarded=0, so no real staff have been emailed yet.
+
+**Test data to clean up**
+- Dummy staff **STF-0263**, olabodeoluwafemi2580+avivatest@gmail.com, mobile +353830000123, was registered on register.olasentra.com. It **MUST be deleted at cleanup** (`cleanup-test ... --delete-staff`, or in admin if that is refused).
+- The AVIVA form submit as the dummy is **unconfirmed**: Google showed an error, then "already responded". Check the form sheet and the `import`/`find` output.
+
+**Cron**
+- The old curl cron is still in crontab and gets 403, so imports are paused.
+- The new */5 command-line cron is **NOT** added yet.
+
+**Blocker**
+- cPanel :2083 returns ERR_CONNECTION_CLOSED from the box's network now that the user's computer is offline. It is likely an IP allowlist. Work continues once the user's computer is back online.
+
+**Next steps**
+1. `import`
+2. `find olabodeoluwafemi2580+avivatest@gmail.com`
+3. `onboard-one <id>` twice
+4. The checks: PSA not_found, admin alert, approved registration, the PSA and shift emails once each, the roster row, column P
+5. `cleanup-test <id> <staffId> --delete-staff`, then `list` (count back to the real number)
+6. Remove the old curl cron and add the */5 command-line cron
+7. Job B
